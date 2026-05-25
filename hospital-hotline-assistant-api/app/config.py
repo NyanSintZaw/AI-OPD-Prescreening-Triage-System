@@ -1,4 +1,7 @@
-from pydantic_settings import BaseSettings, SettingsConfigDict
+try:
+    from pydantic import BaseSettings, SettingsConfigDict
+except ImportError:
+    from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     app_name: str = "Hospital Hotline Assistant API"
@@ -15,7 +18,7 @@ class Settings(BaseSettings):
     alert_cooldown_seconds: int = 300
     google_cloud_project: str | None = None
     google_cloud_location: str = "us-central1"
-    google_model_name: str = "gemini-2.0-flash"
+    google_model_name: str = "gemini-2.5-flash"
     google_application_credentials: str | None = None
     google_ai_enabled: bool = False
 
