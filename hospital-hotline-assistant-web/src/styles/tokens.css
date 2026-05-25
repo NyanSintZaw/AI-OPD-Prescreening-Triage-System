@@ -1,0 +1,58 @@
+/**
+ * MFU Medical Center Hospital design tokens
+ * Source: https://website01.mch.mfu.ac.th/en/mch-index.html
+ * theme-mch.css + MFU template standards
+ */
+:root {
+  /* Brand palette */
+  --mch-gold: #ba9643;
+  --mch-gold-dark: #705a28;
+  --mch-gold-light: #d4b56a;
+  --mch-cyan: #3ea3cb;
+  --mch-cyan-light: #65b5d5;
+  --mch-navy: #213253;
+  --mch-navy-dark: #222831;
+  --mch-red: #d63933;
+  --mch-red-dark: #cf2d1e;
+  --mch-red-accent: #ed213a;
+
+  /* Surfaces & text */
+  --color-bg: #f8f5f1;
+  --color-bg-alt: #f2f1eb;
+  --color-surface: #ffffff;
+  --color-text: #333333;
+  --color-text-heading: #232931;
+  --color-muted: #5c6670;
+  --color-border: #e9e9e9;
+  --color-border-strong: #dddddd;
+
+  /* Semantic mapping */
+  --color-primary: var(--mch-cyan);
+  --color-primary-dark: var(--mch-navy);
+  --color-primary-hover: var(--mch-navy);
+  --color-accent: var(--mch-gold);
+  --color-accent-dark: var(--mch-gold-dark);
+  --color-emergency: var(--mch-red);
+  --color-emergency-bg: #fef2f2;
+  --color-emergency-border: #fecaca;
+
+  /* Chat bubbles */
+  --color-user-bubble: #e8f4fa;
+  --color-assistant-bubble: var(--color-bg-alt);
+
+  /* Typography */
+  --font-body: 'Athiti', 'Noto Sans Thai', system-ui, sans-serif;
+  --font-heading: 'Pridi', 'Noto Sans Thai', Georgia, serif;
+
+  /* Shape & elevation */
+  --radius-sm: 5px;
+  --radius: 10px;
+  --radius-lg: 20px;
+  --shadow: rgba(0, 0, 0, 0.07) 0px 1px 1px, rgba(0, 0, 0, 0.07) 0px 2px 2px,
+    rgba(0, 0, 0, 0.07) 0px 4px 4px, rgba(0, 0, 0, 0.07) 0px 8px 8px;
+  --shadow-card: rgba(0, 0, 0, 0.1) -4px 9px 25px -6px;
+
+  /* Layout */
+  --header-nav-height: 48px;
+  --content-max-width: 1140px;
+}

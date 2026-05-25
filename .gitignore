@@ -1,0 +1,48 @@
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Secrets (defense in depth; subprojects also ignore these)
+.env
+.env.local
+.env.*.local
+*.pem
+service-account*.json
+google-credentials*.json
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+env/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Node
+node_modules/
+dist/
+dist-ssr/
+*.local
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+
+# Logs / scratch
+logs/
+*.log
+scratch/
+tmp/
+
+# Local archives / backups
+*.zip
+*.tar
+*.tar.gz
+*.7z
+*.rar
