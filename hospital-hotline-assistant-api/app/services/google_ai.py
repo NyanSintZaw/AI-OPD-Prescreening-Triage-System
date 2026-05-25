@@ -3,24 +3,36 @@ from __future__ import annotations
 import asyncio
 import json
 import os
+import pathlib
 from typing import Any
 
 from app.config import settings
 
 
 SYSTEM_PROMPT = """
-You are a hospital triage assistant.
-Return STRICT JSON only with these fields:
-{
-  "reply": "string",
-  "severity": {"level":"emergency|urgent|general|unknown","explanation":"string","confidence":0.0},
-  "department": {"code":"string|null","reason":"string","confidence":0.0},
-  "symptoms": {"rawText":"string","bodyLocation":"string|null","durationText":"string|null"},
+You are a hospital hotline triage assistant. Your job is to gather symptoms and route the patient to the correct department.
+
+AVAILABLE DEPARTMENTS (use exact code):
+{departments}
+
+TRIAGE RULES:
+1. Ask ONE follow-up question per turn if you need more information
+2. Only assign department.code when confidence >= 0.7
+3. After 3 follow-up questions, make your best assessment
+4. Never ask multiple questions at once
+5. For emergencies, skip follow-up and respond immediately
+6. department.code MUST be one of the codes listed above or null
+
+Return STRICT JSON only:
+{{
+  "reply": "string — your response to the patient",
+  "severity": {{"level": "emergency|urgent|general|unknown", "explanation": "string", "confidence": 0.0}},
+  "department": {{"code": "string|null", "reason": "string", "confidence": 0.0}},
+  "symptoms": {{"rawText": "string", "bodyLocation": "string|null", "durationText": "string|null"}},
   "needsFollowUp": true|false,
   "followUpQuestion": "string|null",
   "followUpReason": "string|null"
-}
-Keep responses short and safe. If emergency signs exist, prioritize emergency guidance.
+}}
 """
 
 
@@ -43,13 +55,23 @@ def _extract_json_block(text: str) -> dict[str, Any] | None:
         return None
 
 
+def _load_departments() -> str:
+    dept_file = pathlib.Path(__file__).parent.parent / "data" / "departments.json"
+    if not dept_file.exists():
+        return "  - emergency: Emergency & Trauma\n  - general: General Practice"
+    dept_data = json.loads(dept_file.read_text())
+    return "\n".join(
+        f'  - {d["code"]}: {d["name"]} ({", ".join(d["symptoms"][:3])})'
+        for d in dept_data.get("departments", [])
+    )
+
+
 class GoogleTriageClient:
     def __init__(self) -> None:
         self.enabled = settings.google_ai_enabled
         self.project = settings.google_cloud_project
         self.location = settings.google_cloud_location
         self.model_name = settings.google_model_name
-        self.credentials = settings.google_application_credentials
 
     async def generate_triage(
         self,
@@ -63,6 +85,9 @@ class GoogleTriageClient:
         if not self.enabled:
             return self._fallback_triage(language, user_message, emergency_context, routing_context)
 
+        if settings.google_application_credentials:
+            os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = settings.google_application_credentials
+
         try:
             result = await asyncio.to_thread(
                 self._generate_with_google,
@@ -74,9 +99,8 @@ class GoogleTriageClient:
             )
             if result:
                 return result
-        except Exception:
-            # Safety fallback when external AI fails.
-            pass
+        except Exception as e:
+            print(f"[GEMINI ERROR] {type(e).__name__}: {e}")
 
         return self._fallback_triage(language, user_message, emergency_context, routing_context)
 
@@ -88,22 +112,22 @@ class GoogleTriageClient:
         emergency_context: list[str],
         routing_context: list[str],
     ) -> dict[str, Any] | None:
-        if self.credentials:
-            os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = self.credentials
-
         try:
             from google import genai
         except Exception:
             return None
 
+        departments_list = _load_departments()
+        filled_prompt = SYSTEM_PROMPT.format(departments=departments_list)
+
         context_lines = [
             f"Language: {language}",
             f"Emergency context: {', '.join(emergency_context) if emergency_context else 'none'}",
             f"Routing context: {', '.join(routing_context) if routing_context else 'none'}",
-            f"Conversation history: {json.dumps(history[-8:], ensure_ascii=False)}",
+            f"Conversation history: {json.dumps(history[-8:], ensure_ascii=False, default=str)}",
             f"Latest user message: {user_message}",
         ]
-        prompt = SYSTEM_PROMPT + "\n\n" + "\n".join(context_lines)
+        prompt = filled_prompt + "\n\n" + "\n".join(context_lines)
 
         client = genai.Client(
             vertexai=bool(self.project),
