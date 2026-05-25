@@ -46,3 +46,5 @@ tmp/
 *.tar.gz
 *.7z
 *.rar
+
+*credentials.json

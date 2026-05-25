@@ -9,7 +9,7 @@ import asyncpg
 
 DEFAULT_URL = os.getenv(
     "DATABASE_URL",
-    "postgresql://postgres:postgres@localhost:5433/hospital_hotline",
+    "postgresql://postgres:postgres@localhost:5432/hospital_hotline",
 )
 SUPER_URL = DEFAULT_URL.rsplit("/", 1)[0] + "/postgres"
 
