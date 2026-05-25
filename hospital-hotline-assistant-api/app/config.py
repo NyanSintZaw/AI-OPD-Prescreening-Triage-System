@@ -1,7 +1,4 @@
-try:
-    from pydantic import BaseSettings, SettingsConfigDict
-except ImportError:
-    from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     app_name: str = "Hospital Hotline Assistant API"
