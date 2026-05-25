@@ -1,7 +1,0 @@
-fastapi
-uvicorn[standard]
-asyncpg
-pydantic-settings
-python-dotenv
-httpx
-google-genai
