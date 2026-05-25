@@ -24,10 +24,10 @@ Open [http://localhost:5173](http://localhost:5173).
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `VITE_API_BASE_URL` | `http://localhost:8000` | FastAPI backend URL |
-| `VITE_AI_PROVIDER` | `http` | AI provider: `http`, `stub`, or `openai` |
-| `VITE_AI_CHAT_URL` | `http://localhost:8000/sessions/{sessionId}/chat` | Backend chat orchestration endpoint |
 | `VITE_ENABLE_VOICE` | `false` | Enable browser speech recognition mic button |
 | `VITE_FRONTDESK_MODE` | `true` | Auto-enable frontdesk-oriented UX (auto TTS) |
+
+AI configuration (Vertex AI, Slack alerts, etc.) lives in the **backend** `.env`. The frontend has no AI provider knobs.
 
 ## Routes
 
@@ -62,14 +62,13 @@ npm run preview
 
 ## AI engineer handoff
 
-See [AI_INTEGRATION.md](./AI_INTEGRATION.md) for:
+AI orchestration runs entirely in the backend (Vertex AI / Gemini + rule engine). See [AI_INTEGRATION.md](./AI_INTEGRATION.md) for:
 
-- `AIChatRequest` / `AIChatResponse` contract
-- Provider configuration (`stub` vs `http`)
-- Implemented `POST /sessions/{id}/chat` backend endpoint
+- The `POST /sessions/{id}/chat` request / response shape
+- Where to wire new triage fields (`useChat.ts` mapping)
 - Speech hook integration points
 
-The stub provider returns placeholder replies. Type "chest pain" or "เจ็บหน้าอก" to see the emergency banner demo.
+Type "chest pain" / "เจ็บหน้าอก" — the backend's rule engine guarantees an emergency classification even when the LLM is unavailable.
 
 ## Security note
 
@@ -84,8 +83,7 @@ UI follows the [MFU Medical Center Hospital](https://website01.mch.mfu.ac.th/en/
 ```
 src/
 ├── api/          # Typed FastAPI client
-├── ai/           # AI provider interface + stub
-├── hooks/        # useChat, useSession, useSpeech
+├── hooks/        # useChat (calls /sessions/{id}/chat), useSession, useSpeech
 ├── i18n/         # Thai + English strings
 ├── pages/        # Landing, Chat, Admin
 └── components/   # Chat UI, emergency banner, voice controls

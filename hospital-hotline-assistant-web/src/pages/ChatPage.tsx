@@ -51,29 +51,37 @@ export function ChatPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isSending]);
 
-  useEffect(() => {
-    if (speech.transcript && !speech.isListening) {
-      setInput(speech.transcript);
-      speech.clearTranscript();
-    }
-  }, [speech.transcript, speech.isListening, speech]);
-
-  const handleSend = async () => {
-    const text = input.trim();
+  const handleSend = async (overrideText?: string, inputMode: 'voice' | 'text' = 'text') => {
+    const text = (overrideText ?? input).trim();
     if (!text) return;
 
-    setInput('');
-    const result = await sendMessage(text, speech.enabled && speech.supported ? 'voice' : 'text');
-    if (result?.aiResponse.reply) {
-      synthesis.speak(result.aiResponse.reply);
+    if (!overrideText) {
+      setInput('');
+    }
+    const result = await sendMessage(text, inputMode);
+    if (result?.response.reply) {
+      void synthesis.speak(result.response.reply);
     }
   };
+
+  useEffect(() => {
+    if (speech.transcript && !speech.isListening) {
+      const transcript = speech.transcript;
+      speech.clearTranscript();
+      if (frontdeskMode) {
+        void handleSend(transcript, 'voice');
+      } else {
+        setInput(transcript);
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [speech.transcript, speech.isListening]);
 
   const handleMicClick = () => {
     if (speech.isListening) {
       speech.stopListening();
     } else {
-      speech.startListening();
+      void speech.startListening();
     }
   };
 
@@ -231,6 +239,9 @@ export function ChatPage() {
             {t('send')}
           </button>
         </div>
+
+        {speech.error && <p className="error-text">{speech.error}</p>}
+        {synthesis.error && <p className="error-text">{synthesis.error}</p>}
       </section>
     </Layout>
   );

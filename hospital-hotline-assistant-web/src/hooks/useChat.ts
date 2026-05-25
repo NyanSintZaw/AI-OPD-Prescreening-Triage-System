@@ -1,17 +1,85 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { api } from '../api';
-import type { InputMode, MessageOut } from '../api/types';
-import { createAIProvider } from '../ai';
-import type { AIChatResponse } from '../ai/types';
+import type {
+  ChatResponsePayload,
+  InputMode,
+  MessageOut,
+  SeverityLevel,
+} from '../api/types';
 import type { AppLanguage } from '../i18n/resources';
 
 export interface ChatAssessment {
-  severity?: AIChatResponse['severity'];
-  department?: AIChatResponse['department'] & { name?: string };
-  emergency?: AIChatResponse['emergency'];
+  severity?: {
+    level: SeverityLevel;
+    explanation?: string;
+    confidence?: number;
+  };
+  department?: {
+    departmentId: string;
+    reason?: string;
+    confidence?: number;
+    name?: string;
+  };
+  emergency?: {
+    triggerId?: string;
+    alertMessage: string;
+    detectedSymptoms?: string[];
+  };
+  symptoms?: {
+    rawText: string;
+    bodyLocation?: string;
+    durationText?: string;
+  };
   followUpQuestion?: string;
   followUpReason?: string;
   alertSent?: boolean;
+  modelName?: string;
+  latencyMs?: number;
+  assistantMessageId?: string;
+}
+
+function toAssessment(
+  payload: ChatResponsePayload,
+  departmentNames: Map<string, string>,
+): ChatAssessment {
+  const deptId = payload.department?.department_id;
+  return {
+    severity: payload.severity
+      ? {
+          level: payload.severity.level,
+          explanation: payload.severity.explanation,
+          confidence: payload.severity.confidence,
+        }
+      : undefined,
+    department: deptId
+      ? {
+          departmentId: deptId,
+          reason: payload.department?.reason,
+          confidence: payload.department?.confidence,
+          name: departmentNames.get(deptId),
+        }
+      : undefined,
+    emergency: payload.emergency
+      ? {
+          triggerId: payload.emergency.trigger_id,
+          alertMessage: payload.emergency.alert_message,
+          detectedSymptoms: payload.emergency.detected_symptoms,
+        }
+      : undefined,
+    symptoms: payload.symptoms
+      ? {
+          rawText: payload.symptoms.raw_text,
+          bodyLocation: payload.symptoms.body_location,
+          durationText: payload.symptoms.duration_text,
+        }
+      : undefined,
+    followUpQuestion: payload.follow_up_question ?? undefined,
+    followUpReason: payload.follow_up_reason ?? undefined,
+    alertSent: payload.alert_sent ?? false,
+    modelName: payload.model_name ?? undefined,
+    latencyMs: payload.latency_ms ?? undefined,
+    assistantMessageId: payload.assistant_message_id ?? undefined,
+  };
 }
 
 export function useChat(sessionId: string | null, language: AppLanguage) {
@@ -20,7 +88,6 @@ export function useChat(sessionId: string | null, language: AppLanguage) {
   const [isSending, setIsSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [assessment, setAssessment] = useState<ChatAssessment | null>(null);
-  const aiProvider = useMemo(() => createAIProvider(), []);
   const departmentsRef = useRef<Map<string, string>>(new Map());
 
   useEffect(() => {
@@ -51,58 +118,38 @@ export function useChat(sessionId: string | null, language: AppLanguage) {
 
   const sendMessage = useCallback(
     async (content: string, inputMode: InputMode = 'text') => {
-      if (!sessionId || !content.trim() || isSending) return;
+      if (!sessionId || !content.trim() || isSending) return null;
 
       setIsSending(true);
       setError(null);
 
       try {
-        const aiResponse = await aiProvider.generateReply({
-          sessionId,
+        const response = await api.chat(sessionId, {
+          content: content.trim(),
+          input_mode: inputMode,
           language,
-          inputMode,
-          userMessage: content.trim(),
-          history: messages,
+          history: [],
         });
 
-        const usingBackendOrchestration =
-          (import.meta.env.VITE_AI_PROVIDER ?? 'http') === 'http';
-
-        if (!usingBackendOrchestration) {
-          const userMessage = await api.createMessage(sessionId, {
-            role: 'user',
-            input_mode: inputMode,
-            content: content.trim(),
-          });
-          setMessages((prev) => [...prev, userMessage]);
-
-          const assistantMessage = await api.createMessage(sessionId, {
-            role: 'assistant',
-            content: aiResponse.reply,
-            model_name: aiResponse.modelName,
-            response_latency_ms: aiResponse.latencyMs,
-          });
-          setMessages((prev) => [...prev, assistantMessage]);
-        } else {
-          await loadMessages();
+        if (departmentsRef.current.size === 0) {
+          try {
+            const departments = await api.listDepartments();
+            departmentsRef.current = new Map(
+              departments.map((d) => [
+                d.id,
+                language === 'th' ? d.name_th ?? d.name_en : d.name_en,
+              ]),
+            );
+          } catch {
+            // non-fatal; name will fall back to the id in the UI
+          }
         }
 
-        const deptName = aiResponse.department?.departmentId
-          ? departmentsRef.current.get(aiResponse.department.departmentId)
-          : undefined;
-        setAssessment({
-          severity: aiResponse.severity,
-          department: aiResponse.department
-            ? { ...aiResponse.department, name: deptName }
-            : undefined,
-          emergency: aiResponse.emergency,
-          followUpQuestion: aiResponse.followUpQuestion,
-          followUpReason: aiResponse.followUpReason,
-          alertSent: aiResponse.alertSent,
-        });
+        await loadMessages();
 
-        const assistantMessage = messages[messages.length - 1];
-        return { aiResponse, assistantMessage };
+        const nextAssessment = toAssessment(response, departmentsRef.current);
+        setAssessment(nextAssessment);
+        return { response, assessment: nextAssessment };
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to send message');
         return null;
@@ -110,7 +157,7 @@ export function useChat(sessionId: string | null, language: AppLanguage) {
         setIsSending(false);
       }
     },
-    [sessionId, isSending, aiProvider, language, messages, loadMessages],
+    [sessionId, isSending, language, loadMessages],
   );
 
   return {

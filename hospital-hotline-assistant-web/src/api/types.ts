@@ -179,6 +179,12 @@ export interface EmergencyEventOut {
   created_at: string;
 }
 
+export interface SttResponsePayload {
+  transcript: string;
+  confidence: number | null;
+  language_code: string;
+}
+
 export interface ApiError {
   detail: string;
 }

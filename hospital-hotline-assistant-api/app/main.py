@@ -1,12 +1,14 @@
 from contextlib import asynccontextmanager
 from uuid import UUID
 import asyncpg
-from fastapi import Depends, FastAPI, HTTPException, Request, status
+from fastapi import Depends, FastAPI, File, Form, HTTPException, Request, UploadFile, status
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 from app.config import settings
 from app.database import create_pool, get_connection, record_to_dict, records_to_dicts
 from app.services import TriageService
+from app.services.google_stt import GoogleSttClient
+from app.services.google_tts import GoogleTtsClient
 from app.schemas import (
     ChatRequest,
     ChatResponse,
@@ -26,13 +28,17 @@ from app.schemas import (
     SessionOut,
     SessionUpdate,
     SeverityAssessmentCreate,
+    SttResponse,
     SymptomEntryCreate,
+    TtsRequest,
 )
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     app.state.db_pool = await create_pool()
     app.state.triage_service = TriageService()
+    app.state.tts_client = GoogleTtsClient()
+    app.state.stt_client = GoogleSttClient()
     try:
         yield
     finally:
@@ -378,6 +384,62 @@ async def list_emergency_events(
         session_id,
     )
     return records_to_dicts(records)
+
+@app.post("/tts")
+async def text_to_speech(payload: TtsRequest, request: Request):
+    """Synthesize speech for the given text. Returns audio/mpeg (MP3) bytes."""
+
+    tts_client: GoogleTtsClient = request.app.state.tts_client
+    try:
+        audio_bytes = await tts_client.synthesize(
+            text=payload.text,
+            language=payload.language,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+    return Response(
+        content=audio_bytes,
+        media_type="audio/mpeg",
+        headers={"Content-Disposition": 'inline; filename="speech.mp3"'},
+    )
+
+
+@app.post("/stt", response_model=SttResponse)
+async def speech_to_text(
+    request: Request,
+    audio: UploadFile = File(..., description="Short audio clip from MediaRecorder"),
+    language: str = Form("en"),
+):
+    """Transcribe a short audio clip. Returns the recognized text."""
+
+    if language not in {"en", "th"}:
+        raise HTTPException(status_code=400, detail="language must be 'en' or 'th'")
+
+    audio_bytes = await audio.read()
+    if not audio_bytes:
+        raise HTTPException(status_code=400, detail="audio file is empty")
+
+    stt_client: GoogleSttClient = request.app.state.stt_client
+    try:
+        result = await stt_client.transcribe(
+            audio_bytes=audio_bytes,
+            language=language,
+            mime_type=audio.content_type,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+    return SttResponse(
+        transcript=result.transcript,
+        confidence=result.confidence,
+        language_code=result.language_code,
+    )
+
 
 @app.get("/conversation-summary", response_model=list[ConversationSummaryOut])
 async def conversation_summary(connection: asyncpg.Connection = Depends(get_connection)):

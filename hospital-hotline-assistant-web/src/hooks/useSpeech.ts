@@ -1,29 +1,25 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { api } from '../api';
 import type { AppLanguage } from '../i18n/resources';
 
-const voiceEnabled = import.meta.env.VITE_ENABLE_VOICE === 'true';
+const voiceFeatureEnabled = import.meta.env.VITE_ENABLE_VOICE === 'true';
 
-interface SpeechRecognitionEventLike {
-  results: ArrayLike<{ 0: { transcript: string; confidence?: number } }>;
-}
-
-interface SpeechRecognitionLike {
-  lang: string;
-  continuous: boolean;
-  interimResults: boolean;
-  onresult: ((event: SpeechRecognitionEventLike) => void) | null;
-  onerror: (() => void) | null;
-  onend: (() => void) | null;
-  start: () => void;
-  stop: () => void;
-}
-
-function getSpeechRecognition(): (new () => SpeechRecognitionLike) | null {
-  const w = window as Window & {
-    SpeechRecognition?: new () => SpeechRecognitionLike;
-    webkitSpeechRecognition?: new () => SpeechRecognitionLike;
-  };
-  return w.SpeechRecognition ?? w.webkitSpeechRecognition ?? null;
+function pickMediaRecorderMimeType(): string | undefined {
+  if (typeof MediaRecorder === 'undefined') return undefined;
+  const preferences = [
+    'audio/webm;codecs=opus',
+    'audio/webm',
+    'audio/ogg;codecs=opus',
+    'audio/ogg',
+    'audio/mp4',
+    'audio/mpeg',
+  ];
+  for (const candidate of preferences) {
+    if (MediaRecorder.isTypeSupported(candidate)) {
+      return candidate;
+    }
+  }
+  return undefined;
 }
 
 export function useSpeechRecognition(language: AppLanguage) {
@@ -31,90 +27,204 @@ export function useSpeechRecognition(language: AppLanguage) {
   const [transcript, setTranscript] = useState('');
   const [confidence, setConfidence] = useState<number | null>(null);
   const [supported, setSupported] = useState(false);
-  const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const recorderRef = useRef<MediaRecorder | null>(null);
+  const chunksRef = useRef<Blob[]>([]);
+  const streamRef = useRef<MediaStream | null>(null);
 
   useEffect(() => {
-    setSupported(voiceEnabled && getSpeechRecognition() !== null);
+    const hasMedia =
+      typeof navigator !== 'undefined' &&
+      typeof navigator.mediaDevices?.getUserMedia === 'function' &&
+      typeof MediaRecorder !== 'undefined';
+    setSupported(voiceFeatureEnabled && hasMedia);
   }, []);
 
-  const startListening = useCallback(() => {
-    if (!voiceEnabled) return;
+  const cleanupStream = useCallback(() => {
+    streamRef.current?.getTracks().forEach((track) => track.stop());
+    streamRef.current = null;
+  }, []);
 
-    const SpeechRecognition = getSpeechRecognition();
-    if (!SpeechRecognition) return;
+  const startListening = useCallback(async () => {
+    if (!voiceFeatureEnabled || !supported) return;
+    if (recorderRef.current) return;
 
-    const recognition = new SpeechRecognition();
-    recognition.lang = language === 'th' ? 'th-TH' : 'en-US';
-    recognition.continuous = false;
-    recognition.interimResults = false;
+    setError(null);
+    setTranscript('');
+    setConfidence(null);
 
-    recognition.onresult = (event) => {
-      const result = event.results[0]?.[0];
-      if (result) {
-        setTranscript(result.transcript);
-        setConfidence(result.confidence ?? null);
+    let stream: MediaStream;
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Microphone access denied');
+      return;
+    }
+
+    streamRef.current = stream;
+    const mimeType = pickMediaRecorderMimeType();
+    const recorder = mimeType
+      ? new MediaRecorder(stream, { mimeType })
+      : new MediaRecorder(stream);
+    recorderRef.current = recorder;
+    chunksRef.current = [];
+
+    recorder.ondataavailable = (event) => {
+      if (event.data.size > 0) {
+        chunksRef.current.push(event.data);
       }
     };
 
-    recognition.onerror = () => {
+    recorder.onstop = async () => {
+      const blobType = recorder.mimeType || mimeType || 'audio/webm';
+      const audioBlob = new Blob(chunksRef.current, { type: blobType });
+      chunksRef.current = [];
+      cleanupStream();
+      recorderRef.current = null;
       setIsListening(false);
+
+      if (audioBlob.size === 0) {
+        setError('No audio captured');
+        return;
+      }
+
+      try {
+        const result = await api.stt(audioBlob, language, fileNameForMime(blobType));
+        setTranscript(result.transcript);
+        setConfidence(result.confidence);
+        if (!result.transcript) {
+          setError('Could not understand the audio. Please try again.');
+        }
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Transcription failed');
+      }
     };
 
-    recognition.onend = () => {
-      setIsListening(false);
-    };
-
-    recognitionRef.current = recognition;
+    recorder.start();
     setIsListening(true);
-    recognition.start();
-  }, [language]);
+  }, [supported, language, cleanupStream]);
 
   const stopListening = useCallback(() => {
-    recognitionRef.current?.stop();
-    setIsListening(false);
-  }, []);
+    const recorder = recorderRef.current;
+    if (recorder && recorder.state !== 'inactive') {
+      recorder.stop();
+    } else {
+      cleanupStream();
+      setIsListening(false);
+    }
+  }, [cleanupStream]);
 
   const clearTranscript = useCallback(() => {
     setTranscript('');
     setConfidence(null);
+    setError(null);
   }, []);
+
+  useEffect(() => {
+    return () => {
+      if (recorderRef.current && recorderRef.current.state !== 'inactive') {
+        recorderRef.current.stop();
+      }
+      cleanupStream();
+    };
+  }, [cleanupStream]);
 
   return {
     isListening,
     transcript,
     confidence,
     supported,
-    enabled: voiceEnabled,
+    enabled: voiceFeatureEnabled,
+    error,
     startListening,
     stopListening,
     clearTranscript,
   };
 }
 
+function fileNameForMime(mime: string): string {
+  if (mime.includes('webm')) return 'speech.webm';
+  if (mime.includes('ogg')) return 'speech.ogg';
+  if (mime.includes('mp4')) return 'speech.mp4';
+  if (mime.includes('mpeg')) return 'speech.mp3';
+  if (mime.includes('wav')) return 'speech.wav';
+  return 'speech.bin';
+}
+
 export function useSpeechSynthesis(language: AppLanguage) {
   const [enabled, setEnabled] = useState(false);
-  const supported = typeof window !== 'undefined' && 'speechSynthesis' in window;
+  const [isSpeaking, setIsSpeaking] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const lastUrlRef = useRef<string | null>(null);
 
-  const speak = useCallback(
-    (text: string) => {
-      if (!enabled || !supported || !text) return;
-
-      window.speechSynthesis.cancel();
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.lang = language === 'th' ? 'th-TH' : 'en-US';
-      utterance.rate = 0.95;
-      window.speechSynthesis.speak(utterance);
-    },
-    [enabled, supported, language],
-  );
+  const supported = typeof window !== 'undefined' && typeof Audio !== 'undefined';
 
   const stop = useCallback(() => {
-    window.speechSynthesis.cancel();
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.src = '';
+      audioRef.current = null;
+    }
+    if (lastUrlRef.current) {
+      URL.revokeObjectURL(lastUrlRef.current);
+      lastUrlRef.current = null;
+    }
+    setIsSpeaking(false);
   }, []);
+
+  const speak = useCallback(
+    async (text: string) => {
+      if (!enabled || !supported || !text.trim()) return;
+
+      stop();
+      setError(null);
+      setIsSpeaking(true);
+
+      try {
+        const blob = await api.tts(text, language);
+        const url = URL.createObjectURL(blob);
+        lastUrlRef.current = url;
+        const audio = new Audio(url);
+        audioRef.current = audio;
+        audio.onended = () => {
+          setIsSpeaking(false);
+          if (lastUrlRef.current) {
+            URL.revokeObjectURL(lastUrlRef.current);
+            lastUrlRef.current = null;
+          }
+        };
+        audio.onerror = () => {
+          setError('Audio playback failed');
+          setIsSpeaking(false);
+        };
+        await audio.play();
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Text-to-speech failed');
+        setIsSpeaking(false);
+      }
+    },
+    [enabled, supported, language, stop],
+  );
 
   const toggle = useCallback(() => {
     setEnabled((prev) => !prev);
   }, []);
 
-  return { enabled, supported, speak, stop, toggle, setEnabled };
+  useEffect(() => {
+    return () => {
+      stop();
+    };
+  }, [stop]);
+
+  return {
+    enabled,
+    supported,
+    isSpeaking,
+    error,
+    speak,
+    stop,
+    toggle,
+    setEnabled,
+  };
 }

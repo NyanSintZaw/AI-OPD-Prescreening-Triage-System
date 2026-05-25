@@ -2,11 +2,14 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 import os
 import pathlib
 from typing import Any
 
 from app.config import settings
+
+logger = logging.getLogger(__name__)
 
 
 SYSTEM_PROMPT = """
@@ -83,10 +86,14 @@ class GoogleTriageClient:
         routing_context: list[str],
     ) -> dict[str, Any]:
         if not self.enabled:
+            logger.debug("Google AI disabled — returning fallback triage")
             return self._fallback_triage(language, user_message, emergency_context, routing_context)
 
         if settings.google_application_credentials:
-            os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = settings.google_application_credentials
+            cred_path = settings.google_application_credentials
+            if not pathlib.Path(cred_path).is_absolute():
+                cred_path = str((pathlib.Path.cwd() / cred_path).resolve())
+            os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = cred_path
 
         try:
             result = await asyncio.to_thread(
@@ -98,9 +105,11 @@ class GoogleTriageClient:
                 routing_context,
             )
             if result:
+                result.setdefault("modelName", self.model_name)
                 return result
-        except Exception as e:
-            print(f"[GEMINI ERROR] {type(e).__name__}: {e}")
+            logger.warning("Vertex AI returned no parseable JSON; using fallback")
+        except Exception as exc:
+            logger.exception("Vertex AI call failed: %s", exc)
 
         return self._fallback_triage(language, user_message, emergency_context, routing_context)
 
@@ -114,7 +123,9 @@ class GoogleTriageClient:
     ) -> dict[str, Any] | None:
         try:
             from google import genai
-        except Exception:
+            from google.genai import types as genai_types
+        except Exception as exc:
+            logger.error("google-genai package not importable: %s", exc)
             return None
 
         departments_list = _load_departments()
@@ -135,13 +146,26 @@ class GoogleTriageClient:
             location=self.location,
         )
 
+        generation_config = genai_types.GenerateContentConfig(
+            response_mime_type="application/json",
+            temperature=0.2,
+            max_output_tokens=1024,
+        )
+
         response = client.models.generate_content(
             model=self.model_name,
             contents=prompt,
+            config=generation_config,
         )
 
         text_output = getattr(response, "text", "") or ""
+        if not text_output:
+            logger.warning("Vertex AI response had empty text: %r", response)
+            return None
+
         parsed = _extract_json_block(text_output)
+        if parsed is None:
+            logger.warning("Failed to parse JSON from Vertex AI output: %s", text_output[:500])
         return parsed
 
     def _fallback_triage(

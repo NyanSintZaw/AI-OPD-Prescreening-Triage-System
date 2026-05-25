@@ -11,6 +11,17 @@ InputMode = Literal["voice", "text"]
 SeverityLevel = Literal["emergency", "urgent", "general", "unknown"]
 
 
+class TtsRequest(BaseModel):
+    text: str
+    language: LanguageCode = "en"
+
+
+class SttResponse(BaseModel):
+    transcript: str
+    confidence: float | None = None
+    language_code: str
+
+
 class SessionCreate(BaseModel):
     language: LanguageCode = "th"
     user_agent: str | None = None

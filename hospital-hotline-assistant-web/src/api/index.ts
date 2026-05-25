@@ -1,5 +1,6 @@
-import { request } from './client';
+import { baseUrl, request } from './client';
 import type {
+  ApiError,
   ChatRequestPayload,
   ChatResponsePayload,
   ConversationSummaryOut,
@@ -9,6 +10,7 @@ import type {
   EmergencyEventCreate,
   EmergencyTriggerOut,
   FollowUpQuestionOut,
+  LanguageCode,
   MessageCreate,
   MessageOut,
   RoutingRuleOut,
@@ -16,8 +18,51 @@ import type {
   SessionOut,
   SessionUpdate,
   SeverityAssessmentCreate,
+  SttResponsePayload,
   SymptomEntryCreate,
 } from './types';
+
+async function detailFromResponse(response: Response): Promise<string> {
+  let detail = response.statusText;
+  try {
+    const body = (await response.json()) as ApiError;
+    detail = body.detail ?? detail;
+  } catch {
+    // ignore
+  }
+  return detail;
+}
+
+async function ttsRequest(payload: { text: string; language: LanguageCode }): Promise<Blob> {
+  const response = await fetch(`${baseUrl}/tts`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!response.ok) {
+    throw new Error(await detailFromResponse(response));
+  }
+  return response.blob();
+}
+
+async function sttRequest(payload: {
+  audio: Blob;
+  language: LanguageCode;
+  filename?: string;
+}): Promise<SttResponsePayload> {
+  const form = new FormData();
+  form.append('audio', payload.audio, payload.filename ?? 'speech.webm');
+  form.append('language', payload.language);
+
+  const response = await fetch(`${baseUrl}/stt`, {
+    method: 'POST',
+    body: form,
+  });
+  if (!response.ok) {
+    throw new Error(await detailFromResponse(response));
+  }
+  return response.json() as Promise<SttResponsePayload>;
+}
 
 export const api = {
   health: () => request<{ status: string; environment: string }>('/health'),
@@ -110,6 +155,11 @@ export const api = {
 
   getConversationSummary: () =>
     request<ConversationSummaryOut[]>('/conversation-summary'),
+
+  tts: (text: string, language: LanguageCode) => ttsRequest({ text, language }),
+
+  stt: (audio: Blob, language: LanguageCode, filename?: string) =>
+    sttRequest({ audio, language, filename }),
 };
 
 export type { MessageOut, SessionOut, ConversationSummaryOut, DepartmentOut };
