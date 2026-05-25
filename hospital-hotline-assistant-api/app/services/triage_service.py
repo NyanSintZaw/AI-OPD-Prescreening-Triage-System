@@ -121,6 +121,7 @@ class TriageService:
             history=history,
             emergency_context=[item.name for item in emergency_matches],
             routing_context=[item.name for item in routing_matches],
+            input_mode=input_mode,
         )
 
         severity_level = str(ai_payload.get("severity", {}).get("level") or "unknown")

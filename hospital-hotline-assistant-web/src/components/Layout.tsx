@@ -34,18 +34,16 @@ export function Layout({
                 alt={t('hospitalName')}
                 className="brand-logo"
               />
-              <span className="brand-text">
-                <span className="brand-title">{t('hospitalNameShort')}</span>
-                <span className="brand-subtitle">{t('hospitalNameEn')}</span>
-              </span>
             </Link>
+            <div className="header-top-actions">
+              <LanguageSwitcher language={language} onChange={onLanguageChange} variant="header" />
+            </div>
           </div>
         </div>
         <div className="header-nav">
           <div className="header-nav-inner">
             <span className="nav-label">{navTitle ?? t('appName')}</span>
             <div className="header-actions">
-              <LanguageSwitcher language={language} onChange={onLanguageChange} />
               {showAdminLink && (
                 <Link to="/admin" className="text-link">
                   {t('adminLink')}

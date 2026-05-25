@@ -10,6 +10,7 @@ import { VoiceControls } from '../components/VoiceControls';
 import { useChat } from '../hooks/useChat';
 import { useLanguage, useSessionStorage } from '../hooks/useSession';
 import { useSpeechRecognition, useSpeechSynthesis } from '../hooks/useSpeech';
+import { useVoiceCall } from '../hooks/useVoiceCall';
 
 export function ChatPage() {
   const { t } = useTranslation();
@@ -33,11 +34,27 @@ export function ChatPage() {
   const synthesis = useSpeechSynthesis(language);
   const frontdeskMode = (import.meta.env.VITE_FRONTDESK_MODE ?? 'false') === 'true';
 
+  const voiceCall = useVoiceCall({
+    language,
+    onTranscript: async (transcript) => {
+      const result = await sendMessage(transcript, 'voice');
+      return result?.response.reply ?? null;
+    },
+  });
+  const callActive = voiceCall.state !== 'idle' && voiceCall.state !== 'error';
+
   useEffect(() => {
     if (frontdeskMode && synthesis.supported) {
       synthesis.setEnabled(true);
     }
   }, [frontdeskMode, synthesis]);
+
+  useEffect(() => {
+    return () => {
+      voiceCall.end();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     if (!sessionId) {
@@ -59,10 +76,36 @@ export function ChatPage() {
       setInput('');
     }
     const result = await sendMessage(text, inputMode);
-    if (result?.response.reply) {
+    if (result?.response.reply && !callActive) {
       void synthesis.speak(result.response.reply);
     }
   };
+
+  const handleToggleCall = () => {
+    if (callActive) {
+      voiceCall.end();
+    } else {
+      synthesis.stop();
+      void voiceCall.start();
+    }
+  };
+
+  const callStatusLabel = (() => {
+    switch (voiceCall.state) {
+      case 'starting':
+        return t('callStateStarting');
+      case 'listening':
+        return t('callStateListening');
+      case 'uploading':
+        return t('callStateUploading');
+      case 'thinking':
+        return t('callStateThinking');
+      case 'speaking':
+        return t('callStateSpeaking');
+      default:
+        return '';
+    }
+  })();
 
   useEffect(() => {
     if (speech.transcript && !speech.isListening) {
@@ -129,6 +172,41 @@ export function ChatPage() {
             </button>
           </div>
         </div>
+
+        {voiceCall.supported ? (
+          <div className={`voice-call-bar ${callActive ? 'active' : ''}`}>
+            <div className="voice-call-bar-main">
+              <button
+                type="button"
+                className={callActive ? 'call-btn end' : 'call-btn start'}
+                onClick={handleToggleCall}
+                disabled={voiceCall.state === 'starting'}
+              >
+                <span aria-hidden="true" className="call-btn-icon">
+                  {callActive ? '\u2715' : '\u260E'}
+                </span>
+                {callActive ? t('endCall') : t('startCall')}
+              </button>
+              <div className="voice-call-status">
+                {callActive ? (
+                  <>
+                    <span
+                      className={`call-status-indicator state-${voiceCall.state}`}
+                      aria-hidden="true"
+                    />
+                    <span className="call-status-text">{callStatusLabel}</span>
+                  </>
+                ) : (
+                  <span className="muted">{t('callHintTap')}</span>
+                )}
+              </div>
+            </div>
+            {callActive && voiceCall.lastTranscript && (
+              <p className="call-transcript">"{voiceCall.lastTranscript}"</p>
+            )}
+            {voiceCall.error && <p className="error-text">{voiceCall.error}</p>}
+          </div>
+        ) : null}
 
         {assessment?.severity && (
           <div className={`triage-panel severity-${assessment.severity.level}`}>
@@ -208,7 +286,7 @@ export function ChatPage() {
         <div className="chat-input-row">
           <VoiceControls
             voiceEnabled={speech.enabled}
-            voiceSupported={speech.supported}
+            voiceSupported={speech.supported && !callActive}
             isListening={speech.isListening}
             speakerEnabled={synthesis.enabled}
             speakerSupported={synthesis.supported}
@@ -226,15 +304,15 @@ export function ChatPage() {
                 void handleSend();
               }
             }}
-            placeholder={t('typeMessage')}
-            disabled={isSending}
+            placeholder={callActive ? t('callHintActive') : t('typeMessage')}
+            disabled={isSending || callActive}
             aria-label={t('typeMessage')}
           />
           <button
             type="button"
             className="primary-btn"
             onClick={() => void handleSend()}
-            disabled={isSending || !input.trim()}
+            disabled={isSending || !input.trim() || callActive}
           >
             {t('send')}
           </button>

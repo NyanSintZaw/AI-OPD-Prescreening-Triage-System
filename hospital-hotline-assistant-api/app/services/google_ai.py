@@ -38,6 +38,15 @@ Return STRICT JSON only:
 }}
 """
 
+VOICE_MODE_ADDENDUM = """
+VOICE CALL MODE — the patient is on a phone-style voice call. The "reply" field will be read aloud.
+- Keep "reply" to ONE short sentence whenever possible, two at most.
+- Use natural spoken language, no bullet points, no markdown, no parentheses, no emoji.
+- Do not list department names or codes inside "reply" — that information goes in the structured fields.
+- If you need more info, ask exactly ONE direct question (e.g. "Where does it hurt?").
+- For emergencies, say a brief calm instruction in one sentence (e.g. "This sounds serious — stay where you are, help is being notified.").
+"""
+
 
 def _extract_json_block(text: str) -> dict[str, Any] | None:
     text = text.strip()
@@ -84,6 +93,7 @@ class GoogleTriageClient:
         history: list[dict[str, Any]],
         emergency_context: list[str],
         routing_context: list[str],
+        input_mode: str = "text",
     ) -> dict[str, Any]:
         if not self.enabled:
             logger.debug("Google AI disabled — returning fallback triage")
@@ -103,6 +113,7 @@ class GoogleTriageClient:
                 history,
                 emergency_context,
                 routing_context,
+                input_mode,
             )
             if result:
                 result.setdefault("modelName", self.model_name)
@@ -120,6 +131,7 @@ class GoogleTriageClient:
         history: list[dict[str, Any]],
         emergency_context: list[str],
         routing_context: list[str],
+        input_mode: str = "text",
     ) -> dict[str, Any] | None:
         try:
             from google import genai
@@ -131,8 +143,13 @@ class GoogleTriageClient:
         departments_list = _load_departments()
         filled_prompt = SYSTEM_PROMPT.format(departments=departments_list)
 
+        is_voice = input_mode == "voice"
+        if is_voice:
+            filled_prompt = filled_prompt + "\n" + VOICE_MODE_ADDENDUM
+
         context_lines = [
             f"Language: {language}",
+            f"Input mode: {input_mode}",
             f"Emergency context: {', '.join(emergency_context) if emergency_context else 'none'}",
             f"Routing context: {', '.join(routing_context) if routing_context else 'none'}",
             f"Conversation history: {json.dumps(history[-8:], ensure_ascii=False, default=str)}",
@@ -146,11 +163,28 @@ class GoogleTriageClient:
             location=self.location,
         )
 
-        generation_config = genai_types.GenerateContentConfig(
-            response_mime_type="application/json",
-            temperature=0.2,
-            max_output_tokens=1024,
-        )
+        # Voice replies need to be short for snappy round-trips,
+        # so we cap output tokens tighter when the call is on the line.
+        max_tokens = 384 if is_voice else 1024
+
+        config_kwargs: dict[str, Any] = {
+            "response_mime_type": "application/json",
+            "temperature": 0.2,
+            "max_output_tokens": max_tokens,
+        }
+
+        # Gemini 2.5-family models default to chain-of-thought "thinking" which
+        # adds several seconds of latency. For voice calls we trade a little
+        # reasoning depth for snappy round-trips by setting thinking_budget=0.
+        if is_voice and hasattr(genai_types, "ThinkingConfig"):
+            try:
+                config_kwargs["thinking_config"] = genai_types.ThinkingConfig(
+                    thinking_budget=0
+                )
+            except Exception:  # pragma: no cover - SDK shape differs by version
+                pass
+
+        generation_config = genai_types.GenerateContentConfig(**config_kwargs)
 
         response = client.models.generate_content(
             model=self.model_name,
