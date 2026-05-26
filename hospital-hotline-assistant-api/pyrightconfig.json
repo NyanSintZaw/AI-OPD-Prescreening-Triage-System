@@ -1,0 +1,19 @@
+{
+  "venvPath": ".",
+  "venv": ".venv",
+  "pythonVersion": "3.11",
+  "include": ["app", "scripts"],
+  "exclude": ["**/__pycache__", ".venv", "**/.venv"],
+  "typeCheckingMode": "standard",
+  "reportMissingImports": "error",
+  "reportMissingTypeStubs": "none",
+  "reportUnknownMemberType": "none",
+  "reportUnknownVariableType": "none",
+  "reportUnknownArgumentType": "none",
+  "reportUnknownParameterType": "none",
+  "reportUnknownLambdaType": "none",
+  "reportUnusedCallResult": "none",
+  "reportAny": "none",
+  "reportExplicitAny": "none",
+  "reportImplicitOverride": "none"
+}

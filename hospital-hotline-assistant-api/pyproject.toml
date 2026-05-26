@@ -14,6 +14,7 @@ dependencies = [
     "google-genai>=1.0.0",
     "google-cloud-texttospeech>=2.16.0",
     "google-cloud-speech>=2.27.0",
+    "google-adk>=2.1.0",
 ]
 
 [dependency-groups]
@@ -28,3 +29,14 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["app"]
+
+# Tell Pyright / basedpyright where the uv-managed virtual environment
+# lives so it can resolve imports like fastapi / asyncpg / pydantic-settings
+# without needing the editor to be launched with the venv activated.
+# pythonVersion stays aligned with `requires-python` above.
+[tool.pyright]
+venvPath = "."
+venv = ".venv"
+pythonVersion = "3.11"
+include = ["app", "scripts"]
+exclude = ["**/__pycache__", ".venv"]

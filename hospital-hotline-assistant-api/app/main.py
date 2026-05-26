@@ -9,6 +9,7 @@ from app.database import create_pool, get_connection, record_to_dict, records_to
 from app.services import TriageService
 from app.services.google_stt import GoogleSttClient
 from app.services.google_tts import GoogleTtsClient
+from app.services.notification_service import MockNotificationService
 from app.schemas import (
     ChatRequest,
     ChatResponse,
@@ -36,7 +37,8 @@ from app.schemas import (
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     app.state.db_pool = await create_pool()
-    app.state.triage_service = TriageService()
+    notifier = MockNotificationService()
+    app.state.triage_service = TriageService(notifier=notifier)
     app.state.tts_client = GoogleTtsClient()
     app.state.stt_client = GoogleSttClient()
     try:

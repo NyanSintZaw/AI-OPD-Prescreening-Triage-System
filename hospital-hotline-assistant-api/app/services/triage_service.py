@@ -7,9 +7,25 @@ from typing import Any
 
 import asyncpg
 
-from app.services.google_ai import GoogleTriageClient
+from app.config import settings
+from app.services.adk_agent import HotlineADKRunner
+from app.services.notification_service import (
+    BaseNotificationService,
+    EmergencyAlert,
+    MockNotificationService,
+)
 from app.services.rule_engine import evaluate_emergency_triggers, evaluate_routing_rules
-from app.services.slack_notifier import SlackNotifier
+
+
+# Five-level (ADK) → legacy 4-bucket severity. Lives at module scope so
+# it's allocated once and easy to find from tests / dashboards.
+_LEVEL_TO_SEVERITY: dict[int, str] = {
+    1: "emergency",
+    2: "emergency",
+    3: "urgent",
+    4: "general",
+    5: "general",
+}
 
 
 @dataclass
@@ -32,9 +48,16 @@ class TriageResult:
 
 
 class TriageService:
-    def __init__(self) -> None:
-        self.google_client = GoogleTriageClient()
-        self.slack_notifier = SlackNotifier()
+    def __init__(self, notifier: BaseNotificationService | None = None) -> None:
+        # ADK drives the AI brain (Orchestrator → TriageAgent / EmergencyAgent).
+        # The runner owns the InMemorySessionService that holds per-call
+        # conversation state, so the legacy "fetch last 20 messages from
+        # Postgres" history step is gone -- ADK handles turn history.
+        self.adk_runner = HotlineADKRunner()
+        # Default to the mock notifier so the demo + tests work without
+        # any external transport. Callers can inject a production sink
+        # (LINE / FCM / SMS) once those services land.
+        self.notifier: BaseNotificationService = notifier or MockNotificationService()
 
     async def process_chat(
         self,
@@ -53,6 +76,19 @@ class TriageService:
         )
         if not session_row:
             raise ValueError("Session not found")
+
+        # Carry triage state across turns. ADK calls ``classify_triage_level``
+        # once (turn the symptoms come in) and ``collect_emergency_contact``
+        # once (turn the last contact field is provided); intermediate turns
+        # emit no tool output. Without this, severity/department/contact all
+        # reset to "unknown" mid-conversation and the EmergencyAgent's
+        # multi-turn name → phone → address handoff never reaches a state
+        # where the notifier can fire with full info.
+        prior_metadata: dict[str, Any] = dict(session_row["metadata"] or {})
+        prior_classification: dict[str, Any] = (
+            prior_metadata.get("triage_classification") or {}
+        )
+        prior_contact: dict[str, Any] = prior_metadata.get("emergency_contact") or {}
 
         msg_user = await connection.fetchrow(
             """
@@ -103,31 +139,50 @@ class TriageService:
         )
         routing_matches = evaluate_routing_rules(content, [dict(item) for item in routing_rules])
 
-        history_rows = await connection.fetch(
-            """
-            SELECT role, content, created_at
-            FROM messages
-            WHERE session_id = $1
-            ORDER BY created_at ASC
-            LIMIT 20
-            """,
-            session_id,
-        )
-        history = [dict(item) for item in history_rows]
-
-        ai_payload = await self.google_client.generate_triage(
+        # ----------------------------------------------------------------
+        # ADK turn. The HotlineADKRunner owns the InMemorySessionService
+        # that holds rolling chat history per session, so there is no DB
+        # history fetch here. ``input_mode`` is forwarded as-is so the
+        # agents pick the right reply format (voice = short spoken;
+        # text = readable prose).
+        # ----------------------------------------------------------------
+        await self.adk_runner.ensure_adk_session(session_id, language, input_mode)
+        adk_result = await self.adk_runner.chat(
+            session_id=session_id,
             language=language,
             user_message=content,
-            history=history,
-            emergency_context=[item.name for item in emergency_matches],
-            routing_context=[item.name for item in routing_matches],
             input_mode=input_mode,
         )
 
-        severity_level = str(ai_payload.get("severity", {}).get("level") or "unknown")
-        severity_explanation = ai_payload.get("severity", {}).get("explanation")
-        severity_confidence = ai_payload.get("severity", {}).get("confidence")
+        reply = adk_result["reply"]
+        new_classification: dict[str, Any] = adk_result.get("classification", {})
+        new_contact: dict[str, Any] = adk_result.get("contact", {})
 
+        # Sticky state: if this turn produced a fresh classification use it,
+        # otherwise reuse the one from earlier in the conversation. Contact
+        # fields accumulate (later turns add patient_name / phone / address
+        # one at a time as the EmergencyAgent collects them).
+        classification: dict[str, Any] = new_classification or prior_classification
+        contact: dict[str, Any] = {**prior_contact, **new_contact}
+
+        # Severity: collapse the ADK five-level system to the legacy
+        # 4-bucket schema the DB columns / dashboards / rule engine still
+        # speak. If the agent hasn't classified yet (still gathering
+        # symptoms), level is missing -> "unknown".
+        classification_level = classification.get("level")
+        severity_level = (
+            _LEVEL_TO_SEVERITY.get(classification_level, "unknown")
+            if isinstance(classification_level, int)
+            else "unknown"
+        )
+        severity_confidence: float | None = (
+            0.85 if classification.get("classified") else None
+        )
+        severity_explanation: str | None = classification.get("key_reason")
+
+        # Rule engine overrides -- unchanged. Deterministic matches
+        # always win over the LLM, so a known emergency keyword can't
+        # be downgraded by a hallucinating agent.
         matched_trigger = emergency_matches[0] if emergency_matches else None
         if matched_trigger:
             severity_level = "emergency"
@@ -140,34 +195,41 @@ class TriageService:
             if not severity_explanation:
                 severity_explanation = matched_rule.reason
 
-        ai_department_code = (ai_payload.get("department", {}) or {}).get("code")
+        # Department resolution -- same ladder as before, new source.
+        # The ADK classifier returns a department_code via the
+        # ``classify_triage_level`` tool.
+        adk_dept_code = classification.get("department_code")
         department_id: str | None = None
-        department_reason = (ai_payload.get("department", {}) or {}).get("reason")
-        department_confidence = (ai_payload.get("department", {}) or {}).get("confidence")
+        department_reason: str | None = None
+        department_confidence: float | None = None
 
-        if ai_department_code and ai_department_code in department_by_code:
-            department_id = department_by_code[ai_department_code]["id"]
+        if adk_dept_code and adk_dept_code in department_by_code:
+            department_id = department_by_code[adk_dept_code]["id"]
+            department_reason = severity_explanation
+            department_confidence = severity_confidence
         elif matched_rule and matched_rule.department_id:
             department_id = matched_rule.department_id
-            department_reason = department_reason or matched_rule.reason
-            department_confidence = department_confidence or matched_rule.confidence
+            department_reason = matched_rule.reason
+            department_confidence = matched_rule.confidence
         elif severity_level == "emergency" and "emergency" in department_by_code:
             department_id = department_by_code["emergency"]["id"]
-            department_reason = department_reason or "Emergency severity requires emergency department"
-            department_confidence = department_confidence or 0.95
+            department_reason = "Emergency severity requires emergency department"
+            department_confidence = 0.95
 
         emergency_alert_message = (
-            matched_trigger.alert_message
-            if matched_trigger
-            else (ai_payload.get("emergency") or {}).get("alertMessage")
+            matched_trigger.alert_message if matched_trigger else None
         )
-        detected_symptoms = (
-            list((ai_payload.get("emergency") or {}).get("detectedSymptoms") or []) or [content]
+        # ADK doesn't emit a structured symptoms list per turn -- the
+        # classifier's ``symptoms_summary`` is a sentence. Use it when
+        # present, otherwise fall back to the raw user content so the
+        # emergency_events row always carries something useful.
+        symptoms_summary = classification.get("symptoms_summary")
+        detected_symptoms: list[str] = (
+            [str(symptoms_summary)] if symptoms_summary else [content]
         )
 
-        model_name = ai_payload.get("modelName") or "google-triage"
+        model_name = f"adk:{settings.google_model_name}"
 
-        symptom_payload = ai_payload.get("symptoms") or {}
         await connection.execute(
             """
             INSERT INTO symptom_entries (
@@ -177,10 +239,10 @@ class TriageService:
             """,
             session_id,
             msg_user["id"],
-            str(symptom_payload.get("rawText") or content),
+            content,
             [content],
-            symptom_payload.get("bodyLocation"),
-            symptom_payload.get("durationText"),
+            None,
+            None,
         )
 
         assessment = await connection.fetchrow(
@@ -231,27 +293,9 @@ class TriageService:
                 or ("กรุณาติดต่อเจ้าหน้าที่ทันที" if language == "th" else "Please contact medical staff immediately"),
             )
 
-        follow_up_question = ai_payload.get("followUpQuestion")
-        follow_up_reason = ai_payload.get("followUpReason")
-        if ai_payload.get("needsFollowUp") and follow_up_question:
-            await connection.execute(
-                """
-                INSERT INTO follow_up_questions (session_id, question_text, reason)
-                VALUES ($1, $2, $3)
-                """,
-                session_id,
-                follow_up_question,
-                follow_up_reason,
-            )
-
-        reply = str(ai_payload.get("reply") or "")
-        if not reply:
-            reply = (
-                "กรุณาให้รายละเอียดเพิ่มเติมเกี่ยวกับอาการเพื่อประเมินระดับความเร่งด่วน"
-                if language == "th"
-                else "Please provide more details about your symptoms for accurate triage."
-            )
-
+        # ADK handles follow-up natively inside the agent's reply -- the
+        # follow-up question is just part of ``reply`` now, no separate
+        # structured field, no follow_up_questions row.
         latency_ms = int((perf_counter() - start) * 1000)
 
         msg_assistant = await connection.fetchrow(
@@ -269,53 +313,89 @@ class TriageService:
         )
 
         alert_sent = False
-        if await self.slack_notifier.should_send(connection, session_id, severity_level):
-            alert_sent = await self.slack_notifier.send_alert(
+        should_notify = await self.notifier.should_send(
+            connection,
+            session_id,
+            severity_level,
+            threshold=settings.alert_severity_threshold,
+            cooldown_seconds=settings.alert_cooldown_seconds,
+        )
+        # Gate the actual dispatch on EmergencyAgent having finished its work:
+        # the agent collects patient name → phone → address over multiple
+        # turns and only sets ``contact_collected=True`` once all three are
+        # in hand (via the ``collect_emergency_contact`` tool). Firing before
+        # that would send the mock alert with "n/a" placeholders and skip
+        # the multi-turn dialogue the user expects.
+        contact_ready = bool(contact.get("contact_collected"))
+        if should_notify and contact_ready:
+            alert = EmergencyAlert(
                 session_id=session_id,
                 language=language,
-                user_message=content,
                 severity=severity_level,
-                confidence=float(severity_confidence) if severity_confidence is not None else None,
+                confidence=severity_confidence,
                 department_name=department_name_by_id.get(department_id or ""),
-                emergency_reason=severity_explanation,
+                detected_symptoms=detected_symptoms,
                 alert_message=emergency_alert_message,
+                patient_name=contact.get("patient_name"),
+                phone_number=contact.get("phone_number"),
+                address=contact.get("address"),
             )
+            alert_sent = await self.notifier.send_alert(alert)
 
-        if severity_level == "emergency" or alert_sent:
-            existing_metadata = dict(session_row["metadata"] or {})
-            existing_metadata.update(
-                {
-                    "alert_sent": alert_sent or existing_metadata.get("alert_sent", False),
-                    "last_alert_at": datetime.now(timezone.utc).isoformat(),
-                    "escalation_reason": severity_explanation or "Emergency triage match",
-                }
+        # Persist the merged triage state on every turn so the next call to
+        # ``process_chat`` can rebuild ``classification`` / ``contact`` even
+        # if ADK didn't emit a tool output this turn (typical for the middle
+        # of the EmergencyAgent name → phone → address handoff). Escalation
+        # / alert markers only update on emergency or alert turns.
+        existing_metadata = dict(prior_metadata)
+        existing_metadata["triage_classification"] = classification
+        existing_metadata["emergency_contact"] = contact
+        if severity_level == "emergency":
+            # Track escalation as soon as the case is classified emergency
+            # so dashboards / session.status reflect that immediately,
+            # regardless of whether contact has been collected yet.
+            existing_metadata["escalation_reason"] = (
+                severity_explanation or "Emergency triage match"
             )
-            await connection.execute(
-                """
-                UPDATE sessions
-                SET status = CASE WHEN $2 = 'emergency' THEN 'escalated' ELSE status END,
-                    ended_at = CASE WHEN $2 = 'emergency' THEN NOW() ELSE ended_at END,
-                    metadata = $3::jsonb
-                WHERE id = $1
-                """,
-                session_id,
-                severity_level,
-                existing_metadata,
-            )
+        if alert_sent:
+            # last_alert_at drives the notifier cooldown -- it MUST only
+            # advance when an alert was actually dispatched. If we updated
+            # it on every emergency turn (even when contact wasn't ready
+            # yet), the EmergencyAgent's later contact-complete turn would
+            # be silently suppressed by the cooldown and the mock notifier
+            # would never fire.
+            existing_metadata["alert_sent"] = True
+            existing_metadata["last_alert_at"] = datetime.now(
+                timezone.utc
+            ).isoformat()
+        await connection.execute(
+            """
+            UPDATE sessions
+            SET status = CASE WHEN $2 = 'emergency' THEN 'escalated' ELSE status END,
+                ended_at = CASE WHEN $2 = 'emergency' THEN NOW() ELSE ended_at END,
+                metadata = $3::jsonb
+            WHERE id = $1
+            """,
+            session_id,
+            severity_level,
+            existing_metadata,
+        )
 
         result = TriageResult(
             reply=reply,
             severity_level=severity_level,
             severity_explanation=severity_explanation,
-            severity_confidence=float(severity_confidence) if severity_confidence is not None else None,
+            severity_confidence=severity_confidence,
             department_id=department_id,
             department_reason=department_reason,
-            department_confidence=float(department_confidence) if department_confidence is not None else None,
+            department_confidence=department_confidence,
             emergency_trigger_id=matched_trigger.id if matched_trigger else None,
             emergency_alert_message=emergency_alert_message,
             detected_symptoms=detected_symptoms,
-            follow_up_question=follow_up_question if ai_payload.get("needsFollowUp") else None,
-            follow_up_reason=follow_up_reason if ai_payload.get("needsFollowUp") else None,
+            # ADK weaves the follow-up question into ``reply`` itself --
+            # there is no longer a separate structured follow-up output.
+            follow_up_question=None,
+            follow_up_reason=None,
             model_name=model_name,
             latency_ms=latency_ms,
             alert_sent=alert_sent,

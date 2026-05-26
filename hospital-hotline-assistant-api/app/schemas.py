@@ -172,7 +172,7 @@ class ChatDepartmentOut(BaseModel):
 
 class ChatEmergencyOut(BaseModel):
     trigger_id: UUID | None = None
-    alert_message: str
+    alert_message: str | None = None
     detected_symptoms: list[str] = Field(default_factory=list)
 
 

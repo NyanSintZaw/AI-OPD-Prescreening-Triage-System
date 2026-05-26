@@ -1,0 +1,193 @@
+{
+  "knowledge_base": "ER Triage Five-Level System",
+  "source": "ESI Triage Research Team, 2004 & Five-Level Triage Protocol",
+  "version": "1.0",
+  "last_updated": "2026-05-26",
+  "decision_tree": [
+    {
+      "step": 1,
+      "question": "Requires immediate life-saving intervention?",
+      "yes": "Level 1",
+      "no": "proceed to step 2"
+    },
+    {
+      "step": 2,
+      "question": "High risk situation? Confused, Lethargic, or Disoriented? Severe pain or distress?",
+      "yes": "Level 2",
+      "no": "proceed to step 3"
+    },
+    {
+      "step": 3,
+      "question": "How many different resources are needed?",
+      "none": "Level 5",
+      "one": "Level 4",
+      "many": "proceed to step 4"
+    },
+    {
+      "step": 4,
+      "question": "Danger zone vitals present?",
+      "danger_thresholds": {
+        "under_3_months": {
+          "HR": ">180",
+          "RR": ">50",
+          "SaO2": "<92%"
+        },
+        "3_months_to_3_years": {
+          "HR": ">160",
+          "RR": ">40",
+          "SaO2": "<92%"
+        },
+        "3_years_to_8_years": {
+          "HR": ">100",
+          "RR": ">20",
+          "SaO2": "<92%"
+        }
+      },
+      "yes_danger": "upgrade to Level 2",
+      "no_danger": "Level 3"
+    }
+  ],
+  "triage_levels": [
+    {
+      "level": 1,
+      "color": "Red",
+      "label": "Immediate",
+      "key_question": "Is the patient dying?",
+      "examples": [
+        "Cardiac Arrest",
+        "Respiratory Arrest",
+        "Anaphylaxis",
+        "Unresponsiveness",
+        "Hypoglycemia",
+        "Imminent Childbirth",
+        "Limb Amputations"
+      ],
+      "response_time": "Immediate",
+      "placement": {
+        "cardiac_pulmonary_arrest": "Code Bed",
+        "other_level_1": "Treatment Area"
+      },
+      "assigned_team": "Treatment Nurse"
+    },
+    {
+      "level": 2,
+      "color": "Orange",
+      "label": "Emergent",
+      "key_question": "High-risk situation? Is this a patient who shouldn't wait?",
+      "examples": [
+        "Confused",
+        "Lethargic",
+        "Disoriented",
+        "Severe Pain",
+        "Active Chest Pain",
+        "Suspected Coronary Syndrome",
+        "Signs of Stroke",
+        "Immunocompromised with fever",
+        "Suicidal",
+        "Homicidal",
+        "Amputations"
+      ],
+      "response_time": "10-15 minutes",
+      "placement": "Treatment Area",
+      "assigned_team": "Treatment Nurse"
+    },
+    {
+      "level": 3,
+      "color": "Yellow",
+      "label": "Urgent",
+      "key_question": "How many resources needed? (2 or more) — Consider Vital Signs",
+      "danger_zone_vitals": {
+        "under_3_months": {
+          "HR": ">180",
+          "RR": ">50",
+          "SaO2": "<92%"
+        },
+        "3_months_to_3_years": {
+          "HR": ">160",
+          "RR": ">40",
+          "SaO2": "<92%"
+        },
+        "3_years_to_8_years": {
+          "HR": ">100",
+          "RR": ">20",
+          "SaO2": "<92%"
+        },
+        "note": "Temperature: Birth to 6 months — consider upgrading to Level 2"
+      },
+      "response_time": "60 minutes",
+      "placement": "Treatment Area",
+      "assigned_team": "Treatment Nurse"
+    },
+    {
+      "level": 4,
+      "color": "Green",
+      "label": "Less Urgent",
+      "key_question": "How many resources needed? (ONE) — Stable Vital Signs",
+      "examples": [
+        "Ankle Sprain",
+        "Strep Throat",
+        "UTI",
+        "Migraines with CT Head",
+        "Simple Lacerations",
+        "IV/IM Meds"
+      ],
+      "response_time": "2 hours",
+      "placement": "Holding/Monitoring Area",
+      "assigned_team": "Monitoring Nurse"
+    },
+    {
+      "level": 5,
+      "color": "Blue",
+      "label": "Non-Urgent",
+      "key_question": "How many resources needed? (NONE)",
+      "examples": [
+        "Medication Refill",
+        "Out-patient for consultation only"
+      ],
+      "response_time": "4 hours",
+      "placement": "Waiting Area",
+      "assigned_team": "Monitoring Nurse"
+    }
+  ],
+  "er_triage_team_composition": [
+    {
+      "role": "Team Leader / Triage Nurse",
+      "count": 1,
+      "responsibilities": [
+        "Overall in-charge of the triage team",
+        "Perform quick assessment and brief history taking on arriving patients",
+        "Assign appropriate triage levels",
+        "Manage ED patient flow"
+      ],
+      "manages_levels": [1, 2, 3, 4, 5]
+    },
+    {
+      "role": "Treatment Nurse",
+      "count": 3,
+      "responsibilities": [
+        "Perform thorough assessment of Level 1, 2, and 3 patients",
+        "Perform necessary nursing interventions",
+        "Administer Code Blue Protocols for Cardiac and/or Pulmonary Arrest",
+        "Refer patient to the ROD (Resident on Duty) for proper management",
+        "Carry out doctor's orders"
+      ],
+      "manages_levels": [1, 2, 3]
+    },
+    {
+      "role": "Monitoring Nurse",
+      "count": 1,
+      "responsibilities": [
+        "Care of patients assigned to Level 4 and Level 5"
+      ],
+      "manages_levels": [4, 5]
+    }
+  ],
+  "team_summary": {
+    "total_nurses": 5,
+    "breakdown": {
+      "team_leader_triage_nurse": 1,
+      "treatment_nurses": 3,
+      "monitoring_nurses": 1
+    }
+  }
+}
