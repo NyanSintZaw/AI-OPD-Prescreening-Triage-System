@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { baseUrl } from '../api/client';
+import type { ChatResponsePayload } from '../api/types';
 import type { AppLanguage } from '../i18n/resources';
 import { takePrewarmedPlaybackContext } from './voicePrewarm';
 
@@ -52,6 +53,8 @@ export interface UseVoiceCallOptions {
    * message in chat history). Fired once on successful connect.
    */
   onGreeting?: (text: string) => void | Promise<void>;
+  /** Fired when the backend finalizes triage and pushes assessment_complete. */
+  onAssessmentComplete?: (payload: ChatResponsePayload) => void;
 }
 
 export interface VoiceEmergencyPayload {
@@ -83,6 +86,10 @@ export interface UseVoiceCallApi {
   lastTranscript: string;
   lastReply: string;
   emergency: VoiceEmergencyPayload | null;
+  /** Set when the server sends ``assessment_complete`` (triage finished). */
+  completedAssessment: ChatResponsePayload | null;
+  /** True while waiting for the agent to finish speaking before auto-hangup. */
+  autoEnding: boolean;
   start: () => Promise<void>;
   end: () => Promise<void>;
   toggleMute: () => void;
@@ -113,6 +120,9 @@ const SPEAKING_IDLE_GRACE_MS = 250;
 // ``end_call`` before we tear down anyway. Real network jitter rarely
 // exceeds a second; a 1500 ms ceiling is generous without feeling slow.
 const END_CALL_ACK_TIMEOUT_MS = 1500;
+// After assessment_complete, wait this long once playback is idle before
+// hanging up so the patient hears the full spoken summary.
+const AUTO_END_AFTER_ASSESSMENT_MS = 2500;
 
 /**
  * AudioWorklet processor source. We ship it inline (as a blob URL) so the
@@ -225,7 +235,8 @@ interface PlaybackQueueRef {
 }
 
 export function useVoiceCall(options: UseVoiceCallOptions): UseVoiceCallApi {
-  const { sessionId, language, initialGreeting, onGreeting } = options;
+  const { sessionId, language, initialGreeting, onGreeting, onAssessmentComplete } =
+    options;
 
   const [state, setState] = useState<VoiceCallState>('idle');
   const [muted, setMutedState] = useState(false);
@@ -234,6 +245,9 @@ export function useVoiceCall(options: UseVoiceCallOptions): UseVoiceCallApi {
   const [lastTranscript, setLastTranscript] = useState('');
   const [lastReply, setLastReply] = useState('');
   const [emergency, setEmergency] = useState<VoiceEmergencyPayload | null>(null);
+  const [completedAssessment, setCompletedAssessment] =
+    useState<ChatResponsePayload | null>(null);
+  const [autoEnding, setAutoEnding] = useState(false);
   const [supported, setSupported] = useState(false);
 
   // Server sends transcripts as short incremental fragments. We accumulate
@@ -256,11 +270,16 @@ export function useVoiceCall(options: UseVoiceCallOptions): UseVoiceCallApi {
   const sessionIdRef = useRef(sessionId);
   const initialGreetingRef = useRef(initialGreeting);
   const onGreetingRef = useRef(onGreeting);
+  const onAssessmentCompleteRef = useRef(onAssessmentComplete);
+  const pendingAutoEndRef = useRef(false);
+  const autoEndTimerRef = useRef<number | null>(null);
+  const endRef = useRef<(() => Promise<void>) | null>(null);
 
   languageRef.current = language;
   sessionIdRef.current = sessionId;
   initialGreetingRef.current = initialGreeting;
   onGreetingRef.current = onGreeting;
+  onAssessmentCompleteRef.current = onAssessmentComplete;
 
   const wsRef = useRef<WebSocket | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -295,6 +314,19 @@ export function useVoiceCall(options: UseVoiceCallOptions): UseVoiceCallApi {
   const updateState = useCallback((next: VoiceCallState) => {
     stateRef.current = next;
     setState(next);
+  }, []);
+
+  const tryScheduleAutoEnd = useCallback(() => {
+    if (!pendingAutoEndRef.current || !activeRef.current) return;
+    if (autoEndTimerRef.current !== null) return;
+
+    autoEndTimerRef.current = window.setTimeout(() => {
+      autoEndTimerRef.current = null;
+      if (!pendingAutoEndRef.current || !activeRef.current) return;
+      pendingAutoEndRef.current = false;
+      setAutoEnding(false);
+      void endRef.current?.();
+    }, AUTO_END_AFTER_ASSESSMENT_MS);
   }, []);
 
   // ----- Playback (server → speakers) ----------------------------------
@@ -351,12 +383,15 @@ export function useVoiceCall(options: UseVoiceCallOptions): UseVoiceCallApi {
             updateState('listening');
           }
           speakingTimerRef.current = null;
+          if (pendingAutoEndRef.current) {
+            tryScheduleAutoEnd();
+          }
         }, SPEAKING_IDLE_GRACE_MS);
       },
     };
     playbackRef.current = queue;
     return queue;
-  }, [updateState]);
+  }, [updateState, tryScheduleAutoEnd]);
 
   const schedulePlaybackChunk = useCallback(
     (data: ArrayBuffer) => {
@@ -632,6 +667,49 @@ export function useVoiceCall(options: UseVoiceCallOptions): UseVoiceCallApi {
             });
             return;
           }
+          case 'assessment_complete': {
+            const payload = message as unknown as ChatResponsePayload & {
+              type?: string;
+              auto_end?: boolean;
+            };
+            const assessmentPayload: ChatResponsePayload = {
+              reply: payload.reply ?? '',
+              severity: payload.severity ?? { level: 'unknown' },
+              department: payload.department ?? null,
+              emergency: payload.emergency ?? null,
+              symptoms: payload.symptoms ?? null,
+              follow_up_question: payload.follow_up_question ?? null,
+              follow_up_reason: payload.follow_up_reason ?? null,
+              model_name: payload.model_name ?? null,
+              latency_ms: payload.latency_ms ?? null,
+              alert_sent: payload.alert_sent ?? false,
+              assistant_message_id: payload.assistant_message_id ?? null,
+            };
+            setCompletedAssessment(assessmentPayload);
+            if (assessmentPayload.reply) {
+              setLastReply(assessmentPayload.reply);
+            }
+            try {
+              onAssessmentCompleteRef.current?.(assessmentPayload);
+            } catch {
+              // best-effort
+            }
+            if (payload.auto_end !== false) {
+              pendingAutoEndRef.current = true;
+              setAutoEnding(true);
+              // If the speaker is off or no audio is queued, onIdle may
+              // never fire — schedule auto-end directly as a fallback.
+              const queue = playbackRef.current;
+              if (
+                !speakerEnabledRef.current ||
+                !queue ||
+                queue.scheduledCount === 0
+              ) {
+                tryScheduleAutoEnd();
+              }
+            }
+            return;
+          }
           default:
             return;
         }
@@ -645,13 +723,19 @@ export function useVoiceCall(options: UseVoiceCallOptions): UseVoiceCallApi {
         void data.arrayBuffer().then((buf) => schedulePlaybackChunk(buf));
       }
     },
-    [schedulePlaybackChunk],
+    [schedulePlaybackChunk, tryScheduleAutoEnd],
   );
 
   // ----- Lifecycle: start / end ----------------------------------------
 
   const cleanup = useCallback(() => {
     activeRef.current = false;
+    pendingAutoEndRef.current = false;
+    setAutoEnding(false);
+    if (autoEndTimerRef.current !== null) {
+      window.clearTimeout(autoEndTimerRef.current);
+      autoEndTimerRef.current = null;
+    }
     if (endCallAckRef.current) {
       window.clearTimeout(endCallAckRef.current.timer);
       endCallAckRef.current.resolve();
@@ -690,6 +774,13 @@ export function useVoiceCall(options: UseVoiceCallOptions): UseVoiceCallApi {
     setLastTranscript('');
     setLastReply(initialGreetingRef.current ?? '');
     setEmergency(null);
+    setCompletedAssessment(null);
+    setAutoEnding(false);
+    pendingAutoEndRef.current = false;
+    if (autoEndTimerRef.current !== null) {
+      window.clearTimeout(autoEndTimerRef.current);
+      autoEndTimerRef.current = null;
+    }
     transcriptAccumRef.current = { user: '', agent: '' };
     debugRef.current = {
       inputChunks: 0,
@@ -835,6 +926,8 @@ export function useVoiceCall(options: UseVoiceCallOptions): UseVoiceCallApi {
     updateState('idle');
   }, [cleanup, updateState]);
 
+  endRef.current = end;
+
   // ----- Mute toggle ---------------------------------------------------
 
   const setMuted = useCallback((next: boolean) => {
@@ -900,6 +993,8 @@ export function useVoiceCall(options: UseVoiceCallOptions): UseVoiceCallApi {
     lastTranscript,
     lastReply,
     emergency,
+    completedAssessment,
+    autoEnding,
     start,
     end,
     toggleMute,

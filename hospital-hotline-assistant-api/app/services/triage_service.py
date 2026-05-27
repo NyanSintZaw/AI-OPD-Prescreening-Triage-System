@@ -203,6 +203,152 @@ class TriageService:
             adk_result=adk_result,
         )
 
+    async def finalize_live_assessment(
+        self,
+        *,
+        connection: asyncpg.Connection,
+        session_id: str,
+        language: str,
+        input_mode: str,
+        content: str,
+        classification: dict[str, Any],
+        contact: dict[str, Any],
+        reply: str | None = None,
+    ) -> tuple[TriageResult, dict[str, Any]]:
+        """Persist a completed live-voice assessment without re-invoking ADK.
+
+        Called when the live pipeline has already collected classification
+        (and contact, for emergencies) via tool responses. Skips the
+        expensive ``adk_runner.chat`` round-trip and writes the same DB
+        rows + staff notifications as a normal chat turn.
+        """
+
+        start = perf_counter()
+        ctx = await self._prepare_chat_turn(
+            connection=connection,
+            session_id=session_id,
+            language=language,
+            input_mode=input_mode,
+            content=content,
+        )
+
+        agent_reply = (reply or "").strip()
+        if not agent_reply:
+            level = classification.get("level")
+            label = classification.get("label") or ""
+            dept = classification.get("department_code") or ""
+            if language == "th":
+                agent_reply = (
+                    f"สรุปการคัดแยก: ระดับ {level} ({label}). "
+                    f"แนะนำไปแผนก {dept}."
+                    if level
+                    else "การประเมินเสร็จสมบูรณ์แล้วค่ะ"
+                )
+            else:
+                agent_reply = (
+                    f"Triage complete: Level {level} ({label}). "
+                    f"Please proceed to {dept}."
+                    if level
+                    else "Your assessment is complete."
+                )
+
+        adk_result: dict[str, Any] = {
+            "reply": agent_reply,
+            "classification": classification,
+            "contact": contact,
+            "input_mode": input_mode,
+        }
+
+        result, assistant_message = await self._finalize_chat_turn(
+            connection=connection,
+            session_id=session_id,
+            language=language,
+            content=content,
+            start=start,
+            ctx=ctx,
+            adk_result=adk_result,
+        )
+
+        await self._notify_staff_assessment_summary(
+            connection=connection,
+            session_id=session_id,
+            language=language,
+            result=result,
+            classification=classification,
+            contact=contact,
+        )
+
+        await connection.execute(
+            """
+            UPDATE sessions
+            SET status = CASE
+                    WHEN status = 'escalated' THEN status
+                    ELSE 'completed'
+                END,
+                ended_at = COALESCE(ended_at, NOW())
+            WHERE id = $1
+            """,
+            session_id,
+        )
+
+        return result, assistant_message
+
+    async def _notify_staff_assessment_summary(
+        self,
+        *,
+        connection: asyncpg.Connection,
+        session_id: str,
+        language: str,
+        result: TriageResult,
+        classification: dict[str, Any],
+        contact: dict[str, Any],
+    ) -> None:
+        """Push a staff-facing triage summary when a call completes.
+
+        Emergency dispatch with contact details is handled inside
+        :meth:`_finalize_chat_turn` via :meth:`send_alert`. This path
+        covers every completed assessment — including non-emergency
+        levels — so staff always receive the final result.
+        """
+
+        if result.alert_sent:
+            return
+
+        dept_name = None
+        dept_id = result.department_id
+        if dept_id:
+            row = await connection.fetchrow(
+                "SELECT name_en, name_th FROM departments WHERE id = $1",
+                dept_id,
+            )
+            if row:
+                dept_name = (
+                    row["name_th"] if language == "th" and row["name_th"] else row["name_en"]
+                )
+
+        symptoms_summary = classification.get("symptoms_summary")
+        detected = [str(symptoms_summary)] if symptoms_summary else result.detected_symptoms
+
+        level = classification.get("level")
+        label = classification.get("label") or ""
+        summary_line = result.severity_explanation or classification.get("key_reason")
+        if level and label:
+            summary_line = f"Level {level} ({label}): {summary_line or 'see session'}"
+
+        alert = EmergencyAlert(
+            session_id=session_id,
+            language=language,
+            severity=result.severity_level,
+            confidence=result.severity_confidence,
+            department_name=dept_name,
+            detected_symptoms=detected,
+            alert_message=summary_line,
+            patient_name=contact.get("patient_name"),
+            phone_number=contact.get("phone_number"),
+            address=contact.get("address"),
+        )
+        await self.notifier.send_assessment_summary(alert)
+
     async def _finalize_chat_turn(
         self,
         *,

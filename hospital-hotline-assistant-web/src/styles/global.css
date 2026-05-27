@@ -443,6 +443,29 @@ a:hover {
   font-size: 0.9rem;
 }
 
+.call-assessment-panel {
+  border: 2px solid var(--color-border);
+  background: var(--color-surface);
+  border-radius: var(--radius);
+  padding: 1rem 1.1rem;
+  margin-bottom: 1rem;
+}
+
+.call-assessment-panel h2 {
+  margin: 0 0 0.35rem;
+  font-size: 1.15rem;
+}
+
+.call-assessment-panel .muted {
+  margin: 0 0 0.75rem;
+  font-size: 0.92rem;
+}
+
+.call-home-btn {
+  margin-top: 0.85rem;
+  width: 100%;
+}
+
 .chat-messages {
   flex: 1;
   background: var(--color-surface);
@@ -833,6 +856,46 @@ a:hover {
   font-size: 0.92rem;
   border-left: 3px solid var(--mch-cyan);
   padding: 0.2rem 0.6rem;
+}
+
+.call-loading {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 0.85rem 1rem;
+  border: 2px solid var(--color-border);
+  background: var(--color-surface);
+  border-radius: var(--radius);
+  margin: 0.75rem 0 0.25rem;
+}
+
+.call-loading-title {
+  margin: 0;
+  font-weight: 700;
+}
+
+.call-loading-text p {
+  margin: 0;
+}
+
+.call-loading-spinner {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid rgba(0, 0, 0, 0.15);
+  border-top-color: var(--mch-cyan);
+  animation: call-spin 0.9s linear infinite;
+  flex: 0 0 auto;
+  margin-top: 0.15rem;
+}
+
+@keyframes call-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* Landing page two-tile mode chooser */

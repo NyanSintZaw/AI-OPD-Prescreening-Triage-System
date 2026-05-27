@@ -90,6 +90,10 @@ export const resources = {
       callTapToStart: 'Tap to start the call',
       callPermissionHelp: 'Allow microphone access when prompted.',
       callEnded: 'Call ended',
+      callStateAutoEnding: 'Assessment complete — ending call…',
+      callAssessmentCompleteTitle: 'Your assessment is ready',
+      callAssessmentCompleteSubtitle:
+        'We have shared these results with hospital staff. Please follow the recommendation below.',
       callStartAgain: 'Start a new call',
       callBackHome: 'Back to home',
       lastYouSaid: 'You said',
@@ -213,6 +217,10 @@ export const resources = {
       callTapToStart: 'แตะเพื่อเริ่มสนทนา',
       callPermissionHelp: 'กรุณาอนุญาตให้ใช้ไมโครโฟนเมื่อระบบถาม',
       callEnded: 'จบการสนทนาแล้ว',
+      callStateAutoEnding: 'ประเมินเสร็จแล้ว — กำลังจบการสนทนา…',
+      callAssessmentCompleteTitle: 'ผลการประเมินของคุณพร้อมแล้ว',
+      callAssessmentCompleteSubtitle:
+        'เราได้ส่งผลนี้ให้เจ้าหน้าที่โรงพยาบาลแล้ว กรุณาทำตามคำแนะนำด้านล่าง',
       callStartAgain: 'เริ่มสนทนาใหม่',
       callBackHome: 'กลับหน้าแรก',
       lastYouSaid: 'คุณพูดว่า',

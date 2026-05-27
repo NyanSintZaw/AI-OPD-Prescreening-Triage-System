@@ -4,7 +4,8 @@ import { useTranslation } from 'react-i18next';
 import { api } from '../api';
 import { EmergencyBanner } from '../components/EmergencyBanner';
 import { Layout } from '../components/Layout';
-import { useChat } from '../hooks/useChat';
+import { RecommendationCard } from '../components/RecommendationCard';
+import { useChat, toAssessment, type ChatAssessment } from '../hooks/useChat';
 import { useLanguage, useSessionStorage } from '../hooks/useSession';
 import { useVoiceCall } from '../hooks/useVoiceCall';
 
@@ -65,7 +66,9 @@ export function CallPage() {
   const { language, setLanguage } = useLanguage();
   const { sessionId, setSessionId } = useSessionStorage();
 
-  const { assessment, sendMessage } = useChat(sessionId, language);
+  const { assessment, setAssessment } = useChat(sessionId, language);
+  const [displayAssessment, setDisplayAssessment] = useState<ChatAssessment | null>(null);
+  const [callFinished, setCallFinished] = useState(false);
 
   const greeting = t('callGreeting');
 
@@ -75,8 +78,6 @@ export function CallPage() {
     initialGreeting: greeting,
     onGreeting: (text) => {
       if (!sessionId) return;
-      // Persist the greeting as an assistant message so it shows up if the
-      // user later switches to the chat view or admin dashboard. Best-effort.
       void api
         .createMessage(sessionId, {
           role: 'assistant',
@@ -85,12 +86,23 @@ export function CallPage() {
         })
         .catch(() => undefined);
     },
-    onTranscript: async (transcript) => {
-      // Live mode handles transcription server-side via Gemini Live, but
-      // we keep this callback wired so the chat hook still updates its
-      // assessment state if the future REST fallback is ever re-enabled.
-      const result = await sendMessage(transcript, 'voice');
-      return result?.response.reply ?? null;
+    onAssessmentComplete: (payload) => {
+      void (async () => {
+        try {
+          const departments = await api.listDepartments();
+          const deptMap = new Map(
+            departments.map((d) => [
+              d.id,
+              language === 'th' ? d.name_th ?? d.name_en : d.name_en,
+            ]),
+          );
+          const next = toAssessment(payload, deptMap);
+          setDisplayAssessment(next);
+          setAssessment(next);
+        } catch {
+          setDisplayAssessment(toAssessment(payload, new Map()));
+        }
+      })();
     },
   });
 
@@ -124,6 +136,14 @@ export function CallPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // When the call auto-ends after assessment, mark the session complete.
+  useEffect(() => {
+    if (!sessionId || callFinished) return;
+    if (voiceCall.state !== 'idle' || !voiceCall.completedAssessment) return;
+    setCallFinished(true);
+    void api.updateSession(sessionId, { status: 'completed' }).catch(() => undefined);
+  }, [sessionId, callFinished, voiceCall.state, voiceCall.completedAssessment]);
+
   const statusLabel = useMemo(() => {
     switch (voiceCall.state) {
       case 'starting':
@@ -141,9 +161,11 @@ export function CallPage() {
       case 'error':
         return voiceCall.error ?? '';
       default:
+        if (voiceCall.autoEnding) return t('callStateAutoEnding');
+        if (callFinished) return t('callAssessmentCompleteTitle');
         return t('callEnded');
     }
-  }, [voiceCall.state, voiceCall.error, t]);
+  }, [voiceCall.state, voiceCall.error, voiceCall.autoEnding, callFinished, t]);
 
   const handleManualStart = async () => {
     setAutoStartBlocked(false);
@@ -209,6 +231,16 @@ export function CallPage() {
             </span>
           </div>
 
+          {(voiceCall.state === 'starting' || voiceCall.state === 'greeting') && !callFinished && (
+            <div className="call-loading" role="status" aria-live="polite">
+              <div className="call-loading-spinner" aria-hidden="true" />
+              <div className="call-loading-text">
+                <p className="call-loading-title">{t('callStateStarting')}</p>
+                <p className="muted">{t('callPermissionHelp')}</p>
+              </div>
+            </div>
+          )}
+
           {(voiceCall.lastTranscript || voiceCall.lastReply) && (
             <div className="call-captions">
               {voiceCall.lastTranscript && (
@@ -226,7 +258,7 @@ export function CallPage() {
             </div>
           )}
 
-          {(voiceCall.emergency || assessment?.emergency) && (
+          {(voiceCall.emergency || assessment?.emergency) && !displayAssessment && (
             <EmergencyBanner
               message={
                 voiceCall.emergency?.alertMessage ??
@@ -240,8 +272,31 @@ export function CallPage() {
             />
           )}
 
+          {(displayAssessment || voiceCall.completedAssessment) && (
+            <div className="call-assessment-panel">
+              <h2>{t('callAssessmentCompleteTitle')}</h2>
+              <p className="muted">{t('callAssessmentCompleteSubtitle')}</p>
+              {displayAssessment && <RecommendationCard assessment={displayAssessment} />}
+              {voiceCall.completedAssessment?.alert_sent && (
+                <p className="triage-alert-note">{t('humanAlertSent')}</p>
+              )}
+              {callFinished && (
+                <button
+                  type="button"
+                  className="primary-btn call-home-btn"
+                  onClick={() => {
+                    setSessionId(null);
+                    navigate('/');
+                  }}
+                >
+                  {t('callBackHome')}
+                </button>
+              )}
+            </div>
+          )}
+
           <div className="call-actions">
-            {!callActive && autoStartBlocked && (
+            {!callActive && autoStartBlocked && !callFinished && (
               <button
                 type="button"
                 className="call-btn start"
@@ -279,16 +334,18 @@ export function CallPage() {
                 </button>
               </>
             )}
-            <button
-              type="button"
-              className="call-btn end call-btn-hangup"
-              onClick={() => void handleEndCall()}
-            >
-              <span aria-hidden="true" className="call-btn-icon">
-                <HangUpIcon />
-              </span>
-              {t('endCall')}
-            </button>
+            {!callFinished && (
+              <button
+                type="button"
+                className="call-btn end call-btn-hangup"
+                onClick={() => void handleEndCall()}
+              >
+                <span aria-hidden="true" className="call-btn-icon">
+                  <HangUpIcon />
+                </span>
+                {t('endCall')}
+              </button>
+            )}
           </div>
 
           {voiceCall.error && <p className="error-text call-error">{voiceCall.error}</p>}

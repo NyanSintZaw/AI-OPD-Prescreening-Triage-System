@@ -38,7 +38,7 @@ export interface ChatAssessment {
   assistantMessageId?: string;
 }
 
-function toAssessment(
+export function toAssessment(
   payload: ChatResponsePayload,
   departmentNames: Map<string, string>,
 ): ChatAssessment {

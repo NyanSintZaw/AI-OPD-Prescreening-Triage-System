@@ -606,6 +606,15 @@ async def voice_call(websocket: WebSocket, session_id: str):
                 session_id,
             )
 
+    async def push_assessment(payload: dict) -> None:
+        try:
+            await websocket.send_json({"type": "assessment_complete", **payload})
+        except Exception:
+            logger.debug(
+                "Failed to push assessment to %s (likely client closed)",
+                session_id,
+            )
+
     async with pool.acquire() as conn:
         try:
             await live_voice_service.connect(
@@ -614,6 +623,7 @@ async def voice_call(websocket: WebSocket, session_id: str):
                 conn,
                 transcript_callback=push_transcript,
                 emergency_callback=push_emergency,
+                assessment_callback=push_assessment,
             )
         except ValueError as exc:
             await websocket.close(code=1008, reason=str(exc))

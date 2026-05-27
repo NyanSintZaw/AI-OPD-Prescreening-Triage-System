@@ -41,7 +41,7 @@ from google.adk.agents import LiveRequestQueue
 from google.genai import types as genai_types
 
 from app.services.adk_agent import HotlineADKLiveRunner, _strip_meta_markers
-from app.services.triage_service import TriageService
+from app.services.triage_service import TriageService, _triage_result_to_payload
 
 logger = logging.getLogger(__name__)
 
@@ -171,6 +171,12 @@ def _smart_append(chunks: list[str], fragment: str) -> str | None:
 # to the frontend without waiting for disconnect.
 EmergencyCallback = Callable[[dict[str, Any]], Awaitable[None]]
 
+# Assessment callback: receives the same payload shape as the REST
+# ``/sessions/{id}/chat`` response once triage is complete. The WS
+# route forwards it to the browser so the patient sees their result
+# and the frontend can auto-end the call.
+AssessmentCallback = Callable[[dict[str, Any]], Awaitable[None]]
+
 
 def _kickoff_prompt(language: str) -> str:
     """Build the synthetic content the live runner sends into its own queue
@@ -223,6 +229,7 @@ class LiveVoiceService:
         *,
         transcript_callback: TranscriptCallback | None = None,
         emergency_callback: EmergencyCallback | None = None,
+        assessment_callback: AssessmentCallback | None = None,
     ) -> None:
         """Validate the session, prep the ADK side, register state.
 
@@ -253,6 +260,10 @@ class LiveVoiceService:
             "db_connection": db_connection,
             "transcript_cb": transcript_callback,
             "emergency_cb": emergency_callback,
+            "assessment_cb": assessment_callback,
+            "classification": {},
+            "contact": {},
+            "assessment_finalized": False,
             # Tracks whether we have already replayed the live transcript
             # into ``process_chat`` for a given trigger so we don't
             # double-fire notifications on the same emergency.
@@ -316,27 +327,11 @@ class LiveVoiceService:
         except Exception:  # noqa: BLE001 - defensive against ADK API drift
             logger.exception("Failed to close LiveRequestQueue for %s", session_id)
 
-        # Final DB sync — replays the accumulated caller transcript into
-        # the existing text pipeline so all the same rows (messages,
-        # symptom_entries, severity_assessments, emergency_events) end
-        # up populated. If a mid-call _trigger_emergency_check already
-        # fired the notifier, the cooldown in MockNotificationService
-        # prevents a duplicate alert.
-        transcript_chunks: list[str] = session["transcript"]
-        full_text = " ".join(chunk.strip() for chunk in transcript_chunks if chunk).strip()
-        if full_text:
-            try:
-                await self.triage_service.process_chat(
-                    connection=session["db_connection"],
-                    session_id=session_id,
-                    language=session["language"],
-                    input_mode="voice",
-                    content=full_text,
-                )
-            except Exception:
-                logger.exception(
-                    "Final voice transcript sync failed for %s", session_id
-                )
+        # Final assessment sync — if the call ended before the auto-complete
+        # path fired (user hung up early, network drop, etc.), still persist
+        # whatever classification/contact we captured from tool responses.
+        if not session.get("assessment_finalized"):
+            await self._complete_call_assessment(session_id, session=session)
 
         logger.info("Live voice session disconnected: %s", session_id)
 
@@ -705,6 +700,13 @@ class LiveVoiceService:
         classified = payload.get("classified") is True
         contact_collected = payload.get("contact_collected") is True
         level = payload.get("level") if isinstance(payload.get("level"), int) else None
+        needs_contact = payload.get("needs_emergency_contact") is True
+
+        if classified:
+            session["classification"] = payload
+
+        if contact_collected:
+            session["contact"] = payload
 
         if classified and level in (1, 2) and not session["emergency_dispatched"]:
             session["emergency_dispatched"] = True
@@ -753,6 +755,85 @@ class LiveVoiceService:
                     logger.exception(
                         "emergency_cb (contact) failed for %s", session_id
                     )
+            # All emergency info collected — finalize and auto-end.
+            asyncio.create_task(self._complete_call_assessment(session_id))
+
+        elif classified and not needs_contact and not session.get("assessment_finalized"):
+            # Non-emergency triage complete (Levels 3–5). Finalize once
+            # the agent has delivered the spoken summary.
+            asyncio.create_task(self._complete_call_assessment(session_id))
+
+    # ------------------------------------------------------------------
+    # Assessment completion + auto-end
+    # ------------------------------------------------------------------
+
+    async def _complete_call_assessment(
+        self,
+        session_id: str,
+        *,
+        session: dict[str, Any] | None = None,
+    ) -> None:
+        """Persist the final assessment and notify patient + staff.
+
+        Idempotent — safe to call from tool handlers, heuristic dispatch
+        detection, and disconnect cleanup.
+        """
+
+        if session is None:
+            session = self._sessions.get(session_id)
+        if session is None or session.get("assessment_finalized"):
+            return
+
+        classification: dict[str, Any] = session.get("classification") or {}
+        if not classification.get("classified"):
+            return
+
+        session["assessment_finalized"] = True
+
+        transcript_chunks: list[str] = session["transcript"]
+        full_text = " ".join(
+            chunk.strip() for chunk in transcript_chunks if chunk
+        ).strip()
+        agent_reply = " ".join(
+            chunk.strip() for chunk in session.get("agent_transcript", []) if chunk
+        ).strip()
+
+        try:
+            result, _ = await self.triage_service.finalize_live_assessment(
+                connection=session["db_connection"],
+                session_id=session_id,
+                language=session["language"],
+                input_mode="voice",
+                content=full_text or "[voice call]",
+                classification=classification,
+                contact=session.get("contact") or {},
+                reply=agent_reply or None,
+            )
+        except Exception:
+            logger.exception(
+                "Failed to finalize live assessment for %s", session_id
+            )
+            session["assessment_finalized"] = False
+            return
+
+        payload = _triage_result_to_payload(result)
+        payload["auto_end"] = True
+
+        assessment_cb: AssessmentCallback | None = session.get("assessment_cb")
+        if assessment_cb is not None:
+            try:
+                await assessment_cb(payload)
+            except Exception:
+                logger.exception(
+                    "assessment_cb failed for %s", session_id
+                )
+
+        logger.info(
+            "Live assessment complete for %s severity=%s alert_sent=%s",
+            session_id,
+            result.severity_level,
+            result.alert_sent,
+        )
 
     # ------------------------------------------------------------------
     # Mid-call DB sync

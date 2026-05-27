@@ -132,6 +132,16 @@ class BaseNotificationService(ABC):
         caller treats ``False`` as "alert not sent, retry later".
         """
 
+    async def send_assessment_summary(self, alert: EmergencyAlert) -> bool:
+        """Notify staff that a triage assessment has been completed.
+
+        Default implementation delegates to :meth:`send_alert` so
+        legacy notifiers keep working. :class:`MockNotificationService`
+        overrides with a distinct staff-facing format.
+        """
+
+        return await self.send_alert(alert)
+
 
 class MockNotificationService(BaseNotificationService):
     """In-process notifier used by the demo and tests.
@@ -184,5 +194,50 @@ class MockNotificationService(BaseNotificationService):
             alert.phone_number or "n/a",
             symptoms_str,
             alert.alert_message or "n/a",
+        )
+        return True
+
+    async def send_assessment_summary(self, alert: EmergencyAlert) -> bool:
+        """Notify staff of a completed triage assessment (any severity).
+
+        Used when a voice or text session finishes and the patient has
+        received their result. Distinct from :meth:`send_alert`, which is
+        reserved for emergency dispatch with contact details.
+        """
+
+        symptoms_str = (
+            ", ".join(alert.detected_symptoms)
+            if alert.detected_symptoms
+            else "n/a"
+        )
+        confidence_str = (
+            f"{alert.confidence:.2f}" if alert.confidence is not None else "n/a"
+        )
+
+        block = (
+            "\n"
+            f"{self._DIVIDER}\n"
+            "  TRIAGE ASSESSMENT SUMMARY (staff)\n"
+            f"{self._DIVIDER}\n"
+            f"  Session ID    : {alert.session_id}\n"
+            f"  Language      : {alert.language}\n"
+            f"  Severity      : {alert.severity}\n"
+            f"  Confidence    : {confidence_str}\n"
+            f"  Department    : {alert.department_name or 'n/a'}\n"
+            f"  Patient Name  : {alert.patient_name or 'n/a'}\n"
+            f"  Phone Number  : {alert.phone_number or 'n/a'}\n"
+            f"  Address       : {alert.address or 'n/a'}\n"
+            f"  Symptoms      : {symptoms_str}\n"
+            f"  Summary       : {alert.alert_message or 'n/a'}\n"
+            f"{self._DIVIDER}\n"
+        )
+        print(block, flush=True)
+
+        logger.info(
+            "Triage assessment summary sent to staff (mock) | session=%s "
+            "severity=%s department=%s",
+            alert.session_id,
+            alert.severity,
+            alert.department_name or "n/a",
         )
         return True
