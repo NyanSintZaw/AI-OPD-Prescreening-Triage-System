@@ -4,6 +4,7 @@ from app.services.notification_service import (
     BaseNotificationService,
     MockNotificationService,
 )
+from app.services.triage_engine import LlmTriageEngine, TriageDecision, TriageEngine
 from app.services.triage_service import TriageService
 
 __all__ = [
@@ -11,6 +12,9 @@ __all__ = [
     "HotlineADKLiveRunner",
     "HotlineADKRunner",
     "LiveVoiceService",
+    "LlmTriageEngine",
     "MockNotificationService",
+    "TriageDecision",
+    "TriageEngine",
     "TriageService",
 ]

@@ -9,6 +9,8 @@ class Settings(BaseSettings):
         "http://127.0.0.1:3000",
         "http://localhost:5173",
         "http://127.0.0.1:5173",
+        "http://localhost:5174",
+        "http://127.0.0.1:5174",
     ]
     # Toggle the in-process mock notification sink that logs emergency
     # dispatches to stdout instead of calling an external system. Stays

@@ -2,30 +2,23 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime, timezone
+import logging
 from time import perf_counter
 from typing import Any, AsyncIterator
 
 import asyncpg
 
 from app.config import settings
-from app.services.adk_agent import HotlineADKRunner
 from app.services.notification_service import (
     BaseNotificationService,
     EmergencyAlert,
     MockNotificationService,
 )
 from app.services.rule_engine import evaluate_emergency_triggers, evaluate_routing_rules
+from app.services.triage_engine import LlmTriageEngine, TriageEngine
 
 
-# Five-level (ADK) → legacy 4-bucket severity. Lives at module scope so
-# it's allocated once and easy to find from tests / dashboards.
-_LEVEL_TO_SEVERITY: dict[int, str] = {
-    1: "emergency",
-    2: "emergency",
-    3: "urgent",
-    4: "general",
-    5: "general",
-}
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -48,12 +41,12 @@ class TriageResult:
 
 
 class TriageService:
-    def __init__(self, notifier: BaseNotificationService | None = None) -> None:
-        # ADK drives the AI brain (Orchestrator → TriageAgent / EmergencyAgent).
-        # The runner owns the InMemorySessionService that holds per-call
-        # conversation state, so the legacy "fetch last 20 messages from
-        # Postgres" history step is gone -- ADK handles turn history.
-        self.adk_runner = HotlineADKRunner()
+    def __init__(
+        self,
+        notifier: BaseNotificationService | None = None,
+        triage_engine: TriageEngine | None = None,
+    ) -> None:
+        self.triage_engine: TriageEngine = triage_engine or LlmTriageEngine()
         # Default to the mock notifier so the demo + tests work without
         # any external transport. Callers can inject a production sink
         # (LINE / FCM / SMS) once those services land.
@@ -104,11 +97,12 @@ class TriageService:
         )
 
         departments = await connection.fetch(
-            "SELECT id, code, name_en, name_th FROM departments WHERE is_active = TRUE"
+            "SELECT id, code, kind, name_en, name_th FROM departments WHERE is_active = TRUE"
         )
         department_by_code = {
             str(record["code"]): {
                 "id": str(record["id"]),
+                "kind": record["kind"],
                 "name_en": record["name_en"],
                 "name_th": record["name_th"],
             }
@@ -147,7 +141,11 @@ class TriageService:
             content, [dict(item) for item in routing_rules]
         )
 
-        await self.adk_runner.ensure_adk_session(session_id, language, input_mode)
+        await self.triage_engine.ensure_session(
+            session_id=session_id,
+            language=language,
+            input_mode=input_mode,
+        )
 
         return {
             "msg_user": msg_user,
@@ -186,11 +184,11 @@ class TriageService:
         # agents pick the right reply format (voice = short spoken;
         # text = readable prose).
         # ----------------------------------------------------------------
-        adk_result = await self.adk_runner.chat(
+        adk_result = await self.triage_engine.run_turn(
             session_id=session_id,
             language=language,
-            user_message=content,
             input_mode=input_mode,
+            content=content,
         )
 
         return await self._finalize_chat_turn(
@@ -388,20 +386,14 @@ class TriageService:
         classification: dict[str, Any] = new_classification or prior_classification
         contact: dict[str, Any] = {**prior_contact, **new_contact}
 
-        # Severity: collapse the ADK five-level system to the legacy
-        # 4-bucket schema the DB columns / dashboards / rule engine still
-        # speak. If the agent hasn't classified yet (still gathering
-        # symptoms), level is missing -> "unknown".
-        classification_level = classification.get("level")
-        severity_level = (
-            _LEVEL_TO_SEVERITY.get(classification_level, "unknown")
-            if isinstance(classification_level, int)
-            else "unknown"
-        )
+        # Severity comes from the swappable triage engine so the ADK path
+        # and future trained-model path can share the same persistence flow.
+        decision = self.triage_engine.decision_from_classification(classification)
+        severity_level = decision.severity_level
         severity_confidence: float | None = (
             0.85 if classification.get("classified") else None
         )
-        severity_explanation: str | None = classification.get("key_reason")
+        severity_explanation: str | None = decision.key_reason
 
         # Rule engine overrides -- unchanged. Deterministic matches
         # always win over the LLM, so a known emergency keyword can't
@@ -418,10 +410,17 @@ class TriageService:
             if not severity_explanation:
                 severity_explanation = matched_rule.reason
 
-        # Department resolution -- same ladder as before, new source.
-        # The ADK classifier returns a department_code via the
-        # ``classify_triage_level`` tool.
-        adk_dept_code = classification.get("department_code")
+        # Department resolution with MFU OPD-first policy.
+        adk_dept_code = decision.opd_department_code
+        if severity_level == "emergency":
+            adk_dept_code = "emergency"
+        elif adk_dept_code and not str(adk_dept_code).startswith("opd_"):
+            logger.warning(
+                "Non-emergency classification used non-OPD code '%s'; coercing to opd_general",
+                adk_dept_code,
+            )
+            adk_dept_code = "opd_general"
+
         department_id: str | None = None
         department_reason: str | None = None
         department_confidence: float | None = None
@@ -430,14 +429,36 @@ class TriageService:
             department_id = department_by_code[adk_dept_code]["id"]
             department_reason = severity_explanation
             department_confidence = severity_confidence
+        elif adk_dept_code:
+            logger.warning(
+                "Department code '%s' not found in active departments", adk_dept_code
+            )
         elif matched_rule and matched_rule.department_id:
-            department_id = matched_rule.department_id
-            department_reason = matched_rule.reason
-            department_confidence = matched_rule.confidence
+            matched_kind = next(
+                (
+                    item["kind"]
+                    for item in department_by_code.values()
+                    if item["id"] == matched_rule.department_id
+                ),
+                None,
+            )
+            if severity_level != "emergency" and matched_kind != "opd":
+                logger.warning(
+                    "Routing rule selected non-OPD department '%s' for non-emergency; skipping",
+                    matched_rule.department_id,
+                )
+            else:
+                department_id = matched_rule.department_id
+                department_reason = matched_rule.reason
+                department_confidence = matched_rule.confidence
         elif severity_level == "emergency" and "emergency" in department_by_code:
             department_id = department_by_code["emergency"]["id"]
             department_reason = "Emergency severity requires emergency department"
             department_confidence = 0.95
+        elif "opd_general" in department_by_code:
+            department_id = department_by_code["opd_general"]["id"]
+            department_reason = "OPD-first default routing for non-emergency assessment"
+            department_confidence = 0.6
 
         emergency_alert_message = (
             matched_trigger.alert_message if matched_trigger else None
@@ -446,7 +467,7 @@ class TriageService:
         # classifier's ``symptoms_summary`` is a sentence. Use it when
         # present, otherwise fall back to the raw user content so the
         # emergency_events row always carries something useful.
-        symptoms_summary = classification.get("symptoms_summary")
+        symptoms_summary = decision.symptoms_summary
         detected_symptoms: list[str] = (
             [str(symptoms_summary)] if symptoms_summary else [content]
         )
@@ -498,6 +519,22 @@ class TriageService:
                 department_id,
                 department_confidence,
                 department_reason,
+            )
+
+        if assessment_id:
+            await connection.execute(
+                """
+                INSERT INTO assessment_reviews (
+                    session_id, assessment_id, proposed_department_id, status
+                )
+                VALUES ($1, $2, $3, 'pending')
+                ON CONFLICT (assessment_id) DO UPDATE
+                SET proposed_department_id = EXCLUDED.proposed_department_id,
+                    updated_at = NOW()
+                """,
+                session_id,
+                assessment_id,
+                department_id,
             )
 
         if severity_level == "emergency":
@@ -688,11 +725,11 @@ class TriageService:
             "input_mode": input_mode,
         }
         try:
-            async for event in self.adk_runner.chat_stream(
+            async for event in self.triage_engine.run_turn_stream(
                 session_id=session_id,
                 language=language,
-                user_message=content,
                 input_mode=input_mode,
+                content=content,
             ):
                 event_type = event.get("type")
                 if event_type == "delta":

@@ -1,7 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { api, type ConversationSummaryOut, type MessageOut } from '../api';
+import {
+  api,
+  type ConversationSummaryOut,
+  type MessageOut,
+} from '../api';
+import { getAdminEmail, getAdminToken } from '../api/client';
 import { Layout } from '../components/Layout';
 import { MessageBubble } from '../components/MessageBubble';
 import { useLanguage } from '../hooks/useSession';
@@ -53,6 +58,7 @@ function lastRefreshedLabel(date: Date | null): string {
 
 export function AdminPage() {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const { language, setLanguage } = useLanguage();
   const [sessions, setSessions] = useState<ConversationSummaryOut[]>([]);
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
@@ -72,6 +78,8 @@ export function AdminPage() {
   const [lastRefreshed, setLastRefreshed] = useState<Date | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
+  const staffEmail = getAdminEmail() ?? t('loginAdminTab');
+
   const loadSummary = async (options: { initial?: boolean } = {}) => {
     if (options.initial) {
       setIsLoading(true);
@@ -84,7 +92,18 @@ export function AdminPage() {
       setSessions(data);
       setLastRefreshed(new Date());
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('error'));
+      const message = err instanceof Error ? err.message : t('error');
+      if (
+        message.includes('401') ||
+        message.includes('403') ||
+        message.toLowerCase().includes('token') ||
+        message.toLowerCase().includes('permission')
+      ) {
+        api.adminLogout();
+        navigate('/login/admin', { replace: true });
+        return;
+      }
+      setError(message);
     } finally {
       setIsLoading(false);
       setIsRefreshing(false);
@@ -93,6 +112,10 @@ export function AdminPage() {
 
   // Initial load
   useEffect(() => {
+    if (!getAdminToken()) {
+      navigate('/login/admin', { replace: true });
+      return;
+    }
     void loadSummary({ initial: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -153,6 +176,11 @@ export function AdminPage() {
     }
   };
 
+  const handleLogout = () => {
+    api.adminLogout();
+    navigate('/login/admin', { replace: true });
+  };
+
   const departmentName = (row: ConversationSummaryOut) =>
     language === 'th'
       ? row.department_name_th ?? row.department_name_en ?? '—'
@@ -199,7 +227,14 @@ export function AdminPage() {
   };
 
   return (
-    <Layout language={language} onLanguageChange={setLanguage} showAdminLink={false}>
+    <Layout
+      language={language}
+      onLanguageChange={setLanguage}
+      showAdminLink={false}
+      navTitle={t('adminPortalTitle')}
+      staffEmail={staffEmail}
+      onStaffLogout={handleLogout}
+    >
       <section className="admin-page">
         <header className="admin-header">
           <div className="admin-heading">
@@ -226,8 +261,8 @@ export function AdminPage() {
               </span>
               {t('adminRefresh')}
             </button>
-            <Link to="/" className="back-link">
-              {t('backHome')}
+            <Link to="/patient" className="back-link">
+              {t('loginPatientAccess')}
             </Link>
           </div>
         </header>

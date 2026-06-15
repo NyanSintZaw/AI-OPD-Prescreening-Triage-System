@@ -3,6 +3,8 @@ export type SessionStatus = 'active' | 'completed' | 'reset' | 'escalated';
 export type MessageRole = 'user' | 'assistant' | 'system';
 export type InputMode = 'voice' | 'text';
 export type SeverityLevel = 'emergency' | 'urgent' | 'general' | 'unknown';
+export type DepartmentKind = 'emergency' | 'opd';
+export type ReviewStatus = 'pending' | 'approved' | 'corrected';
 
 export interface SessionCreate {
   language?: LanguageCode;
@@ -63,6 +65,7 @@ export interface SeverityAssessmentCreate {
 export interface DepartmentOut {
   id: string;
   code: string;
+  kind: DepartmentKind;
   name_en: string;
   name_th: string | null;
   description_en: string | null;
@@ -120,6 +123,67 @@ export interface ConversationSummaryOut {
   message_count: number;
   has_alert: boolean;
   escalation_reason: string | null;
+}
+
+export interface AdminUserOut {
+  id: string;
+  email: string;
+  full_name: string | null;
+  role: 'super_admin' | 'admin' | 'viewer';
+}
+
+export interface AdminLoginRequest {
+  email: string;
+  password: string;
+}
+
+export interface AdminLoginResponse {
+  access_token: string;
+  token_type: 'bearer';
+  expires_at: string;
+  user: AdminUserOut;
+}
+
+export interface AssessmentReviewOut {
+  id: string;
+  session_id: string;
+  assessment_id: string;
+  status: ReviewStatus;
+  reviewer_id: string | null;
+  reviewer_name: string | null;
+  proposed_department_id: string | null;
+  proposed_department_name_en: string | null;
+  proposed_department_name_th: string | null;
+  confirmed_department_id: string | null;
+  confirmed_department_name_en: string | null;
+  confirmed_department_name_th: string | null;
+  notes: string | null;
+  reviewed_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AssessmentReviewApproveRequest {
+  notes?: string | null;
+}
+
+export interface AssessmentReviewCorrectRequest {
+  confirmed_department_id: string;
+  reason?: string | null;
+}
+
+export interface RoutingFeedbackOut {
+  id: string;
+  session_id: string;
+  assessment_id: string;
+  original_department_id: string | null;
+  corrected_department_id: string;
+  corrected_department_name_en: string | null;
+  corrected_department_name_th: string | null;
+  reported_by: string | null;
+  reporter_name: string | null;
+  reason: string | null;
+  created_at: string;
 }
 
 export interface ChatRequestPayload {

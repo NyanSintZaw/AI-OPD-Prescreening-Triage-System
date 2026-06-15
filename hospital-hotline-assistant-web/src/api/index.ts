@@ -1,6 +1,11 @@
-import { baseUrl, request } from './client';
+import { baseUrl, request, setAdminSession } from './client';
 import type {
+  AdminLoginRequest,
+  AdminLoginResponse,
   ApiError,
+  AssessmentReviewApproveRequest,
+  AssessmentReviewCorrectRequest,
+  AssessmentReviewOut,
   ChatRequestPayload,
   ChatResponsePayload,
   ChatStreamEvent,
@@ -15,6 +20,7 @@ import type {
   MessageCreate,
   MessageOut,
   RoutingRuleOut,
+  RoutingFeedbackOut,
   SessionCreate,
   SessionOut,
   SessionUpdate,
@@ -67,6 +73,22 @@ async function sttRequest(payload: {
 
 export const api = {
   health: () => request<{ status: string; environment: string }>('/health'),
+
+  adminLogin: async (payload: AdminLoginRequest) => {
+    const response = await request<AdminLoginResponse>('/admin/login', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+    setAdminSession(response.access_token, {
+      email: response.user.email,
+      role: response.user.role,
+    });
+    return response;
+  },
+
+  adminLogout: () => {
+    setAdminSession(null);
+  },
 
   createSession: (payload: SessionCreate) =>
     request<SessionOut>('/sessions', {
@@ -229,6 +251,29 @@ export const api = {
 
   getConversationSummary: () =>
     request<ConversationSummaryOut[]>('/conversation-summary'),
+
+  listAssessmentReviews: (status: 'all' | 'pending' | 'approved' | 'corrected' = 'pending') =>
+    request<AssessmentReviewOut[]>(`/admin/reviews?status=${status}`),
+
+  approveAssessmentReview: (
+    assessmentId: string,
+    payload: AssessmentReviewApproveRequest = {},
+  ) =>
+    request<AssessmentReviewOut>(`/admin/reviews/${assessmentId}/approve`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+
+  correctAssessmentReview: (
+    assessmentId: string,
+    payload: AssessmentReviewCorrectRequest,
+  ) =>
+    request<AssessmentReviewOut>(`/admin/reviews/${assessmentId}/correct`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+
+  listRoutingFeedback: () => request<RoutingFeedbackOut[]>('/admin/feedback'),
 
   tts: (text: string, language: LanguageCode) => ttsRequest({ text, language }),
 

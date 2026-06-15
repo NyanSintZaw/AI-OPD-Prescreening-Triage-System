@@ -12,6 +12,8 @@ interface LayoutProps {
   children: React.ReactNode;
   showAdminLink?: boolean;
   navTitle?: string;
+  staffEmail?: string | null;
+  onStaffLogout?: () => void;
 }
 
 export function Layout({
@@ -20,6 +22,8 @@ export function Layout({
   children,
   showAdminLink = true,
   navTitle,
+  staffEmail,
+  onStaffLogout,
 }: LayoutProps) {
   const { t } = useTranslation();
 
@@ -28,7 +32,7 @@ export function Layout({
       <header className="app-header">
         <div className="header-top">
           <div className="header-inner">
-            <Link to="/" className="brand">
+            <Link to={staffEmail ? '/login' : '/patient'} className="brand">
               <img
                 src={LOGO_URL}
                 alt={t('hospitalName')}
@@ -44,9 +48,19 @@ export function Layout({
           <div className="header-nav-inner">
             <span className="nav-label">{navTitle ?? t('appName')}</span>
             <div className="header-actions">
-              {showAdminLink && (
-                <Link to="/admin" className="text-link">
-                  {t('adminLink')}
+              {staffEmail ? (
+                <div className="staff-session">
+                  <span className="staff-session-email">{staffEmail}</span>
+                  {onStaffLogout ? (
+                    <button type="button" className="text-link" onClick={onStaffLogout}>
+                      {t('adminLogout')}
+                    </button>
+                  ) : null}
+                </div>
+              ) : null}
+              {showAdminLink && !staffEmail && (
+                <Link to="/login" className="text-link">
+                  {t('staffLoginLink')}
                 </Link>
               )}
             </div>

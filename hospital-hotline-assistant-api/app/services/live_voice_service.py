@@ -383,18 +383,50 @@ class LiveVoiceService:
                 )
 
     def set_mute(self, session_id: str, muted: bool) -> None:
-        """Toggle the mute flag without tearing the call down.
+        """Toggle mute and signal turn boundaries to Gemini Live.
 
-        Synchronous on purpose — there is no I/O. Mute is a soft
-        suppression of inbound audio; the live pipeline keeps running so
-        the agent can still finish whatever it was saying.
+        Muting stops forwarding microphone audio **and** sends
+        ``activity_end`` so the model stops waiting for more speech and
+        responds to what it already heard. Unmuting resumes forwarding
+        and sends ``activity_start`` so the next utterance is a fresh
+        user turn.
         """
 
         session = self._sessions.get(session_id)
         if session is None:
             raise ValueError("Session not found")
         session["muted"] = muted
+        queue: LiveRequestQueue = session["queue"]
+        try:
+            if muted:
+                queue.send_activity_end()
+                logger.info(
+                    "Session %s muted; activity_end sent", session_id
+                )
+            else:
+                queue.send_activity_start()
+                logger.info(
+                    "Session %s unmuted; activity_start sent", session_id
+                )
+        except Exception:  # noqa: BLE001 — must not break the WS control plane
+            logger.exception(
+                "Failed to send activity signal for %s (muted=%s)",
+                session_id,
+                muted,
+            )
         logger.info("Session %s mute=%s", session_id, muted)
+
+    def end_user_turn(self, session_id: str) -> None:
+        """Tell Gemini Live the caller finished speaking (push-to-talk end)."""
+
+        session = self._sessions.get(session_id)
+        if session is None:
+            raise ValueError("Session not found")
+        try:
+            session["queue"].send_activity_end()
+            logger.info("Session %s user turn ended (activity_end)", session_id)
+        except Exception:  # noqa: BLE001
+            logger.exception("Failed to end user turn for %s", session_id)
 
     # ------------------------------------------------------------------
     # Outbound pipeline (Gemini Live → browser)

@@ -1,6 +1,7 @@
 import asyncio
 import json
 import logging
+from datetime import datetime, timezone
 from contextlib import asynccontextmanager
 from uuid import UUID
 import asyncpg
@@ -18,9 +19,15 @@ from fastapi import (
 )
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, Response, StreamingResponse
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from app.config import settings
 from app.database import create_pool, get_connection, record_to_dict, records_to_dicts
 from app.services import TriageService
+from app.services.admin_auth import (
+    issue_admin_token,
+    validate_admin_token,
+    verify_password,
+)
 from app.services.google_stt import GoogleSttClient
 from app.services.google_tts import GoogleTtsClient
 from app.services.live_voice_service import LiveVoiceService
@@ -31,11 +38,17 @@ from app.schemas import (
     ChatRequest,
     ChatResponse,
     ConversationSummaryOut,
+    AdminLoginRequest,
+    AdminLoginResponse,
+    AdminUserOut,
     DepartmentOut,
     DepartmentRecommendationCreate,
     EmergencyEventCreate,
     EmergencyEventOut,
     EmergencyTriggerOut,
+    AssessmentReviewApproveRequest,
+    AssessmentReviewCorrectRequest,
+    AssessmentReviewOut,
     FollowUpQuestionAnswerUpdate,
     FollowUpQuestionCreate,
     FollowUpQuestionOut,
@@ -46,6 +59,7 @@ from app.schemas import (
     SessionOut,
     SessionUpdate,
     SeverityAssessmentCreate,
+    RoutingFeedbackOut,
     SttResponse,
     SymptomEntryCreate,
     TtsRequest,
@@ -54,6 +68,7 @@ from app.schemas import (
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     app.state.db_pool = await create_pool()
+    app.state.admin_tokens = {}
     notifier = MockNotificationService()
     app.state.triage_service = TriageService(notifier=notifier)
     app.state.tts_client = GoogleTtsClient()
@@ -78,6 +93,72 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+auth_scheme = HTTPBearer(auto_error=False)
+
+
+async def _serialize_review(
+    connection: asyncpg.Connection, assessment_id: UUID
+) -> dict:
+    row = await connection.fetchrow(
+        """
+        SELECT
+            ar.*,
+            reviewer.full_name AS reviewer_name,
+            pd.name_en AS proposed_department_name_en,
+            pd.name_th AS proposed_department_name_th,
+            cd.name_en AS confirmed_department_name_en,
+            cd.name_th AS confirmed_department_name_th
+        FROM assessment_reviews ar
+        LEFT JOIN admin_users reviewer ON reviewer.id = ar.reviewer_id
+        LEFT JOIN departments pd ON pd.id = ar.proposed_department_id
+        LEFT JOIN departments cd ON cd.id = ar.confirmed_department_id
+        WHERE ar.assessment_id = $1
+        """,
+        assessment_id,
+    )
+    if row is None:
+        raise HTTPException(status_code=404, detail="Assessment review not found")
+    return dict(row)
+
+
+async def get_current_admin_user(
+    request: Request,
+    credentials: HTTPAuthorizationCredentials | None = Depends(auth_scheme),
+    connection: asyncpg.Connection = Depends(get_connection),
+) -> dict:
+    if credentials is None:
+        raise HTTPException(status_code=401, detail="Missing admin bearer token")
+    if credentials.scheme.lower() != "bearer":
+        raise HTTPException(status_code=401, detail="Invalid auth scheme")
+
+    token_store: dict = request.app.state.admin_tokens
+    session = validate_admin_token(token_store, credentials.credentials)
+    if not session:
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
+
+    user_row = await connection.fetchrow(
+        """
+        SELECT id, email, full_name, role, is_active
+        FROM admin_users
+        WHERE id = $1
+        """,
+        session["admin_user_id"],
+    )
+    if user_row is None or not user_row["is_active"]:
+        raise HTTPException(status_code=401, detail="Admin user is inactive")
+    return dict(user_row)
+
+
+def require_roles(*allowed_roles: str):
+    async def _check(admin_user: dict = Depends(get_current_admin_user)) -> dict:
+        if admin_user["role"] not in allowed_roles:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Insufficient permissions for this portal",
+            )
+        return admin_user
+
+    return _check
 
 @app.exception_handler(asyncpg.ForeignKeyViolationError)
 async def foreign_key_violation_handler(request: Request, exc: asyncpg.ForeignKeyViolationError):
@@ -105,6 +186,47 @@ async def root() -> dict[str, str]:
 async def health(connection: asyncpg.Connection = Depends(get_connection)) -> dict[str, str]:
     await connection.fetchval("SELECT 1")
     return {"status": "ok", "environment": settings.environment}
+
+
+@app.post("/admin/login", response_model=AdminLoginResponse)
+async def admin_login(
+    payload: AdminLoginRequest,
+    request: Request,
+    connection: asyncpg.Connection = Depends(get_connection),
+):
+    user = await connection.fetchrow(
+        """
+        SELECT id, email, password_hash, full_name, role, is_active
+        FROM admin_users
+        WHERE LOWER(email) = LOWER($1)
+        """,
+        payload.email,
+    )
+    if user is None or not user["is_active"]:
+        raise HTTPException(status_code=401, detail="Invalid email or password")
+    if not verify_password(payload.password, user["password_hash"]):
+        raise HTTPException(status_code=401, detail="Invalid email or password")
+
+    token, expires_at = issue_admin_token(
+        request.app.state.admin_tokens,
+        admin_user_id=str(user["id"]),
+        email=user["email"],
+        role=user["role"],
+    )
+    await connection.execute(
+        "UPDATE admin_users SET last_login_at = NOW() WHERE id = $1",
+        user["id"],
+    )
+    return AdminLoginResponse(
+        access_token=token,
+        expires_at=expires_at,
+        user=AdminUserOut(
+            id=user["id"],
+            email=user["email"],
+            full_name=user["full_name"],
+            role=user["role"],
+        ),
+    )
 
 @app.post("/sessions", response_model=SessionOut, status_code=status.HTTP_201_CREATED)
 async def create_session(payload: SessionCreate, connection: asyncpg.Connection = Depends(get_connection)):
@@ -532,7 +654,10 @@ async def speech_to_text(
 
 
 @app.get("/conversation-summary", response_model=list[ConversationSummaryOut])
-async def conversation_summary(connection: asyncpg.Connection = Depends(get_connection)):
+async def conversation_summary(
+    _admin_user: dict = Depends(require_roles("super_admin", "viewer")),
+    connection: asyncpg.Connection = Depends(get_connection),
+):
     records = await connection.fetch(
         """
         SELECT
@@ -548,6 +673,178 @@ async def conversation_summary(connection: asyncpg.Connection = Depends(get_conn
     return records_to_dicts(records)
 
 
+@app.get("/admin/reviews", response_model=list[AssessmentReviewOut])
+async def list_assessment_reviews(
+    status: str = "pending",
+    _admin_user: dict = Depends(require_roles("admin", "super_admin")),
+    connection: asyncpg.Connection = Depends(get_connection),
+):
+    rows = await connection.fetch(
+        """
+        SELECT
+            ar.*,
+            reviewer.full_name AS reviewer_name,
+            pd.name_en AS proposed_department_name_en,
+            pd.name_th AS proposed_department_name_th,
+            cd.name_en AS confirmed_department_name_en,
+            cd.name_th AS confirmed_department_name_th
+        FROM assessment_reviews ar
+        LEFT JOIN admin_users reviewer ON reviewer.id = ar.reviewer_id
+        LEFT JOIN departments pd ON pd.id = ar.proposed_department_id
+        LEFT JOIN departments cd ON cd.id = ar.confirmed_department_id
+        WHERE ($1 = 'all' OR ar.status::text = $1)
+        ORDER BY ar.created_at DESC
+        LIMIT 200
+        """,
+        status,
+    )
+    return records_to_dicts(rows)
+
+
+@app.post("/admin/reviews/{assessment_id}/approve", response_model=AssessmentReviewOut)
+async def approve_assessment_review(
+    assessment_id: UUID,
+    payload: AssessmentReviewApproveRequest,
+    admin_user: dict = Depends(require_roles("admin", "super_admin")),
+    connection: asyncpg.Connection = Depends(get_connection),
+):
+    row = await connection.fetchrow(
+        """
+        UPDATE assessment_reviews
+        SET status = 'approved',
+            reviewer_id = $2,
+            confirmed_department_id = COALESCE(confirmed_department_id, proposed_department_id),
+            notes = $3,
+            reviewed_at = NOW(),
+            updated_at = NOW()
+        WHERE assessment_id = $1
+        RETURNING session_id, confirmed_department_id
+        """,
+        assessment_id,
+        admin_user["id"],
+        payload.notes,
+    )
+    if row is None:
+        raise HTTPException(status_code=404, detail="Assessment review not found")
+
+    if row["confirmed_department_id"]:
+        await connection.execute(
+            """
+            INSERT INTO department_recommendations (
+                session_id, assessment_id, department_id, confidence, reason
+            )
+            VALUES ($1, $2, $3, $4, $5)
+            """,
+            row["session_id"],
+            assessment_id,
+            row["confirmed_department_id"],
+            1.0,
+            "Approved by OPD nurse review",
+        )
+
+    return await _serialize_review(connection, assessment_id)
+
+
+@app.post("/admin/reviews/{assessment_id}/correct", response_model=AssessmentReviewOut)
+async def correct_assessment_review(
+    assessment_id: UUID,
+    payload: AssessmentReviewCorrectRequest,
+    admin_user: dict = Depends(require_roles("admin", "super_admin")),
+    connection: asyncpg.Connection = Depends(get_connection),
+):
+    review_before = await connection.fetchrow(
+        """
+        SELECT session_id, proposed_department_id
+        FROM assessment_reviews
+        WHERE assessment_id = $1
+        """,
+        assessment_id,
+    )
+    if review_before is None:
+        raise HTTPException(status_code=404, detail="Assessment review not found")
+
+    await connection.execute(
+        """
+        UPDATE assessment_reviews
+        SET status = 'corrected',
+            reviewer_id = $2,
+            confirmed_department_id = $3,
+            notes = $4,
+            reviewed_at = NOW(),
+            updated_at = NOW()
+        WHERE assessment_id = $1
+        """,
+        assessment_id,
+        admin_user["id"],
+        payload.confirmed_department_id,
+        payload.reason,
+    )
+
+    await connection.execute(
+        """
+        INSERT INTO department_recommendations (
+            session_id, assessment_id, department_id, confidence, reason
+        )
+        VALUES ($1, $2, $3, $4, $5)
+        """,
+        review_before["session_id"],
+        assessment_id,
+        payload.confirmed_department_id,
+        1.0,
+        "Corrected by OPD nurse review",
+    )
+
+    await connection.execute(
+        """
+        INSERT INTO routing_feedback (
+            session_id,
+            assessment_id,
+            assessment_result_id,
+            original_department_id,
+            corrected_department_id,
+            reported_by,
+            nurse_user_id,
+            reason,
+            feedback_text
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+        """,
+        review_before["session_id"],
+        assessment_id,
+        None,
+        review_before["proposed_department_id"],
+        payload.confirmed_department_id,
+        admin_user["id"],
+        None,
+        payload.reason,
+        payload.reason,
+    )
+
+    return await _serialize_review(connection, assessment_id)
+
+
+@app.get("/admin/feedback", response_model=list[RoutingFeedbackOut])
+async def list_routing_feedback(
+    _admin_user: dict = Depends(require_roles("admin", "super_admin")),
+    connection: asyncpg.Connection = Depends(get_connection),
+):
+    rows = await connection.fetch(
+        """
+        SELECT
+            rf.*,
+            corrected.name_en AS corrected_department_name_en,
+            corrected.name_th AS corrected_department_name_th,
+            reporter.full_name AS reporter_name
+        FROM routing_feedback rf
+        LEFT JOIN departments corrected ON corrected.id = rf.corrected_department_id
+        LEFT JOIN admin_users reporter ON reporter.id = rf.reported_by
+        ORDER BY rf.created_at DESC
+        LIMIT 200
+        """
+    )
+    return records_to_dicts(rows)
+
+
 # ---------------------------------------------------------------------------
 # Voice WebSocket — Gemini Live API bridge
 # ---------------------------------------------------------------------------
@@ -558,7 +855,7 @@ async def conversation_summary(connection: asyncpg.Connection = Depends(get_conn
 #     bytes                          raw PCM 16-bit 16 kHz mono audio chunk
 #     {"type": "mute"}               suppress mic forward to the live pipeline
 #     {"type": "unmute"}             resume forwarding
-#     {"type": "end_of_turn"}        soft hint, currently a no-op
+#     {"type": "end_of_turn"}        force end of caller turn (activity_end)
 #     {"type": "end_call"}           caller hung up — close gracefully
 #
 #   Server → client
@@ -699,9 +996,7 @@ async def voice_call(websocket: WebSocket, session_id: str):
                     live_voice_service.set_mute(session_id, False)
                     await websocket.send_json({"type": "status", "muted": False})
                 elif msg_type == "end_of_turn":
-                    # ADK's voice activity detection handles turn-end on
-                    # its own; the hint is here so the frontend can also
-                    # call send_activity_end in the future if needed.
+                    live_voice_service.end_user_turn(session_id)
                     continue
                 elif msg_type == "end_call":
                     return

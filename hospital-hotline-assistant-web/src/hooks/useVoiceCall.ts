@@ -930,18 +930,28 @@ export function useVoiceCall(options: UseVoiceCallOptions): UseVoiceCallApi {
 
   // ----- Mute toggle ---------------------------------------------------
 
-  const setMuted = useCallback((next: boolean) => {
-    mutedRef.current = next;
-    setMutedState(next);
-    const ws = wsRef.current;
-    if (!ws || ws.readyState !== WebSocket.OPEN) return;
-    try {
-      ws.send(JSON.stringify({ type: next ? 'mute' : 'unmute' }));
-    } catch {
-      // ignore — UI state is already updated optimistically; server
-      // ack will overwrite if it disagrees.
-    }
-  }, []);
+  const setMuted = useCallback(
+    (next: boolean) => {
+      mutedRef.current = next;
+      setMutedState(next);
+      const ws = wsRef.current;
+      if (!ws || ws.readyState !== WebSocket.OPEN) return;
+      try {
+        ws.send(JSON.stringify({ type: next ? 'mute' : 'unmute' }));
+        if (!activeRef.current) return;
+        // Mute doubles as "done speaking" — show thinking until audio returns.
+        if (next) {
+          updateState('thinking');
+        } else if (stateRef.current !== 'speaking') {
+          updateState('listening');
+        }
+      } catch {
+        // ignore — UI state is already updated optimistically; server
+        // ack will overwrite if it disagrees.
+      }
+    },
+    [updateState],
+  );
 
   const toggleMute = useCallback(() => {
     setMuted(!mutedRef.current);

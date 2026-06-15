@@ -9,6 +9,8 @@ SessionStatus = Literal["active", "completed", "reset", "escalated"]
 MessageRole = Literal["user", "assistant", "system"]
 InputMode = Literal["voice", "text"]
 SeverityLevel = Literal["emergency", "urgent", "general", "unknown"]
+DepartmentKind = Literal["emergency", "opd"]
+ReviewStatus = Literal["pending", "approved", "corrected"]
 
 
 class TtsRequest(BaseModel):
@@ -81,6 +83,7 @@ class SeverityAssessmentCreate(BaseModel):
 class DepartmentOut(BaseModel):
     id: UUID
     code: str
+    kind: DepartmentKind
     name_en: str
     name_th: str | None = None
     description_en: str | None = None
@@ -208,3 +211,64 @@ class ConversationSummaryOut(BaseModel):
     message_count: int
     has_alert: bool = False
     escalation_reason: str | None = None
+
+
+class AdminUserOut(BaseModel):
+    id: UUID
+    email: str
+    full_name: str | None = None
+    role: Literal["super_admin", "admin", "viewer"]
+
+
+class AdminLoginRequest(BaseModel):
+    email: str
+    password: str
+
+
+class AdminLoginResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    expires_at: datetime
+    user: AdminUserOut
+
+
+class AssessmentReviewApproveRequest(BaseModel):
+    notes: str | None = None
+
+
+class AssessmentReviewCorrectRequest(BaseModel):
+    confirmed_department_id: UUID
+    reason: str | None = None
+
+
+class AssessmentReviewOut(BaseModel):
+    id: UUID
+    session_id: UUID
+    assessment_id: UUID
+    status: ReviewStatus
+    reviewer_id: UUID | None = None
+    reviewer_name: str | None = None
+    proposed_department_id: UUID | None = None
+    proposed_department_name_en: str | None = None
+    proposed_department_name_th: str | None = None
+    confirmed_department_id: UUID | None = None
+    confirmed_department_name_en: str | None = None
+    confirmed_department_name_th: str | None = None
+    notes: str | None = None
+    reviewed_at: datetime | None = None
+    created_at: datetime
+    updated_at: datetime
+
+
+class RoutingFeedbackOut(BaseModel):
+    id: UUID
+    session_id: UUID
+    assessment_id: UUID
+    original_department_id: UUID | None = None
+    corrected_department_id: UUID
+    corrected_department_name_en: str | None = None
+    corrected_department_name_th: str | None = None
+    reported_by: UUID | None = None
+    reporter_name: str | None = None
+    reason: str | None = None
+    created_at: datetime

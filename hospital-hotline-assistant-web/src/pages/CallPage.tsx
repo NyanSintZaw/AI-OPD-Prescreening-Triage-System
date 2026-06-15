@@ -112,7 +112,7 @@ export function CallPage() {
 
   useEffect(() => {
     if (!sessionId) {
-      navigate('/');
+      navigate('/patient');
     }
   }, [sessionId, navigate]);
 
@@ -151,7 +151,7 @@ export function CallPage() {
       case 'greeting':
         return t('callStateGreeting');
       case 'listening':
-        return t('callStateListening');
+        return voiceCall.muted ? t('callMuted') : t('callStateListening');
       case 'uploading':
         return t('callStateUploading');
       case 'thinking':
@@ -165,7 +165,7 @@ export function CallPage() {
         if (callFinished) return t('callAssessmentCompleteTitle');
         return t('callEnded');
     }
-  }, [voiceCall.state, voiceCall.error, voiceCall.autoEnding, callFinished, t]);
+  }, [voiceCall.state, voiceCall.error, voiceCall.autoEnding, voiceCall.muted, callFinished, t]);
 
   const handleManualStart = async () => {
     setAutoStartBlocked(false);
@@ -182,7 +182,7 @@ export function CallPage() {
       }
       setSessionId(null);
     }
-    navigate('/');
+    navigate('/patient');
   };
 
   if (!sessionId) {
@@ -286,7 +286,7 @@ export function CallPage() {
                   className="primary-btn call-home-btn"
                   onClick={() => {
                     setSessionId(null);
-                    navigate('/');
+                    navigate('/patient');
                   }}
                 >
                   {t('callBackHome')}

@@ -1,12 +1,38 @@
 import type { ApiError } from './types';
 
 const baseUrl = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000';
+const ADMIN_TOKEN_KEY = 'hotline_admin_token';
+const ADMIN_EMAIL_KEY = 'hotline_admin_email';
+const ADMIN_ROLE_KEY = 'hotline_admin_role';
+
+export type StaffRole = 'super_admin' | 'admin' | 'viewer';
+
+function getAdminToken(): string | null {
+  if (typeof window === 'undefined') return null;
+  return window.localStorage.getItem(ADMIN_TOKEN_KEY);
+}
+
+function getAdminRole(): StaffRole | null {
+  if (typeof window === 'undefined') return null;
+  const role = window.localStorage.getItem(ADMIN_ROLE_KEY);
+  if (role === 'super_admin' || role === 'admin' || role === 'viewer') {
+    return role;
+  }
+  return null;
+}
+
+function getAdminEmail(): string | null {
+  if (typeof window === 'undefined') return null;
+  return window.localStorage.getItem(ADMIN_EMAIL_KEY);
+}
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const token = getAdminToken();
   const response = await fetch(`${baseUrl}${path}`, {
     ...init,
     headers: {
       'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...init?.headers,
     },
   });
@@ -29,4 +55,39 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return response.json() as Promise<T>;
 }
 
-export { baseUrl, request };
+function setAdminToken(token: string | null): void {
+  if (typeof window === 'undefined') return;
+  if (token) {
+    window.localStorage.setItem(ADMIN_TOKEN_KEY, token);
+  } else {
+    window.localStorage.removeItem(ADMIN_TOKEN_KEY);
+  }
+}
+
+function setAdminSession(
+  token: string | null,
+  user?: { email: string; role: StaffRole } | null,
+): void {
+  setAdminToken(token);
+  if (typeof window === 'undefined') return;
+  if (user && token) {
+    window.localStorage.setItem(ADMIN_EMAIL_KEY, user.email);
+    window.localStorage.setItem(ADMIN_ROLE_KEY, user.role);
+  } else {
+    window.localStorage.removeItem(ADMIN_EMAIL_KEY);
+    window.localStorage.removeItem(ADMIN_ROLE_KEY);
+  }
+}
+
+export {
+  ADMIN_EMAIL_KEY,
+  ADMIN_ROLE_KEY,
+  ADMIN_TOKEN_KEY,
+  baseUrl,
+  getAdminEmail,
+  getAdminRole,
+  getAdminToken,
+  request,
+  setAdminSession,
+  setAdminToken,
+};

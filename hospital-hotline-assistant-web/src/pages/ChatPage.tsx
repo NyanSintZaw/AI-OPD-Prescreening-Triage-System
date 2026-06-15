@@ -64,7 +64,7 @@ export function ChatPage() {
 
   useEffect(() => {
     if (!sessionId) {
-      navigate('/');
+      navigate('/patient');
       return;
     }
     void loadMessages();
@@ -184,7 +184,7 @@ export function ChatPage() {
     try {
       await api.updateSession(sessionId, { status: 'completed' });
       setSessionId(null);
-      navigate('/');
+      navigate('/patient');
     } catch (err) {
       console.error(err);
     }

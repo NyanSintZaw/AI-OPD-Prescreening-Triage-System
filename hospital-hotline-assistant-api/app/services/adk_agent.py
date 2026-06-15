@@ -162,7 +162,12 @@ def get_triage_reference() -> dict:
 
 def get_department_list() -> list:
     """Returns available hospital departments. Use the exact department code
-    (not name) in classify_triage_level. If unsure, use 'emergency' for Level 1–2."""
+    (not name) in classify_triage_level.
+
+    OPD-first policy:
+    - Level 1–2 must use 'emergency'
+    - Level 3–5 must use an 'opd_*' department code
+    """
 
     return _DEPARTMENTS
 
@@ -180,7 +185,12 @@ def classify_triage_level(
     """Record the final triage classification. Only call after consulting
     get_triage_reference and following the decision_tree. Set needs_emergency_contact=True
     for Level 1 and Level 2. For Level 1: classify immediately without follow-ups.
-    For Level 2: allow at most 1 follow-up question before classifying."""
+    For Level 2: allow at most 1 follow-up question before classifying.
+
+    Department policy:
+    - Level 1-2: department_code must be 'emergency'
+    - Level 3-5: department_code must be an OPD code (prefix 'opd_')
+    """
 
     return {
         "classified": True,
@@ -264,11 +274,18 @@ WORKFLOW
      reference's `examples` list.
 5. Call `get_department_list` to confirm the correct department code before
    classifying.
-6. Call `classify_triage_level` with the final decision. For Level 1 and
+6. Enforce MFU OPD-first policy when assigning department_code:
+   - Level 1-2 must be `emergency`.
+   - Level 3-5 must be one of the OPD codes returned by `get_department_list`
+     (the code starts with `opd_`).
+   - Never route Level 3-5 straight to emergency unless the case truly meets
+     Level 1-2 criteria.
+7. Call `classify_triage_level` with the final decision. For Level 1 and
    Level 2 always set `needs_emergency_contact=True`.
-7. After classification, tell the patient their triage level + color + label,
-   which department to go to, and the estimated response time.
-8. For Level 1 or Level 2, end your reply with ONE explicit prompt asking
+8. After classification, tell the patient their triage level + color + label,
+   and the recommended OPD destination (or emergency department for Level 1-2),
+   with estimated response time.
+9. For Level 1 or Level 2, end your reply with ONE explicit prompt asking
    for all three contact fields by name so the caller knows exactly what to
    send next. Use a sentence like:
      English: "Please share your name, phone number, and address so we can

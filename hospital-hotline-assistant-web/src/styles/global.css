@@ -1920,6 +1920,91 @@ a:hover {
   padding: 0.6rem 0.85rem;
 }
 
+.admin-review-section,
+.admin-feedback-section {
+  background: var(--color-surface);
+  border: 2px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: 1rem;
+  box-shadow: var(--shadow);
+}
+
+.admin-review-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.admin-review-header h2,
+.admin-feedback-section h2 {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.admin-auth-info {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+}
+
+.admin-login-form {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 0.75rem;
+  align-items: end;
+}
+
+.admin-login-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  font-size: 0.85rem;
+}
+
+.admin-login-form input,
+.admin-review-actions input,
+.admin-review-actions select {
+  min-height: 40px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border-strong);
+  padding: 0 0.65rem;
+  font: inherit;
+}
+
+.admin-review-list {
+  display: grid;
+  gap: 0.65rem;
+  margin-top: 0.75rem;
+}
+
+.admin-review-item {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: 0.75rem;
+}
+
+.admin-review-item-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.admin-review-actions {
+  display: grid;
+  grid-template-columns: 120px minmax(180px, 1fr) minmax(220px, 1fr) 140px;
+  gap: 0.5rem;
+}
+
+@media (max-width: 1024px) {
+  .admin-review-actions {
+    grid-template-columns: 1fr;
+  }
+}
+
 @media (max-width: 1099px) {
   .admin-detail {
     position: static;
@@ -1984,4 +2069,233 @@ a:hover {
     padding-top: 1.5rem;
     padding-bottom: 1.5rem;
   }
+}
+
+/* MFU-style staff portal login */
+.portal-shell {
+  min-height: 100vh;
+  background: #f3f3f3;
+  display: flex;
+  flex-direction: column;
+}
+
+.portal-header {
+  background: #ffffff;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.portal-header-inner {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 1.25rem 1.5rem;
+  min-height: 110px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.portal-brand {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  min-width: 0;
+}
+
+.portal-logo {
+  height: 88px;
+  width: auto;
+  max-width: min(520px, 70vw);
+  object-fit: contain;
+  object-position: left center;
+}
+
+.portal-main {
+  flex: 1;
+  display: grid;
+  place-items: center;
+  padding: 2.5rem 1rem 3rem;
+}
+
+.portal-card {
+  width: min(420px, 100%);
+  background: #ffffff;
+  border-radius: 2px;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.08);
+  padding: 2rem 2rem 1.75rem;
+}
+
+.portal-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+  margin-bottom: 1.25rem;
+  padding: 0.25rem;
+  background: #f7f7f7;
+  border-radius: 999px;
+}
+
+.portal-tab {
+  border: none;
+  background: transparent;
+  padding: 0.55rem 0.75rem;
+  border-radius: 999px;
+  font-family: var(--font-body);
+  font-size: 0.9rem;
+  color: var(--color-muted);
+  cursor: pointer;
+}
+
+.portal-tab.active {
+  background: #ffffff;
+  color: var(--mch-red);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+  font-weight: 600;
+}
+
+.portal-card h1 {
+  margin: 0 0 0.35rem;
+  font-size: 1.75rem;
+  font-weight: 500;
+  color: #111111;
+}
+
+.portal-subtitle {
+  margin: 0 0 1.25rem;
+  font-size: 0.92rem;
+}
+
+.portal-form {
+  display: grid;
+  gap: 1rem;
+}
+
+.portal-field {
+  display: grid;
+  gap: 0.4rem;
+  font-size: 0.92rem;
+  color: #333333;
+}
+
+.portal-field input {
+  width: 100%;
+  border: 1px solid #d9d9d9;
+  border-radius: 2px;
+  padding: 0.7rem 0.75rem;
+  font: inherit;
+  background: #ffffff;
+}
+
+.portal-field input:focus {
+  outline: 2px solid rgba(214, 57, 51, 0.2);
+  border-color: var(--mch-red);
+}
+
+.portal-password-wrap {
+  position: relative;
+}
+
+.portal-password-wrap input {
+  padding-right: 2.5rem;
+}
+
+.portal-password-toggle {
+  position: absolute;
+  right: 0.35rem;
+  top: 50%;
+  transform: translateY(-50%);
+  border: none;
+  background: transparent;
+  width: 2rem;
+  height: 2rem;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  color: var(--color-muted);
+}
+
+.portal-password-toggle svg {
+  width: 1.1rem;
+  height: 1.1rem;
+  fill: currentColor;
+}
+
+.portal-error {
+  margin: 0;
+}
+
+.portal-submit {
+  margin-top: 0.25rem;
+  width: 100%;
+  border: 1px solid var(--mch-red);
+  background: #ffffff;
+  color: var(--mch-red);
+  border-radius: 999px;
+  padding: 0.75rem 1rem;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.portal-submit:hover:not(:disabled) {
+  background: var(--mch-red);
+  color: #ffffff;
+}
+
+.portal-divider {
+  height: 1px;
+  background: var(--color-border);
+  margin: 1.5rem 0 1rem;
+}
+
+.portal-patient-btn {
+  display: block;
+  text-align: center;
+  text-decoration: none;
+  border: 1px solid var(--mch-cyan);
+  color: var(--mch-cyan);
+  border-radius: 999px;
+  padding: 0.7rem 1rem;
+  font-weight: 600;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.portal-patient-btn:hover {
+  background: var(--mch-cyan);
+  color: #ffffff;
+}
+
+.portal-patient-note {
+  margin: 0.75rem 0 0;
+  text-align: center;
+  font-size: 0.85rem;
+}
+
+.staff-session {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.staff-session-email {
+  font-size: 0.85rem;
+  color: #ffffff;
+  opacity: 0.95;
+}
+
+.header-actions .text-link {
+  color: #ffffff;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font: inherit;
+  text-decoration: underline;
+  padding: 0;
+}
+
+.nurse-page .admin-review-list {
+  margin-top: 1rem;
 }
