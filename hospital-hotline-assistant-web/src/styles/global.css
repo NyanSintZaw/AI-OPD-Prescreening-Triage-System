@@ -451,6 +451,14 @@ a:hover {
   margin-bottom: 1rem;
 }
 
+.call-assessment-panel.assessment-complete {
+  border-color: rgba(186, 150, 67, 0.62);
+  background:
+    linear-gradient(180deg, rgba(255, 250, 235, 0.96), rgba(255, 255, 255, 0.98)),
+    var(--color-surface);
+  box-shadow: 0 18px 38px -28px rgba(158, 120, 36, 0.82);
+}
+
 .call-assessment-panel h2 {
   margin: 0 0 0.35rem;
   font-size: 1.15rem;
@@ -595,6 +603,33 @@ a:hover {
   border-color: var(--mch-cyan);
 }
 
+.chat-input:disabled {
+  background: #eef3f6;
+  border-color: #d5dde4;
+  color: var(--color-muted);
+}
+
+.chat-input-row.assessment-complete {
+  border-color: rgba(186, 150, 67, 0.52);
+  background:
+    linear-gradient(180deg, rgba(255, 250, 235, 0.94), rgba(255, 255, 255, 0.96)),
+    var(--color-surface);
+}
+
+.chat-input-row.assessment-complete .chat-input,
+.chat-input-row.assessment-complete > .primary-btn:not(.patient-id-btn) {
+  opacity: 0.48;
+}
+
+.chat-input-row .patient-id-popup-launcher {
+  margin-top: 0;
+  flex-shrink: 0;
+}
+
+.chat-input-row .patient-id-btn {
+  min-height: 48px;
+}
+
 .voice-controls {
   display: flex;
   gap: 0.5rem;
@@ -663,6 +698,230 @@ a:hover {
 
 .recommendation-detail {
   color: var(--color-muted);
+}
+
+.patient-id-panel {
+  position: relative;
+  overflow: hidden;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 1rem;
+  align-items: center;
+  background:
+    linear-gradient(135deg, rgba(62, 163, 203, 0.1), rgba(186, 150, 67, 0.12)),
+    var(--color-surface);
+  border: 2px solid #d8eaf2;
+  border-radius: var(--radius);
+  padding: 1rem;
+  box-shadow: var(--shadow);
+}
+
+.patient-id-panel::after {
+  content: '';
+  position: absolute;
+  right: -36px;
+  top: -72px;
+  width: 170px;
+  height: 240px;
+  background: var(--mch-gold);
+  opacity: 0.18;
+  transform: rotate(28deg);
+  pointer-events: none;
+}
+
+.patient-id-copy,
+.patient-id-actions,
+.patient-id-compact {
+  position: relative;
+  z-index: 1;
+}
+
+.patient-id-kicker {
+  display: block;
+  color: var(--mch-gold-dark);
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.patient-id-copy h3 {
+  margin: 0.08rem 0 0.25rem;
+  font-size: 1.1rem;
+}
+
+.patient-id-copy p {
+  margin: 0 0 0.45rem;
+  color: var(--color-muted);
+  font-size: 0.92rem;
+}
+
+.patient-id-copy code {
+  display: inline-block;
+  color: var(--mch-navy);
+  background: rgba(255, 255, 255, 0.78);
+  border: 1px solid rgba(62, 163, 203, 0.25);
+  border-radius: var(--radius-sm);
+  padding: 0.22rem 0.45rem;
+  font-size: 0.9rem;
+  font-weight: 700;
+  word-break: break-word;
+}
+
+.patient-id-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.4rem;
+}
+
+.patient-id-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  white-space: nowrap;
+}
+
+.patient-id-btn.primary-btn,
+.chat-input-row.assessment-complete .patient-id-btn {
+  background: linear-gradient(135deg, var(--mch-gold) 0%, #9e7824 100%);
+  border-color: #9e7824;
+  color: #ffffff;
+  box-shadow: 0 18px 34px -18px rgba(158, 120, 36, 0.95);
+}
+
+.patient-id-btn.primary-btn:hover:not(:disabled),
+.chat-input-row.assessment-complete .patient-id-btn:hover:not(:disabled) {
+  background: var(--mch-navy);
+  border-color: var(--mch-navy);
+  color: #ffffff;
+}
+
+.chat-input-row.assessment-complete .patient-id-btn {
+  outline: 3px solid rgba(186, 150, 67, 0.24);
+  outline-offset: 2px;
+}
+
+.patient-id-btn-icon {
+  width: 22px;
+  height: 22px;
+  display: inline-grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+
+.patient-id-btn-icon svg {
+  width: 22px;
+  height: 22px;
+  fill: currentColor;
+}
+
+.patient-id-status {
+  color: var(--color-muted);
+  font-size: 0.82rem;
+  text-align: right;
+}
+
+.patient-id-popup-launcher {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 0.75rem;
+}
+
+.call-assessment-panel .patient-id-popup-launcher {
+  justify-content: stretch;
+  margin-top: 1rem;
+}
+
+.call-assessment-panel .patient-id-popup-launcher .patient-id-btn {
+  width: 100%;
+  min-height: 56px;
+  outline: 3px solid rgba(186, 150, 67, 0.24);
+  outline-offset: 2px;
+}
+
+.patient-id-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+}
+
+.patient-id-modal-backdrop {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  padding: 0;
+  background: rgba(10, 18, 32, 0.62);
+  cursor: pointer;
+}
+
+.patient-id-modal-card {
+  position: relative;
+  z-index: 1;
+  width: min(100%, 680px);
+  max-height: calc(100vh - 2rem);
+  overflow-y: auto;
+  background: var(--color-surface);
+  border-radius: var(--radius);
+  border: 1px solid rgba(255, 255, 255, 0.72);
+  box-shadow: 0 28px 70px -24px rgba(10, 18, 32, 0.72);
+  padding: 1rem;
+}
+
+.patient-id-modal-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.15rem 0.15rem 0.85rem;
+}
+
+.patient-id-modal-header h2 {
+  margin: 0.1rem 0 0;
+  font-size: 1.25rem;
+}
+
+.patient-id-modal-close {
+  min-width: 40px;
+  min-height: 40px;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  color: var(--mch-navy);
+  border-color: var(--color-border-strong);
+}
+
+.patient-id-compact {
+  width: 100%;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.75rem;
+  border-top: 1px solid var(--color-border);
+  border-bottom: 1px solid var(--color-border);
+  padding: 0.85rem 0;
+  margin-top: 0.65rem;
+  text-align: left;
+}
+
+.patient-id-compact strong {
+  display: block;
+  color: var(--mch-navy);
+  font-size: 1rem;
+  word-break: break-word;
+}
+
+.patient-id-compact .patient-id-status {
+  grid-column: 1 / -1;
+  text-align: center;
 }
 
 .follow-up-card {
@@ -1031,6 +1290,13 @@ a:hover {
   text-align: center;
 }
 
+.call-card.assessment-ready {
+  border-color: rgba(186, 150, 67, 0.55);
+  background:
+    linear-gradient(180deg, rgba(255, 253, 246, 0.98), rgba(255, 255, 255, 1)),
+    var(--color-surface);
+}
+
 .call-header {
   display: flex;
   flex-direction: column;
@@ -1148,6 +1414,17 @@ a:hover {
   border-color: rgba(0, 169, 224, 0.4);
 }
 
+.call-orb-complete .call-orb-core {
+  background: linear-gradient(135deg, var(--mch-gold) 0%, #9e7824 100%);
+  transform: scale(0.92);
+  box-shadow: 0 18px 34px -18px rgba(158, 120, 36, 0.84);
+}
+
+.call-orb-complete .call-orb-ring {
+  border-color: rgba(186, 150, 67, 0.32);
+  opacity: 0.28;
+}
+
 @keyframes orb-pulse {
   0% {
     transform: scale(0.85);
@@ -1197,6 +1474,10 @@ a:hover {
   color: var(--mch-red);
 }
 
+.call-card.assessment-ready .call-status-text {
+  color: var(--mch-gold-dark);
+}
+
 .call-captions {
   width: 100%;
   display: flex;
@@ -1242,6 +1523,11 @@ a:hover {
   flex-wrap: wrap;
   justify-content: center;
   margin-top: 0.25rem;
+}
+
+.call-actions.assessment-complete {
+  opacity: 0.5;
+  filter: grayscale(0.25);
 }
 
 .call-btn-hangup {
@@ -2085,6 +2371,10 @@ a:hover {
 }
 
 @media (max-width: 768px) {
+  .app-main {
+    padding: 1rem 0.75rem;
+  }
+
   .header-top {
     min-height: auto;
   }
@@ -2116,9 +2406,155 @@ a:hover {
   .nav-label {
     font-size: 0.85rem;
   }
+
+  .chat-page {
+    gap: 0.75rem;
+    min-height: auto;
+  }
+
+  .chat-header {
+    align-items: flex-start;
+    gap: 0.75rem;
+  }
+
+  .chat-header h1 {
+    width: 100%;
+    font-size: 1.35rem;
+  }
+
+  .chat-actions {
+    width: 100%;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.5rem;
+  }
+
+  .chat-actions .secondary-btn {
+    width: 100%;
+    min-height: 44px;
+    padding: 0.55rem 0.65rem;
+  }
+
+  .triage-panel,
+  .recommendation-card,
+  .follow-up-card,
+  .emergency-banner {
+    padding: 0.75rem;
+  }
+
+  .recommendation-card h3 {
+    font-size: 1rem;
+  }
+
+  .quick-prompts {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0.45rem;
+  }
+
+  .quick-prompt-btn {
+    width: 100%;
+    min-height: 44px;
+    text-align: left;
+  }
+
+  .chat-messages {
+    min-height: 320px;
+    max-height: none;
+    padding: 0.75rem;
+  }
+
+  .message-bubble {
+    max-width: 94%;
+    padding: 0.75rem;
+    overflow-wrap: anywhere;
+  }
+
+  .message-meta {
+    flex-wrap: wrap;
+  }
+
+  .chat-input-row {
+    position: sticky;
+    bottom: 0.5rem;
+    z-index: 6;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 0.5rem;
+    align-items: center;
+    padding: 0.55rem;
+    box-shadow: 0 14px 34px -24px rgba(33, 50, 83, 0.65);
+  }
+
+  .voice-controls {
+    grid-column: 1 / -1;
+    justify-content: center;
+  }
+
+  .chat-input {
+    grid-column: 1;
+    min-width: 0;
+  }
+
+  .chat-input-row > .primary-btn {
+    grid-column: 2;
+    width: auto;
+    min-width: 68px;
+    min-height: 48px;
+    padding: 0.55rem 0.85rem;
+  }
+
+  .chat-input-row .patient-id-popup-launcher {
+    grid-column: 1 / -1;
+    width: 100%;
+    justify-content: stretch;
+  }
+
+  .chat-input-row .patient-id-btn {
+    width: 100%;
+    min-height: 52px;
+    padding: 0.65rem 0.75rem;
+    white-space: normal;
+  }
+
+  .patient-id-modal {
+    padding: 0.75rem;
+  }
+
+  .patient-id-modal-card {
+    max-height: calc(100dvh - 1.5rem);
+    padding: 0.85rem;
+  }
+
+  .patient-id-panel {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .patient-id-actions {
+    grid-column: 1 / -1;
+    align-items: stretch;
+  }
+
+  .patient-id-btn {
+    width: 100%;
+    white-space: normal;
+  }
+
+  .patient-id-status {
+    text-align: center;
+  }
+
+  .patient-id-compact {
+    grid-template-columns: 1fr;
+    text-align: center;
+  }
 }
 
 @media (max-width: 480px) {
+  .app-main {
+    padding: 0.75rem 0.5rem;
+  }
+
   .brand-logo {
     height: 52px;
     max-width: min(320px, 82vw);
@@ -2126,6 +2562,55 @@ a:hover {
 
   .language-switcher-header {
     gap: 0.35rem;
+  }
+
+  .chat-header {
+    padding-bottom: 0.6rem;
+  }
+
+  .chat-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .chat-messages {
+    min-height: 280px;
+    padding: 0.6rem;
+  }
+
+  .message-bubble {
+    max-width: 100%;
+  }
+
+  .chat-input-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .voice-controls {
+    grid-column: 1 / -1;
+    justify-content: center;
+  }
+
+  .chat-input {
+    grid-column: 1;
+  }
+
+  .chat-input-row > .primary-btn {
+    grid-column: 2;
+    min-width: 60px;
+    padding: 0.55rem 0.7rem;
+  }
+
+  .chat-input-row .patient-id-popup-launcher {
+    grid-column: 1 / -1;
+  }
+
+  .chat-input-row .patient-id-btn {
+    font-size: 0.92rem;
+  }
+
+  .patient-id-panel {
+    grid-template-columns: 1fr;
+    text-align: center;
   }
 }
 

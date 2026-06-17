@@ -5,6 +5,7 @@ import { api } from '../api';
 import { EmergencyBanner } from '../components/EmergencyBanner';
 import { Layout } from '../components/Layout';
 import { MessageBubble, TypingIndicator } from '../components/MessageBubble';
+import { PatientIdPassPopup } from '../components/PatientIdPass';
 import { RecommendationCard } from '../components/RecommendationCard';
 import { VoiceControls } from '../components/VoiceControls';
 import { useChat } from '../hooks/useChat';
@@ -35,11 +36,13 @@ export function ChatPage() {
   const speech = useSpeechRecognition(language);
   const synthesis = useSpeechSynthesis(language);
   const frontdeskMode = (import.meta.env.VITE_FRONTDESK_MODE ?? 'false') === 'true';
+  const assessmentComplete = Boolean(assessment);
 
   const voiceCall = useVoiceCall({
     sessionId,
     language,
     onTranscript: async (transcript) => {
+      if (assessmentComplete) return null;
       // The voice-call legacy path still uses non-streaming chat —
       // streaming only makes sense for the typed/text input. Voice
       // input goes through Gemini Live's own audio response instead.
@@ -48,6 +51,7 @@ export function ChatPage() {
     },
   });
   const callActive = voiceCall.state !== 'idle' && voiceCall.state !== 'error';
+  const composerDisabled = isSending || callActive || assessmentComplete;
 
   useEffect(() => {
     if (frontdeskMode && synthesis.supported) {
@@ -76,7 +80,7 @@ export function ChatPage() {
 
   const handleSend = async (overrideText?: string, inputMode: 'voice' | 'text' = 'text') => {
     const text = (overrideText ?? input).trim();
-    if (!text) return;
+    if (!text || assessmentComplete) return;
 
     if (!overrideText) {
       setInput('');
@@ -157,6 +161,7 @@ export function ChatPage() {
   }, [speech.transcript, speech.isListening]);
 
   const handleMicClick = () => {
+    if (assessmentComplete) return;
     if (speech.isListening) {
       speech.stopListening();
     } else {
@@ -340,10 +345,10 @@ export function ChatPage() {
           <p className="listening-label">{t('listening')}</p>
         )}
 
-        <div className="chat-input-row">
+        <div className={`chat-input-row ${assessmentComplete ? 'assessment-complete' : ''}`}>
           <VoiceControls
             voiceEnabled={speech.enabled}
-            voiceSupported={speech.supported && !callActive}
+            voiceSupported={speech.supported && !callActive && !assessmentComplete}
             isListening={speech.isListening}
             speakerEnabled={synthesis.enabled}
             speakerSupported={synthesis.supported}
@@ -361,18 +366,33 @@ export function ChatPage() {
                 void handleSend();
               }
             }}
-            placeholder={callActive ? t('callHintActive') : t('typeMessage')}
-            disabled={isSending || callActive}
+            placeholder={
+              assessmentComplete
+                ? t('assessmentCompleteInput')
+                : callActive
+                  ? t('callHintActive')
+                  : t('typeMessage')
+            }
+            disabled={composerDisabled}
             aria-label={t('typeMessage')}
           />
           <button
             type="button"
             className="primary-btn"
             onClick={() => void handleSend()}
-            disabled={isSending || !input.trim() || callActive}
+            disabled={composerDisabled || !input.trim()}
           >
             {t('send')}
           </button>
+          {assessment && (
+            <PatientIdPassPopup
+              sessionId={sessionId}
+              language={language}
+              assessment={assessment}
+              autoOpenKey={`${sessionId}-${assessment.assistantMessageId ?? assessment.severity?.level ?? 'assessment'}`}
+              triggerVariant="primary"
+            />
+          )}
         </div>
 
         {speech.error && <p className="error-text">{speech.error}</p>}

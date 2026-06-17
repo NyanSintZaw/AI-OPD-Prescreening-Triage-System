@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { api } from '../api';
 import { EmergencyBanner } from '../components/EmergencyBanner';
 import { Layout } from '../components/Layout';
+import { PatientIdPassPopup } from '../components/PatientIdPass';
 import { RecommendationCard } from '../components/RecommendationCard';
 import { useChat, toAssessment, type ChatAssessment } from '../hooks/useChat';
 import { useLanguage, useSessionStorage } from '../hooks/useSession';
@@ -107,6 +108,7 @@ export function CallPage() {
   });
 
   const callActive = voiceCall.state !== 'idle' && voiceCall.state !== 'error';
+  const assessmentReady = Boolean(displayAssessment || voiceCall.completedAssessment);
   const autoStartedRef = useRef(false);
   const [autoStartBlocked, setAutoStartBlocked] = useState(false);
 
@@ -145,6 +147,12 @@ export function CallPage() {
   }, [sessionId, callFinished, voiceCall.state, voiceCall.completedAssessment]);
 
   const statusLabel = useMemo(() => {
+    if (assessmentReady) {
+      return callActive || voiceCall.autoEnding
+        ? t('callStateAutoEnding')
+        : t('callAssessmentCompleteTitle');
+    }
+
     switch (voiceCall.state) {
       case 'starting':
         return t('callStateStarting');
@@ -165,7 +173,16 @@ export function CallPage() {
         if (callFinished) return t('callAssessmentCompleteTitle');
         return t('callEnded');
     }
-  }, [voiceCall.state, voiceCall.error, voiceCall.autoEnding, voiceCall.muted, callFinished, t]);
+  }, [
+    assessmentReady,
+    callActive,
+    voiceCall.state,
+    voiceCall.error,
+    voiceCall.autoEnding,
+    voiceCall.muted,
+    callFinished,
+    t,
+  ]);
 
   const handleManualStart = async () => {
     setAutoStartBlocked(false);
@@ -211,13 +228,17 @@ export function CallPage() {
       showAdminLink={false}
     >
       <section className="call-page">
-        <div className="call-card">
+        <div className={`call-card ${assessmentReady ? 'assessment-ready' : ''}`}>
           <div className="call-header">
             <span className="call-status-pill">{t('callPageSubtitle')}</span>
             <h1>{t('callPageTitle')}</h1>
           </div>
 
-          <div className={`call-orb call-orb-${voiceCall.state}`}>
+          <div
+            className={`call-orb ${
+              assessmentReady ? 'call-orb-complete' : `call-orb-${voiceCall.state}`
+            }`}
+          >
             <div className="call-orb-ring" aria-hidden="true" />
             <div className="call-orb-ring delay" aria-hidden="true" />
             <div className="call-orb-core" aria-hidden="true">
@@ -273,17 +294,26 @@ export function CallPage() {
           )}
 
           {(displayAssessment || voiceCall.completedAssessment) && (
-            <div className="call-assessment-panel">
+            <div className="call-assessment-panel assessment-complete">
               <h2>{t('callAssessmentCompleteTitle')}</h2>
               <p className="muted">{t('callAssessmentCompleteSubtitle')}</p>
               {displayAssessment && <RecommendationCard assessment={displayAssessment} />}
+              {displayAssessment && (
+                <PatientIdPassPopup
+                  sessionId={sessionId}
+                  language={language}
+                  assessment={displayAssessment}
+                  autoOpenKey={`${sessionId}-${displayAssessment.assistantMessageId ?? displayAssessment.severity?.level ?? 'assessment'}`}
+                  triggerVariant="primary"
+                />
+              )}
               {voiceCall.completedAssessment?.alert_sent && (
                 <p className="triage-alert-note">{t('humanAlertSent')}</p>
               )}
               {callFinished && (
                 <button
                   type="button"
-                  className="primary-btn call-home-btn"
+                  className="secondary-btn call-home-btn"
                   onClick={() => {
                     setSessionId(null);
                     navigate('/patient');
@@ -295,8 +325,8 @@ export function CallPage() {
             </div>
           )}
 
-          <div className="call-actions">
-            {!callActive && autoStartBlocked && !callFinished && (
+          <div className={`call-actions ${assessmentReady ? 'assessment-complete' : ''}`}>
+            {!callActive && autoStartBlocked && !callFinished && !assessmentReady && (
               <button
                 type="button"
                 className="call-btn start"
@@ -313,6 +343,7 @@ export function CallPage() {
                   className={`call-btn mute call-btn-mute${voiceCall.muted ? ' is-muted' : ''}`}
                   onClick={() => voiceCall.toggleMute()}
                   aria-pressed={voiceCall.muted}
+                  disabled={assessmentReady}
                 >
                   <span aria-hidden="true" className="call-btn-icon">
                     {voiceCall.muted ? <MicOffIcon /> : <MicIcon />}
@@ -326,6 +357,7 @@ export function CallPage() {
                   }`}
                   onClick={() => voiceCall.toggleSpeaker()}
                   aria-pressed={!voiceCall.speakerEnabled}
+                  disabled={assessmentReady}
                 >
                   <span aria-hidden="true" className="call-btn-icon">
                     {voiceCall.speakerEnabled ? <SpeakerOnIcon /> : <SpeakerOffIcon />}
@@ -339,6 +371,7 @@ export function CallPage() {
                 type="button"
                 className="call-btn end call-btn-hangup"
                 onClick={() => void handleEndCall()}
+                disabled={assessmentReady}
               >
                 <span aria-hidden="true" className="call-btn-icon">
                   <HangUpIcon />
