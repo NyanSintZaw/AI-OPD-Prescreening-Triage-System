@@ -29,6 +29,11 @@ export interface ChatAssessment {
     rawText: string;
     bodyLocation?: string;
     durationText?: string;
+    painScore?: number;
+    painLocation?: string;
+    distressScore?: number;
+    distressType?: string;
+    redFlags?: string[];
   };
   followUpQuestion?: string;
   followUpReason?: string;
@@ -69,8 +74,13 @@ export function toAssessment(
     symptoms: payload.symptoms
       ? {
           rawText: payload.symptoms.raw_text,
-          bodyLocation: payload.symptoms.body_location,
-          durationText: payload.symptoms.duration_text,
+          bodyLocation: payload.symptoms.body_location ?? undefined,
+          durationText: payload.symptoms.duration_text ?? undefined,
+          painScore: payload.symptoms.pain_score ?? undefined,
+          painLocation: payload.symptoms.pain_location ?? undefined,
+          distressScore: payload.symptoms.distress_score ?? undefined,
+          distressType: payload.symptoms.distress_type ?? undefined,
+          redFlags: payload.symptoms.red_flags ?? [],
         }
       : undefined,
     followUpQuestion: payload.follow_up_question ?? undefined,

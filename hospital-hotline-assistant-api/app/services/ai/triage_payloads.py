@@ -41,7 +41,16 @@ def _triage_result_to_payload(result: TriageResult) -> dict[str, Any]:
             if result.emergency_trigger_id or result.emergency_alert_message
             else None
         ),
-        "symptoms": None,
+        "symptoms": {
+            "raw_text": result.raw_text,
+            "body_location": None,
+            "duration_text": None,
+            "pain_score": result.pain_score,
+            "pain_location": result.pain_location,
+            "distress_score": result.distress_score,
+            "distress_type": result.distress_type,
+            "red_flags": result.red_flags,
+        },
         "follow_up_question": result.follow_up_question,
         "follow_up_reason": result.follow_up_reason,
         "alert_sent": result.alert_sent,

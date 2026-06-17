@@ -339,9 +339,14 @@ async def chat(
         if result.severity_level == "emergency"
         else None,
         symptoms={
-            "raw_text": payload.content,
+            "raw_text": result.raw_text,
             "body_location": None,
             "duration_text": None,
+            "pain_score": result.pain_score,
+            "pain_location": result.pain_location,
+            "distress_score": result.distress_score,
+            "distress_type": result.distress_type,
+            "red_flags": result.red_flags,
         },
         follow_up_question=result.follow_up_question,
         follow_up_reason=result.follow_up_reason,
@@ -422,9 +427,10 @@ async def create_symptom_entry(session_id: UUID, payload: SymptomEntryCreate, co
         """
         INSERT INTO symptom_entries (
             session_id, message_id, raw_text, normalized_symptoms,
-            body_location, duration_text, pain_score
+            body_location, duration_text, pain_score, pain_location,
+            distress_score, distress_type, red_flags
         )
-        VALUES ($1, $2, $3, $4::jsonb, $5, $6, $7)
+        VALUES ($1, $2, $3, $4::jsonb, $5, $6, $7, $8, $9, $10, $11::jsonb)
         RETURNING *
         """,
         session_id,
@@ -434,6 +440,10 @@ async def create_symptom_entry(session_id: UUID, payload: SymptomEntryCreate, co
         payload.body_location,
         payload.duration_text,
         payload.pain_score,
+        payload.pain_location,
+        payload.distress_score,
+        payload.distress_type,
+        payload.red_flags,
     )
     return record_to_dict(record)
 
@@ -918,6 +928,7 @@ async def voice_call(websocket: WebSocket, session_id: str):
                 session_id,
                 language,
                 conn,
+                db_pool=pool,
                 transcript_callback=push_transcript,
                 emergency_callback=push_emergency,
                 assessment_callback=push_assessment,

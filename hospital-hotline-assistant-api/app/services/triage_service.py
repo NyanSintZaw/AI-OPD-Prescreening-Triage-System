@@ -15,11 +15,39 @@ from app.services.notification_service import (
     EmergencyAlert,
     MockNotificationService,
 )
-from app.services.rule_engine import evaluate_emergency_triggers, evaluate_routing_rules
+from app.services.rule_engine import (
+    evaluate_emergency_triggers,
+    evaluate_routing_rules,
+    evaluate_scale_override,
+)
 from app.services.triage_engine import LlmTriageEngine, TriageEngine
 
 
 logger = logging.getLogger(__name__)
+
+
+def _classification_score(value: Any) -> int | None:
+    if value is None or isinstance(value, bool):
+        return None
+    try:
+        score = int(value)
+    except (TypeError, ValueError):
+        return None
+    return score if 0 <= score <= 10 else None
+
+
+def _classification_text(value: Any) -> str | None:
+    if value is None:
+        return None
+    text = str(value).strip()
+    return text or None
+
+
+def _classification_red_flags(value: Any) -> list[str]:
+    if value is None:
+        return []
+    items = value if isinstance(value, list) else [value]
+    return [str(item).strip() for item in items if str(item).strip()]
 
 
 class TriageService:
@@ -377,9 +405,15 @@ class TriageService:
         )
         severity_explanation: str | None = decision.key_reason
 
-        # Rule engine overrides -- unchanged. Deterministic matches
-        # always win over the LLM, so a known emergency keyword can't
-        # be downgraded by a hallucinating agent.
+        pain_score = _classification_score(classification.get("pain_score"))
+        pain_location = _classification_text(classification.get("pain_location"))
+        distress_score = _classification_score(classification.get("distress_score"))
+        distress_type = _classification_text(classification.get("distress_type"))
+        red_flags = _classification_red_flags(classification.get("red_flags"))
+
+        # Override order: ADK decision -> emergency keyword trigger ->
+        # routing rule -> pain/distress scale. Later rules may escalate
+        # acuity, but nothing can downgrade an existing emergency.
         matched_trigger = emergency_matches[0] if emergency_matches else None
         if matched_trigger:
             severity_level = "emergency"
@@ -391,6 +425,12 @@ class TriageService:
             severity_level = matched_rule.severity_override
             if not severity_explanation:
                 severity_explanation = matched_rule.reason
+
+        scale_override = evaluate_scale_override(classification, severity_level)
+        if scale_override.severity and severity_level != "emergency":
+            severity_level = scale_override.severity
+            if scale_override.reason:
+                severity_explanation = scale_override.reason
 
         # Department resolution with MFU OPD-first policy.
         adk_dept_code = decision.opd_department_code
@@ -459,9 +499,11 @@ class TriageService:
         await connection.execute(
             """
             INSERT INTO symptom_entries (
-                session_id, message_id, raw_text, normalized_symptoms, body_location, duration_text
+                session_id, message_id, raw_text, normalized_symptoms,
+                body_location, duration_text, pain_score, pain_location,
+                distress_score, distress_type, red_flags
             )
-            VALUES ($1, $2, $3, $4::jsonb, $5, $6)
+            VALUES ($1, $2, $3, $4::jsonb, $5, $6, $7, $8, $9, $10, $11::jsonb)
             """,
             session_id,
             msg_user["id"],
@@ -469,6 +511,11 @@ class TriageService:
             [content],
             None,
             None,
+            pain_score,
+            pain_location,
+            distress_score,
+            distress_type,
+            red_flags,
         )
 
         assessment = await connection.fetchrow(
@@ -641,6 +688,12 @@ class TriageService:
             model_name=model_name,
             latency_ms=latency_ms,
             alert_sent=alert_sent,
+            raw_text=content,
+            pain_score=pain_score,
+            pain_location=pain_location,
+            distress_score=distress_score,
+            distress_type=distress_type,
+            red_flags=red_flags,
         )
         return result, dict(msg_assistant)
 

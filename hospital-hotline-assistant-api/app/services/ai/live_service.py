@@ -105,8 +105,8 @@ class LiveVoiceService:
     active sessions. Each entry tracks the live queue (so we can push
     inbound audio), the running transcript (so we can replay it into
     the text pipeline for DB persistence and notification dispatch),
-    the mute flag, the caller's language, the DB connection borrowed
-    from the WebSocket route, and the user-supplied transcript /
+    the mute flag, the caller's language, the DB pool used for short
+    persistence writes, and the user-supplied transcript /
     emergency callbacks.
     """
 
@@ -125,6 +125,7 @@ class LiveVoiceService:
         language: str,
         db_connection: asyncpg.Connection,
         *,
+        db_pool: asyncpg.Pool | None = None,
         transcript_callback: TranscriptCallback | None = None,
         emergency_callback: EmergencyCallback | None = None,
         assessment_callback: AssessmentCallback | None = None,
@@ -156,6 +157,7 @@ class LiveVoiceService:
             "muted": False,
             "language": language,
             "db_connection": db_connection,
+            "db_pool": db_pool,
             "transcript_cb": transcript_callback,
             "emergency_cb": emergency_callback,
             "assessment_cb": assessment_callback,
@@ -623,16 +625,30 @@ class LiveVoiceService:
         ).strip()
 
         try:
-            result, _ = await self.triage_service.finalize_live_assessment(
-                connection=session["db_connection"],
-                session_id=session_id,
-                language=session["language"],
-                input_mode="voice",
-                content=full_text or "[voice call]",
-                classification=classification,
-                contact=session.get("contact") or {},
-                reply=agent_reply or None,
-            )
+            db_pool: asyncpg.Pool | None = session.get("db_pool")
+            if db_pool is not None:
+                async with db_pool.acquire() as connection:
+                    result, _ = await self.triage_service.finalize_live_assessment(
+                        connection=connection,
+                        session_id=session_id,
+                        language=session["language"],
+                        input_mode="voice",
+                        content=full_text or "[voice call]",
+                        classification=classification,
+                        contact=session.get("contact") or {},
+                        reply=agent_reply or None,
+                    )
+            else:
+                result, _ = await self.triage_service.finalize_live_assessment(
+                    connection=session["db_connection"],
+                    session_id=session_id,
+                    language=session["language"],
+                    input_mode="voice",
+                    content=full_text or "[voice call]",
+                    classification=classification,
+                    contact=session.get("contact") or {},
+                    reply=agent_reply or None,
+                )
         except Exception:
             logger.exception(
                 "Failed to finalize live assessment for %s", session_id
@@ -684,13 +700,24 @@ class LiveVoiceService:
             return
 
         try:
-            await self.triage_service.process_chat(
-                connection=session["db_connection"],
-                session_id=session_id,
-                language=session["language"],
-                input_mode="voice",
-                content=full_text,
-            )
+            db_pool: asyncpg.Pool | None = session.get("db_pool")
+            if db_pool is not None:
+                async with db_pool.acquire() as connection:
+                    await self.triage_service.process_chat(
+                        connection=connection,
+                        session_id=session_id,
+                        language=session["language"],
+                        input_mode="voice",
+                        content=full_text,
+                    )
+            else:
+                await self.triage_service.process_chat(
+                    connection=session["db_connection"],
+                    session_id=session_id,
+                    language=session["language"],
+                    input_mode="voice",
+                    content=full_text,
+                )
         except Exception:
             logger.exception(
                 "Mid-call emergency check failed for %s", session_id

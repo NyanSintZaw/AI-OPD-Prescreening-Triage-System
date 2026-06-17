@@ -23,6 +23,12 @@ class TriageResult:
     model_name: str | None
     latency_ms: int
     alert_sent: bool
+    raw_text: str
+    pain_score: int | None
+    pain_location: str | None
+    distress_score: int | None
+    distress_type: str | None
+    red_flags: list[str]
 
 
 

@@ -70,6 +70,10 @@ class SymptomEntryCreate(BaseModel):
     body_location: str | None = None
     duration_text: str | None = None
     pain_score: int | None = Field(default=None, ge=0, le=10)
+    pain_location: str | None = None
+    distress_score: int | None = Field(default=None, ge=0, le=10)
+    distress_type: str | None = None
+    red_flags: list[str] = Field(default_factory=list)
 
 
 class SeverityAssessmentCreate(BaseModel):
@@ -183,6 +187,11 @@ class ChatSymptomsOut(BaseModel):
     raw_text: str
     body_location: str | None = None
     duration_text: str | None = None
+    pain_score: int | None = Field(default=None, ge=0, le=10)
+    pain_location: str | None = None
+    distress_score: int | None = Field(default=None, ge=0, le=10)
+    distress_type: str | None = None
+    red_flags: list[str] = Field(default_factory=list)
 
 
 class ChatResponse(BaseModel):

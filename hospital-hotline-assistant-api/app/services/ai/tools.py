@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from app.services.ai.reference_data import (
     get_department_reference_data,
     get_triage_reference_data,
@@ -39,6 +41,11 @@ def classify_triage_level(
     department_code: str,
     response_time: str,
     needs_emergency_contact: bool,
+    pain_score: int = -1,
+    pain_location: str = "",
+    distress_score: int = -1,
+    distress_type: str = "",
+    red_flags: list[str] = None,
 ) -> dict:
     """Record the final triage classification. Only call after consulting
     get_triage_reference and following the decision_tree. Set needs_emergency_contact=True
@@ -48,7 +55,21 @@ def classify_triage_level(
     Department policy:
     - Level 1-2: department_code must be 'emergency'
     - Level 3-5: department_code must be an OPD code (prefix 'opd_')
+
+    Pain / distress fields are optional. Only include scores the caller
+    actually gave. Pain and breathing distress are different scales.
     """
+
+    def normalize_score(value: Any) -> int | None:
+        if value is None or isinstance(value, bool):
+            return None
+        try:
+            score = int(value)
+        except (TypeError, ValueError):
+            return None
+        return score if 0 <= score <= 10 else None
+
+    red_flag_items = red_flags if isinstance(red_flags, list) else [red_flags]
 
     return {
         "classified": True,
@@ -60,6 +81,15 @@ def classify_triage_level(
         "response_time": response_time,
         "needs_emergency_contact": needs_emergency_contact,
         "symptoms_summary": symptoms_summary,
+        "pain_score": normalize_score(pain_score),
+        "pain_location": pain_location or None,
+        "distress_score": normalize_score(distress_score),
+        "distress_type": distress_type or None,
+        "red_flags": [
+            str(flag).strip()
+            for flag in red_flag_items
+            if flag is not None and str(flag).strip()
+        ],
     }
 
 
@@ -77,5 +107,3 @@ def collect_emergency_contact(
         "phone_number": phone_number,
         "address": address,
     }
-
-

@@ -7,6 +7,7 @@ interface RecommendationCardProps {
 
 export function RecommendationCard({ assessment }: RecommendationCardProps) {
   const { t } = useTranslation();
+  const redFlags = assessment.symptoms?.redFlags ?? [];
 
   if (!assessment.severity && !assessment.department) {
     return null;
@@ -24,6 +25,34 @@ export function RecommendationCard({ assessment }: RecommendationCardProps) {
           {assessment.severity.explanation && (
             <span className="recommendation-detail"> — {assessment.severity.explanation}</span>
           )}
+        </p>
+      )}
+      {assessment.symptoms?.painScore !== undefined && (
+        <p>
+          <strong>{t('painScore')}:</strong> {assessment.symptoms.painScore}/10
+          {assessment.symptoms.painLocation && (
+            <span className="recommendation-detail">
+              {' '}
+              — {assessment.symptoms.painLocation}
+            </span>
+          )}
+        </p>
+      )}
+      {assessment.symptoms?.distressScore !== undefined && (
+        <p>
+          <strong>{t('distressScore')}:</strong>{' '}
+          {assessment.symptoms.distressScore}/10
+          {assessment.symptoms.distressType && (
+            <span className="recommendation-detail">
+              {' '}
+              — {assessment.symptoms.distressType}
+            </span>
+          )}
+        </p>
+      )}
+      {redFlags.length > 0 && (
+        <p>
+          <strong>{t('redFlags')}:</strong> {redFlags.join(', ')}
         </p>
       )}
       {assessment.department && (

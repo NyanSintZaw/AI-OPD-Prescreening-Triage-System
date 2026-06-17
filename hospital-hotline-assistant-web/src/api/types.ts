@@ -52,6 +52,10 @@ export interface SymptomEntryCreate {
   body_location?: string | null;
   duration_text?: string | null;
   pain_score?: number | null;
+  pain_location?: string | null;
+  distress_score?: number | null;
+  distress_type?: string | null;
+  red_flags?: string[];
 }
 
 export interface SeverityAssessmentCreate {
@@ -212,8 +216,13 @@ export interface ChatResponsePayload {
   } | null;
   symptoms?: {
     raw_text: string;
-    body_location?: string;
-    duration_text?: string;
+    body_location?: string | null;
+    duration_text?: string | null;
+    pain_score?: number | null;
+    pain_location?: string | null;
+    distress_score?: number | null;
+    distress_type?: string | null;
+    red_flags?: string[];
   } | null;
   follow_up_question?: string | null;
   follow_up_reason?: string | null;
