@@ -36,6 +36,7 @@ class Settings(BaseSettings):
     # Live model as of May 2026 (released Dec 2025, retires Dec 2026).
     google_live_model_name: str = "gemini-live-2.5-flash-native-audio"
     google_application_credentials: str | None = None
+    live_debug_audio: bool = False
     # ADK now drives the triage agent and assumes Google AI is online,
     # so the default flips on. Override to False in non-AI test envs.
     google_ai_enabled: bool = True

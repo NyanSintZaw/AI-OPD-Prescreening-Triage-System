@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 from datetime import datetime, timezone
 import logging
 from time import perf_counter
@@ -9,6 +8,8 @@ from typing import Any, AsyncIterator
 import asyncpg
 
 from app.config import settings
+from app.services.ai.triage_models import TriageResult
+from app.services.ai.triage_payloads import _triage_result_to_payload
 from app.services.notification_service import (
     BaseNotificationService,
     EmergencyAlert,
@@ -19,25 +20,6 @@ from app.services.triage_engine import LlmTriageEngine, TriageEngine
 
 
 logger = logging.getLogger(__name__)
-
-
-@dataclass
-class TriageResult:
-    reply: str
-    severity_level: str
-    severity_explanation: str | None
-    severity_confidence: float | None
-    department_id: str | None
-    department_reason: str | None
-    department_confidence: float | None
-    emergency_trigger_id: str | None
-    emergency_alert_message: str | None
-    detected_symptoms: list[str]
-    follow_up_question: str | None
-    follow_up_reason: str | None
-    model_name: str | None
-    latency_ms: int
-    alert_sent: bool
 
 
 class TriageService:
@@ -781,46 +763,3 @@ class TriageService:
             "result": _triage_result_to_payload(result),
             "assistant_message": assistant_message,
         }
-
-
-def _triage_result_to_payload(result: TriageResult) -> dict[str, Any]:
-    """Coerce :class:`TriageResult` into the same JSON shape the
-    existing ``/sessions/{id}/chat`` REST response uses.
-
-    Keeping the schema identical between streaming and non-streaming
-    means the frontend can re-use its existing ``ChatResponsePayload``
-    parser for the terminal ``complete`` event.
-    """
-
-    return {
-        "reply": result.reply,
-        "severity": {
-            "level": result.severity_level,
-            "explanation": result.severity_explanation,
-            "confidence": result.severity_confidence,
-        },
-        "department": (
-            {
-                "department_id": result.department_id,
-                "reason": result.department_reason,
-                "confidence": result.department_confidence,
-            }
-            if result.department_id
-            else None
-        ),
-        "emergency": (
-            {
-                "trigger_id": result.emergency_trigger_id,
-                "alert_message": result.emergency_alert_message,
-                "detected_symptoms": result.detected_symptoms,
-            }
-            if result.emergency_trigger_id or result.emergency_alert_message
-            else None
-        ),
-        "symptoms": None,
-        "follow_up_question": result.follow_up_question,
-        "follow_up_reason": result.follow_up_reason,
-        "alert_sent": result.alert_sent,
-        "model_name": result.model_name,
-        "latency_ms": result.latency_ms,
-    }
