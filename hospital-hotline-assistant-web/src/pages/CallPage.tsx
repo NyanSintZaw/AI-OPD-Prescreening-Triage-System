@@ -294,6 +294,11 @@ export function CallPage() {
               <p className="muted">{t('callAssessmentCompleteSubtitle')}</p>
               {displayAssessment && <RecommendationCard assessment={displayAssessment} />}
               {displayAssessment && (
+                <p className="muted call-session-id">
+                  {t('sessionId')}: <code>{sessionId}</code>
+                </p>
+              )}
+              {displayAssessment && (
                 <PatientIdPassPopup
                   sessionId={sessionId}
                   language={language}

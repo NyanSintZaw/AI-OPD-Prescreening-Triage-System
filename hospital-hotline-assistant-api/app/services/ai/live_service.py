@@ -626,11 +626,22 @@ class LiveVoiceService:
         if not text:
             return
 
+        logger.debug(
+            "Live contact preference turn: %s flow=%s text=%r",
+            session_id,
+            flow,
+            text,
+        )
+
         if flow == "awaiting_consent":
             wants_contact = _has_yes(text)
             declines_contact = _has_no(text)
 
             if declines_contact and not wants_contact:
+                logger.info(
+                    "Patient declined contact for %s; persisting decline and completing assessment",
+                    session_id,
+                )
                 session["contact_preference"] = {"requested": False, "phone": None}
                 session["contact_flow"] = "done"
                 await self._persist_contact_preference(session_id, session)
