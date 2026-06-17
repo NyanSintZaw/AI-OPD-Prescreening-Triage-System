@@ -71,6 +71,6 @@ class LlmTriageEngine:
             opd_department_code=dept,
             key_reason=classification.get("key_reason"),
             symptoms_summary=classification.get("symptoms_summary"),
-            needs_emergency_contact=bool(classification.get("needs_emergency_contact")),
+            needs_emergency_contact=False,
             classification=classification,
         )

@@ -243,11 +243,13 @@ class AdminLoginResponse(BaseModel):
 
 class AssessmentReviewApproveRequest(BaseModel):
     notes: str | None = None
+    ai_assessment_score: int | None = Field(default=None, ge=1, le=10)
 
 
 class AssessmentReviewCorrectRequest(BaseModel):
     confirmed_department_id: UUID
     reason: str | None = None
+    ai_assessment_score: int | None = Field(default=None, ge=1, le=10)
 
 
 class AssessmentReviewOut(BaseModel):
@@ -263,6 +265,10 @@ class AssessmentReviewOut(BaseModel):
     confirmed_department_id: UUID | None = None
     confirmed_department_name_en: str | None = None
     confirmed_department_name_th: str | None = None
+    ai_assessment_score: int | None = None
+    ai_assessment_scale: int = 10
+    patient_contact_requested: bool | None = None
+    patient_contact_phone: str | None = None
     notes: str | None = None
     reviewed_at: datetime | None = None
     created_at: datetime

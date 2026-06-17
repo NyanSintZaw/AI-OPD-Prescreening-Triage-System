@@ -15,7 +15,6 @@ from google.genai import types as genai_types  # noqa: E402
 from app.services.ai.agent_factory import (  # noqa: E402
     APP_NAME,
     _SESSION_SERVICE,
-    build_emergency_agent,
     build_orchestrator,
     build_triage_agent,
 )
@@ -35,10 +34,7 @@ class HotlineADKRunner:
 
     def __init__(self) -> None:
         triage_agent = build_triage_agent()
-        emergency_agent = build_emergency_agent()
-        self._root_agent: LlmAgent = build_orchestrator(
-            triage_agent, emergency_agent
-        )
+        self._root_agent = build_orchestrator(triage_agent)
         self._runner: Runner = Runner(
             app_name=APP_NAME,
             agent=self._root_agent,
@@ -85,9 +81,8 @@ class HotlineADKRunner:
         """Run one hotline turn through the ADK Orchestrator.
 
         See module docstring for how ``input_mode`` shapes the reply
-        format. Returns a dict with the assistant reply plus the
-        classification / contact dicts produced by tool calls this
-        turn (each ``{}`` if the corresponding tool was not invoked).
+        format. Returns a dict with the assistant reply plus any
+        classification dict produced by tool calls this turn.
         """
 
         # Step 1 — make sure the ADK session exists.
@@ -128,7 +123,6 @@ class HotlineADKRunner:
         # tool-call outputs.
         reply_chunks: list[str] = []
         classification: dict[str, Any] = {}
-        contact: dict[str, Any] = {}
 
         try:
             async for event in self._runner.run_async(
@@ -166,8 +160,6 @@ class HotlineADKRunner:
                     if isinstance(response_payload, dict):
                         if response_payload.get("classified") is True:
                             classification = dict(response_payload)
-                        if response_payload.get("contact_collected") is True:
-                            contact = dict(response_payload)
         except Exception:
             logger.exception(
                 "ADK runner failed for session=%s mode=%s", session_id, input_mode
@@ -198,7 +190,7 @@ class HotlineADKRunner:
         return {
             "reply": reply,
             "classification": classification,
-            "contact": contact,
+            "contact": {},
             "input_mode": input_mode,
         }
 
@@ -226,19 +218,16 @@ class HotlineADKRunner:
         * ``{"type": "classified", "classification": {...}}`` — fired
           the moment the agent invokes ``classify_triage_level``. The
           payload mirrors what the tool returned.
-        * ``{"type": "contact", "contact": {...}}`` — fired when the
-          EmergencyAgent submits ``collect_emergency_contact``.
         * ``{"type": "done", "reply": "...", "classification": {...},
-          "contact": {...}, "input_mode": "..."}`` — terminal event with
+          "contact": {}, "input_mode": "..."}`` — terminal event with
           the fully-assembled reply and tool outputs, ready for
-          ``triage_service`` to persist and run the rule engine /
-          notifier pipeline against.
+          ``triage_service`` to persist and run the rule engine.
 
         Uses ADK's ``StreamingMode.SSE`` so the runner emits partial
         events as Gemini produces tokens, plus an aggregated final
         event per LLM call. With our multi-agent setup (Orchestrator
-        → TriageAgent / EmergencyAgent, each of which can fire
-        multiple tool calls), one user turn can trigger 2–4 LLM calls
+        → TriageAgent, which can fire multiple tool calls), one user
+        turn can trigger 2–4 LLM calls
         — and Gemini's 2.5 family likes to emit reasoning text
         *alongside* every function_call it makes. If we naively
         forwarded all partial text the caller would see 3–4
@@ -293,7 +282,6 @@ class HotlineADKRunner:
         kept_chunks: list[str] = []
         current_run_chunks: list[str] = []
         classification: dict[str, Any] = {}
-        contact: dict[str, Any] = {}
 
         # Tracks whether we've already stripped the meta-marker prefix
         # from the streaming output. The model occasionally echoes
@@ -334,9 +322,6 @@ class HotlineADKRunner:
                                 "type": "classified",
                                 "classification": classification,
                             }
-                        if response_payload.get("contact_collected") is True:
-                            contact = dict(response_payload)
-                            yield {"type": "contact", "contact": contact}
 
                 if is_partial:
                     # Stream text deltas as they arrive. We can't yet
@@ -412,8 +397,6 @@ class HotlineADKRunner:
             "type": "done",
             "reply": reply,
             "classification": classification,
-            "contact": contact,
+            "contact": {},
             "input_mode": input_mode,
         }
-
-

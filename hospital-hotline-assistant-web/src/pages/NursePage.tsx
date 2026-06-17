@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { api, type MessageOut } from '../api';
@@ -33,10 +33,11 @@ export function NursePage() {
   const [correctReasonByAssessment, setCorrectReasonByAssessment] = useState<Record<string, string>>(
     {},
   );
+  const [scoreByAssessment, setScoreByAssessment] = useState<Record<string, string>>({});
+  const [contactRequestedOnly, setContactRequestedOnly] = useState(false);
   const [reviewDataLoading, setReviewDataLoading] = useState(true);
 
-  // ── Conversation state (per review item) ──
-  const [expandedSessionId, setExpandedSessionId] = useState<string | null>(null);
+  const [selectedReview, setSelectedReview] = useState<AssessmentReviewOut | null>(null);
   const [sessionMessages, setSessionMessages] = useState<MessageOut[]>([]);
   const [sessionMessagesLoading, setSessionMessagesLoading] = useState(false);
 
@@ -83,6 +84,17 @@ export function NursePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [reviewFilter]);
 
+  useEffect(() => {
+    if (!selectedReview) return undefined;
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [selectedReview]);
+
   const handleLogout = () => {
     api.adminLogout();
     navigate('/login/nurse', { replace: true });
@@ -90,9 +102,14 @@ export function NursePage() {
 
   const handleApprove = async (review: AssessmentReviewOut) => {
     setReviewActionLoading(review.assessment_id);
+    const score = scoreByAssessment[review.assessment_id];
     try {
-      await api.approveAssessmentReview(review.assessment_id, {});
+      await api.approveAssessmentReview(review.assessment_id, {
+        ai_assessment_score: score ? Number(score) : null,
+      });
       await loadReviewData(reviewFilter);
+      setSelectedReview(null);
+      setSessionMessages([]);
     } catch (err) {
       setAuthError(err instanceof Error ? err.message : t('error'));
     } finally {
@@ -104,12 +121,16 @@ export function NursePage() {
     const selectedDepartment = correctDepartmentByAssessment[review.assessment_id];
     if (!selectedDepartment) return;
     setReviewActionLoading(review.assessment_id);
+    const score = scoreByAssessment[review.assessment_id];
     try {
       await api.correctAssessmentReview(review.assessment_id, {
         confirmed_department_id: selectedDepartment,
         reason: correctReasonByAssessment[review.assessment_id] || null,
+        ai_assessment_score: score ? Number(score) : null,
       });
       await loadReviewData(reviewFilter);
+      setSelectedReview(null);
+      setSessionMessages([]);
     } catch (err) {
       setAuthError(err instanceof Error ? err.message : t('error'));
     } finally {
@@ -117,23 +138,23 @@ export function NursePage() {
     }
   };
 
-  const handleToggleConversation = async (sessionId: string) => {
-    if (expandedSessionId === sessionId) {
-      setExpandedSessionId(null);
-      setSessionMessages([]);
-      return;
-    }
-
-    setExpandedSessionId(sessionId);
+  const handleOpenReview = async (review: AssessmentReviewOut) => {
+    setSelectedReview(review);
+    setSessionMessages([]);
     setSessionMessagesLoading(true);
     try {
-      const messageData = await api.listMessages(sessionId);
+      const messageData = await api.listMessages(review.session_id);
       setSessionMessages(messageData);
     } catch (err) {
       setAuthError(err instanceof Error ? err.message : t('error'));
     } finally {
       setSessionMessagesLoading(false);
     }
+  };
+
+  const handleCloseReview = () => {
+    setSelectedReview(null);
+    setSessionMessages([]);
   };
 
   const reviewDeptLabel = (review: AssessmentReviewOut) =>
@@ -145,6 +166,25 @@ export function NursePage() {
     language === 'th'
       ? review.confirmed_department_name_th ?? review.confirmed_department_name_en ?? null
       : review.confirmed_department_name_en ?? null;
+
+  const contactLabel = (review: AssessmentReviewOut) => {
+    if (review.patient_contact_requested === true) return t('patientContactYes');
+    if (review.patient_contact_requested === false) return t('patientContactNo');
+    return t('patientContactUnknown');
+  };
+
+  const filteredReviews = useMemo(
+    () =>
+      contactRequestedOnly
+        ? reviews.filter((review) => review.patient_contact_requested === true)
+        : reviews,
+    [contactRequestedOnly, reviews],
+  );
+
+  const contactRequestedCount = useMemo(
+    () => reviews.filter((review) => review.patient_contact_requested === true).length,
+    [reviews],
+  );
 
   return (
     <Layout
@@ -182,53 +222,77 @@ export function NursePage() {
 
         {authError ? <p className="error-text">{authError}</p> : null}
 
+        <div className="admin-toolbar nurse-toolbar">
+          <div className="chip-group" role="group" aria-label={t('nurseContactFilterLabel')}>
+            <span className="chip-group-label">{t('nurseContactFilterLabel')}</span>
+            <button
+              type="button"
+              className={`filter-chip tone-neutral ${!contactRequestedOnly ? 'active' : ''}`}
+              onClick={() => setContactRequestedOnly(false)}
+            >
+              {t('filterAll')}
+            </button>
+            <button
+              type="button"
+              className={`filter-chip tone-urgent ${contactRequestedOnly ? 'active' : ''}`}
+              onClick={() => setContactRequestedOnly(true)}
+            >
+              {t('nurseContactRequestedOnly')} ({contactRequestedCount})
+            </button>
+          </div>
+        </div>
+
         {/* ── Review cards ── */}
         {reviewDataLoading ? (
           <p className="muted">{t('loading')}</p>
-        ) : reviews.length === 0 ? (
-          <p className="muted">{t('adminNoReviews')}</p>
+        ) : filteredReviews.length === 0 ? (
+          <p className="muted">
+            {contactRequestedOnly ? t('nurseNoContactRequestedReviews') : t('adminNoReviews')}
+          </p>
         ) : (
           <div className="nurse-review-list">
-            {reviews.map((review) => {
-              const isExpanded = expandedSessionId === review.session_id;
+            {filteredReviews.map((review) => {
               const confirmed = confirmedDeptLabel(review);
 
               return (
                 <article
                   key={review.id}
-                  className={`nurse-review-card ${isExpanded ? 'expanded' : ''} review-${review.status}`}
+                  className={`nurse-review-card review-${review.status}`}
                 >
-                  {/* ── Card header ── */}
                   <div className="nurse-card-header">
                     <div className="nurse-card-header-left">
                       <span className={`status-pill status-${review.status}`}>
                         {t(`review_${review.status}`)}
                       </span>
-                      <code className="nurse-session-code">{truncateId(review.session_id)}</code>
+                      <code className="nurse-session-code">{review.session_id}</code>
                     </div>
                     <button
                       type="button"
-                      className={`nurse-conv-btn ${isExpanded ? 'active' : ''}`}
-                      onClick={() => void handleToggleConversation(review.session_id)}
-                      aria-expanded={isExpanded}
+                      className="nurse-conv-btn"
+                      onClick={() => void handleOpenReview(review)}
                     >
-                      <span className="nurse-conv-btn-icon" aria-hidden="true">
-                        {isExpanded ? '\u25B2' : '\u25BC'}
-                      </span>
-                      {isExpanded ? t('nurseHideConversation') : t('nurseViewConversation')}
+                      {t('nurseReviewCase')}
                     </button>
                   </div>
 
-                  {/* ── Department info ── */}
-                  <div className="nurse-card-dept">
-                    <span className="nurse-card-dept-label">{t('department')}</span>
-                    <span className="nurse-card-dept-value">{reviewDeptLabel(review)}</span>
-                    {review.status === 'corrected' && confirmed && (
-                      <>
-                        <span className="nurse-card-dept-arrow" aria-hidden="true">{'\u2192'}</span>
-                        <span className="nurse-card-dept-corrected">{confirmed}</span>
-                      </>
-                    )}
+                  <div className="nurse-card-summary-grid">
+                    <div className="nurse-card-meta-item">
+                      <span className="nurse-card-dept-label">{t('department')}</span>
+                      <span className="nurse-card-dept-value">
+                        {reviewDeptLabel(review)}
+                        {review.status === 'corrected' && confirmed ? ` -> ${confirmed}` : ''}
+                      </span>
+                    </div>
+                    <div className="nurse-card-meta-item">
+                      <span className="nurse-card-dept-label">{t('patientContactPreference')}</span>
+                      <span className="nurse-card-dept-value">{contactLabel(review)}</span>
+                    </div>
+                    <div className="nurse-card-meta-item">
+                      <span className="nurse-card-dept-label">{t('patientContactPhone')}</span>
+                      <span className="nurse-card-dept-value">
+                        {review.patient_contact_phone || '—'}
+                      </span>
+                    </div>
                   </div>
 
                   {review.reviewed_at && (
@@ -239,28 +303,87 @@ export function NursePage() {
                       <span className="nurse-card-time">{formatDateAbsolute(review.reviewed_at)}</span>
                     </div>
                   )}
+                </article>
+              );
+            })}
+          </div>
+        )}
 
-                  {/* ── Actions (pending only) ── */}
-                  {review.status === 'pending' && (
-                    <div className="nurse-card-actions">
-                      <button
-                        type="button"
-                        className="nurse-approve-btn"
-                        disabled={reviewActionLoading === review.assessment_id}
-                        onClick={() => void handleApprove(review)}
-                      >
-                        <span aria-hidden="true">{'\u2713'}</span>
-                        {t('adminApprove')}
-                      </button>
+        {selectedReview && (
+          <div className="nurse-review-modal" role="dialog" aria-modal="true" aria-labelledby="nurse-review-modal-title">
+            <button
+              type="button"
+              className="nurse-review-modal-backdrop"
+              aria-label={t('close')}
+              onClick={handleCloseReview}
+            />
+            <div className="nurse-review-modal-card">
+              <div className="nurse-review-modal-header">
+                <div>
+                  <p className="nurse-review-modal-kicker">{t('nurseCaseReview')}</p>
+                  <h2 id="nurse-review-modal-title">
+                    {selectedReview.session_id}
+                  </h2>
+                </div>
+                <button
+                  type="button"
+                  className="icon-btn nurse-review-modal-close"
+                  onClick={handleCloseReview}
+                  aria-label={t('close')}
+                >
+                  {'\u00D7'}
+                </button>
+              </div>
 
-                      <div className="nurse-correct-group">
+              <div className="nurse-review-modal-body">
+                <aside className="nurse-review-decision-panel">
+                  <div className="nurse-review-facts">
+                    <div>
+                      <span className="nurse-card-dept-label">{t('department')}</span>
+                      <strong>{reviewDeptLabel(selectedReview)}</strong>
+                    </div>
+                    <div>
+                      <span className="nurse-card-dept-label">{t('patientContactPreference')}</span>
+                      <strong>{contactLabel(selectedReview)}</strong>
+                    </div>
+                    <div>
+                      <span className="nurse-card-dept-label">{t('patientContactPhone')}</span>
+                      <strong>{selectedReview.patient_contact_phone || '—'}</strong>
+                    </div>
+                  </div>
+
+                  {selectedReview.status === 'pending' ? (
+                    <>
+                      <label className="nurse-score-field nurse-modal-field">
+                        <span>{t('aiAssessmentScore')}</span>
+                        <select
+                          className="nurse-score-select"
+                          value={scoreByAssessment[selectedReview.assessment_id] ?? ''}
+                          onChange={(e) =>
+                            setScoreByAssessment((prev) => ({
+                              ...prev,
+                              [selectedReview.assessment_id]: e.target.value,
+                            }))
+                          }
+                        >
+                          <option value="">{t('aiAssessmentScorePlaceholder')}</option>
+                          {Array.from({ length: 10 }, (_, index) => index + 1).map((score) => (
+                            <option key={score} value={score}>
+                              {score}/10
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+
+                      <div className="nurse-modal-correction">
+                        <p className="nurse-review-section-title">{t('nurseDepartmentDecision')}</p>
                         <select
                           className="nurse-dept-select"
-                          value={correctDepartmentByAssessment[review.assessment_id] ?? ''}
+                          value={correctDepartmentByAssessment[selectedReview.assessment_id] ?? ''}
                           onChange={(e) =>
                             setCorrectDepartmentByAssessment((prev) => ({
                               ...prev,
-                              [review.assessment_id]: e.target.value,
+                              [selectedReview.assessment_id]: e.target.value,
                             }))
                           }
                         >
@@ -277,57 +400,75 @@ export function NursePage() {
                           type="text"
                           className="nurse-reason-input"
                           placeholder={t('adminCorrectionReasonPlaceholder')}
-                          value={correctReasonByAssessment[review.assessment_id] ?? ''}
+                          value={correctReasonByAssessment[selectedReview.assessment_id] ?? ''}
                           onChange={(e) =>
                             setCorrectReasonByAssessment((prev) => ({
                               ...prev,
-                              [review.assessment_id]: e.target.value,
+                              [selectedReview.assessment_id]: e.target.value,
                             }))
                           }
                         />
+                      </div>
+
+                      <div className="nurse-review-modal-actions">
+                        <button
+                          type="button"
+                          className="nurse-approve-btn"
+                          disabled={reviewActionLoading === selectedReview.assessment_id}
+                          onClick={() => void handleApprove(selectedReview)}
+                        >
+                          <span aria-hidden="true">{'\u2713'}</span>
+                          {t('nurseApproveAssessment')}
+                        </button>
                         <button
                           type="button"
                           className="nurse-correct-btn"
                           disabled={
-                            reviewActionLoading === review.assessment_id ||
-                            !(correctDepartmentByAssessment[review.assessment_id] ?? '')
+                            reviewActionLoading === selectedReview.assessment_id ||
+                            !(correctDepartmentByAssessment[selectedReview.assessment_id] ?? '')
                           }
-                          onClick={() => void handleCorrect(review)}
+                          onClick={() => void handleCorrect(selectedReview)}
                         >
                           {t('adminCorrectRoute')}
                         </button>
                       </div>
-                    </div>
-                  )}
-
-                  {/* ── Expanded conversation panel ── */}
-                  {isExpanded && (
-                    <div className="nurse-conv-panel">
-                      <div className="nurse-conv-panel-header">
-                        <span className="nurse-conv-panel-title">{t('nurseConversationTitle')}</span>
-                        <span className="nurse-conv-panel-count">
-                          {sessionMessagesLoading ? '…' : `${sessionMessages.length} ${t('messages').toLowerCase()}`}
-                        </span>
+                    </>
+                  ) : selectedReview.ai_assessment_score ? (
+                    <div className="nurse-review-facts">
+                      <div>
+                        <span className="nurse-card-dept-label">{t('aiAssessmentScore')}</span>
+                        <strong>
+                          {selectedReview.ai_assessment_score}/{selectedReview.ai_assessment_scale}
+                        </strong>
                       </div>
-                      {sessionMessagesLoading ? (
-                        <div className="nurse-conv-loading">
-                          <span className="nurse-conv-spinner" aria-hidden="true" />
-                          <span>{t('loading')}</span>
-                        </div>
-                      ) : sessionMessages.length === 0 ? (
-                        <p className="muted nurse-conv-empty">{t('noMessages')}</p>
-                      ) : (
-                        <div className="nurse-conv-messages">
-                          {sessionMessages.map((message) => (
-                            <MessageBubble key={message.id} message={message} />
-                          ))}
-                        </div>
-                      )}
+                    </div>
+                  ) : null}
+                </aside>
+
+                <section className="nurse-review-transcript-panel">
+                  <div className="nurse-conv-panel-header">
+                    <span className="nurse-conv-panel-title">{t('nurseConversationTitle')}</span>
+                    <span className="nurse-conv-panel-count">
+                      {sessionMessagesLoading ? '…' : `${sessionMessages.length} ${t('messages').toLowerCase()}`}
+                    </span>
+                  </div>
+                  {sessionMessagesLoading ? (
+                    <div className="nurse-conv-loading">
+                      <span className="nurse-conv-spinner" aria-hidden="true" />
+                      <span>{t('loading')}</span>
+                    </div>
+                  ) : sessionMessages.length === 0 ? (
+                    <p className="muted nurse-conv-empty">{t('noMessages')}</p>
+                  ) : (
+                    <div className="nurse-conv-messages nurse-modal-messages">
+                      {sessionMessages.map((message) => (
+                        <MessageBubble key={message.id} message={message} />
+                      ))}
                     </div>
                   )}
-                </article>
-              );
-            })}
+                </section>
+              </div>
+            </div>
           </div>
         )}
 

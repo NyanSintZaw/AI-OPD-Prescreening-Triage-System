@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { api } from '../api';
-import { EmergencyBanner } from '../components/EmergencyBanner';
 import { Layout } from '../components/Layout';
 import { MessageBubble, TypingIndicator } from '../components/MessageBubble';
 import { PatientIdPassPopup } from '../components/PatientIdPass';
@@ -256,20 +255,7 @@ export function ChatPage() {
               {t(`severity_${assessment.severity.level}`)}
               {assessment.severity.explanation ? ` - ${assessment.severity.explanation}` : ''}
             </div>
-            {assessment.alertSent && (
-              <div className="triage-alert-note">{t('humanAlertSent')}</div>
-            )}
           </div>
-        )}
-
-        {assessment?.emergency && (
-          <EmergencyBanner
-            message={assessment.emergency.alertMessage}
-            ctaLabel={t('callStaffNow')}
-            onCtaClick={() => {
-              window.alert(t('callStaffInstruction'));
-            }}
-          />
         )}
 
         {assessment && <RecommendationCard assessment={assessment} />}

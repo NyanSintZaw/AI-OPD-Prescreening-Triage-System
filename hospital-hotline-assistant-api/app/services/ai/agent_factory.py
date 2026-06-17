@@ -12,13 +12,11 @@ from google.adk.sessions import InMemorySessionService  # noqa: E402
 from google.adk.tools import FunctionTool  # noqa: E402
 
 from app.services.ai.prompts import (  # noqa: E402
-    _EMERGENCY_INSTRUCTION,
     _ORCHESTRATOR_INSTRUCTION,
     _TRIAGE_INSTRUCTION,
 )
 from app.services.ai.tools import (  # noqa: E402
     classify_triage_level,
-    collect_emergency_contact,
     get_department_list,
     get_triage_reference,
 )
@@ -48,38 +46,21 @@ def build_triage_agent(model_name: str | None = None) -> LlmAgent:
     )
 
 
-def build_emergency_agent(model_name: str | None = None) -> LlmAgent:
-    return LlmAgent(
-        name="EmergencyAgent",
-        description=(
-            "Collects patient name, phone, and address for Level 1 / Level 2 "
-            "ambulance dispatch. Activated only after the TriageAgent has "
-            "classified the case with needs_emergency_contact=True."
-        ),
-        model=model_name or settings.google_model_name,
-        instruction=_EMERGENCY_INSTRUCTION,
-        tools=[FunctionTool(collect_emergency_contact)],
-    )
-
-
 def build_orchestrator(
     triage_agent: LlmAgent,
-    emergency_agent: LlmAgent,
     model_name: str | None = None,
 ) -> LlmAgent:
     return LlmAgent(
         name="HotlineOrchestrator",
         description=(
-            "Routes hotline turns between the TriageAgent (symptom triage) "
-            "and the EmergencyAgent (contact collection for dispatch)."
+            "Routes every hotline turn to the TriageAgent for symptom triage."
         ),
         model=model_name or settings.google_model_name,
         instruction=_ORCHESTRATOR_INSTRUCTION,
-        sub_agents=[triage_agent, emergency_agent],
+        sub_agents=[triage_agent],
     )
 
 
 # Backward-compatible private names used by the old facade.
 _build_triage_agent = build_triage_agent
-_build_emergency_agent = build_emergency_agent
 _build_orchestrator = build_orchestrator

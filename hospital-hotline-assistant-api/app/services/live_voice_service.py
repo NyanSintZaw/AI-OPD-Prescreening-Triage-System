@@ -8,7 +8,6 @@ from app.services.ai.live_audio import (
 from app.services.ai.live_events import (
     _smart_append,
     _strip_meta_markers,
-    agent_transcript_signals_dispatch,
     extract_response_payload,
     log_event_shape,
 )
@@ -31,7 +30,6 @@ __all__ = [
     "_kickoff_prompt",
     "_smart_append",
     "_strip_meta_markers",
-    "agent_transcript_signals_dispatch",
     "extract_response_payload",
     "log_event_shape",
 ]

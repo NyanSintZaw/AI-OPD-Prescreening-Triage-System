@@ -65,10 +65,6 @@ export interface VoiceEmergencyPayload {
   color?: string;
   label?: string;
   detectedSymptoms?: string[];
-  contactCollected?: boolean;
-  patientName?: string;
-  phoneNumber?: string;
-  address?: string;
 }
 
 export interface UseVoiceCallApi {
@@ -92,6 +88,7 @@ export interface UseVoiceCallApi {
   autoEnding: boolean;
   start: () => Promise<void>;
   end: () => Promise<void>;
+  sendTurn: () => void;
   toggleMute: () => void;
   setMuted: (muted: boolean) => void;
   toggleSpeaker: () => void;
@@ -414,6 +411,10 @@ export function useVoiceCall(options: UseVoiceCallOptions): UseVoiceCallApi {
         }
         return;
       }
+      if (pendingAutoEndRef.current && autoEndTimerRef.current !== null) {
+        window.clearTimeout(autoEndTimerRef.current);
+        autoEndTimerRef.current = null;
+      }
       const queue = ensurePlaybackContext();
       let buffer: AudioBuffer;
       try {
@@ -609,10 +610,6 @@ export function useVoiceCall(options: UseVoiceCallOptions): UseVoiceCallApi {
           color?: string;
           label?: string;
           detected_symptoms?: string[];
-          contact_collected?: boolean;
-          patient_name?: string;
-          phone_number?: string;
-          address?: string;
         };
         switch (message.type) {
           case 'status':
@@ -660,10 +657,6 @@ export function useVoiceCall(options: UseVoiceCallOptions): UseVoiceCallApi {
               color: message.color,
               label: message.label,
               detectedSymptoms: message.detected_symptoms,
-              contactCollected: message.contact_collected,
-              patientName: message.patient_name,
-              phoneNumber: message.phone_number,
-              address: message.address,
             });
             return;
           }
@@ -928,6 +921,22 @@ export function useVoiceCall(options: UseVoiceCallOptions): UseVoiceCallApi {
 
   endRef.current = end;
 
+  // ----- Turn boundary -------------------------------------------------
+
+  const sendTurn = useCallback(() => {
+    if (!activeRef.current || mutedRef.current) return;
+    mutedRef.current = true;
+    setMutedState(true);
+    const ws = wsRef.current;
+    if (!ws || ws.readyState !== WebSocket.OPEN) return;
+    try {
+      ws.send(JSON.stringify({ type: 'end_of_turn' }));
+      updateState('thinking');
+    } catch {
+      // Keep the local gate closed if the socket is unhealthy.
+    }
+  }, [updateState]);
+
   // ----- Mute toggle ---------------------------------------------------
 
   const setMuted = useCallback(
@@ -939,9 +948,8 @@ export function useVoiceCall(options: UseVoiceCallOptions): UseVoiceCallApi {
       try {
         ws.send(JSON.stringify({ type: next ? 'mute' : 'unmute' }));
         if (!activeRef.current) return;
-        // Mute doubles as "done speaking" — show thinking until audio returns.
         if (next) {
-          updateState('thinking');
+          updateState('listening');
         } else if (stateRef.current !== 'speaking') {
           updateState('listening');
         }
@@ -1007,6 +1015,7 @@ export function useVoiceCall(options: UseVoiceCallOptions): UseVoiceCallApi {
     autoEnding,
     start,
     end,
+    sendTurn,
     toggleMute,
     setMuted,
     toggleSpeaker,

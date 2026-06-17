@@ -48,26 +48,6 @@ def _smart_append(chunks: list[str], fragment: str) -> str | None:
     return f
 
 
-_DISPATCH_COMPLETION_PHRASES_EN: tuple[str, ...] = (
-    "dispatching help",
-    "ambulance is on",
-    "ambulance has been",
-    "help is on the way",
-    "we have your information",
-    "we've collected your",
-    "i've recorded your contact",
-    "emergency services are on",
-    "dispatch is on the way",
-)
-_DISPATCH_COMPLETION_PHRASES_TH: tuple[str, ...] = (
-    "ส่งความช่วยเหลือ",
-    "รถพยาบาลกำลัง",
-    "เจ้าหน้าที่กำลัง",
-    "เราได้รับข้อมูล",
-    "ดำเนินการส่ง",
-)
-
-
 def log_event_shape(session_id: str, event: Any) -> None:
     """Dump a one-line summary of a live ADK event's useful attributes."""
 
@@ -134,19 +114,3 @@ def extract_response_payload(func_response: Any) -> dict[str, Any] | None:
     if isinstance(out, dict):
         return out
     return None
-
-
-def agent_transcript_signals_dispatch(session: dict[str, Any]) -> bool:
-    """Return True if accumulated agent speech appears to confirm dispatch."""
-
-    text = " ".join(c for c in session.get("agent_transcript", []) if c)
-    if not text:
-        return False
-    lowered = text.lower()
-    language = session.get("language", "en")
-    phrases = (
-        _DISPATCH_COMPLETION_PHRASES_TH
-        if language == "th"
-        else _DISPATCH_COMPLETION_PHRASES_EN
-    )
-    return any(phrase in lowered for phrase in phrases)

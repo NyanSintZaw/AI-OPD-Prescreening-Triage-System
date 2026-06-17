@@ -12,12 +12,10 @@ class Settings(BaseSettings):
         "http://localhost:5174",
         "http://127.0.0.1:5174",
     ]
-    # Toggle the in-process mock notification sink that logs emergency
-    # dispatches to stdout instead of calling an external system. Stays
-    # on by default until LINE / FCM / SMS integration lands.
+    # Toggle the in-process mock staff summary sink.
     mock_notifier_enabled: bool = True
-    # Generic webhook URL placeholder for the upcoming LINE / FCM / SMS
-    # notification pipeline. Leave as None to use the mock notifier.
+    # Reserved for future staff-summary integrations. Leave as None to
+    # use the mock notifier.
     notification_webhook_url: str | None = None
     alert_severity_threshold: str = "emergency"
     alert_cooldown_seconds: int = 300

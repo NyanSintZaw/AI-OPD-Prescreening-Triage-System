@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
 import logging
 from time import perf_counter
 from typing import Any, AsyncIterator
@@ -59,7 +58,7 @@ class TriageService:
         self.triage_engine: TriageEngine = triage_engine or LlmTriageEngine()
         # Default to the mock notifier so the demo + tests work without
         # any external transport. Callers can inject a production sink
-        # (LINE / FCM / SMS) once those services land.
+        # real staff-summary channel once one is configured.
         self.notifier: BaseNotificationService = notifier or MockNotificationService()
 
     async def _prepare_chat_turn(
@@ -93,7 +92,6 @@ class TriageService:
         prior_classification: dict[str, Any] = (
             prior_metadata.get("triage_classification") or {}
         )
-        prior_contact: dict[str, Any] = prior_metadata.get("emergency_contact") or {}
 
         msg_user = await connection.fetchrow(
             """
@@ -161,7 +159,7 @@ class TriageService:
             "msg_user": msg_user,
             "prior_metadata": prior_metadata,
             "prior_classification": prior_classification,
-            "prior_contact": prior_contact,
+            "prior_contact": {},
             "department_by_code": department_by_code,
             "department_name_by_id": department_name_by_id,
             "emergency_matches": emergency_matches,
@@ -226,7 +224,7 @@ class TriageService:
         """Persist a completed live-voice assessment without re-invoking ADK.
 
         Called when the live pipeline has already collected classification
-        (and contact, for emergencies) via tool responses. Skips the
+        via tool responses. Skips the
         expensive ``adk_runner.chat`` round-trip and writes the same DB
         rows + staff notifications as a normal chat turn.
         """
@@ -313,14 +311,9 @@ class TriageService:
     ) -> None:
         """Push a staff-facing triage summary when a call completes.
 
-        Emergency dispatch with contact details is handled inside
-        :meth:`_finalize_chat_turn` via :meth:`send_alert`. This path
-        covers every completed assessment — including non-emergency
-        levels — so staff always receive the final result.
+        This path covers every completed assessment — including
+        emergency levels — so staff always receive the final result.
         """
-
-        if result.alert_sent:
-            return
 
         dept_name = None
         dept_id = result.department_id
@@ -351,9 +344,6 @@ class TriageService:
             department_name=dept_name,
             detected_symptoms=detected,
             alert_message=summary_line,
-            patient_name=contact.get("patient_name"),
-            phone_number=contact.get("phone_number"),
-            address=contact.get("address"),
         )
         await self.notifier.send_assessment_summary(alert)
 
@@ -379,7 +369,6 @@ class TriageService:
         msg_user = ctx["msg_user"]
         prior_metadata = ctx["prior_metadata"]
         prior_classification = ctx["prior_classification"]
-        prior_contact = ctx["prior_contact"]
         department_by_code = ctx["department_by_code"]
         department_name_by_id = ctx["department_name_by_id"]
         emergency_matches = ctx["emergency_matches"]
@@ -387,14 +376,10 @@ class TriageService:
 
         reply = adk_result["reply"]
         new_classification: dict[str, Any] = adk_result.get("classification", {})
-        new_contact: dict[str, Any] = adk_result.get("contact", {})
-
         # Sticky state: if this turn produced a fresh classification use it,
-        # otherwise reuse the one from earlier in the conversation. Contact
-        # fields accumulate (later turns add patient_name / phone / address
-        # one at a time as the EmergencyAgent collects them).
+        # otherwise reuse the one from earlier in the conversation.
         classification: dict[str, Any] = new_classification or prior_classification
-        contact: dict[str, Any] = {**prior_contact, **new_contact}
+        contact: dict[str, Any] = adk_result.get("contact", {}) or {}
 
         # Severity comes from the swappable triage engine so the ADK path
         # and future trained-model path can share the same persistence flow.
@@ -482,9 +467,7 @@ class TriageService:
             department_reason = "OPD-first default routing for non-emergency assessment"
             department_confidence = 0.6
 
-        emergency_alert_message = (
-            matched_trigger.alert_message if matched_trigger else None
-        )
+        emergency_alert_message = None
         # ADK doesn't emit a structured symptoms list per turn -- the
         # classifier's ``symptoms_summary`` is a sentence. Use it when
         # present, otherwise fall back to the raw user content so the
@@ -566,22 +549,6 @@ class TriageService:
                 department_id,
             )
 
-        if severity_level == "emergency":
-            await connection.execute(
-                """
-                INSERT INTO emergency_events (
-                    session_id, trigger_id, source_message_id, detected_symptoms, alert_message
-                )
-                VALUES ($1, $2, $3, $4::jsonb, $5)
-                """,
-                session_id,
-                matched_trigger.id if matched_trigger else None,
-                msg_user["id"],
-                detected_symptoms,
-                emergency_alert_message
-                or ("กรุณาติดต่อเจ้าหน้าที่ทันที" if language == "th" else "Please contact medical staff immediately"),
-            )
-
         # ADK handles follow-up natively inside the agent's reply -- the
         # follow-up question is just part of ``reply`` now, no separate
         # structured field, no follow_up_questions row.
@@ -602,71 +569,26 @@ class TriageService:
         )
 
         alert_sent = False
-        should_notify = await self.notifier.should_send(
-            connection,
-            session_id,
-            severity_level,
-            threshold=settings.alert_severity_threshold,
-            cooldown_seconds=settings.alert_cooldown_seconds,
-        )
-        # Gate the actual dispatch on EmergencyAgent having finished its work:
-        # the agent collects patient name → phone → address over multiple
-        # turns and only sets ``contact_collected=True`` once all three are
-        # in hand (via the ``collect_emergency_contact`` tool). Firing before
-        # that would send the mock alert with "n/a" placeholders and skip
-        # the multi-turn dialogue the user expects.
-        contact_ready = bool(contact.get("contact_collected"))
-        if should_notify and contact_ready:
-            alert = EmergencyAlert(
-                session_id=session_id,
-                language=language,
-                severity=severity_level,
-                confidence=severity_confidence,
-                department_name=department_name_by_id.get(department_id or ""),
-                detected_symptoms=detected_symptoms,
-                alert_message=emergency_alert_message,
-                patient_name=contact.get("patient_name"),
-                phone_number=contact.get("phone_number"),
-                address=contact.get("address"),
-            )
-            alert_sent = await self.notifier.send_alert(alert)
 
         # Persist the merged triage state on every turn so the next call to
-        # ``process_chat`` can rebuild ``classification`` / ``contact`` even
-        # if ADK didn't emit a tool output this turn (typical for the middle
-        # of the EmergencyAgent name → phone → address handoff). Escalation
-        # / alert markers only update on emergency or alert turns.
+        # ``process_chat`` can rebuild ``classification`` even if ADK didn't
+        # emit a tool output this turn.
         existing_metadata = dict(prior_metadata)
         existing_metadata["triage_classification"] = classification
-        existing_metadata["emergency_contact"] = contact
+        if "requested" in contact:
+            existing_metadata["patient_contact_requested"] = contact.get("requested")
+            existing_metadata["patient_contact_phone"] = contact.get("phone")
         if severity_level == "emergency":
-            # Track escalation as soon as the case is classified emergency
-            # so dashboards / session.status reflect that immediately,
-            # regardless of whether contact has been collected yet.
             existing_metadata["escalation_reason"] = (
                 severity_explanation or "Emergency triage match"
             )
-        if alert_sent:
-            # last_alert_at drives the notifier cooldown -- it MUST only
-            # advance when an alert was actually dispatched. If we updated
-            # it on every emergency turn (even when contact wasn't ready
-            # yet), the EmergencyAgent's later contact-complete turn would
-            # be silently suppressed by the cooldown and the mock notifier
-            # would never fire.
-            existing_metadata["alert_sent"] = True
-            existing_metadata["last_alert_at"] = datetime.now(
-                timezone.utc
-            ).isoformat()
         await connection.execute(
             """
             UPDATE sessions
-            SET status = CASE WHEN $2 = 'emergency' THEN 'escalated' ELSE status END,
-                ended_at = CASE WHEN $2 = 'emergency' THEN NOW() ELSE ended_at END,
-                metadata = $3::jsonb
+            SET metadata = $2::jsonb
             WHERE id = $1
             """,
             session_id,
-            severity_level,
             existing_metadata,
         )
 
@@ -720,8 +642,7 @@ class TriageService:
           inbound user message is persisted (so the UI can re-render
           its optimistic bubble with the real DB id + timestamp).
         * ``{"type": "delta", "text": "..."}`` as the agent streams.
-        * ``{"type": "classified", ...}`` / ``{"type": "contact", ...}``
-          when the respective tool fires.
+        * ``{"type": "classified", ...}`` when the triage tool fires.
         * ``{"type": "complete", "result": {...},
             "assistant_message": {...}}`` terminal event with the full
           TriageResult payload (matches the existing /chat response
@@ -778,20 +699,14 @@ class TriageService:
                 elif event_type == "classified":
                     adk_result["classification"] = event["classification"]
                     yield event
-                elif event_type == "contact":
-                    adk_result["contact"] = event["contact"]
-                    yield event
                 elif event_type == "done":
                     adk_result["reply"] = event.get("reply", "")
-                    # Refresh classification/contact in case the agent
+                    # Refresh classification in case the agent
                     # tool fired only inside the aggregated final event
                     # (which we explicitly forward through ``done``).
                     adk_result["classification"] = (
                         event.get("classification")
                         or adk_result["classification"]
-                    )
-                    adk_result["contact"] = (
-                        event.get("contact") or adk_result["contact"]
                     )
         except Exception as exc:
             yield {"type": "error", "message": f"agent_stream_failed: {exc}"}

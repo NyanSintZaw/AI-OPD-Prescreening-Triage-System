@@ -74,8 +74,8 @@ async def lifespan(app: FastAPI):
     app.state.tts_client = GoogleTtsClient()
     app.state.stt_client = GoogleSttClient()
     # Gemini Live API bridge — owns the per-call WebSocket state for
-    # voice mode. Reuses the same TriageService so emergency dispatch
-    # paths through MockNotificationService stay identical to text.
+    # voice mode. Reuses the same TriageService so live and text produce
+    # the same triage assessment payloads.
     app.state.live_voice_service = LiveVoiceService(
         triage_service=app.state.triage_service
     )
@@ -107,8 +107,11 @@ async def _serialize_review(
             pd.name_en AS proposed_department_name_en,
             pd.name_th AS proposed_department_name_th,
             cd.name_en AS confirmed_department_name_en,
-            cd.name_th AS confirmed_department_name_th
+            cd.name_th AS confirmed_department_name_th,
+            (s.metadata->>'patient_contact_requested')::boolean AS patient_contact_requested,
+            NULLIF(s.metadata->>'patient_contact_phone', '') AS patient_contact_phone
         FROM assessment_reviews ar
+        JOIN sessions s ON s.id = ar.session_id
         LEFT JOIN admin_users reviewer ON reviewer.id = ar.reviewer_id
         LEFT JOIN departments pd ON pd.id = ar.proposed_department_id
         LEFT JOIN departments cd ON cd.id = ar.confirmed_department_id
@@ -367,7 +370,7 @@ async def chat_stream(
     Streams the agent's response back to the client incrementally so
     the UI can render tokens as they arrive (typewriter effect) and
     kick off per-sentence TTS before the model finishes generating.
-    Persistence, rule-engine overrides, and notifier dispatch run
+    Persistence and rule-engine overrides run
     exactly as in the non-streaming path — only the transport differs.
 
     The stream emits NDJSON frames inside an SSE ``data:`` line so the
@@ -697,8 +700,11 @@ async def list_assessment_reviews(
             pd.name_en AS proposed_department_name_en,
             pd.name_th AS proposed_department_name_th,
             cd.name_en AS confirmed_department_name_en,
-            cd.name_th AS confirmed_department_name_th
+            cd.name_th AS confirmed_department_name_th,
+            (s.metadata->>'patient_contact_requested')::boolean AS patient_contact_requested,
+            NULLIF(s.metadata->>'patient_contact_phone', '') AS patient_contact_phone
         FROM assessment_reviews ar
+        JOIN sessions s ON s.id = ar.session_id
         LEFT JOIN admin_users reviewer ON reviewer.id = ar.reviewer_id
         LEFT JOIN departments pd ON pd.id = ar.proposed_department_id
         LEFT JOIN departments cd ON cd.id = ar.confirmed_department_id
@@ -725,6 +731,8 @@ async def approve_assessment_review(
             reviewer_id = $2,
             confirmed_department_id = COALESCE(confirmed_department_id, proposed_department_id),
             notes = $3,
+            ai_assessment_score = $4,
+            ai_assessment_scale = 10,
             reviewed_at = NOW(),
             updated_at = NOW()
         WHERE assessment_id = $1
@@ -733,6 +741,7 @@ async def approve_assessment_review(
         assessment_id,
         admin_user["id"],
         payload.notes,
+        payload.ai_assessment_score,
     )
     if row is None:
         raise HTTPException(status_code=404, detail="Assessment review not found")
@@ -780,6 +789,8 @@ async def correct_assessment_review(
             reviewer_id = $2,
             confirmed_department_id = $3,
             notes = $4,
+            ai_assessment_score = $5,
+            ai_assessment_scale = 10,
             reviewed_at = NOW(),
             updated_at = NOW()
         WHERE assessment_id = $1
@@ -788,6 +799,7 @@ async def correct_assessment_review(
         admin_user["id"],
         payload.confirmed_department_id,
         payload.reason,
+        payload.ai_assessment_score,
     )
 
     await connection.execute(

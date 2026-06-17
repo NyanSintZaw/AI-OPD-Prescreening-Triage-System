@@ -2905,13 +2905,6 @@ a:hover {
   box-shadow: var(--shadow-card);
 }
 
-.nurse-review-card.expanded {
-  border-color: var(--mch-cyan);
-  box-shadow:
-    0 0 0 1px var(--mch-cyan),
-    var(--shadow-card);
-}
-
 /* ── Card header ── */
 .nurse-card-header {
   display: flex;
@@ -2935,6 +2928,7 @@ a:hover {
   border-radius: var(--radius-sm);
   font-family: monospace;
   letter-spacing: 0.02em;
+  overflow-wrap: anywhere;
 }
 
 /* ── View conversation button ── */
@@ -2959,21 +2953,6 @@ a:hover {
   background: #d4ecf6;
   border-color: var(--mch-cyan);
   color: var(--mch-navy);
-}
-
-.nurse-conv-btn.active {
-  background: var(--mch-cyan);
-  border-color: var(--mch-cyan);
-  color: #ffffff;
-}
-
-.nurse-conv-btn-icon {
-  font-size: 0.6rem;
-  transition: transform 0.25s ease;
-}
-
-.nurse-conv-btn.active .nurse-conv-btn-icon {
-  transform: rotate(180deg);
 }
 
 /* ── Department info row ── */
@@ -3009,6 +2988,32 @@ a:hover {
   font-weight: 600;
 }
 
+.nurse-card-summary-grid,
+.nurse-card-meta-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.65rem;
+  margin-top: 0.75rem;
+}
+
+.nurse-card-meta-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 0;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+}
+
+@media (max-width: 768px) {
+  .nurse-card-summary-grid,
+  .nurse-card-meta-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 /* ── Reviewed at info ── */
 .nurse-card-reviewed-at {
   display: flex;
@@ -3032,6 +3037,18 @@ a:hover {
   margin-top: 0.85rem;
   padding-top: 0.85rem;
   border-top: 1px solid var(--color-border);
+}
+
+.nurse-score-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  max-width: 220px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-muted);
 }
 
 .nurse-approve-btn {
@@ -3076,6 +3093,7 @@ a:hover {
 }
 
 .nurse-dept-select,
+.nurse-score-select,
 .nurse-reason-input {
   min-height: 40px;
   border: 1px solid var(--color-border-strong);
@@ -3088,6 +3106,7 @@ a:hover {
 }
 
 .nurse-dept-select:focus,
+.nurse-score-select:focus,
 .nurse-reason-input:focus {
   outline: none;
   border-color: var(--mch-cyan);
@@ -3227,4 +3246,173 @@ a:hover {
 .nurse-conv-empty {
   text-align: center;
   padding: 1.5rem 1rem;
+}
+
+/* ═══════════════════════════════════════════════
+   Nurse Review Modal
+   ═══════════════════════════════════════════════ */
+
+.nurse-review-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.25rem;
+}
+
+.nurse-review-modal-backdrop {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  background: rgba(15, 23, 42, 0.55);
+  cursor: pointer;
+}
+
+.nurse-review-modal-card {
+  position: relative;
+  z-index: 1;
+  width: min(1120px, 100%);
+  height: min(820px, calc(100vh - 2.5rem));
+  max-height: min(820px, calc(100vh - 2.5rem));
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  box-shadow: 0 24px 70px rgba(15, 23, 42, 0.28);
+}
+
+.nurse-review-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1.15rem;
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-surface);
+}
+
+.nurse-review-modal-kicker,
+.nurse-review-section-title {
+  margin: 0;
+  color: var(--color-muted);
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.nurse-review-modal-header h2 {
+  margin: 0.15rem 0 0;
+  color: var(--mch-navy);
+  font-size: 1.15rem;
+  overflow-wrap: anywhere;
+}
+
+.nurse-review-modal-close {
+  flex: 0 0 auto;
+}
+
+.nurse-review-modal-body {
+  display: grid;
+  grid-template-columns: minmax(280px, 340px) minmax(0, 1fr);
+  gap: 1rem;
+  min-height: 0;
+  flex: 1;
+  padding: 1rem;
+  overflow: hidden;
+}
+
+.nurse-review-decision-panel,
+.nurse-review-transcript-panel {
+  min-height: 0;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+}
+
+.nurse-review-decision-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  padding: 0.9rem;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.nurse-review-transcript-panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding: 0.9rem;
+  overflow: hidden;
+  overscroll-behavior: contain;
+}
+
+.nurse-review-facts {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.nurse-review-facts > div {
+  display: grid;
+  gap: 0.22rem;
+  padding-bottom: 0.65rem;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.nurse-review-facts > div:last-child {
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
+.nurse-review-facts strong {
+  color: var(--color-text);
+  font-size: 0.98rem;
+  font-weight: 700;
+}
+
+.nurse-modal-field {
+  max-width: none;
+}
+
+.nurse-modal-correction {
+  display: grid;
+  gap: 0.55rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid var(--color-border);
+}
+
+.nurse-review-modal-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid var(--color-border);
+}
+
+.nurse-modal-messages {
+  flex: 1;
+  min-height: 0;
+  max-height: none;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+@media (max-width: 860px) {
+  .nurse-review-modal {
+    padding: 0.75rem;
+  }
+
+  .nurse-review-modal-body {
+    grid-template-columns: 1fr;
+    overflow-y: auto;
+  }
+
+  .nurse-review-transcript-panel {
+    min-height: 420px;
+  }
 }

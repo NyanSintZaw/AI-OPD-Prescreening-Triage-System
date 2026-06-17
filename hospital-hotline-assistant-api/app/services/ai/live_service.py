@@ -19,9 +19,9 @@ Debug knobs:
 * Surfaces live caller / agent transcripts and emergency tool calls
   through user-supplied callbacks so the WebSocket route can forward
   them to the frontend.
-* Persists the accumulated caller transcript into the text triage
-  pipeline so DB rows and the mock notifier still fire — both
-  mid-call (on emergency detection) and on final disconnect.
+* Persists the accumulated caller transcript into the normal triage
+  assessment pipeline so DB rows and the staff summary stay consistent
+  with text mode.
 
 The Gemini Live API itself emits audio + transcription events; we do
 not run STT ourselves. The text-mode chat path is left untouched —
@@ -32,6 +32,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import re
 from collections.abc import AsyncIterator, Awaitable, Callable
 from typing import Any
 
@@ -47,7 +48,6 @@ from app.services.ai.live_audio import (
 from app.services.ai.live_events import (
     _smart_append,
     _strip_meta_markers,
-    agent_transcript_signals_dispatch,
     extract_response_payload,
     log_event_shape,
 )
@@ -56,6 +56,12 @@ from app.services.ai.triage_payloads import _triage_result_to_payload
 from app.services.triage_service import TriageService
 
 logger = logging.getLogger(__name__)
+
+_PHONE_RE = re.compile(r"(?:\+?\d[\d\s().-]{6,}\d)")
+_YES_PHRASES = ("yes", "yeah", "yep", "sure", "ok", "okay", "please")
+_YES_THAI_PHRASES = ("ใช่", "ได้", "ตกลง", "ต้องการ")
+_NO_PHRASES = ("no", "nope", "not now", "don't", "do not")
+_NO_THAI_PHRASES = ("ไม่ต้อง", "ไม่เอา", "ไม่")
 
 # Transcript callback: receives ("user"|"agent", text). Called from the
 # live event loop so should be cheap and non-blocking — typically just
@@ -98,13 +104,30 @@ def _kickoff_prompt(language: str) -> str:
     )
 
 
+def _contains_phrase(text: str, phrases: tuple[str, ...]) -> bool:
+    lowered = text.lower()
+    return any(phrase in lowered for phrase in phrases)
+
+
+def _has_yes(text: str) -> bool:
+    return _contains_phrase(text, _YES_PHRASES) or any(
+        phrase in text for phrase in _YES_THAI_PHRASES
+    )
+
+
+def _has_no(text: str) -> bool:
+    return _contains_phrase(text, _NO_PHRASES) or any(
+        phrase in text for phrase in _NO_THAI_PHRASES
+    )
+
+
 class LiveVoiceService:
     """Per-session orchestrator for live voice calls.
 
     Holds a single :class:`HotlineADKLiveRunner` and an in-memory map of
     active sessions. Each entry tracks the live queue (so we can push
     inbound audio), the running transcript (so we can replay it into
-    the text pipeline for DB persistence and notification dispatch),
+    the text pipeline for DB persistence),
     the mute flag, the caller's language, the DB pool used for short
     persistence writes, and the user-supplied transcript /
     emergency callbacks.
@@ -155,6 +178,7 @@ class LiveVoiceService:
             "transcript": [],         # accumulates caller speech (input transcription)
             "agent_transcript": [],   # accumulates agent speech (output transcription)
             "muted": False,
+            "activity_open": False,
             "language": language,
             "db_connection": db_connection,
             "db_pool": db_pool,
@@ -162,12 +186,14 @@ class LiveVoiceService:
             "emergency_cb": emergency_callback,
             "assessment_cb": assessment_callback,
             "classification": {},
-            "contact": {},
+            "contact_preference": {},
+            "contact_flow": "idle",
+            "contact_transcript_index": 0,
             "assessment_finalized": False,
             # Tracks whether we have already replayed the live transcript
             # into ``process_chat`` for a given trigger so we don't
             # double-fire notifications on the same emergency.
-            "emergency_dispatched": False,
+            "emergency_announced": False,
             # Last severity emitted to the emergency callback. Lets us
             # avoid re-emitting the same banner on every subsequent tool
             # event during an active emergency.
@@ -229,7 +255,7 @@ class LiveVoiceService:
 
         # Final assessment sync — if the call ended before the auto-complete
         # path fired (user hung up early, network drop, etc.), still persist
-        # whatever classification/contact we captured from tool responses.
+        # whatever classification we captured from tool responses.
         if not session.get("assessment_finalized"):
             await self._complete_call_assessment(session_id, session=session)
 
@@ -253,6 +279,12 @@ class LiveVoiceService:
         if session["muted"]:
             return
 
+        queue: LiveRequestQueue = session["queue"]
+        if not session.get("activity_open"):
+            queue.send_activity_start()
+            session["activity_open"] = True
+            logger.info("Session %s user activity started", session_id)
+
         blob = genai_types.Blob(
             data=audio_chunk,
             mime_type=_INPUT_AUDIO_MIME_TYPE,
@@ -260,7 +292,7 @@ class LiveVoiceService:
         # LiveRequestQueue.send_realtime is the standard channel for
         # real-time PCM blobs and is intentionally synchronous (it just
         # puts an item onto an internal asyncio.Queue under the hood).
-        session["queue"].send_realtime(blob)
+        queue.send_realtime(blob)
 
         if _DEBUG_AUDIO:
             session["audio_in_chunks"] += 1
@@ -283,48 +315,37 @@ class LiveVoiceService:
                 )
 
     def set_mute(self, session_id: str, muted: bool) -> None:
-        """Toggle mute and signal turn boundaries to Gemini Live.
+        """Toggle the server-side microphone gate.
 
-        Muting stops forwarding microphone audio **and** sends
-        ``activity_end`` so the model stops waiting for more speech and
-        responds to what it already heard. Unmuting resumes forwarding
-        and sends ``activity_start`` so the next utterance is a fresh
-        user turn.
+        Muting only stops forwarding fresh microphone chunks. The Send
+        button calls :meth:`end_user_turn` to close the activity and
+        trigger the model response.
         """
 
         session = self._sessions.get(session_id)
         if session is None:
             raise ValueError("Session not found")
         session["muted"] = muted
-        queue: LiveRequestQueue = session["queue"]
-        try:
-            if muted:
-                queue.send_activity_end()
-                logger.info(
-                    "Session %s muted; activity_end sent", session_id
-                )
-            else:
-                queue.send_activity_start()
-                logger.info(
-                    "Session %s unmuted; activity_start sent", session_id
-                )
-        except Exception:  # noqa: BLE001 — must not break the WS control plane
-            logger.exception(
-                "Failed to send activity signal for %s (muted=%s)",
-                session_id,
-                muted,
-            )
         logger.info("Session %s mute=%s", session_id, muted)
 
     def end_user_turn(self, session_id: str) -> None:
-        """Tell Gemini Live the caller finished speaking (push-to-talk end)."""
+        """Tell Gemini Live the caller finished speaking."""
 
         session = self._sessions.get(session_id)
         if session is None:
             raise ValueError("Session not found")
+        session["muted"] = True
+        if not session.get("activity_open"):
+            logger.info(
+                "Session %s user turn ended with no open activity", session_id
+            )
+            return
         try:
             session["queue"].send_activity_end()
+            session["activity_open"] = False
             logger.info("Session %s user turn ended (activity_end)", session_id)
+            if session.get("contact_flow") in {"awaiting_consent", "awaiting_phone"}:
+                asyncio.create_task(self._handle_contact_preference_turn(session_id))
         except Exception:  # noqa: BLE001
             logger.exception("Failed to end user turn for %s", session_id)
 
@@ -486,24 +507,6 @@ class LiveVoiceService:
                         logger.exception(
                             "transcript_cb(agent) failed for %s", session_id
                         )
-                # Heuristic safety net: if the agent says something that
-                # sounds like dispatch confirmation but our tool-response
-                # detection above never fired, replay the transcript into
-                # the text pipeline anyway. Protects against ADK live
-                # event-shape drift where function_response parts don't
-                # surface in the live event stream.
-                if not session["emergency_dispatched"]:
-                    if agent_transcript_signals_dispatch(session):
-                        logger.info(
-                            "Heuristic dispatch detection fired for %s "
-                            "(no function_response observed but agent "
-                            "transcript mentioned dispatch)",
-                            session_id,
-                        )
-                        session["emergency_dispatched"] = True
-                        asyncio.create_task(
-                            self._trigger_emergency_check(session_id)
-                        )
 
     async def _handle_tool_response(
         self,
@@ -513,10 +516,8 @@ class LiveVoiceService:
     ) -> None:
         """React to a single function_response payload from the live event stream.
 
-        Emergency classifications and contact-collection completions both
-        cascade into the text pipeline via ``_trigger_emergency_check`` so
-        ``process_chat`` writes the same DB rows it would in text mode.
-        The frontend banner gets an immediate push via ``emergency_cb``.
+        Classification is terminal for both emergency and non-emergency
+        cases. Emergency no longer enters a contact/dispatch flow.
         """
 
         session = self._sessions.get(session_id)
@@ -524,26 +525,20 @@ class LiveVoiceService:
             return
 
         classified = payload.get("classified") is True
-        contact_collected = payload.get("contact_collected") is True
         level = payload.get("level") if isinstance(payload.get("level"), int) else None
-        needs_contact = payload.get("needs_emergency_contact") is True
 
         if classified:
             session["classification"] = payload
 
-        if contact_collected:
-            session["contact"] = payload
-
-        if classified and level in (1, 2) and not session["emergency_dispatched"]:
-            session["emergency_dispatched"] = True
-            asyncio.create_task(self._trigger_emergency_check(session_id))
+        if classified and level in (1, 2) and not session["emergency_announced"]:
+            session["emergency_announced"] = True
             if emergency_cb is not None:
                 banner_payload: dict[str, Any] = {
                     "severity": "emergency",
                     "level": level,
                     "alert_message": (
                         payload.get("key_reason")
-                        or "Emergency triage match — dispatch in progress"
+                        or "Emergency triage match"
                     ),
                     "department_code": payload.get("department_code"),
                     "color": payload.get("color"),
@@ -562,36 +557,140 @@ class LiveVoiceService:
                         "emergency_cb (classify) failed for %s", session_id
                     )
 
-        if contact_collected:
-            asyncio.create_task(self._trigger_emergency_check(session_id))
-            if emergency_cb is not None:
-                # Contact-complete event — let the frontend banner update
-                # with the dispatch confirmation copy if it wants to.
-                try:
-                    await emergency_cb(
-                        {
-                            "severity": "emergency",
-                            "contact_collected": True,
-                            "patient_name": payload.get("patient_name"),
-                            "phone_number": payload.get("phone_number"),
-                            "address": payload.get("address"),
-                        }
-                    )
-                except Exception:
-                    logger.exception(
-                        "emergency_cb (contact) failed for %s", session_id
-                    )
-            # All emergency info collected — finalize and auto-end.
-            asyncio.create_task(self._complete_call_assessment(session_id))
-
-        elif classified and not needs_contact and not session.get("assessment_finalized"):
-            # Non-emergency triage complete (Levels 3–5). Finalize once
-            # the agent has delivered the spoken summary.
-            asyncio.create_task(self._complete_call_assessment(session_id))
+        if classified and session.get("contact_flow") == "idle":
+            session["contact_flow"] = "awaiting_consent"
+            session["contact_transcript_index"] = len(session["transcript"])
+            session["contact_preference"] = {"requested": None, "phone": None}
 
     # ------------------------------------------------------------------
     # Assessment completion + auto-end
     # ------------------------------------------------------------------
+
+    def _contact_reply_text(self, session: dict[str, Any]) -> str:
+        chunks = session.get("transcript", [])
+        start = int(session.get("contact_transcript_index") or 0)
+        return " ".join(str(chunk).strip() for chunk in chunks[start:] if chunk).strip()
+
+    def _send_agent_instruction(self, session: dict[str, Any], text: str) -> None:
+        content = genai_types.Content(
+            role="user",
+            parts=[genai_types.Part(text=f"[SYSTEM_ACTION] {text}")],
+        )
+        session["queue"].send_content(content=content)
+
+    async def _persist_contact_preference(
+        self,
+        session_id: str,
+        session: dict[str, Any],
+    ) -> None:
+        preference = session.get("contact_preference") or {}
+        try:
+            db_pool: asyncpg.Pool | None = session.get("db_pool")
+            if db_pool is not None:
+                async with db_pool.acquire() as connection:
+                    await self._write_contact_preference(connection, session_id, preference)
+            else:
+                await self._write_contact_preference(
+                    session["db_connection"], session_id, preference
+                )
+        except Exception:
+            logger.exception("Failed to persist contact preference for %s", session_id)
+
+    async def _write_contact_preference(
+        self,
+        connection: asyncpg.Connection,
+        session_id: str,
+        preference: dict[str, Any],
+    ) -> None:
+        await connection.execute(
+            """
+            UPDATE sessions
+            SET metadata = metadata || $2::jsonb
+            WHERE id = $1
+            """,
+            session_id,
+            {
+                "patient_contact_requested": preference.get("requested"),
+                "patient_contact_phone": preference.get("phone"),
+            },
+        )
+
+    async def _handle_contact_preference_turn(self, session_id: str) -> None:
+        await asyncio.sleep(0.4)
+        session = self._sessions.get(session_id)
+        if session is None or session.get("assessment_finalized"):
+            return
+
+        flow = session.get("contact_flow")
+        text = self._contact_reply_text(session)
+        if not text:
+            return
+
+        if flow == "awaiting_consent":
+            wants_contact = _has_yes(text)
+            declines_contact = _has_no(text)
+
+            if declines_contact and not wants_contact:
+                session["contact_preference"] = {"requested": False, "phone": None}
+                session["contact_flow"] = "done"
+                await self._persist_contact_preference(session_id, session)
+                asyncio.create_task(self._complete_call_assessment(session_id))
+                return
+
+            if wants_contact:
+                phone_match = _PHONE_RE.search(text)
+                if phone_match:
+                    session["contact_preference"] = {
+                        "requested": True,
+                        "phone": phone_match.group(0).strip(),
+                    }
+                    session["contact_flow"] = "done"
+                    await self._persist_contact_preference(session_id, session)
+                    asyncio.create_task(self._complete_call_assessment(session_id))
+                    return
+
+                session["contact_preference"] = {"requested": True, "phone": None}
+                session["contact_flow"] = "awaiting_phone"
+                session["contact_transcript_index"] = len(session["transcript"])
+                lang = session.get("language", "en")
+                prompt = (
+                    "Please ask the patient for their phone number only, in one short sentence."
+                    if lang == "en"
+                    else "ขอให้ถามหมายเลขโทรศัพท์ของผู้ป่วยสั้น ๆ เพียงอย่างเดียว"
+                )
+                self._send_agent_instruction(session, prompt)
+                return
+
+            lang = session.get("language", "en")
+            prompt = (
+                "Please ask again: would they like the hospital to contact them? Ask for yes or no only."
+                if lang == "en"
+                else "โปรดถามอีกครั้งว่าต้องการให้โรงพยาบาลติดต่อกลับหรือไม่ ให้ตอบว่าใช่หรือไม่"
+            )
+            self._send_agent_instruction(session, prompt)
+            session["contact_transcript_index"] = len(session["transcript"])
+            return
+
+        if flow == "awaiting_phone":
+            phone_match = _PHONE_RE.search(text)
+            if phone_match:
+                session["contact_preference"] = {
+                    "requested": True,
+                    "phone": phone_match.group(0).strip(),
+                }
+                session["contact_flow"] = "done"
+                await self._persist_contact_preference(session_id, session)
+                asyncio.create_task(self._complete_call_assessment(session_id))
+                return
+
+            lang = session.get("language", "en")
+            prompt = (
+                "Please ask for the phone number again, briefly."
+                if lang == "en"
+                else "โปรดขอหมายเลขโทรศัพท์อีกครั้งแบบสั้น ๆ"
+            )
+            self._send_agent_instruction(session, prompt)
+            session["contact_transcript_index"] = len(session["transcript"])
 
     async def _complete_call_assessment(
         self,
@@ -601,8 +700,7 @@ class LiveVoiceService:
     ) -> None:
         """Persist the final assessment and notify patient + staff.
 
-        Idempotent — safe to call from tool handlers, heuristic dispatch
-        detection, and disconnect cleanup.
+        Idempotent — safe to call from tool handlers and disconnect cleanup.
         """
 
         if session is None:
@@ -635,7 +733,7 @@ class LiveVoiceService:
                         input_mode="voice",
                         content=full_text or "[voice call]",
                         classification=classification,
-                        contact=session.get("contact") or {},
+                        contact=session.get("contact_preference") or {},
                         reply=agent_reply or None,
                     )
             else:
@@ -646,7 +744,7 @@ class LiveVoiceService:
                     input_mode="voice",
                     content=full_text or "[voice call]",
                     classification=classification,
-                    contact=session.get("contact") or {},
+                    contact=session.get("contact_preference") or {},
                     reply=agent_reply or None,
                 )
         except Exception:
@@ -682,43 +780,8 @@ class LiveVoiceService:
     async def _trigger_emergency_check(self, session_id: str) -> None:
         """Replay the live transcript into the text pipeline NOW.
 
-        Runs while the call is still active so the EMS dispatch path
-        (``MockNotificationService.send_alert``) fires without waiting
-        for the caller to hang up. Failures are logged but never
-        propagated — the live pipeline must keep running even if the
-        secondary DB / notifier path fails.
+        Legacy helper retained as a no-op compatibility path. Emergency
+        cases now finalize through the normal assessment flow.
         """
 
-        session = self._sessions.get(session_id)
-        if session is None:
-            return
-        transcript_chunks: list[str] = session["transcript"]
-        full_text = " ".join(chunk.strip() for chunk in transcript_chunks if chunk).strip()
-        if not full_text:
-            # Nothing transcribed yet (early classification on a button
-            # press, say). Skip — disconnect() will catch the final flush.
-            return
-
-        try:
-            db_pool: asyncpg.Pool | None = session.get("db_pool")
-            if db_pool is not None:
-                async with db_pool.acquire() as connection:
-                    await self.triage_service.process_chat(
-                        connection=connection,
-                        session_id=session_id,
-                        language=session["language"],
-                        input_mode="voice",
-                        content=full_text,
-                    )
-            else:
-                await self.triage_service.process_chat(
-                    connection=session["db_connection"],
-                    session_id=session_id,
-                    language=session["language"],
-                    input_mode="voice",
-                    content=full_text,
-                )
-        except Exception:
-            logger.exception(
-                "Mid-call emergency check failed for %s", session_id
-            )
+        return

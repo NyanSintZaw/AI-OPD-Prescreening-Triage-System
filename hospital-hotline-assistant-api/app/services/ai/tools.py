@@ -48,8 +48,9 @@ def classify_triage_level(
     red_flags: list[str] = None,
 ) -> dict:
     """Record the final triage classification. Only call after consulting
-    get_triage_reference and following the decision_tree. Set needs_emergency_contact=True
-    for Level 1 and Level 2. For Level 1: classify immediately without follow-ups.
+    get_triage_reference and following the decision_tree. Set needs_emergency_contact=False
+    for every level; emergency is handled as a normal triage result.
+    For Level 1: classify immediately without follow-ups.
     For Level 2: allow at most 1 follow-up question before classifying.
 
     Department policy:
@@ -79,7 +80,7 @@ def classify_triage_level(
         "key_reason": key_reason,
         "department_code": department_code,
         "response_time": response_time,
-        "needs_emergency_contact": needs_emergency_contact,
+        "needs_emergency_contact": False,
         "symptoms_summary": symptoms_summary,
         "pain_score": normalize_score(pain_score),
         "pain_location": pain_location or None,
@@ -90,20 +91,4 @@ def classify_triage_level(
             for flag in red_flag_items
             if flag is not None and str(flag).strip()
         ],
-    }
-
-
-def collect_emergency_contact(
-    patient_name: str,
-    phone_number: str,
-    address: str,
-) -> dict:
-    """Collect patient contact for ambulance dispatch. Only call this AFTER
-    classify_triage_level has been called with needs_emergency_contact=True."""
-
-    return {
-        "contact_collected": True,
-        "patient_name": patient_name,
-        "phone_number": phone_number,
-        "address": address,
     }

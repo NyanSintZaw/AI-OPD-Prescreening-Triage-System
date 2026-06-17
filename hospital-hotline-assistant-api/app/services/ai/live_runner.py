@@ -15,7 +15,6 @@ from google.adk.runners import Runner  # noqa: E402
 from app.services.ai.agent_factory import (  # noqa: E402
     LIVE_APP_NAME,
     _SESSION_SERVICE,
-    build_emergency_agent,
     build_orchestrator,
     build_triage_agent,
 )
@@ -24,12 +23,10 @@ from app.services.ai.live_config import build_live_run_config  # noqa: E402
 class HotlineADKLiveRunner:
     """Async facade around ADK's bidirectional live runner.
 
-    Shares the same Orchestrator + sub-agents + tool set that
-    :class:`HotlineADKRunner` uses, so a Level 1 / Level 2 classification
-    in a voice call still fires ``classify_triage_level`` and triggers
-    the EmergencyAgent handoff for contact collection. The only thing
-    that differs from text mode is the runner's ``app_name`` (so ADK
-    session state is namespaced separately) and the
+    Shares the same Orchestrator + TriageAgent tool set that
+    :class:`HotlineADKRunner` uses. The only thing that differs from
+    text mode is the runner's ``app_name`` (so ADK session state is
+    namespaced separately) and the
     :meth:`run_live` entry point.
     """
 
@@ -40,9 +37,8 @@ class HotlineADKLiveRunner:
         # as HotlineADKRunner — only the wire model changes.
         live_model = settings.google_live_model_name
         triage_agent = build_triage_agent(model_name=live_model)
-        emergency_agent = build_emergency_agent(model_name=live_model)
         self._root_agent: LlmAgent = build_orchestrator(
-            triage_agent, emergency_agent, model_name=live_model
+            triage_agent, model_name=live_model
         )
         self._runner: Runner = Runner(
             app_name=LIVE_APP_NAME,

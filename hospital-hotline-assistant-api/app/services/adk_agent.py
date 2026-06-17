@@ -4,10 +4,8 @@ from app.services.ai.agent_factory import (
     APP_NAME,
     LIVE_APP_NAME,
     _SESSION_SERVICE,
-    _build_emergency_agent,
     _build_orchestrator,
     _build_triage_agent,
-    build_emergency_agent,
     build_orchestrator,
     build_triage_agent,
 )
@@ -20,7 +18,6 @@ from app.services.ai.live_config import (
 from app.services.ai.live_events import _strip_meta_markers
 from app.services.ai.live_runner import HotlineADKLiveRunner
 from app.services.ai.prompts import (
-    _EMERGENCY_INSTRUCTION,
     _ORCHESTRATOR_INSTRUCTION,
     _TRIAGE_INSTRUCTION,
 )
@@ -36,7 +33,6 @@ from app.services.ai.reference_data import (
 from app.services.ai.text_runner import HotlineADKRunner
 from app.services.ai.tools import (
     classify_triage_level,
-    collect_emergency_contact,
     get_department_list,
     get_triage_reference,
 )
@@ -49,7 +45,6 @@ __all__ = [
     "HotlineADKRunner",
     "_DEPARTMENTS",
     "_DEPARTMENTS_FILE",
-    "_EMERGENCY_INSTRUCTION",
     "_LANGUAGE_CODE_BY_LANG",
     "_ORCHESTRATOR_INSTRUCTION",
     "_SESSION_SERVICE",
@@ -57,17 +52,14 @@ __all__ = [
     "_TRIAGE_INSTRUCTION",
     "_TRIAGE_REF",
     "_VOICE_NAME",
-    "_build_emergency_agent",
     "_build_live_run_config",
     "_build_orchestrator",
     "_build_triage_agent",
     "_strip_meta_markers",
-    "build_emergency_agent",
     "build_live_run_config",
     "build_orchestrator",
     "build_triage_agent",
     "classify_triage_level",
-    "collect_emergency_contact",
     "get_department_list",
     "get_department_reference_data",
     "get_triage_reference",
