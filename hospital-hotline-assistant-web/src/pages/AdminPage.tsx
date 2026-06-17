@@ -77,6 +77,7 @@ export function AdminPage() {
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [lastRefreshed, setLastRefreshed] = useState<Date | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [isBigView, setIsBigView] = useState(false);
 
   const staffEmail = getAdminEmail() ?? t('loginAdminTab');
 
@@ -188,12 +189,18 @@ export function AdminPage() {
 
   const filteredSessions = useMemo(() => {
     const term = search.trim().toLowerCase();
-    return sessions.filter((row) => {
+    const filtered = sessions.filter((row) => {
       const severityOk = severityFilter === 'all' || row.severity === severityFilter;
       const languageOk = languageFilter === 'all' || row.language === languageFilter;
       const statusOk = statusFilter === 'all' || row.status === statusFilter;
       const searchOk = !term || row.session_id.toLowerCase().includes(term);
       return severityOk && languageOk && statusOk && searchOk;
+    });
+
+    return filtered.sort((a, b) => {
+      if (a.status === 'completed' && b.status !== 'completed') return 1;
+      if (a.status !== 'completed' && b.status === 'completed') return -1;
+      return 0;
     });
   }, [sessions, severityFilter, languageFilter, statusFilter, search]);
 
@@ -441,17 +448,28 @@ export function AdminPage() {
               </div>
 
               {selectedSessionId && (
-                <aside className="admin-detail">
+                <aside className={`admin-detail ${isBigView ? 'admin-detail-big' : ''}`}>
                   <div className="admin-detail-header">
                     <h2>{t('adminSessionDetails')}</h2>
-                    <button
-                      type="button"
-                      className="text-btn admin-detail-close"
-                      onClick={() => void handleSelectSession(selectedSessionId)}
-                      aria-label={t('close')}
-                    >
-                      {'\u2715'}
-                    </button>
+                    <div className="admin-detail-header-actions">
+                      <button
+                        type="button"
+                        className="text-btn admin-detail-expand"
+                        onClick={() => setIsBigView(!isBigView)}
+                        aria-label={t('adminExpandView', 'Toggle expanded view')}
+                        title={t('adminExpandView', 'Toggle expanded view')}
+                      >
+                        {isBigView ? '\u25E4' : '\u25F2'}
+                      </button>
+                      <button
+                        type="button"
+                        className="text-btn admin-detail-close"
+                        onClick={() => void handleSelectSession(selectedSessionId)}
+                        aria-label={t('close')}
+                      >
+                        {'\u2715'}
+                      </button>
+                    </div>
                   </div>
 
                   <div className="admin-detail-id">

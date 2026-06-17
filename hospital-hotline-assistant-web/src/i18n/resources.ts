@@ -159,6 +159,9 @@ export const resources = {
       review_pending: 'Pending',
       review_approved: 'Approved',
       review_corrected: 'Corrected',
+      nurseViewConversation: 'View conversation',
+      nurseHideConversation: 'Hide conversation',
+      nurseConversationTitle: 'Patient Conversation',
     },
   },
   th: {
@@ -321,6 +324,9 @@ export const resources = {
       review_pending: 'รอตรวจสอบ',
       review_approved: 'อนุมัติแล้ว',
       review_corrected: 'แก้ไขแล้ว',
+      nurseViewConversation: 'ดูการสนทนา',
+      nurseHideConversation: 'ซ่อนการสนทนา',
+      nurseConversationTitle: 'การสนทนาของผู้ป่วย',
     },
   },
 } as const;

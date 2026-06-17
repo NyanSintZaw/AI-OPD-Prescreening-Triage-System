@@ -655,7 +655,7 @@ async def speech_to_text(
 
 @app.get("/conversation-summary", response_model=list[ConversationSummaryOut])
 async def conversation_summary(
-    _admin_user: dict = Depends(require_roles("super_admin", "viewer")),
+    _admin_user: dict = Depends(require_roles("super_admin", "viewer", "admin")),
     connection: asyncpg.Connection = Depends(get_connection),
 ):
     records = await connection.fetch(

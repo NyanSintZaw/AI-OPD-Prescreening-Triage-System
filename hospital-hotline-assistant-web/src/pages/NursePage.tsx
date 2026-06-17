@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { api } from '../api';
+import { api, type MessageOut } from '../api';
 import { getAdminEmail, getAdminToken } from '../api/client';
 import { Layout } from '../components/Layout';
+import { MessageBubble } from '../components/MessageBubble';
 import { useLanguage } from '../hooks/useSession';
 import type { AssessmentReviewOut, DepartmentOut, RoutingFeedbackOut } from '../api/types';
 
@@ -20,9 +21,7 @@ export function NursePage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { language, setLanguage } = useLanguage();
-  const [reviewFilter, setReviewFilter] = useState<'all' | 'pending' | 'approved' | 'corrected'>(
-    'pending',
-  );
+  const reviewFilter = 'pending';
   const [reviews, setReviews] = useState<AssessmentReviewOut[]>([]);
   const [feedbackRows, setFeedbackRows] = useState<RoutingFeedbackOut[]>([]);
   const [departments, setDepartments] = useState<DepartmentOut[]>([]);
@@ -35,6 +34,11 @@ export function NursePage() {
     {},
   );
   const [reviewDataLoading, setReviewDataLoading] = useState(true);
+
+  // ── Conversation state (per review item) ──
+  const [expandedSessionId, setExpandedSessionId] = useState<string | null>(null);
+  const [sessionMessages, setSessionMessages] = useState<MessageOut[]>([]);
+  const [sessionMessagesLoading, setSessionMessagesLoading] = useState(false);
 
   const staffEmail = getAdminEmail() ?? t('loginNurseTab');
 
@@ -113,6 +117,35 @@ export function NursePage() {
     }
   };
 
+  const handleToggleConversation = async (sessionId: string) => {
+    if (expandedSessionId === sessionId) {
+      setExpandedSessionId(null);
+      setSessionMessages([]);
+      return;
+    }
+
+    setExpandedSessionId(sessionId);
+    setSessionMessagesLoading(true);
+    try {
+      const messageData = await api.listMessages(sessionId);
+      setSessionMessages(messageData);
+    } catch (err) {
+      setAuthError(err instanceof Error ? err.message : t('error'));
+    } finally {
+      setSessionMessagesLoading(false);
+    }
+  };
+
+  const reviewDeptLabel = (review: AssessmentReviewOut) =>
+    language === 'th'
+      ? review.proposed_department_name_th ?? review.proposed_department_name_en ?? '—'
+      : review.proposed_department_name_en ?? '—';
+
+  const confirmedDeptLabel = (review: AssessmentReviewOut) =>
+    language === 'th'
+      ? review.confirmed_department_name_th ?? review.confirmed_department_name_en ?? null
+      : review.confirmed_department_name_en ?? null;
+
   return (
     <Layout
       language={language}
@@ -135,6 +168,9 @@ export function NursePage() {
               onClick={() => void loadReviewData(reviewFilter)}
               disabled={reviewDataLoading}
             >
+              <span aria-hidden="true" className={`refresh-glyph ${reviewDataLoading ? 'spinning' : ''}`}>
+                {'\u21BB'}
+              </span>
               {t('adminRefresh')}
             </button>
             <Link to="/patient" className="back-link">
@@ -143,98 +179,159 @@ export function NursePage() {
           </div>
         </header>
 
-        <div className="chip-group" role="group" aria-label={t('status')}>
-          <span className="chip-group-label">{t('status')}</span>
-          {(['pending', 'approved', 'corrected', 'all'] as const).map((status) => (
-            <button
-              key={status}
-              type="button"
-              className={`filter-chip tone-neutral ${reviewFilter === status ? 'active' : ''}`}
-              onClick={() => setReviewFilter(status)}
-            >
-              {status === 'all' ? t('filterAll') : t(`review_${status}`)}
-            </button>
-          ))}
-        </div>
 
         {authError ? <p className="error-text">{authError}</p> : null}
 
+        {/* ── Review cards ── */}
         {reviewDataLoading ? (
           <p className="muted">{t('loading')}</p>
         ) : reviews.length === 0 ? (
           <p className="muted">{t('adminNoReviews')}</p>
         ) : (
-          <div className="admin-review-list">
-            {reviews.map((review) => (
-              <article key={review.id} className="admin-review-item">
-                <div className="admin-review-item-head">
-                  <strong>{truncateId(review.session_id)}</strong>
-                  <span className={`status-pill status-${review.status}`}>
-                    {t(`review_${review.status}`)}
-                  </span>
-                </div>
-                <p className="muted">
-                  {t('department')}:{' '}
-                  {language === 'th'
-                    ? review.proposed_department_name_th ?? review.proposed_department_name_en ?? '—'
-                    : review.proposed_department_name_en ?? '—'}
-                </p>
-                <div className="admin-review-actions">
-                  <button
-                    type="button"
-                    className="secondary-btn"
-                    disabled={reviewActionLoading === review.assessment_id || review.status !== 'pending'}
-                    onClick={() => void handleApprove(review)}
-                  >
-                    {t('adminApprove')}
-                  </button>
-                  <select
-                    value={correctDepartmentByAssessment[review.assessment_id] ?? ''}
-                    onChange={(e) =>
-                      setCorrectDepartmentByAssessment((prev) => ({
-                        ...prev,
-                        [review.assessment_id]: e.target.value,
-                      }))
-                    }
-                  >
-                    <option value="">{t('adminSelectDepartment')}</option>
-                    {departments
-                      .filter((dept) => dept.kind === 'opd')
-                      .map((dept) => (
-                        <option key={dept.id} value={dept.id}>
-                          {language === 'th' ? dept.name_th ?? dept.name_en : dept.name_en}
-                        </option>
-                      ))}
-                  </select>
-                  <input
-                    type="text"
-                    placeholder={t('adminCorrectionReasonPlaceholder')}
-                    value={correctReasonByAssessment[review.assessment_id] ?? ''}
-                    onChange={(e) =>
-                      setCorrectReasonByAssessment((prev) => ({
-                        ...prev,
-                        [review.assessment_id]: e.target.value,
-                      }))
-                    }
-                  />
-                  <button
-                    type="button"
-                    className="primary-btn"
-                    disabled={
-                      reviewActionLoading === review.assessment_id ||
-                      review.status !== 'pending' ||
-                      !(correctDepartmentByAssessment[review.assessment_id] ?? '')
-                    }
-                    onClick={() => void handleCorrect(review)}
-                  >
-                    {t('adminCorrectRoute')}
-                  </button>
-                </div>
-              </article>
-            ))}
+          <div className="nurse-review-list">
+            {reviews.map((review) => {
+              const isExpanded = expandedSessionId === review.session_id;
+              const confirmed = confirmedDeptLabel(review);
+
+              return (
+                <article
+                  key={review.id}
+                  className={`nurse-review-card ${isExpanded ? 'expanded' : ''} review-${review.status}`}
+                >
+                  {/* ── Card header ── */}
+                  <div className="nurse-card-header">
+                    <div className="nurse-card-header-left">
+                      <span className={`status-pill status-${review.status}`}>
+                        {t(`review_${review.status}`)}
+                      </span>
+                      <code className="nurse-session-code">{truncateId(review.session_id)}</code>
+                    </div>
+                    <button
+                      type="button"
+                      className={`nurse-conv-btn ${isExpanded ? 'active' : ''}`}
+                      onClick={() => void handleToggleConversation(review.session_id)}
+                      aria-expanded={isExpanded}
+                    >
+                      <span className="nurse-conv-btn-icon" aria-hidden="true">
+                        {isExpanded ? '\u25B2' : '\u25BC'}
+                      </span>
+                      {isExpanded ? t('nurseHideConversation') : t('nurseViewConversation')}
+                    </button>
+                  </div>
+
+                  {/* ── Department info ── */}
+                  <div className="nurse-card-dept">
+                    <span className="nurse-card-dept-label">{t('department')}</span>
+                    <span className="nurse-card-dept-value">{reviewDeptLabel(review)}</span>
+                    {review.status === 'corrected' && confirmed && (
+                      <>
+                        <span className="nurse-card-dept-arrow" aria-hidden="true">{'\u2192'}</span>
+                        <span className="nurse-card-dept-corrected">{confirmed}</span>
+                      </>
+                    )}
+                  </div>
+
+                  {review.reviewed_at && (
+                    <div className="nurse-card-reviewed-at">
+                      {review.reviewer_name && (
+                        <span className="nurse-card-reviewer">{review.reviewer_name}</span>
+                      )}
+                      <span className="nurse-card-time">{formatDateAbsolute(review.reviewed_at)}</span>
+                    </div>
+                  )}
+
+                  {/* ── Actions (pending only) ── */}
+                  {review.status === 'pending' && (
+                    <div className="nurse-card-actions">
+                      <button
+                        type="button"
+                        className="nurse-approve-btn"
+                        disabled={reviewActionLoading === review.assessment_id}
+                        onClick={() => void handleApprove(review)}
+                      >
+                        <span aria-hidden="true">{'\u2713'}</span>
+                        {t('adminApprove')}
+                      </button>
+
+                      <div className="nurse-correct-group">
+                        <select
+                          className="nurse-dept-select"
+                          value={correctDepartmentByAssessment[review.assessment_id] ?? ''}
+                          onChange={(e) =>
+                            setCorrectDepartmentByAssessment((prev) => ({
+                              ...prev,
+                              [review.assessment_id]: e.target.value,
+                            }))
+                          }
+                        >
+                          <option value="">{t('adminSelectDepartment')}</option>
+                          {departments
+                            .filter((dept) => dept.kind === 'opd')
+                            .map((dept) => (
+                              <option key={dept.id} value={dept.id}>
+                                {language === 'th' ? dept.name_th ?? dept.name_en : dept.name_en}
+                              </option>
+                            ))}
+                        </select>
+                        <input
+                          type="text"
+                          className="nurse-reason-input"
+                          placeholder={t('adminCorrectionReasonPlaceholder')}
+                          value={correctReasonByAssessment[review.assessment_id] ?? ''}
+                          onChange={(e) =>
+                            setCorrectReasonByAssessment((prev) => ({
+                              ...prev,
+                              [review.assessment_id]: e.target.value,
+                            }))
+                          }
+                        />
+                        <button
+                          type="button"
+                          className="nurse-correct-btn"
+                          disabled={
+                            reviewActionLoading === review.assessment_id ||
+                            !(correctDepartmentByAssessment[review.assessment_id] ?? '')
+                          }
+                          onClick={() => void handleCorrect(review)}
+                        >
+                          {t('adminCorrectRoute')}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* ── Expanded conversation panel ── */}
+                  {isExpanded && (
+                    <div className="nurse-conv-panel">
+                      <div className="nurse-conv-panel-header">
+                        <span className="nurse-conv-panel-title">{t('nurseConversationTitle')}</span>
+                        <span className="nurse-conv-panel-count">
+                          {sessionMessagesLoading ? '…' : `${sessionMessages.length} ${t('messages').toLowerCase()}`}
+                        </span>
+                      </div>
+                      {sessionMessagesLoading ? (
+                        <div className="nurse-conv-loading">
+                          <span className="nurse-conv-spinner" aria-hidden="true" />
+                          <span>{t('loading')}</span>
+                        </div>
+                      ) : sessionMessages.length === 0 ? (
+                        <p className="muted nurse-conv-empty">{t('noMessages')}</p>
+                      ) : (
+                        <div className="nurse-conv-messages">
+                          {sessionMessages.map((message) => (
+                            <MessageBubble key={message.id} message={message} />
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </article>
+              );
+            })}
           </div>
         )}
 
+        {/* ── Routing feedback history ── */}
         <section className="admin-feedback-section">
           <h2>{t('adminFeedbackTitle')}</h2>
           {feedbackRows.length === 0 ? (

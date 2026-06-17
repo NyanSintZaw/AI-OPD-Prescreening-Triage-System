@@ -1787,80 +1787,141 @@ a:hover {
 /* ----- Detail panel ----- */
 .admin-detail {
   background: var(--color-surface);
-  border: 2px solid var(--color-border);
-  border-radius: var(--radius);
-  padding: 1.1rem 1.1rem 1.25rem;
-  box-shadow: var(--shadow-card);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: 1.5rem;
+  box-shadow: rgba(0, 0, 0, 0.08) 0px 10px 40px -10px, rgba(0, 0, 0, 0.04) 0px 1px 3px;
   position: sticky;
-  top: calc(var(--header-nav-height) + 96px);
-  max-height: calc(100vh - 200px);
+  top: calc(var(--header-nav-height) + 24px);
+  max-height: calc(100vh - 48px);
   display: flex;
   flex-direction: column;
-  gap: 0.85rem;
+  gap: 1.25rem;
+  transition: all 0.3s ease;
+}
+
+.admin-detail.admin-detail-big {
+  position: fixed;
+  top: 2vh;
+  left: 5vw;
+  right: 5vw;
+  bottom: 2vh;
+  width: 90vw;
+  height: 96vh;
+  max-height: 96vh;
+  z-index: 1000;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+}
+
+.admin-detail-big .admin-detail-id,
+.admin-detail-big .admin-detail-meta,
+.admin-detail-big .admin-alert-list {
+  display: none;
 }
 
 .admin-detail-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding-bottom: 0.5rem;
-  border-bottom: 2px solid var(--mch-gold);
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.admin-detail-header-actions {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
 }
 
 .admin-detail-header h2 {
   margin: 0;
-  font-size: 1.1rem;
+  font-size: 1.25rem;
+  font-weight: 700;
   color: var(--mch-navy);
+  letter-spacing: -0.01em;
 }
 
-.admin-detail-close {
-  font-size: 1.1rem;
+.admin-detail-close,
+.admin-detail-expand {
+  font-size: 1.25rem;
   color: var(--color-muted);
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--color-bg);
+  transition: all 0.2s ease;
+  cursor: pointer;
+  border: none;
+}
+
+.admin-detail-close:hover {
+  background: var(--color-border);
+  color: var(--mch-red);
+}
+
+.admin-detail-expand:hover {
+  background: var(--color-border);
+  color: var(--mch-navy);
 }
 
 .admin-detail-id {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  justify-content: space-between;
   font-size: 0.82rem;
-  background: #f1f5f9;
-  border-radius: var(--radius-sm);
-  padding: 0.5rem 0.7rem;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: 0.5rem 0.75rem;
 }
 
 .admin-detail-id code {
-  flex: 1;
   font-size: 0.82rem;
   color: var(--mch-navy);
+  font-weight: 500;
   word-break: break-all;
 }
 
 .admin-copy-btn {
-  font-size: 0.78rem;
-  padding: 0.2rem 0.55rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.35rem 0.65rem;
   background: var(--color-surface);
   border: 1px solid var(--color-border-strong);
   border-radius: var(--radius-sm);
-  min-height: 30px;
   color: var(--mch-navy);
+  transition: all 0.2s ease;
+  box-shadow: rgba(0, 0, 0, 0.05) 0px 1px 2px;
+}
+
+.admin-copy-btn:hover {
+  background: var(--color-bg-alt);
+  border-color: var(--mch-cyan);
 }
 
 .admin-detail-meta {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 0.65rem 0.85rem;
+  gap: 0.75rem;
   margin: 0;
 }
 
 .admin-detail-meta > div {
   display: flex;
   flex-direction: column;
-  gap: 0.15rem;
+  gap: 0.3rem;
+  padding: 0.75rem;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
 }
 
 .admin-detail-meta dt {
   font-size: 0.7rem;
-  font-weight: 600;
+  font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.05em;
   color: var(--color-muted);
@@ -1868,8 +1929,9 @@ a:hover {
 
 .admin-detail-meta dd {
   margin: 0;
-  font-size: 0.92rem;
-  color: var(--color-text);
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--mch-navy-dark);
 }
 
 .admin-alert-list {
@@ -1906,8 +1968,18 @@ a:hover {
 .admin-messages {
   flex: 1;
   overflow-y: auto;
-  padding-right: 0.25rem;
-  max-height: 420px;
+  padding: 1rem;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  max-height: 600px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.admin-detail-big .admin-messages {
+  max-height: none;
 }
 
 .admin-error {
@@ -2298,4 +2370,376 @@ a:hover {
 
 .nurse-page .admin-review-list {
   margin-top: 1rem;
+}
+
+/* ═══════════════════════════════════════════════
+   Nurse Review Cards — Premium design
+   ═══════════════════════════════════════════════ */
+
+.nurse-review-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+/* ── Card shell ── */
+.nurse-review-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: 1rem 1.15rem;
+  box-shadow: var(--shadow);
+  position: relative;
+  overflow: hidden;
+  transition: box-shadow 0.25s ease, border-color 0.25s ease;
+}
+
+.nurse-review-card::before {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 4px;
+  background: #f59e0b;
+  transition: background 0.2s ease;
+}
+
+.nurse-review-card.review-approved::before {
+  background: #16a34a;
+}
+
+.nurse-review-card.review-corrected::before {
+  background: var(--mch-cyan);
+}
+
+.nurse-review-card.review-pending::before {
+  background: #f59e0b;
+}
+
+.nurse-review-card:hover {
+  border-color: var(--color-border-strong);
+  box-shadow: var(--shadow-card);
+}
+
+.nurse-review-card.expanded {
+  border-color: var(--mch-cyan);
+  box-shadow:
+    0 0 0 1px var(--mch-cyan),
+    var(--shadow-card);
+}
+
+/* ── Card header ── */
+.nurse-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.nurse-card-header-left {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.nurse-session-code {
+  font-size: 0.8rem;
+  background: #f1f5f9;
+  color: var(--mch-navy);
+  padding: 0.15rem 0.5rem;
+  border-radius: var(--radius-sm);
+  font-family: monospace;
+  letter-spacing: 0.02em;
+}
+
+/* ── View conversation button ── */
+.nurse-conv-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.4rem 0.85rem;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: var(--mch-cyan);
+  background: #eef6fb;
+  border: 1px solid #d4ecf6;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.nurse-conv-btn:hover {
+  background: #d4ecf6;
+  border-color: var(--mch-cyan);
+  color: var(--mch-navy);
+}
+
+.nurse-conv-btn.active {
+  background: var(--mch-cyan);
+  border-color: var(--mch-cyan);
+  color: #ffffff;
+}
+
+.nurse-conv-btn-icon {
+  font-size: 0.6rem;
+  transition: transform 0.25s ease;
+}
+
+.nurse-conv-btn.active .nurse-conv-btn-icon {
+  transform: rotate(180deg);
+}
+
+/* ── Department info row ── */
+.nurse-card-dept {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin-top: 0.65rem;
+  font-size: 0.88rem;
+  flex-wrap: wrap;
+}
+
+.nurse-card-dept-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-muted);
+}
+
+.nurse-card-dept-value {
+  color: var(--color-text);
+  font-weight: 500;
+}
+
+.nurse-card-dept-arrow {
+  color: var(--color-muted);
+  font-size: 0.8rem;
+}
+
+.nurse-card-dept-corrected {
+  color: var(--mch-cyan);
+  font-weight: 600;
+}
+
+/* ── Reviewed at info ── */
+.nurse-card-reviewed-at {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.35rem;
+  font-size: 0.78rem;
+  color: var(--color-muted);
+}
+
+.nurse-card-reviewer {
+  font-weight: 600;
+  color: var(--mch-navy);
+}
+
+/* ── Action buttons (pending reviews) ── */
+.nurse-card-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  margin-top: 0.85rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid var(--color-border);
+}
+
+.nurse-approve-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.55rem 1.25rem;
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #ffffff;
+  background: linear-gradient(135deg, #16a34a 0%, #15803d 100%);
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: transform 0.12s ease, box-shadow 0.2s ease, opacity 0.2s ease;
+  box-shadow: 0 1px 3px rgba(22, 163, 74, 0.3);
+  align-self: flex-start;
+}
+
+.nurse-approve-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 3px 8px rgba(22, 163, 74, 0.35);
+}
+
+.nurse-approve-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.nurse-correct-group {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) minmax(200px, 1.5fr) auto;
+  gap: 0.5rem;
+  align-items: stretch;
+}
+
+@media (max-width: 768px) {
+  .nurse-correct-group {
+    grid-template-columns: 1fr;
+  }
+}
+
+.nurse-dept-select,
+.nurse-reason-input {
+  min-height: 40px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  padding: 0 0.7rem;
+  font: inherit;
+  font-size: 0.88rem;
+  background: var(--color-bg);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.nurse-dept-select:focus,
+.nurse-reason-input:focus {
+  outline: none;
+  border-color: var(--mch-cyan);
+  box-shadow: 0 0 0 2px rgba(62, 163, 203, 0.15);
+}
+
+.nurse-correct-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.5rem 1rem;
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--mch-navy);
+  background: var(--color-surface);
+  border: 2px solid var(--mch-navy);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.nurse-correct-btn:hover:not(:disabled) {
+  background: var(--mch-navy);
+  color: #ffffff;
+}
+
+.nurse-correct-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  border-color: var(--color-border-strong);
+  color: var(--color-muted);
+}
+
+/* ═══════════════════════════════════════════════
+   Conversation Panel (expanded inside card)
+   ═══════════════════════════════════════════════ */
+
+.nurse-conv-panel {
+  margin-top: 0.85rem;
+  border-top: 1px solid var(--color-border);
+  padding-top: 0.85rem;
+  animation: nurse-conv-reveal 0.3s ease;
+}
+
+@keyframes nurse-conv-reveal {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.nurse-conv-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.65rem;
+}
+
+.nurse-conv-panel-title {
+  font-family: var(--font-heading);
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--mch-navy);
+}
+
+.nurse-conv-panel-count {
+  font-size: 0.78rem;
+  color: var(--color-muted);
+  background: #f1f5f9;
+  padding: 0.18rem 0.6rem;
+  border-radius: 999px;
+}
+
+.nurse-conv-messages {
+  max-height: 420px;
+  overflow-y: auto;
+  padding-right: 0.25rem;
+  scrollbar-color: var(--mch-cyan) #f1f5f9;
+  scrollbar-width: thin;
+  background:
+    linear-gradient(180deg, var(--color-bg) 0%, transparent 12px),
+    linear-gradient(0deg, var(--color-bg) 0%, transparent 12px);
+  background-attachment: local;
+  border-radius: var(--radius-sm);
+  padding: 0.5rem;
+}
+
+.nurse-conv-messages::-webkit-scrollbar {
+  width: 6px;
+}
+
+.nurse-conv-messages::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 999px;
+}
+
+.nurse-conv-messages::-webkit-scrollbar-thumb {
+  background: var(--mch-cyan-light);
+  border-radius: 999px;
+}
+
+.nurse-conv-messages::-webkit-scrollbar-thumb:hover {
+  background: var(--mch-cyan);
+}
+
+.nurse-conv-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  padding: 2rem 1rem;
+  color: var(--color-muted);
+  font-size: 0.88rem;
+}
+
+.nurse-conv-spinner {
+  width: 18px;
+  height: 18px;
+  border: 2px solid #e5e7eb;
+  border-top-color: var(--mch-cyan);
+  border-radius: 50%;
+  animation: nurse-spin 0.7s linear infinite;
+}
+
+@keyframes nurse-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.nurse-conv-empty {
+  text-align: center;
+  padding: 1.5rem 1rem;
 }

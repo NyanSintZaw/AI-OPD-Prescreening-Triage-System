@@ -14,6 +14,9 @@ BEGIN
 END
 $$;
 
+ALTER TYPE review_status ADD VALUE IF NOT EXISTS 'pending';
+ALTER TYPE review_status ADD VALUE IF NOT EXISTS 'corrected';
+
 ALTER TABLE departments
 ADD COLUMN IF NOT EXISTS kind department_kind NOT NULL DEFAULT 'opd';
 
@@ -142,7 +145,19 @@ CREATE TABLE IF NOT EXISTS assessment_reviews (
 CREATE INDEX IF NOT EXISTS idx_assessment_reviews_status ON assessment_reviews(status);
 CREATE INDEX IF NOT EXISTS idx_assessment_reviews_session_id ON assessment_reviews(session_id);
 CREATE INDEX IF NOT EXISTS idx_assessment_reviews_reviewer_id ON assessment_reviews(reviewer_id);
-CREATE TRIGGER trg_assessment_reviews_updated_at BEFORE UPDATE ON assessment_reviews FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1
+        FROM pg_trigger
+        WHERE tgname = 'trg_assessment_reviews_updated_at'
+    ) THEN
+        CREATE TRIGGER trg_assessment_reviews_updated_at
+        BEFORE UPDATE ON assessment_reviews
+        FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+    END IF;
+END
+$$;
 
 CREATE TABLE IF NOT EXISTS routing_feedback (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
