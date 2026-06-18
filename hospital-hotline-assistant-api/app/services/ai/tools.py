@@ -92,3 +92,40 @@ def classify_triage_level(
             if flag is not None and str(flag).strip()
         ],
     }
+
+
+def record_contact_preference(
+    requested: bool | None,
+    phone_number: str = "",
+    preferred_time: str = "",
+    relation: str = "",
+    confidence: float = 0.0,
+    needs_followup: bool = False,
+    followup_question: str = "",
+) -> dict:
+    """Record a post-triage hospital-contact preference.
+
+    This tool is only for the post-triage contact step. It must not be
+    used for symptom assessment or department routing.
+    """
+
+    def clean(value: str) -> str | None:
+        text = str(value or "").strip()
+        return text or None
+
+    try:
+        normalized_confidence = float(confidence)
+    except (TypeError, ValueError):
+        normalized_confidence = 0.0
+    normalized_confidence = max(0.0, min(1.0, normalized_confidence))
+
+    return {
+        "contact_preference_recorded": True,
+        "requested": requested if isinstance(requested, bool) else None,
+        "phone_number": clean(phone_number),
+        "preferred_time": clean(preferred_time),
+        "relation": clean(relation),
+        "confidence": normalized_confidence,
+        "needs_followup": bool(needs_followup),
+        "followup_question": clean(followup_question),
+    }

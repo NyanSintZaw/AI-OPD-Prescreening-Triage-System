@@ -165,6 +165,8 @@ export interface AssessmentReviewOut {
   ai_assessment_scale: number;
   patient_contact_requested: boolean | null;
   patient_contact_phone: string | null;
+  patient_contact_preferred_time: string | null;
+  patient_contact_relation: string | null;
   notes: string | null;
   reviewed_at: string | null;
   created_at: string;
@@ -230,6 +232,7 @@ export interface ChatResponsePayload {
     distress_type?: string | null;
     red_flags?: string[];
   } | null;
+  contact?: Record<string, unknown> | null;
   follow_up_question?: string | null;
   follow_up_reason?: string | null;
   model_name?: string | null;
@@ -281,6 +284,11 @@ export type ChatStreamEvent =
   | { type: 'delta'; text: string }
   | { type: 'reset' }
   | { type: 'classified'; classification: Record<string, unknown> }
+  | {
+      type: 'turn_complete';
+      assistant_message: MessageOut;
+      awaiting_contact?: boolean;
+    }
   | {
       type: 'complete';
       result: ChatResponsePayload;

@@ -293,6 +293,22 @@ export function NursePage() {
                         {review.patient_contact_phone || '—'}
                       </span>
                     </div>
+                    {review.patient_contact_preferred_time ? (
+                      <div className="nurse-card-meta-item">
+                        <span className="nurse-card-dept-label">{t('patientContactPreferredTime')}</span>
+                        <span className="nurse-card-dept-value">
+                          {review.patient_contact_preferred_time}
+                        </span>
+                      </div>
+                    ) : null}
+                    {review.patient_contact_relation ? (
+                      <div className="nurse-card-meta-item">
+                        <span className="nurse-card-dept-label">{t('patientContactRelation')}</span>
+                        <span className="nurse-card-dept-value">
+                          {review.patient_contact_relation}
+                        </span>
+                      </div>
+                    ) : null}
                   </div>
 
                   {review.reviewed_at && (
@@ -350,6 +366,18 @@ export function NursePage() {
                       <span className="nurse-card-dept-label">{t('patientContactPhone')}</span>
                       <strong>{selectedReview.patient_contact_phone || '—'}</strong>
                     </div>
+                    {selectedReview.patient_contact_preferred_time ? (
+                      <div>
+                        <span className="nurse-card-dept-label">{t('patientContactPreferredTime')}</span>
+                        <strong>{selectedReview.patient_contact_preferred_time}</strong>
+                      </div>
+                    ) : null}
+                    {selectedReview.patient_contact_relation ? (
+                      <div>
+                        <span className="nurse-card-dept-label">{t('patientContactRelation')}</span>
+                        <strong>{selectedReview.patient_contact_relation}</strong>
+                      </div>
+                    ) : null}
                   </div>
 
                   {selectedReview.status === 'pending' ? (

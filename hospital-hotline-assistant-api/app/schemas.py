@@ -200,6 +200,7 @@ class ChatResponse(BaseModel):
     department: ChatDepartmentOut | None = None
     emergency: ChatEmergencyOut | None = None
     symptoms: ChatSymptomsOut | None = None
+    contact: dict[str, Any] | None = None
     follow_up_question: str | None = None
     follow_up_reason: str | None = None
     model_name: str | None = None
@@ -269,6 +270,8 @@ class AssessmentReviewOut(BaseModel):
     ai_assessment_scale: int = 10
     patient_contact_requested: bool | None = None
     patient_contact_phone: str | None = None
+    patient_contact_preferred_time: str | None = None
+    patient_contact_relation: str | None = None
     notes: str | None = None
     reviewed_at: datetime | None = None
     created_at: datetime

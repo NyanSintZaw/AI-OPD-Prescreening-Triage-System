@@ -42,17 +42,6 @@ export interface UseVoiceCallOptions {
    * in the signature so the CallPage prop bag stays backward-compatible.
    */
   onTranscript?: (transcript: string) => Promise<string | null | undefined>;
-  /**
-   * Optional scripted greeting. In live mode the Gemini Live agent speaks
-   * its own greeting, but we still surface this text into the captions
-   * lane on connect so the UI feels responsive while the WS is opening.
-   */
-  initialGreeting?: string;
-  /**
-   * Optional callback to persist the greeting (e.g. as an assistant
-   * message in chat history). Fired once on successful connect.
-   */
-  onGreeting?: (text: string) => void | Promise<void>;
   /** Fired when the backend finalizes triage and pushes assessment_complete. */
   onAssessmentComplete?: (payload: ChatResponsePayload) => void;
 }
@@ -175,7 +164,8 @@ registerProcessor('pcm-downsample', PcmDownsampleProcessor);
 
 function buildWebSocketUrl(sessionId: string, language: string): string {
   const wsBase = baseUrl.replace(/^http/, 'ws');
-  return `${wsBase}/ws/voice/${encodeURIComponent(sessionId)}?language=${encodeURIComponent(language)}`;
+  const normalizedLanguage = language === 'th' ? 'th' : 'en';
+  return `${wsBase}/ws/voice/${encodeURIComponent(sessionId)}?language=${encodeURIComponent(normalizedLanguage)}`;
 }
 
 /**
@@ -193,8 +183,17 @@ function buildWebSocketUrl(sessionId: string, language: string): string {
  *   - otherwise → true delta, append
  */
 function smartMergeTranscript(buffer: string, fragment: string): string {
-  const f = fragment.trim();
+  let f = fragment.trim();
   if (!f) return buffer;
+  const words = f.split(/\s+/);
+  if (words.length > 1 && words.length % 2 === 0) {
+    const midpoint = words.length / 2;
+    const first = words.slice(0, midpoint);
+    const second = words.slice(midpoint);
+    if (first.every((word, index) => word === second[index])) {
+      f = first.join(' ');
+    }
+  }
   const b = buffer.trim();
   if (!b) return f;
   if (b.endsWith(f)) return b;
@@ -232,8 +231,7 @@ interface PlaybackQueueRef {
 }
 
 export function useVoiceCall(options: UseVoiceCallOptions): UseVoiceCallApi {
-  const { sessionId, language, initialGreeting, onGreeting, onAssessmentComplete } =
-    options;
+  const { sessionId, language, onAssessmentComplete } = options;
 
   const [state, setState] = useState<VoiceCallState>('idle');
   const [muted, setMutedState] = useState(false);
@@ -265,8 +263,6 @@ export function useVoiceCall(options: UseVoiceCallOptions): UseVoiceCallApi {
   const activeRef = useRef(false);
   const languageRef = useRef(language);
   const sessionIdRef = useRef(sessionId);
-  const initialGreetingRef = useRef(initialGreeting);
-  const onGreetingRef = useRef(onGreeting);
   const onAssessmentCompleteRef = useRef(onAssessmentComplete);
   const pendingAutoEndRef = useRef(false);
   const autoEndTimerRef = useRef<number | null>(null);
@@ -274,8 +270,6 @@ export function useVoiceCall(options: UseVoiceCallOptions): UseVoiceCallApi {
 
   languageRef.current = language;
   sessionIdRef.current = sessionId;
-  initialGreetingRef.current = initialGreeting;
-  onGreetingRef.current = onGreeting;
   onAssessmentCompleteRef.current = onAssessmentComplete;
 
   const wsRef = useRef<WebSocket | null>(null);
@@ -378,6 +372,22 @@ export function useVoiceCall(options: UseVoiceCallOptions): UseVoiceCallApi {
         speakingTimerRef.current = window.setTimeout(() => {
           if (activeRef.current && stateRef.current === 'speaking') {
             updateState('listening');
+          }
+          if (
+            activeRef.current &&
+            mutedRef.current &&
+            !pendingAutoEndRef.current
+          ) {
+            mutedRef.current = false;
+            setMutedState(false);
+            const ws = wsRef.current;
+            if (ws && ws.readyState === WebSocket.OPEN) {
+              try {
+                ws.send(JSON.stringify({ type: 'unmute' }));
+              } catch {
+                // The next explicit mute/unmute action will resync state.
+              }
+            }
           }
           speakingTimerRef.current = null;
           if (pendingAutoEndRef.current) {
@@ -765,7 +775,7 @@ export function useVoiceCall(options: UseVoiceCallOptions): UseVoiceCallApi {
     activeRef.current = true;
     setError(null);
     setLastTranscript('');
-    setLastReply(initialGreetingRef.current ?? '');
+    setLastReply('');
     setEmergency(null);
     setCompletedAssessment(null);
     setAutoEnding(false);
@@ -870,18 +880,6 @@ export function useVoiceCall(options: UseVoiceCallOptions): UseVoiceCallApi {
       cleanup();
       updateState('error');
       return;
-    }
-
-    // Best-effort: persist the scripted greeting into chat history so the
-    // dashboard / admin view still shows a friendly opening line. Gemini
-    // Live will speak its own greeting too — that's the audible one.
-    const greeting = initialGreetingRef.current?.trim();
-    if (greeting && onGreetingRef.current) {
-      try {
-        await Promise.resolve(onGreetingRef.current(greeting));
-      } catch {
-        // non-fatal
-      }
     }
 
     updateState('listening');

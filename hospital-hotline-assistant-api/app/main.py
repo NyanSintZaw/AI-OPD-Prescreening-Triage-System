@@ -109,7 +109,9 @@ async def _serialize_review(
             cd.name_en AS confirmed_department_name_en,
             cd.name_th AS confirmed_department_name_th,
             (s.metadata->>'patient_contact_requested')::boolean AS patient_contact_requested,
-            NULLIF(s.metadata->>'patient_contact_phone', '') AS patient_contact_phone
+            NULLIF(s.metadata->>'patient_contact_phone', '') AS patient_contact_phone,
+            NULLIF(s.metadata->>'patient_contact_preferred_time', '') AS patient_contact_preferred_time,
+            NULLIF(s.metadata->>'patient_contact_relation', '') AS patient_contact_relation
         FROM assessment_reviews ar
         JOIN sessions s ON s.id = ar.session_id
         LEFT JOIN admin_users reviewer ON reviewer.id = ar.reviewer_id
@@ -351,6 +353,7 @@ async def chat(
             "distress_type": result.distress_type,
             "red_flags": result.red_flags,
         },
+        contact=result.contact,
         follow_up_question=result.follow_up_question,
         follow_up_reason=result.follow_up_reason,
         model_name=result.model_name,
@@ -702,7 +705,9 @@ async def list_assessment_reviews(
             cd.name_en AS confirmed_department_name_en,
             cd.name_th AS confirmed_department_name_th,
             (s.metadata->>'patient_contact_requested')::boolean AS patient_contact_requested,
-            NULLIF(s.metadata->>'patient_contact_phone', '') AS patient_contact_phone
+            NULLIF(s.metadata->>'patient_contact_phone', '') AS patient_contact_phone,
+            NULLIF(s.metadata->>'patient_contact_preferred_time', '') AS patient_contact_preferred_time,
+            NULLIF(s.metadata->>'patient_contact_relation', '') AS patient_contact_relation
         FROM assessment_reviews ar
         JOIN sessions s ON s.id = ar.session_id
         LEFT JOIN admin_users reviewer ON reviewer.id = ar.reviewer_id
@@ -899,7 +904,8 @@ async def voice_call(websocket: WebSocket, session_id: str):
     await websocket.accept()
     pool: asyncpg.Pool = websocket.app.state.db_pool
     live_voice_service: LiveVoiceService = websocket.app.state.live_voice_service
-    language = websocket.query_params.get("language", "en")
+    requested_language = websocket.query_params.get("language", "en")
+    language = requested_language if requested_language in {"en", "th"} else "en"
 
     # Callbacks forward live transcripts + emergency banner triggers from
     # the ADK event loop to the frontend over the WS. ``send_*`` may
@@ -958,18 +964,23 @@ async def voice_call(websocket: WebSocket, session_id: str):
 
         async def pump_outbound() -> None:
             """ADK live pipeline → WebSocket audio frames."""
-            try:
-                async for chunk in live_voice_service.run_live_pipeline(session_id):
-                    if chunk:
-                        await websocket.send_bytes(chunk)
-            except WebSocketDisconnect:
-                # Client closed mid-stream; cancellation will tear down
-                # the receive task as well.
-                pass
-            except Exception:
-                logger.exception(
-                    "Outbound voice pump failed for %s", session_id
-                )
+            while live_voice_service.should_keep_pipeline_open(session_id):
+                try:
+                    async for chunk in live_voice_service.run_live_pipeline(session_id):
+                        if chunk:
+                            await websocket.send_bytes(chunk)
+                except WebSocketDisconnect:
+                    # Client closed mid-stream; cancellation will tear down
+                    # the receive task as well.
+                    return
+                except Exception:
+                    logger.exception(
+                        "Outbound voice pump failed for %s", session_id
+                    )
+                    return
+
+                if live_voice_service.should_keep_pipeline_open(session_id):
+                    await asyncio.sleep(0.05)
 
         async def pump_inbound() -> None:
             """WebSocket frames → ADK live queue / control plane."""

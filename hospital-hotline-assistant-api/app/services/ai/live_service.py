@@ -34,6 +34,7 @@ import asyncio
 import logging
 import re
 from collections.abc import AsyncIterator, Awaitable, Callable
+from datetime import datetime, timezone
 from typing import Any
 
 import asyncpg
@@ -59,9 +60,36 @@ logger = logging.getLogger(__name__)
 
 _PHONE_RE = re.compile(r"(?:\+?\d[\d\s().-]{6,}\d)")
 _YES_PHRASES = ("yes", "yeah", "yep", "sure", "ok", "okay", "please")
-_YES_THAI_PHRASES = ("ใช่", "ได้", "ตกลง", "ต้องการ")
+_YES_THAI_PHRASES = (
+    "ใช่",
+    "ใช่ค่ะ",
+    "ใช่ครับ",
+    "ได้",
+    "ได้ค่ะ",
+    "ได้ครับ",
+    "ตกลง",
+    "ต้องการ",
+    "ติดต่อกลับ",
+    "โทรกลับ",
+    "โทรมา",
+    "โทรได้",
+    "เอาค่ะ",
+    "เอาครับ",
+)
 _NO_PHRASES = ("no", "nope", "not now", "don't", "do not")
-_NO_THAI_PHRASES = ("ไม่ต้อง", "ไม่เอา", "ไม่")
+_NO_THAI_PHRASES = (
+    "ไม่ต้อง",
+    "ไม่ต้องการ",
+    "ไม่เอา",
+    "ไม่สะดวก",
+    "ไม่เป็นไร",
+    "ยังไม่",
+    "ไม่ใช่",
+    "ไม่",
+)
+_CONTACT_GOODBYE_DELAY_SECONDS = 1.2
+_CONTACT_REPLY_WAIT_SECONDS = 3.0
+_CONTACT_REPLY_POLL_SECONDS = 0.1
 
 # Transcript callback: receives ("user"|"agent", text). Called from the
 # live event loop so should be cheap and non-blocking — typically just
@@ -97,11 +125,22 @@ def _kickoff_prompt(language: str) -> str:
 
     lang_code = language if language in {"en", "th"} else "en"
     lang_name = "English" if lang_code == "en" else "Thai"
-    return (
-        f"[The caller has just connected. Greet them warmly in {lang_name} "
-        "as the Mae Fah Luang hotline AI nurse and ask how you can help "
-        "them today. Keep it to one or two short spoken sentences.]"
+    hospital_name = (
+        "โรงพยาบาลแม่ฟ้าหลวง" if lang_code == "th"
+        else "Mae Fah Luang Hospital"
     )
+    return (
+        "[MODE: voice — reply in short spoken sentences, no formatting]\n"
+        f"[LANG: {lang_code} — reply EXCLUSIVELY in {lang_name}. "
+        "This is the session language and it does not change.]\n"
+        f"[CALL_START] The caller has just connected. Greet them warmly in {lang_name} "
+        f"as the {hospital_name} hotline AI nurse and ask how you can help "
+        "them today. Keep it to one or two short spoken sentences."
+    )
+
+
+def _normalize_language(language: str) -> str:
+    return language if language in {"en", "th"} else "en"
 
 
 def _contains_phrase(text: str, phrases: tuple[str, ...]) -> bool:
@@ -110,8 +149,12 @@ def _contains_phrase(text: str, phrases: tuple[str, ...]) -> bool:
 
 
 def _has_yes(text: str) -> bool:
+    if any(phrase in text for phrase in ("ไม่ใช่",)):
+        thai_text = text.replace("ไม่ใช่", "")
+    else:
+        thai_text = text
     return _contains_phrase(text, _YES_PHRASES) or any(
-        phrase in text for phrase in _YES_THAI_PHRASES
+        phrase in thai_text for phrase in _YES_THAI_PHRASES
     )
 
 
@@ -190,6 +233,7 @@ class LiveVoiceService:
             "contact_flow": "idle",
             "contact_transcript_index": 0,
             "assessment_finalized": False,
+            "pipeline_failed": False,
             # Tracks whether we have already replayed the live transcript
             # into ``process_chat`` for a given trigger so we don't
             # double-fire notifications on the same emergency.
@@ -256,10 +300,27 @@ class LiveVoiceService:
         # Final assessment sync — if the call ended before the auto-complete
         # path fired (user hung up early, network drop, etc.), still persist
         # whatever classification we captured from tool responses.
-        if not session.get("assessment_finalized"):
+        if (
+            not session.get("assessment_finalized")
+            and session.get("contact_flow") in {"idle", "done"}
+        ):
             await self._complete_call_assessment(session_id, session=session)
 
         logger.info("Live voice session disconnected: %s", session_id)
+
+    def should_keep_pipeline_open(self, session_id: str) -> bool:
+        session = self._sessions.get(session_id)
+        if session is None:
+            return False
+        if session.get("pipeline_failed"):
+            return False
+        if session.get("assessment_finalized"):
+            return False
+        return session.get("contact_flow") in {
+            "idle",
+            "awaiting_consent",
+            "awaiting_phone",
+        }
 
     # ------------------------------------------------------------------
     # Inbound audio (browser → Gemini Live)
@@ -344,8 +405,6 @@ class LiveVoiceService:
             session["queue"].send_activity_end()
             session["activity_open"] = False
             logger.info("Session %s user turn ended (activity_end)", session_id)
-            if session.get("contact_flow") in {"awaiting_consent", "awaiting_phone"}:
-                asyncio.create_task(self._handle_contact_preference_turn(session_id))
         except Exception:  # noqa: BLE001
             logger.exception("Failed to end user turn for %s", session_id)
 
@@ -394,6 +453,7 @@ class LiveVoiceService:
             # let the cancel propagate after we clean up.
             raise
         except Exception:
+            session["pipeline_failed"] = True
             logger.exception(
                 "Live pipeline crashed for session %s", session_id
             )
@@ -516,8 +576,10 @@ class LiveVoiceService:
     ) -> None:
         """React to a single function_response payload from the live event stream.
 
-        Classification is terminal for both emergency and non-emergency
-        cases. Emergency no longer enters a contact/dispatch flow.
+        Handles both classification results (from classify_triage_level) and
+        contact preference results (from record_contact_preference). The
+        contact flow is driven entirely by tool calls from the live model —
+        no side-channel transcript polling.
         """
 
         session = self._sessions.get(session_id)
@@ -562,6 +624,44 @@ class LiveVoiceService:
             session["contact_transcript_index"] = len(session["transcript"])
             session["contact_preference"] = {"requested": None, "phone": None}
 
+        # --- Contact preference tool response handling ---
+        # The live model calls record_contact_preference directly; we react
+        # to its result here instead of polling transcripts on the side.
+        contact_recorded = payload.get("contact_preference_recorded") is True
+        if contact_recorded and session.get("contact_flow") in {
+            "awaiting_consent",
+            "awaiting_phone",
+        }:
+            preference = self._contact_preference_from_payload(payload)
+            session["contact_preference"] = preference
+            requested = payload.get("requested")
+            phone = (payload.get("phone_number") or "").strip()
+            needs_followup = payload.get("needs_followup") is True
+
+            logger.info(
+                "Contact preference recorded for %s: requested=%s phone=%s "
+                "needs_followup=%s flow=%s",
+                session_id,
+                requested,
+                bool(phone),
+                needs_followup,
+                session.get("contact_flow"),
+            )
+
+            if needs_followup:
+                # Model will ask the follow-up naturally (phone number or
+                # clarification). Update flow state so we know what to
+                # expect on the next tool call.
+                if requested is True:
+                    session["contact_flow"] = "awaiting_phone"
+                # else: stay in awaiting_consent for clarification
+            else:
+                # Final preference recorded — proceed to assessment.
+                session["contact_flow"] = "done"
+                asyncio.create_task(
+                    self._finish_contact_flow(session_id, session)
+                )
+
     # ------------------------------------------------------------------
     # Assessment completion + auto-end
     # ------------------------------------------------------------------
@@ -571,12 +671,176 @@ class LiveVoiceService:
         start = int(session.get("contact_transcript_index") or 0)
         return " ".join(str(chunk).strip() for chunk in chunks[start:] if chunk).strip()
 
+    async def _wait_for_contact_reply_text(self, session: dict[str, Any]) -> str:
+        deadline = asyncio.get_running_loop().time() + _CONTACT_REPLY_WAIT_SECONDS
+        while True:
+            text = self._contact_reply_text(session)
+            if text:
+                return text
+            if asyncio.get_running_loop().time() >= deadline:
+                return ""
+            await asyncio.sleep(_CONTACT_REPLY_POLL_SECONDS)
+
     def _send_agent_instruction(self, session: dict[str, Any], text: str) -> None:
+        lang_code = _normalize_language(str(session.get("language", "en")))
+        lang_name = "English" if lang_code == "en" else "Thai"
         content = genai_types.Content(
             role="user",
-            parts=[genai_types.Part(text=f"[SYSTEM_ACTION] {text}")],
+            parts=[
+                genai_types.Part(
+                    text=(
+                        "[SYSTEM_ACTION]\n"
+                        "[MODE: voice — reply in short spoken sentences, no formatting]\n"
+                        f"[LANG: {lang_code} — reply EXCLUSIVELY in {lang_name}.]\n"
+                        f"{text}"
+                    )
+                )
+            ],
         )
         session["queue"].send_content(content=content)
+
+    def _contact_goodbye_prompt(self, session: dict[str, Any]) -> str:
+        preference = session.get("contact_preference") or {}
+        lang = _normalize_language(str(session.get("language", "en")))
+        if preference.get("requested"):
+            return (
+                "Thank the patient, say the hospital will contact them at that number, "
+                "tell them their triage result and patient ID will be shown now, and say goodbye. "
+                "Use one short natural sentence."
+                if lang == "en"
+                else "ขอบคุณผู้ป่วย แจ้งว่าโรงพยาบาลจะติดต่อกลับตามหมายเลขนั้น บอกว่าจะแสดงผลคัดกรองและรหัสผู้ป่วยตอนนี้ แล้วกล่าวลา ให้พูดเป็นประโยคสั้น ๆ เป็นธรรมชาติหนึ่งประโยค"
+            )
+        return (
+            "Acknowledge that they do not want hospital contact, tell them their triage result "
+            "and patient ID will be shown now, and say goodbye. Use one short natural sentence."
+            if lang == "en"
+            else "รับทราบว่าผู้ป่วยไม่ต้องการให้โรงพยาบาลติดต่อกลับ บอกว่าจะแสดงผลคัดกรองและรหัสผู้ป่วยตอนนี้ แล้วกล่าวลา ให้พูดเป็นประโยคสั้น ๆ เป็นธรรมชาติหนึ่งประโยค"
+        )
+
+    def _phone_followup_question(self, session: dict[str, Any]) -> str:
+        lang = _normalize_language(str(session.get("language", "en")))
+        return (
+            "Please tell me your phone number so the hospital can contact you."
+            if lang == "en"
+            else "กรุณาบอกหมายเลขโทรศัพท์ของคุณ เพื่อให้โรงพยาบาลติดต่อกลับได้ค่ะ"
+        )
+
+    def _contact_clarification_question(self, session: dict[str, Any]) -> str:
+        lang = _normalize_language(str(session.get("language", "en")))
+        return (
+            "Would you like the hospital to contact you?"
+            if lang == "en"
+            else "คุณต้องการให้โรงพยาบาลติดต่อกลับไหมคะ"
+        )
+
+    def _speak_contact_agent_reply(
+        self,
+        session: dict[str, Any],
+        reply: str,
+    ) -> None:
+        text = reply.strip()
+        if not text:
+            return
+        lang = _normalize_language(str(session.get("language", "en")))
+        prompt = (
+            f"Say this exact message to the patient, naturally and without adding anything: {text}"
+            if lang == "en"
+            else f"พูดข้อความนี้กับผู้ป่วยตามนี้อย่างเป็นธรรมชาติ โดยไม่เพิ่มข้อความอื่น: {text}"
+        )
+        self._send_agent_instruction(session, prompt)
+
+    async def _finish_contact_flow(
+        self,
+        session_id: str,
+        session: dict[str, Any],
+        *,
+        goodbye_reply: str = "",
+    ) -> None:
+        if session.get("contact_completion_started"):
+            return
+        session["contact_completion_started"] = True
+        await self._persist_contact_preference(session_id, session)
+        try:
+            if goodbye_reply.strip():
+                self._speak_contact_agent_reply(session, goodbye_reply)
+            else:
+                self._send_agent_instruction(session, self._contact_goodbye_prompt(session))
+        except Exception:
+            logger.exception("Failed to queue contact goodbye for %s", session_id)
+        await asyncio.sleep(_CONTACT_GOODBYE_DELAY_SECONDS)
+        await self._complete_call_assessment(session_id)
+
+    def _contact_preference_from_payload(
+        self,
+        payload: dict[str, Any],
+    ) -> dict[str, Any]:
+        return {
+            "requested": payload.get("requested"),
+            "phone": payload.get("phone_number"),
+            "preferred_time": payload.get("preferred_time"),
+            "relation": payload.get("relation"),
+            "confidence": payload.get("confidence"),
+            "needs_followup": payload.get("needs_followup"),
+            "followup_question": payload.get("followup_question"),
+        }
+
+    def _contact_preference_from_live_text(
+        self,
+        flow: str,
+        text: str,
+        session: dict[str, Any],
+    ) -> dict[str, Any]:
+        phone_match = _PHONE_RE.search(text)
+        phone_number = phone_match.group(0).strip() if phone_match else None
+
+        if flow == "awaiting_phone":
+            return {
+                "requested": True,
+                "phone_number": phone_number,
+                "preferred_time": None,
+                "relation": None,
+                "confidence": 1.0 if phone_number else 0.0,
+                "needs_followup": phone_number is None,
+                "followup_question": (
+                    None if phone_number else self._phone_followup_question(session)
+                ),
+            }
+
+        wants_contact = _has_yes(text)
+        declines_contact = _has_no(text)
+        if declines_contact and not wants_contact:
+            return {
+                "requested": False,
+                "phone_number": None,
+                "preferred_time": None,
+                "relation": None,
+                "confidence": 1.0,
+                "needs_followup": False,
+                "followup_question": None,
+            }
+
+        if wants_contact:
+            return {
+                "requested": True,
+                "phone_number": phone_number,
+                "preferred_time": None,
+                "relation": None,
+                "confidence": 1.0,
+                "needs_followup": phone_number is None,
+                "followup_question": (
+                    None if phone_number else self._phone_followup_question(session)
+                ),
+            }
+
+        return {
+            "requested": None,
+            "phone_number": None,
+            "preferred_time": None,
+            "relation": None,
+            "confidence": 0.0,
+            "needs_followup": True,
+            "followup_question": self._contact_clarification_question(session),
+        }
 
     async def _persist_contact_preference(
         self,
@@ -612,18 +876,40 @@ class LiveVoiceService:
             {
                 "patient_contact_requested": preference.get("requested"),
                 "patient_contact_phone": preference.get("phone"),
+                "patient_contact_preferred_time": preference.get("preferred_time"),
+                "patient_contact_relation": preference.get("relation"),
+                "patient_contact_updated_at": datetime.now(timezone.utc).isoformat(),
             },
         )
 
     async def _handle_contact_preference_turn(self, session_id: str) -> None:
-        await asyncio.sleep(0.4)
         session = self._sessions.get(session_id)
         if session is None or session.get("assessment_finalized"):
             return
+        if session.get("contact_turn_handler_running"):
+            return
+        session["contact_turn_handler_running"] = True
+        try:
+            await self._handle_contact_preference_turn_inner(session_id, session)
+        finally:
+            session["contact_turn_handler_running"] = False
+
+    async def _handle_contact_preference_turn_inner(
+        self,
+        session_id: str,
+        session: dict[str, Any],
+    ) -> None:
+        if session.get("assessment_finalized"):
+            return
 
         flow = session.get("contact_flow")
-        text = self._contact_reply_text(session)
+        text = await self._wait_for_contact_reply_text(session)
         if not text:
+            logger.info(
+                "No contact preference transcript received for %s while flow=%s",
+                session_id,
+                flow,
+            )
             return
 
         logger.debug(
@@ -633,75 +919,37 @@ class LiveVoiceService:
             text,
         )
 
-        if flow == "awaiting_consent":
-            wants_contact = _has_yes(text)
-            declines_contact = _has_no(text)
+        payload = self._contact_preference_from_live_text(str(flow), text, session)
+        phone_number = str(payload.get("phone_number") or "").strip()
+        session["contact_preference"] = self._contact_preference_from_payload(payload)
+        requested = payload.get("requested")
+        needs_followup = payload.get("needs_followup") is True
+        followup_question = str(payload.get("followup_question") or "").strip()
 
-            if declines_contact and not wants_contact:
-                logger.info(
-                    "Patient declined contact for %s; persisting decline and completing assessment",
-                    session_id,
-                )
-                session["contact_preference"] = {"requested": False, "phone": None}
-                session["contact_flow"] = "done"
-                await self._persist_contact_preference(session_id, session)
-                asyncio.create_task(self._complete_call_assessment(session_id))
-                return
-
-            if wants_contact:
-                phone_match = _PHONE_RE.search(text)
-                if phone_match:
-                    session["contact_preference"] = {
-                        "requested": True,
-                        "phone": phone_match.group(0).strip(),
-                    }
-                    session["contact_flow"] = "done"
-                    await self._persist_contact_preference(session_id, session)
-                    asyncio.create_task(self._complete_call_assessment(session_id))
-                    return
-
-                session["contact_preference"] = {"requested": True, "phone": None}
-                session["contact_flow"] = "awaiting_phone"
-                session["contact_transcript_index"] = len(session["transcript"])
-                lang = session.get("language", "en")
-                prompt = (
-                    "Please ask the patient for their phone number only, in one short sentence."
-                    if lang == "en"
-                    else "ขอให้ถามหมายเลขโทรศัพท์ของผู้ป่วยสั้น ๆ เพียงอย่างเดียว"
-                )
-                self._send_agent_instruction(session, prompt)
-                return
-
-            lang = session.get("language", "en")
-            prompt = (
-                "Please ask again: would they like the hospital to contact them? Ask for yes or no only."
-                if lang == "en"
-                else "โปรดถามอีกครั้งว่าต้องการให้โรงพยาบาลติดต่อกลับหรือไม่ ให้ตอบว่าใช่หรือไม่"
-            )
-            self._send_agent_instruction(session, prompt)
+        if requested is True and not phone_number:
+            session["contact_preference"]["needs_followup"] = True
+            session["contact_flow"] = "awaiting_phone"
             session["contact_transcript_index"] = len(session["transcript"])
+            self._speak_contact_agent_reply(
+                session,
+                self._phone_followup_question(session),
+            )
             return
 
-        if flow == "awaiting_phone":
-            phone_match = _PHONE_RE.search(text)
-            if phone_match:
-                session["contact_preference"] = {
-                    "requested": True,
-                    "phone": phone_match.group(0).strip(),
-                }
-                session["contact_flow"] = "done"
-                await self._persist_contact_preference(session_id, session)
-                asyncio.create_task(self._complete_call_assessment(session_id))
-                return
-
-            lang = session.get("language", "en")
-            prompt = (
-                "Please ask for the phone number again, briefly."
-                if lang == "en"
-                else "โปรดขอหมายเลขโทรศัพท์อีกครั้งแบบสั้น ๆ"
-            )
-            self._send_agent_instruction(session, prompt)
+        if needs_followup:
+            session["contact_flow"] = "awaiting_consent"
             session["contact_transcript_index"] = len(session["transcript"])
+            clarification = followup_question or self._contact_clarification_question(session)
+            self._speak_contact_agent_reply(
+                session,
+                clarification,
+            )
+            return
+
+        session["contact_flow"] = "done"
+        asyncio.create_task(
+            self._finish_contact_flow(session_id, session)
+        )
 
     async def _complete_call_assessment(
         self,
@@ -717,6 +965,14 @@ class LiveVoiceService:
         if session is None:
             session = self._sessions.get(session_id)
         if session is None or session.get("assessment_finalized"):
+            return
+
+        if session.get("contact_flow") not in {"idle", "done"}:
+            logger.info(
+                "Deferring live assessment completion for %s while contact_flow=%s",
+                session_id,
+                session.get("contact_flow"),
+            )
             return
 
         classification: dict[str, Any] = session.get("classification") or {}

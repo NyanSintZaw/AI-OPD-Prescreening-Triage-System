@@ -29,6 +29,7 @@ class TriageResult:
     distress_score: int | None
     distress_type: str | None
     red_flags: list[str]
+    contact: dict[str, Any]
 
 
 

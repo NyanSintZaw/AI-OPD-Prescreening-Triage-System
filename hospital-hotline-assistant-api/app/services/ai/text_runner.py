@@ -15,6 +15,7 @@ from google.genai import types as genai_types  # noqa: E402
 from app.services.ai.agent_factory import (  # noqa: E402
     APP_NAME,
     _SESSION_SERVICE,
+    build_contact_preference_agent,
     build_orchestrator,
     build_triage_agent,
 )
@@ -33,8 +34,9 @@ class HotlineADKRunner:
     """
 
     def __init__(self) -> None:
-        triage_agent = build_triage_agent()
-        self._root_agent = build_orchestrator(triage_agent)
+        triage_agent = build_triage_agent(include_contact_tool=True)
+        contact_agent = build_contact_preference_agent()
+        self._root_agent = build_orchestrator(triage_agent, contact_agent)
         self._runner: Runner = Runner(
             app_name=APP_NAME,
             agent=self._root_agent,
@@ -123,6 +125,7 @@ class HotlineADKRunner:
         # tool-call outputs.
         reply_chunks: list[str] = []
         classification: dict[str, Any] = {}
+        contact: dict[str, Any] = {}
 
         try:
             async for event in self._runner.run_async(
@@ -160,6 +163,8 @@ class HotlineADKRunner:
                     if isinstance(response_payload, dict):
                         if response_payload.get("classified") is True:
                             classification = dict(response_payload)
+                        if response_payload.get("contact_preference_recorded") is True:
+                            contact = dict(response_payload)
         except Exception:
             logger.exception(
                 "ADK runner failed for session=%s mode=%s", session_id, input_mode
@@ -190,7 +195,7 @@ class HotlineADKRunner:
         return {
             "reply": reply,
             "classification": classification,
-            "contact": {},
+            "contact": contact,
             "input_mode": input_mode,
         }
 
@@ -282,6 +287,7 @@ class HotlineADKRunner:
         kept_chunks: list[str] = []
         current_run_chunks: list[str] = []
         classification: dict[str, Any] = {}
+        contact: dict[str, Any] = {}
 
         # Tracks whether we've already stripped the meta-marker prefix
         # from the streaming output. The model occasionally echoes
@@ -322,6 +328,8 @@ class HotlineADKRunner:
                                 "type": "classified",
                                 "classification": classification,
                             }
+                        if response_payload.get("contact_preference_recorded") is True:
+                            contact = dict(response_payload)
 
                 if is_partial:
                     # Stream text deltas as they arrive. We can't yet
@@ -397,6 +405,6 @@ class HotlineADKRunner:
             "type": "done",
             "reply": reply,
             "classification": classification,
-            "contact": {},
+            "contact": contact,
             "input_mode": input_mode,
         }

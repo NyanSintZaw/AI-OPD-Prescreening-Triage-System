@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from datetime import datetime, timezone
 from time import perf_counter
 from typing import Any, AsyncIterator
 
@@ -578,6 +579,13 @@ class TriageService:
         if "requested" in contact:
             existing_metadata["patient_contact_requested"] = contact.get("requested")
             existing_metadata["patient_contact_phone"] = contact.get("phone")
+            existing_metadata["patient_contact_preferred_time"] = contact.get(
+                "preferred_time"
+            )
+            existing_metadata["patient_contact_relation"] = contact.get("relation")
+            existing_metadata["patient_contact_updated_at"] = datetime.now(
+                timezone.utc
+            ).isoformat()
         if severity_level == "emergency":
             existing_metadata["escalation_reason"] = (
                 severity_explanation or "Emergency triage match"
@@ -616,6 +624,7 @@ class TriageService:
             distress_score=distress_score,
             distress_type=distress_type,
             red_flags=red_flags,
+            contact=contact,
         )
         return result, dict(msg_assistant)
 
@@ -670,6 +679,17 @@ class TriageService:
         # downstream is straightforward.
         yield {"type": "user_message", "message": dict(ctx["msg_user"])}
 
+        prior_metadata = dict(ctx["prior_metadata"])
+        contact_flow = str(prior_metadata.get("contact_flow") or "idle")
+        is_contact_turn = contact_flow in {"awaiting_consent", "awaiting_phone"}
+        agent_content = content
+        if is_contact_turn:
+            agent_content = (
+                "[PHASE: contact_preference]\n"
+                f"[CONTACT_FLOW: {contact_flow}]\n"
+                f"{content}"
+            )
+
         # Consume the ADK stream. We accumulate the reply locally as
         # we go so that the final ``adk_result`` we feed into
         # ``_finalize_chat_turn`` has the same shape the non-streaming
@@ -685,7 +705,7 @@ class TriageService:
                 session_id=session_id,
                 language=language,
                 input_mode=input_mode,
-                content=content,
+                content=agent_content,
             ):
                 event_type = event.get("type")
                 if event_type == "delta":
@@ -708,8 +728,73 @@ class TriageService:
                         event.get("classification")
                         or adk_result["classification"]
                     )
+                    adk_result["contact"] = event.get("contact") or adk_result["contact"]
         except Exception as exc:
             yield {"type": "error", "message": f"agent_stream_failed: {exc}"}
+            return
+
+        contact = adk_result.get("contact") or {}
+        if is_contact_turn:
+            requested = contact.get("requested")
+            needs_followup = contact.get("needs_followup") is True
+            next_flow = contact_flow
+            if needs_followup:
+                next_flow = "awaiting_phone" if requested is True else "awaiting_consent"
+            else:
+                next_flow = "done"
+            prior_metadata.update(
+                {
+                    "contact_flow": next_flow,
+                    "patient_contact_requested": requested,
+                    "patient_contact_phone": contact.get("phone_number"),
+                    "patient_contact_preferred_time": contact.get("preferred_time"),
+                    "patient_contact_relation": contact.get("relation"),
+                    "patient_contact_updated_at": datetime.now(timezone.utc).isoformat(),
+                }
+            )
+            await connection.execute(
+                "UPDATE sessions SET metadata = $2::jsonb WHERE id = $1",
+                session_id,
+                prior_metadata,
+            )
+
+            if needs_followup:
+                assistant_message = await self._persist_assistant_message(
+                    connection=connection,
+                    session_id=session_id,
+                    reply=adk_result["reply"],
+                    start=start,
+                )
+                yield {
+                    "type": "turn_complete",
+                    "assistant_message": assistant_message,
+                    "awaiting_contact": True,
+                }
+                return
+
+            adk_result["classification"] = prior_metadata.get("triage_classification") or {}
+            content = str(prior_metadata.get("triage_content") or content)
+
+        elif adk_result.get("classification", {}).get("classified") is True:
+            prior_metadata["triage_classification"] = adk_result["classification"]
+            prior_metadata["triage_content"] = content
+            prior_metadata["contact_flow"] = "awaiting_consent"
+            await connection.execute(
+                "UPDATE sessions SET metadata = $2::jsonb WHERE id = $1",
+                session_id,
+                prior_metadata,
+            )
+            assistant_message = await self._persist_assistant_message(
+                connection=connection,
+                session_id=session_id,
+                reply=adk_result["reply"],
+                start=start,
+            )
+            yield {
+                "type": "turn_complete",
+                "assistant_message": assistant_message,
+                "awaiting_contact": True,
+            }
             return
 
         try:
@@ -731,3 +816,28 @@ class TriageService:
             "result": _triage_result_to_payload(result),
             "assistant_message": assistant_message,
         }
+
+    async def _persist_assistant_message(
+        self,
+        *,
+        connection: asyncpg.Connection,
+        session_id: str,
+        reply: str,
+        start: float,
+    ) -> dict[str, Any]:
+        latency_ms = int((perf_counter() - start) * 1000)
+        model_name = f"adk:{settings.google_model_name}"
+        msg_assistant = await connection.fetchrow(
+            """
+            INSERT INTO messages (
+                session_id, role, input_mode, content, model_name, response_latency_ms, metadata
+            )
+            VALUES ($1, 'assistant', NULL, $2, $3, $4, '{}'::jsonb)
+            RETURNING *
+            """,
+            session_id,
+            reply,
+            model_name,
+            latency_ms,
+        )
+        return dict(msg_assistant)

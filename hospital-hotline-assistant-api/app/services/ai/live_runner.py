@@ -11,10 +11,13 @@ configure_google_genai_environment()
 
 from google.adk.agents import LlmAgent  # noqa: E402
 from google.adk.runners import Runner  # noqa: E402
+from google.genai import types as genai_types  # noqa: E402
 
 from app.services.ai.agent_factory import (  # noqa: E402
+    CONTACT_APP_NAME,
     LIVE_APP_NAME,
     _SESSION_SERVICE,
+    build_contact_preference_agent,
     build_orchestrator,
     build_triage_agent,
 )
@@ -36,13 +39,26 @@ class HotlineADKLiveRunner:
         # default. Reuses the same instructions / tools / sub-agent layout
         # as HotlineADKRunner — only the wire model changes.
         live_model = settings.google_live_model_name
-        triage_agent = build_triage_agent(model_name=live_model)
+        triage_agent = build_triage_agent(
+            model_name=live_model,
+            include_contact_tool=True,
+        )
+        text_contact_agent = build_contact_preference_agent(
+            model_name=settings.google_model_name
+        )
         self._root_agent: LlmAgent = build_orchestrator(
-            triage_agent, model_name=live_model
+            triage_agent,
+            model_name=live_model,
         )
         self._runner: Runner = Runner(
             app_name=LIVE_APP_NAME,
             agent=self._root_agent,
+            session_service=_SESSION_SERVICE,
+        )
+        self._contact_agent: LlmAgent = text_contact_agent
+        self._contact_runner: Runner = Runner(
+            app_name=CONTACT_APP_NAME,
+            agent=self._contact_agent,
             session_service=_SESSION_SERVICE,
         )
 
@@ -88,6 +104,86 @@ class HotlineADKLiveRunner:
 
         await self.ensure_live_session(session_id, language)
         return self._runner
+
+    async def ensure_contact_session(self, session_id: str, language: str) -> None:
+        existing = await _SESSION_SERVICE.get_session(
+            app_name=CONTACT_APP_NAME,
+            user_id=session_id,
+            session_id=session_id,
+        )
+        if existing is not None:
+            return
+        await _SESSION_SERVICE.create_session(
+            app_name=CONTACT_APP_NAME,
+            user_id=session_id,
+            session_id=session_id,
+            state={
+                "language": language,
+                "session_id": session_id,
+                "input_mode": "voice",
+                "contact_phase": "contact_preference",
+            },
+        )
+
+    async def run_contact_preference(
+        self,
+        session_id: str,
+        language: str,
+        user_message: str,
+    ) -> tuple[str, dict[str, Any]]:
+        """Run one post-triage contact-only turn through Gemini."""
+
+        await self.ensure_contact_session(session_id, language)
+        lang_code = language if language in {"en", "th"} else "en"
+        lang_name = "English" if lang_code == "en" else "Thai"
+        content = genai_types.Content(
+            role="user",
+            parts=[
+                genai_types.Part(
+                    text=(
+                        "[PHASE: contact_preference]\n"
+                        "[MODE: voice — reply in short spoken sentences, no formatting]\n"
+                        f"[LANG: {lang_code} — reply EXCLUSIVELY in {lang_name}.]\n"
+                        f"{user_message}"
+                    )
+                )
+            ],
+        )
+
+        reply_chunks: list[str] = []
+        contact: dict[str, Any] = {}
+        async for event in self._contact_runner.run_async(
+            user_id=session_id,
+            session_id=session_id,
+            new_message=content,
+        ):
+            event_content = getattr(event, "content", None)
+            parts = getattr(event_content, "parts", None) or []
+            is_final = False
+            try:
+                is_final = event.is_final_response()
+            except Exception:
+                is_final = False
+
+            for part in parts:
+                if is_final:
+                    text = getattr(part, "text", None)
+                    if text:
+                        reply_chunks.append(text)
+
+                func_response = getattr(part, "function_response", None)
+                response_payload = (
+                    getattr(func_response, "response", None)
+                    if func_response is not None
+                    else None
+                )
+                if (
+                    isinstance(response_payload, dict)
+                    and response_payload.get("contact_preference_recorded") is True
+                ):
+                    contact = dict(response_payload)
+
+        return "".join(reply_chunks).strip(), contact
 
     def build_run_config(self, language: str) -> Any:
         """Public wrapper around :func:`_build_live_run_config` so callers

@@ -35,7 +35,12 @@ export function ChatPage() {
   const speech = useSpeechRecognition(language);
   const synthesis = useSpeechSynthesis(language);
   const frontdeskMode = (import.meta.env.VITE_FRONTDESK_MODE ?? 'false') === 'true';
-  const assessmentComplete = Boolean(assessment);
+  const assessmentComplete = Boolean(
+    assessment?.severity?.level && 
+    assessment.severity.level !== 'unknown' && 
+    assessment.contact?.contact_preference_recorded && 
+    !assessment.contact?.needs_followup
+  );
 
   const voiceCall = useVoiceCall({
     sessionId,
@@ -248,7 +253,7 @@ export function ChatPage() {
           </div>
         ) : null}
 
-        {assessment?.severity && (
+        {assessmentComplete && assessment?.severity && assessment.severity.level !== 'unknown' && (
           <div className={`triage-panel severity-${assessment.severity.level}`}>
             <div>
               <strong>{t('triageStatus')}:</strong>{' '}
@@ -258,7 +263,7 @@ export function ChatPage() {
           </div>
         )}
 
-        {assessment && <RecommendationCard assessment={assessment} />}
+        {assessmentComplete && assessment && <RecommendationCard assessment={assessment} />}
 
         {assessment?.followUpQuestion && (
           <div className="follow-up-card">
@@ -370,7 +375,7 @@ export function ChatPage() {
           >
             {t('send')}
           </button>
-          {assessment && (
+          {assessmentComplete && assessment && (
             <PatientIdPassPopup
               sessionId={sessionId}
               language={language}

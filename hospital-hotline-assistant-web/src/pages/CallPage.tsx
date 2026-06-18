@@ -72,22 +72,9 @@ export function CallPage() {
   const [displayAssessment, setDisplayAssessment] = useState<ChatAssessment | null>(null);
   const [callFinished, setCallFinished] = useState(false);
 
-  const greeting = t('callGreeting');
-
   const voiceCall = useVoiceCall({
     sessionId,
     language,
-    initialGreeting: greeting,
-    onGreeting: (text) => {
-      if (!sessionId) return;
-      void api
-        .createMessage(sessionId, {
-          role: 'assistant',
-          content: text,
-          model_name: 'hotline-greeting-script',
-        })
-        .catch(() => undefined);
-    },
     onAssessmentComplete: (payload) => {
       void (async () => {
         try {

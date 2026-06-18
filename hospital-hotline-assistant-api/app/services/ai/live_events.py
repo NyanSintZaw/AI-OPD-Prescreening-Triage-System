@@ -9,7 +9,7 @@ from typing import Any
 logger = logging.getLogger(__name__)
 
 _META_PREFIX_TOKEN_RE = re.compile(
-    r"^\s*\[\s*(?:MODE|LANG|CALL_START)\b[^\]]*\]\s*",
+    r"^\s*\[\s*(?:MODE|LANG|CALL_START|SYSTEM_ACTION)\b[^\]]*\]\s*",
     re.IGNORECASE,
 )
 
@@ -27,10 +27,22 @@ def _strip_meta_markers(reply: str) -> str:
     return reply.lstrip()
 
 
+def _collapse_adjacent_repeat(text: str) -> str:
+    """Collapse a fragment that is the same phrase emitted twice."""
+
+    words = text.split()
+    if len(words) < 2 or len(words) % 2:
+        return text
+    midpoint = len(words) // 2
+    if words[:midpoint] == words[midpoint:]:
+        return " ".join(words[:midpoint])
+    return text
+
+
 def _smart_append(chunks: list[str], fragment: str) -> str | None:
     """Append transcript fragments while suppressing duplicate/snapshot output."""
 
-    f = fragment.strip()
+    f = _collapse_adjacent_repeat(fragment.strip())
     if not f:
         return None
     existing = " ".join(c.strip() for c in chunks if c.strip()).strip()
