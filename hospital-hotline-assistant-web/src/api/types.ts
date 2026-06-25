@@ -299,3 +299,63 @@ export type ChatStreamEvent =
 export interface ApiError {
   detail: string;
 }
+
+// ── Doctor schedules ─────────────────────────────────────────────────────────
+
+export interface DoctorScheduleCreate {
+  schedule_date: string;
+  start_time: string;
+  end_time: string;
+  break_start?: string | null;
+  break_end?: string | null;
+  room?: string | null;
+  slot_label?: string | null;
+  is_available: boolean;
+  notes?: string | null;
+}
+
+export interface DoctorScheduleOut extends DoctorScheduleCreate {
+  id: string;
+  doctor_id: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface DoctorCreate {
+  full_name: string;
+  title?: string;
+  specialization?: string | null;
+  department_id?: string | null;
+  phone_ext?: string | null;
+  notes?: string | null;
+  is_active?: boolean;
+}
+
+export interface DoctorUpdate {
+  full_name?: string;
+  title?: string;
+  specialization?: string | null;
+  department_id?: string | null;
+  phone_ext?: string | null;
+  notes?: string | null;
+  is_active?: boolean;
+}
+
+export interface DoctorOut {
+  id: string;
+  full_name: string;
+  title: string;
+  specialization: string | null;
+  department_id: string | null;
+  department_name_en: string | null;
+  department_name_th: string | null;
+  phone_ext: string | null;
+  notes: string | null;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface DoctorWithSchedulesOut extends DoctorOut {
+  schedules: DoctorScheduleOut[];
+}

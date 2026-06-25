@@ -79,6 +79,7 @@ class HotlineADKRunner:
         language: str,
         user_message: str,
         input_mode: str,
+        schedule_context: str | None = None,
     ) -> dict[str, Any]:
         """Run one hotline turn through the ADK Orchestrator.
 
@@ -112,7 +113,8 @@ class HotlineADKRunner:
             f"the caller writes in another language this turn, your reply "
             f"MUST be in {lang_name}.]"
         )
-        final_content = f"{mode_line}\n{lang_line}\n{user_message}"
+        schedule_line = f"\n{schedule_context}" if schedule_context else ""
+        final_content = f"{mode_line}\n{lang_line}{schedule_line}\n{user_message}"
 
         # Step 3 — wrap the message in the ADK Content envelope.
         content = genai_types.Content(
@@ -205,6 +207,7 @@ class HotlineADKRunner:
         language: str,
         user_message: str,
         input_mode: str,
+        schedule_context: str | None = None,
     ) -> "AsyncIterator[dict[str, Any]]":
         """Streaming variant of :meth:`chat`.
 
@@ -270,7 +273,8 @@ class HotlineADKRunner:
             f"the caller writes in another language this turn, your reply "
             f"MUST be in {lang_name}.]"
         )
-        final_content = f"{mode_line}\n{lang_line}\n{user_message}"
+        schedule_line = f"\n{schedule_context}" if schedule_context else ""
+        final_content = f"{mode_line}\n{lang_line}{schedule_line}\n{user_message}"
 
         content = genai_types.Content(
             role="user",

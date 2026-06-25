@@ -5,8 +5,11 @@ import { api, type MessageOut } from '../api';
 import { getAdminEmail, getAdminToken } from '../api/client';
 import { Layout } from '../components/Layout';
 import { MessageBubble } from '../components/MessageBubble';
+import { DoctorScheduleManager } from '../components/DoctorScheduleManager';
 import { useLanguage } from '../hooks/useSession';
 import type { AssessmentReviewOut, DepartmentOut, RoutingFeedbackOut } from '../api/types';
+
+type NurseTab = 'reviews' | 'schedules';
 
 function truncateId(id: string): string {
   return `${id.slice(0, 8)}…`;
@@ -21,6 +24,7 @@ export function NursePage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { language, setLanguage } = useLanguage();
+  const [activeTab, setActiveTab] = useState<NurseTab>('reviews');
   const reviewFilter = 'pending';
   const [reviews, setReviews] = useState<AssessmentReviewOut[]>([]);
   const [feedbackRows, setFeedbackRows] = useState<RoutingFeedbackOut[]>([]);
@@ -198,31 +202,54 @@ export function NursePage() {
       <section className="admin-page nurse-page">
         <header className="admin-header">
           <div className="admin-heading">
-            <h1>{t('adminReviewQueueTitle')}</h1>
+            <h1>{t('nursePortalTitle')}</h1>
             <p className="muted">{t('nursePortalSubtitle')}</p>
           </div>
           <div className="admin-header-actions">
-            <button
-              type="button"
-              className="secondary-btn admin-refresh-btn"
-              onClick={() => void loadReviewData(reviewFilter)}
-              disabled={reviewDataLoading}
-            >
-              <span aria-hidden="true" className={`refresh-glyph ${reviewDataLoading ? 'spinning' : ''}`}>
-                {'\u21BB'}
-              </span>
-              {t('adminRefresh')}
-            </button>
+            {activeTab === 'reviews' && (
+              <button
+                type="button"
+                className="secondary-btn admin-refresh-btn"
+                onClick={() => void loadReviewData(reviewFilter)}
+                disabled={reviewDataLoading}
+              >
+                <span aria-hidden="true" className={`refresh-glyph ${reviewDataLoading ? 'spinning' : ''}`}>
+                  {'\u21BB'}
+                </span>
+                {t('adminRefresh')}
+              </button>
+            )}
             <Link to="/patient" className="back-link">
               {t('loginPatientAccess')}
             </Link>
           </div>
         </header>
 
+        {/* ── Tab bar ── */}
+        <div className="nurse-tab-bar">
+          <button
+            type="button"
+            className={`nurse-tab-btn ${activeTab === 'reviews' ? 'active' : ''}`}
+            onClick={() => setActiveTab('reviews')}
+          >
+            {t('scheduleTabReviews')}
+          </button>
+          <button
+            type="button"
+            className={`nurse-tab-btn ${activeTab === 'schedules' ? 'active' : ''}`}
+            onClick={() => setActiveTab('schedules')}
+          >
+            {t('scheduleTabDoctors')}
+          </button>
+        </div>
 
         {authError ? <p className="error-text">{authError}</p> : null}
 
-        <div className="admin-toolbar nurse-toolbar">
+        {activeTab === 'schedules' && (
+          <DoctorScheduleManager departments={departments} />
+        )}
+
+        {activeTab === 'reviews' && <div className="admin-toolbar nurse-toolbar">
           <div className="chip-group" role="group" aria-label={t('nurseContactFilterLabel')}>
             <span className="chip-group-label">{t('nurseContactFilterLabel')}</span>
             <button
@@ -240,10 +267,10 @@ export function NursePage() {
               {t('nurseContactRequestedOnly')} ({contactRequestedCount})
             </button>
           </div>
-        </div>
+        </div>}
 
         {/* ── Review cards ── */}
-        {reviewDataLoading ? (
+        {activeTab === 'reviews' && (reviewDataLoading ? (
           <p className="muted">{t('loading')}</p>
         ) : filteredReviews.length === 0 ? (
           <p className="muted">
@@ -323,9 +350,9 @@ export function NursePage() {
               );
             })}
           </div>
-        )}
+        ))}
 
-        {selectedReview && (
+        {activeTab === 'reviews' && selectedReview && (
           <div className="nurse-review-modal" role="dialog" aria-modal="true" aria-labelledby="nurse-review-modal-title">
             <button
               type="button"
@@ -501,7 +528,7 @@ export function NursePage() {
         )}
 
         {/* ── Routing feedback history ── */}
-        <section className="admin-feedback-section">
+        {activeTab === 'reviews' && <section className="admin-feedback-section">
           <h2>{t('adminFeedbackTitle')}</h2>
           {feedbackRows.length === 0 ? (
             <p className="muted">{t('adminNoFeedback')}</p>
@@ -535,7 +562,7 @@ export function NursePage() {
               </table>
             </div>
           )}
-        </section>
+        </section>}
       </section>
     </Layout>
   );

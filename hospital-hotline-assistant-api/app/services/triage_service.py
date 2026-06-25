@@ -25,6 +25,61 @@ from app.services.triage_engine import LlmTriageEngine, TriageEngine
 
 logger = logging.getLogger(__name__)
 
+_DAY_NAMES = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+
+
+async def _build_schedule_context(connection: asyncpg.Connection) -> str | None:
+    """Fetch today's available doctor schedules and format them as a short
+    context block injected into the AI's message prefix.
+
+    Only entries with schedule_date = today are surfaced; historical rows
+    remain in the DB for audit purposes but are invisible here.
+    Returns None when the doctors table doesn't exist yet (pre-migration).
+    """
+    from datetime import date, datetime, timezone
+
+    today = date.today()
+    today_name = today.strftime("%A, %d %B %Y")
+
+    try:
+        rows = await connection.fetch(
+            """
+            SELECT d.full_name, d.title, d.specialization,
+                   dept.name_en AS dept_name,
+                   s.start_time, s.end_time, s.break_start, s.break_end,
+                   s.room, s.slot_label
+            FROM doctors d
+            LEFT JOIN departments dept ON dept.id = d.department_id
+            JOIN doctor_schedules s ON s.doctor_id = d.id
+            WHERE d.is_active = TRUE
+              AND s.schedule_date = $1
+              AND s.is_available = TRUE
+            ORDER BY d.full_name, s.start_time
+            """,
+            today,
+        )
+    except Exception:
+        return None
+
+    if not rows:
+        return f"[SCHEDULE: Today is {today_name}. No doctors are scheduled today.]"
+
+    lines = [f"[SCHEDULE: Today is {today_name}. Available doctors:"]
+    for row in rows:
+        slot = f"{row['start_time'].strftime('%H:%M')}–{row['end_time'].strftime('%H:%M')}"
+        if row['break_start'] and row['break_end']:
+            slot += f" (break {row['break_start'].strftime('%H:%M')}–{row['break_end'].strftime('%H:%M')})"
+        label = f" [{row['slot_label']}]" if row['slot_label'] else ""
+        room = f", Room {row['room']}" if row['room'] else ""
+        dept = f", {row['dept_name']}" if row['dept_name'] else ""
+        spec = f" — {row['specialization']}" if row['specialization'] else ""
+        lines.append(f"  • {row['title']} {row['full_name']}{spec}{dept}{room}: {slot}{label}")
+    lines.append(
+        "If a patient asks about available doctors or doctor schedules, "
+        "answer using only this information. Do not guess or invent schedules.]"
+    )
+    return "\n".join(lines)
+
 
 def _classification_score(value: Any) -> int | None:
     if value is None or isinstance(value, bool):
@@ -156,6 +211,8 @@ class TriageService:
             input_mode=input_mode,
         )
 
+        schedule_context = await _build_schedule_context(connection)
+
         return {
             "msg_user": msg_user,
             "prior_metadata": prior_metadata,
@@ -165,6 +222,7 @@ class TriageService:
             "department_name_by_id": department_name_by_id,
             "emergency_matches": emergency_matches,
             "routing_matches": routing_matches,
+            "schedule_context": schedule_context,
         }
 
     async def process_chat(
@@ -198,6 +256,7 @@ class TriageService:
             language=language,
             input_mode=input_mode,
             content=content,
+            schedule_context=ctx.get("schedule_context"),
         )
 
         return await self._finalize_chat_turn(
@@ -706,6 +765,7 @@ class TriageService:
                 language=language,
                 input_mode=input_mode,
                 content=agent_content,
+                schedule_context=ctx.get("schedule_context"),
             ):
                 event_type = event.get("type")
                 if event_type == "delta":

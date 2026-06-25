@@ -12,6 +12,12 @@ import type {
   ConversationSummaryOut,
   DepartmentOut,
   DepartmentRecommendationCreate,
+  DoctorCreate,
+  DoctorOut,
+  DoctorScheduleCreate,
+  DoctorScheduleOut,
+  DoctorUpdate,
+  DoctorWithSchedulesOut,
   EmergencyEventOut,
   EmergencyEventCreate,
   EmergencyTriggerOut,
@@ -279,6 +285,42 @@ export const api = {
 
   stt: (audio: Blob, language: LanguageCode, filename?: string) =>
     sttRequest({ audio, language, filename }),
+
+  // ── Doctor schedules ──────────────────────────────────────────────────────
+  listDoctors: (activeOnly = true) =>
+    request<DoctorOut[]>(`/doctors?active_only=${activeOnly}`),
+
+  createDoctor: (payload: DoctorCreate) =>
+    request<DoctorOut>('/doctors', { method: 'POST', body: JSON.stringify(payload) }),
+
+  updateDoctor: (doctorId: string, payload: DoctorUpdate) =>
+    request<DoctorOut>(`/doctors/${doctorId}`, { method: 'PATCH', body: JSON.stringify(payload) }),
+
+  getDoctor: (doctorId: string) =>
+    request<DoctorWithSchedulesOut>(`/doctors/${doctorId}`),
+
+  listDoctorSchedules: (doctorId: string, fromDate?: string) =>
+    request<DoctorScheduleOut[]>(`/doctors/${doctorId}/schedules${fromDate ? `?from_date=${fromDate}` : ''}`),
+
+  addDoctorSchedule: (doctorId: string, payload: DoctorScheduleCreate) =>
+    request<DoctorScheduleOut>(`/doctors/${doctorId}/schedules`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+
+  updateDoctorSchedule: (doctorId: string, scheduleId: string, payload: DoctorScheduleCreate) =>
+    request<DoctorScheduleOut>(`/doctors/${doctorId}/schedules/${scheduleId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+    }),
+
+  deleteDoctorSchedule: (doctorId: string, scheduleId: string) =>
+    request<void>(`/doctors/${doctorId}/schedules/${scheduleId}`, { method: 'DELETE' }),
+
+  getAvailableDoctors: (scheduleDate?: string) =>
+    request<DoctorWithSchedulesOut[]>(
+      `/schedules/available${scheduleDate ? `?schedule_date=${scheduleDate}` : ''}`,
+    ),
 };
 
-export type { MessageOut, SessionOut, ConversationSummaryOut, DepartmentOut };
+export type { MessageOut, SessionOut, ConversationSummaryOut, DepartmentOut, DoctorOut, DoctorWithSchedulesOut, DoctorScheduleOut };

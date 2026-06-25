@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime, time
 from typing import Any, Literal
 from uuid import UUID
 
@@ -290,3 +290,63 @@ class RoutingFeedbackOut(BaseModel):
     reporter_name: str | None = None
     reason: str | None = None
     created_at: datetime
+
+
+# ── Doctor schedules ─────────────────────────────────────────────────────────
+
+class DoctorScheduleCreate(BaseModel):
+    schedule_date: date
+    start_time: time
+    end_time: time
+    break_start: time | None = None
+    break_end: time | None = None
+    room: str | None = None
+    slot_label: str | None = None
+    is_available: bool = True
+    notes: str | None = None
+
+
+class DoctorScheduleOut(DoctorScheduleCreate):
+    id: UUID
+    doctor_id: UUID
+    created_at: datetime
+    updated_at: datetime
+
+
+class DoctorCreate(BaseModel):
+    full_name: str
+    title: str = "Dr."
+    specialization: str | None = None
+    department_id: UUID | None = None
+    phone_ext: str | None = None
+    notes: str | None = None
+    is_active: bool = True
+
+
+class DoctorUpdate(BaseModel):
+    full_name: str | None = None
+    title: str | None = None
+    specialization: str | None = None
+    department_id: UUID | None = None
+    phone_ext: str | None = None
+    notes: str | None = None
+    is_active: bool | None = None
+
+
+class DoctorOut(BaseModel):
+    id: UUID
+    full_name: str
+    title: str
+    specialization: str | None = None
+    department_id: UUID | None = None
+    department_name_en: str | None = None
+    department_name_th: str | None = None
+    phone_ext: str | None = None
+    notes: str | None = None
+    is_active: bool
+    created_at: datetime
+    updated_at: datetime
+
+
+class DoctorWithSchedulesOut(DoctorOut):
+    schedules: list[DoctorScheduleOut] = Field(default_factory=list)

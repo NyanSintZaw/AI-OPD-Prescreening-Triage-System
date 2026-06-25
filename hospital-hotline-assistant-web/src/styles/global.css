@@ -3416,3 +3416,366 @@ a:hover {
     min-height: 420px;
   }
 }
+
+/* ── Nurse tab bar ────────────────────────────────────────────────────────── */
+.nurse-tab-bar {
+  display: flex;
+  gap: 0;
+  border-bottom: 2px solid var(--color-border);
+  margin-bottom: 1.5rem;
+}
+
+.nurse-tab-btn {
+  background: none;
+  border: none;
+  border-bottom: 3px solid transparent;
+  margin-bottom: -2px;
+  padding: 0.65rem 1.25rem;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.nurse-tab-btn:hover {
+  color: var(--color-text);
+}
+
+.nurse-tab-btn.active {
+  color: var(--mch-cyan);
+  border-bottom-color: var(--mch-cyan);
+}
+
+/* ── Doctor schedule manager ─────────────────────────────────────────────── */
+.schedule-manager {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.schedule-manager-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.schedule-manager-header h2 {
+  margin: 0 0 0.2rem;
+  font-size: 1.1rem;
+}
+
+.schedule-layout {
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  gap: 1.25rem;
+  min-height: 400px;
+}
+
+/* Doctor list sidebar */
+.schedule-doctor-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.schedule-doctor-card {
+  display: flex;
+  align-items: stretch;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--color-surface);
+  transition: border-color 0.15s;
+}
+
+.schedule-doctor-card.selected {
+  border-color: var(--mch-cyan);
+}
+
+.schedule-doctor-card.inactive {
+  opacity: 0.55;
+}
+
+.schedule-doctor-card-btn {
+  flex: 1;
+  background: none;
+  border: none;
+  padding: 0.65rem 0.85rem;
+  text-align: left;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.schedule-doctor-name {
+  font-weight: 600;
+  font-size: 0.875rem;
+  color: var(--color-text);
+}
+
+.schedule-inactive-badge {
+  font-weight: 400;
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+}
+
+.schedule-doctor-spec {
+  font-size: 0.775rem;
+  color: var(--mch-cyan);
+}
+
+.schedule-doctor-dept {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+}
+
+.schedule-doctor-actions {
+  display: flex;
+  flex-direction: column;
+  border-left: 1px solid var(--color-border);
+}
+
+.icon-text-btn {
+  background: none;
+  border: none;
+  padding: 0.4rem 0.55rem;
+  cursor: pointer;
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+  transition: color 0.15s, background 0.15s;
+}
+
+.icon-text-btn:hover {
+  color: var(--color-text);
+  background: var(--color-border);
+}
+
+.icon-text-btn.danger:hover {
+  color: var(--color-error, #e05252);
+}
+
+/* Schedule slots panel */
+.schedule-slots-panel {
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  padding: 1.25rem;
+  background: var(--color-surface);
+}
+
+.schedule-select-hint {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  min-height: 200px;
+}
+
+.schedule-slots-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+}
+
+.schedule-slots-header h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.schedule-days-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.schedule-day-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.schedule-day-label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-text-muted);
+  padding-bottom: 0.2rem;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.schedule-slot-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.35rem 0.5rem;
+  border-radius: 6px;
+  background: var(--color-bg);
+  font-size: 0.875rem;
+}
+
+.schedule-slot-row.unavailable {
+  opacity: 0.5;
+}
+
+.schedule-slot-time {
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+  min-width: 90px;
+}
+
+.schedule-slot-tag {
+  background: var(--mch-cyan);
+  color: #fff;
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 0.1em 0.45em;
+  border-radius: 4px;
+}
+
+.schedule-slot-unavail-tag {
+  background: var(--color-border);
+  color: var(--color-text-muted);
+  font-size: 0.7rem;
+  padding: 0.1em 0.45em;
+  border-radius: 4px;
+}
+
+.schedule-slot-row .icon-text-btn {
+  margin-left: auto;
+}
+
+/* Doctor / slot form modal */
+.schedule-form-modal {
+  max-width: 480px;
+}
+
+.schedule-form-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  padding: 1.25rem 1.5rem;
+}
+
+.schedule-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  font-size: 0.875rem;
+}
+
+.schedule-field > span {
+  font-weight: 500;
+  color: var(--color-text-muted);
+  font-size: 0.8rem;
+}
+
+.schedule-field input[type='text'],
+.schedule-field input[type='time'],
+.schedule-field select {
+  padding: 0.45rem 0.65rem;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-size: 0.875rem;
+}
+
+.schedule-field-checkbox {
+  flex-direction: row;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.schedule-field-checkbox input[type='checkbox'] {
+  width: 1rem;
+  height: 1rem;
+  cursor: pointer;
+}
+
+.primary-btn {
+  background: var(--mch-cyan);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 0.55rem 1.1rem;
+  font-weight: 600;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.primary-btn:hover {
+  opacity: 0.88;
+}
+
+.schedule-form-row {
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-end;
+}
+
+.schedule-form-to {
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+  padding-bottom: 0.55rem;
+  white-space: nowrap;
+}
+
+.schedule-autofill {
+  padding: 0.45rem 0.65rem;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background: var(--color-bg);
+  color: var(--color-text-muted);
+  font-size: 0.875rem;
+}
+
+.schedule-slot-break {
+  font-size: 0.72rem;
+  color: var(--color-text-muted);
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  padding: 0.1em 0.4em;
+}
+
+.schedule-slot-room {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--mch-cyan);
+  background: color-mix(in srgb, var(--mch-cyan) 12%, transparent);
+  border-radius: 4px;
+  padding: 0.1em 0.4em;
+}
+
+.schedule-field-inline {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.8rem;
+}
+
+.schedule-date-filter {
+  padding: 0.3rem 0.5rem;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-size: 0.8rem;
+}
+
+@media (max-width: 760px) {
+  .schedule-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .schedule-form-row {
+    flex-direction: column;
+    gap: 0.9rem;
+  }
+}

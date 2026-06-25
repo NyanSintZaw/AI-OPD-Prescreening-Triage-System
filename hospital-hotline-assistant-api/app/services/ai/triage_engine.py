@@ -29,12 +29,14 @@ class LlmTriageEngine:
         language: str,
         input_mode: str,
         content: str,
+        schedule_context: str | None = None,
     ) -> dict[str, Any]:
         return await self._runner.chat(
             session_id=session_id,
             language=language,
             user_message=content,
             input_mode=input_mode,
+            schedule_context=schedule_context,
         )
 
     async def run_turn_stream(
@@ -44,12 +46,14 @@ class LlmTriageEngine:
         language: str,
         input_mode: str,
         content: str,
+        schedule_context: str | None = None,
     ) -> AsyncIterator[dict[str, Any]]:
         async for event in self._runner.chat_stream(
             session_id=session_id,
             language=language,
             user_message=content,
             input_mode=input_mode,
+            schedule_context=schedule_context,
         ):
             yield event
 
