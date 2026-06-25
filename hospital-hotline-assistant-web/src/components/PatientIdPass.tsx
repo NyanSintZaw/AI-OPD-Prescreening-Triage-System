@@ -14,7 +14,8 @@ interface PatientIdPassPopupProps {
   sessionId: string;
   language: AppLanguage;
   assessment: ChatAssessment;
-  autoOpenKey: string;
+  autoOpenKey?: string;
+  onClose?: () => void;
   triggerVariant?: 'primary' | 'secondary';
 }
 
@@ -497,15 +498,23 @@ export function PatientIdPassPopup({
   language,
   assessment,
   autoOpenKey,
+  onClose,
   triggerVariant = 'secondary',
 }: PatientIdPassPopupProps) {
   const { t } = useTranslation();
   const isPhone = useIsLikelyPhone();
-  const [open, setOpen] = useState(true);
+  const [open, setOpen] = useState(false);
 
   useEffect(() => {
-    setOpen(true);
+    if (autoOpenKey) {
+      setOpen(true);
+    }
   }, [autoOpenKey]);
+
+  const handleClose = () => {
+    setOpen(false);
+    if (onClose) onClose();
+  };
 
   useEffect(() => {
     if (!open) return undefined;
@@ -513,7 +522,7 @@ export function PatientIdPassPopup({
     const previousOverflow = document.body.style.overflow;
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
-        setOpen(false);
+        handleClose();
       }
     };
 
@@ -549,7 +558,7 @@ export function PatientIdPassPopup({
             type="button"
             className="patient-id-modal-backdrop"
             aria-label={t('close')}
-            onClick={() => setOpen(false)}
+            onClick={() => handleClose()}
           />
           <div className="patient-id-modal-card">
             <div className="patient-id-modal-header">
@@ -560,7 +569,7 @@ export function PatientIdPassPopup({
               <button
                 type="button"
                 className="icon-btn patient-id-modal-close"
-                onClick={() => setOpen(false)}
+                onClick={() => handleClose()}
                 aria-label={t('close')}
               >
                 x

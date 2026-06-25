@@ -1,0 +1,11 @@
+[
+  {
+    "id": "checkInDesk",
+    "label": "Check-in counter / staff desk",
+    "x": 126,
+    "y": 302,
+    "width": 154,
+    "height": 39,
+    "padding": 5
+  }
+]
