@@ -18,6 +18,8 @@ export function ChatPage() {
   const { language, setLanguage } = useLanguage();
   const { sessionId, setSessionId } = useSessionStorage();
   const [input, setInput] = useState('');
+  const [locationInput, setLocationInput] = useState('');
+  const [locationDismissed, setLocationDismissed] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const {
@@ -199,6 +201,25 @@ export function ChatPage() {
     }
   };
 
+  // Show the location prompt once the first AI message has arrived.
+  const firstAiMessage = messages.find((m) => m.role === 'assistant');
+  const showLocationPrompt = Boolean(
+    firstAiMessage && !locationDismissed && sessionId
+  );
+
+  const handleLocationSubmit = async () => {
+    if (!sessionId) return;
+    const area = locationInput.trim();
+    setLocationDismissed(true);
+    if (area) {
+      try {
+        await api.updateSessionLocation(sessionId, { location_area: area });
+      } catch {
+        // non-critical — silently ignore
+      }
+    }
+  };
+
   if (!sessionId) {
     return null;
   }
@@ -270,6 +291,41 @@ export function ChatPage() {
             <strong>{t('followUpQuestion')}</strong>
             <p>{assessment.followUpQuestion}</p>
             {assessment.followUpReason && <p className="muted">{assessment.followUpReason}</p>}
+          </div>
+        )}
+
+        {showLocationPrompt && (
+          <div className="location-prompt-card">
+            <p className="location-prompt-title">{t('locationPromptTitle')}</p>
+            <p className="location-prompt-subtitle muted">{t('locationPromptSubtitle')}</p>
+            <div className="location-prompt-row">
+              <input
+                type="text"
+                className="location-prompt-input"
+                placeholder={t('locationPromptPlaceholder')}
+                value={locationInput}
+                onChange={(e) => setLocationInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') void handleLocationSubmit();
+                }}
+                maxLength={100}
+                autoFocus
+              />
+              <button
+                type="button"
+                className="primary-btn location-prompt-confirm"
+                onClick={() => void handleLocationSubmit()}
+              >
+                {t('locationPromptConfirm')}
+              </button>
+              <button
+                type="button"
+                className="text-btn location-prompt-skip"
+                onClick={() => setLocationDismissed(true)}
+              >
+                {t('locationPromptSkip')}
+              </button>
+            </div>
           </div>
         )}
 

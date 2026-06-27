@@ -23,6 +23,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from app.config import settings
 from app.database import create_pool, get_connection, record_to_dict, records_to_dicts
 from app.services import TriageService
+from app.services.surveillance_extractor import extract_and_save as surveillance_extract
 from app.services.admin_auth import (
     issue_admin_token,
     validate_admin_token,
@@ -62,11 +63,13 @@ from app.schemas import (
     MessageOut,
     RoutingRuleOut,
     SessionCreate,
+    SessionLocationUpdate,
     SessionOut,
     SessionUpdate,
     SeverityAssessmentCreate,
     RoutingFeedbackOut,
     SttResponse,
+    SurveillanceSummaryOut,
     SymptomEntryCreate,
     TtsRequest,
 )
@@ -262,7 +265,12 @@ async def get_session(session_id: UUID, connection: asyncpg.Connection = Depends
     return record_to_dict(record)
 
 @app.patch("/sessions/{session_id}", response_model=SessionOut)
-async def update_session(session_id: UUID, payload: SessionUpdate, connection: asyncpg.Connection = Depends(get_connection)):
+async def update_session(
+    session_id: UUID,
+    payload: SessionUpdate,
+    request: Request,
+    connection: asyncpg.Connection = Depends(get_connection),
+):
     ended_sql = "NOW()" if payload.status in {"completed", "reset", "escalated"} else "ended_at"
     record = await connection.fetchrow(
         f"""
@@ -276,7 +284,48 @@ async def update_session(session_id: UUID, payload: SessionUpdate, connection: a
     )
     if record is None:
         raise HTTPException(status_code=404, detail="Session not found")
+
+    # Fire AI disease-keyword extraction as a background task when a session
+    # completes. Uses a fresh connection from the pool so the response is
+    # returned immediately without waiting for the Gemini call to finish.
+    if payload.status == "completed":
+        pool = request.app.state.db_pool
+        asyncio.create_task(
+            _run_surveillance_extract(pool=pool, session_id=str(session_id))
+        )
+
     return record_to_dict(record)
+
+
+async def _run_surveillance_extract(
+    *, pool: asyncpg.Pool, session_id: str
+) -> None:
+    """Acquire a fresh connection and run the surveillance extractor."""
+    async with pool.acquire() as conn:
+        await surveillance_extract(connection=conn, session_id=session_id)
+
+@app.put("/sessions/{session_id}/location")
+async def update_session_location(
+    session_id: UUID,
+    payload: SessionLocationUpdate,
+    connection: asyncpg.Connection = Depends(get_connection),
+):
+    """Save the patient-reported area for a session.
+    Called by the chat UI after the user answers the location prompt.
+    """
+    record = await connection.fetchrow(
+        """
+        UPDATE sessions SET location_area = $2
+        WHERE id = $1
+        RETURNING id, location_area
+        """,
+        session_id,
+        payload.location_area.strip(),
+    )
+    if record is None:
+        raise HTTPException(status_code=404, detail="Session not found")
+    return {"session_id": str(record["id"]), "location_area": record["location_area"]}
+
 
 @app.post("/sessions/{session_id}/messages", response_model=MessageOut, status_code=status.HTTP_201_CREATED)
 async def create_message(session_id: UUID, payload: MessageCreate, connection: asyncpg.Connection = Depends(get_connection)):
@@ -1379,3 +1428,125 @@ async def get_available_doctors(
         )
         result.append({**dict(doctor), "schedules": [dict(s) for s in schedules]})
     return result
+
+
+# ── Disease Surveillance ──────────────────────────────────────────────────────
+
+@app.get("/admin/surveillance", response_model=SurveillanceSummaryOut)
+async def get_surveillance_summary(
+    days: int = 7,
+    _admin_user: dict = Depends(require_roles("super_admin", "admin", "viewer")),
+    connection: asyncpg.Connection = Depends(get_connection),
+):
+    """Aggregate disease-surveillance data for the admin outbreak dashboard."""
+
+    # Total classification events in the window
+    total = await connection.fetchval(
+        "SELECT COUNT(*) FROM disease_surveillance WHERE reported_at >= NOW() - INTERVAL '1 day' * $1",
+        days,
+    ) or 0
+
+    # Top symptom keywords (unnested from the array)
+    top_rows = await connection.fetch(
+        """
+        SELECT keyword, COUNT(*) AS count
+        FROM disease_surveillance, UNNEST(symptom_keywords) AS keyword
+        WHERE reported_at >= NOW() - INTERVAL '1 day' * $1
+          AND keyword <> ''
+        GROUP BY keyword
+        ORDER BY count DESC
+        LIMIT 20
+        """,
+        days,
+    )
+
+    # Symptoms by area
+    area_rows = await connection.fetch(
+        """
+        SELECT COALESCE(location_area, 'Unknown') AS area, keyword, COUNT(*) AS count
+        FROM disease_surveillance, UNNEST(symptom_keywords) AS keyword
+        WHERE reported_at >= NOW() - INTERVAL '1 day' * $1
+          AND keyword <> ''
+        GROUP BY area, keyword
+        ORDER BY area, count DESC
+        """,
+        days,
+    )
+
+    # Daily case counts
+    trend_rows = await connection.fetch(
+        """
+        SELECT DATE(reported_at AT TIME ZONE 'UTC') AS date, COUNT(*) AS count
+        FROM disease_surveillance
+        WHERE reported_at >= NOW() - INTERVAL '1 day' * $1
+        GROUP BY date
+        ORDER BY date ASC
+        """,
+        days,
+    )
+
+    # Severity distribution
+    severity_rows = await connection.fetch(
+        """
+        SELECT severity_level, COUNT(*) AS count
+        FROM disease_surveillance
+        WHERE reported_at >= NOW() - INTERVAL '1 day' * $1
+        GROUP BY severity_level
+        ORDER BY count DESC
+        """,
+        days,
+    )
+
+    # Outbreak alerts: keywords with 2× or more increase vs previous period
+    alert_rows = await connection.fetch(
+        """
+        WITH recent AS (
+            SELECT keyword, COALESCE(location_area, 'Unknown') AS area, COUNT(*) AS cnt
+            FROM disease_surveillance, UNNEST(symptom_keywords) AS keyword
+            WHERE reported_at >= NOW() - INTERVAL '1 day' * $1 AND keyword <> ''
+            GROUP BY keyword, area
+        ),
+        previous AS (
+            SELECT keyword, COALESCE(location_area, 'Unknown') AS area, COUNT(*) AS cnt
+            FROM disease_surveillance, UNNEST(symptom_keywords) AS keyword
+            WHERE reported_at >= NOW() - INTERVAL '1 day' * $2
+              AND reported_at < NOW() - INTERVAL '1 day' * $1 AND keyword <> ''
+            GROUP BY keyword, area
+        )
+        SELECT r.keyword, r.area,
+               r.cnt  AS recent_count,
+               COALESCE(p.cnt, 0) AS previous_count,
+               ROUND(
+                   CASE WHEN COALESCE(p.cnt, 0) = 0 THEN 100.0
+                        ELSE (r.cnt - p.cnt)::NUMERIC / p.cnt * 100
+                   END, 1
+               ) AS increase_pct
+        FROM recent r
+        LEFT JOIN previous p USING (keyword, area)
+        WHERE r.cnt >= 3
+          AND (COALESCE(p.cnt, 0) = 0 OR r.cnt >= p.cnt * 2)
+        ORDER BY increase_pct DESC
+        LIMIT 10
+        """,
+        days,
+        days,
+    )
+
+    return SurveillanceSummaryOut(
+        days=days,
+        total_reports=total,
+        top_symptoms=[{"keyword": r["keyword"], "count": r["count"]} for r in top_rows],
+        by_area=[{"area": r["area"], "keyword": r["keyword"], "count": r["count"]} for r in area_rows],
+        daily_trend=[{"date": str(r["date"]), "count": r["count"]} for r in trend_rows],
+        severity_distribution=[{"severity_level": r["severity_level"], "count": r["count"]} for r in severity_rows],
+        outbreak_alerts=[
+            {
+                "keyword": r["keyword"],
+                "area": r["area"],
+                "recent_count": r["recent_count"],
+                "previous_count": r["previous_count"],
+                "increase_pct": float(r["increase_pct"]),
+            }
+            for r in alert_rows
+        ],
+    )

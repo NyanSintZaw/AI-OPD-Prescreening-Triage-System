@@ -35,6 +35,12 @@ packages = ["app"]
 # lives so it can resolve imports like fastapi / asyncpg / pydantic-settings
 # without needing the editor to be launched with the venv activated.
 # pythonVersion stays aligned with `requires-python` above.
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+markers = [
+    "integration: requires a running backend + live DB (deselect with -m 'not integration')",
+]
+
 [tool.pyright]
 venvPath = "."
 venv = ".venv"

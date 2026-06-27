@@ -28,10 +28,12 @@ import type {
   RoutingRuleOut,
   RoutingFeedbackOut,
   SessionCreate,
+  SessionLocationUpdate,
   SessionOut,
   SessionUpdate,
   SeverityAssessmentCreate,
   SttResponsePayload,
+  SurveillanceSummaryOut,
   SymptomEntryCreate,
 } from './types';
 
@@ -321,6 +323,16 @@ export const api = {
     request<DoctorWithSchedulesOut[]>(
       `/schedules/available${scheduleDate ? `?schedule_date=${scheduleDate}` : ''}`,
     ),
+
+  // ── Disease Surveillance ───────────────────────────────────────────────────
+  updateSessionLocation: (sessionId: string, payload: SessionLocationUpdate) =>
+    request<{ session_id: string; location_area: string }>(
+      `/sessions/${sessionId}/location`,
+      { method: 'PUT', body: JSON.stringify(payload) },
+    ),
+
+  getSurveillanceSummary: (days = 7) =>
+    request<SurveillanceSummaryOut>(`/admin/surveillance?days=${days}`),
 };
 
-export type { MessageOut, SessionOut, ConversationSummaryOut, DepartmentOut, DoctorOut, DoctorWithSchedulesOut, DoctorScheduleOut };
+export type { MessageOut, SessionOut, ConversationSummaryOut, DepartmentOut, DoctorOut, DoctorWithSchedulesOut, DoctorScheduleOut, SurveillanceSummaryOut };

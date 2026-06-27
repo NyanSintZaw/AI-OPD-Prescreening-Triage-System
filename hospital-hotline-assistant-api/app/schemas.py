@@ -35,6 +35,10 @@ class SessionUpdate(BaseModel):
     status: SessionStatus
 
 
+class SessionLocationUpdate(BaseModel):
+    location_area: str = Field(..., min_length=1, max_length=100)
+
+
 class SessionOut(BaseModel):
     id: UUID
     language: LanguageCode
@@ -350,3 +354,44 @@ class DoctorOut(BaseModel):
 
 class DoctorWithSchedulesOut(DoctorOut):
     schedules: list[DoctorScheduleOut] = Field(default_factory=list)
+
+
+# ── Disease Surveillance ─────────────────────────────────────────────────────
+
+class SymptomCount(BaseModel):
+    keyword: str
+    count: int
+
+
+class AreaSymptomCount(BaseModel):
+    area: str
+    keyword: str
+    count: int
+
+
+class DailyCount(BaseModel):
+    date: str
+    count: int
+
+
+class SeverityCount(BaseModel):
+    severity_level: str | None
+    count: int
+
+
+class OutbreakAlert(BaseModel):
+    keyword: str
+    area: str | None
+    recent_count: int
+    previous_count: int
+    increase_pct: float
+
+
+class SurveillanceSummaryOut(BaseModel):
+    days: int
+    total_reports: int
+    top_symptoms: list[SymptomCount]
+    by_area: list[AreaSymptomCount]
+    daily_trend: list[DailyCount]
+    severity_distribution: list[SeverityCount]
+    outbreak_alerts: list[OutbreakAlert]

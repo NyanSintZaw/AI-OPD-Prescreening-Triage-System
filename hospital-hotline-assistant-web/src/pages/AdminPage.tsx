@@ -9,8 +9,11 @@ import {
 import { getAdminEmail, getAdminToken } from '../api/client';
 import { Layout } from '../components/Layout';
 import { MessageBubble } from '../components/MessageBubble';
+import { OutbreakSurveillance } from '../components/OutbreakSurveillance';
 import { useLanguage } from '../hooks/useSession';
 import type { SessionStatus, SeverityLevel } from '../api/types';
+
+type AdminTab = 'sessions' | 'surveillance';
 
 const AUTO_REFRESH_INTERVAL_MS = 30_000;
 const SEVERITY_FILTERS: Array<{ id: 'all' | SeverityLevel; tone: string }> = [
@@ -78,6 +81,7 @@ export function AdminPage() {
   const [lastRefreshed, setLastRefreshed] = useState<Date | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [isBigView, setIsBigView] = useState(false);
+  const [activeTab, setActiveTab] = useState<AdminTab>('sessions');
 
   const staffEmail = getAdminEmail() ?? t('loginAdminTab');
 
@@ -288,6 +292,32 @@ export function AdminPage() {
           <KpiCard label={t('adminKpiActive')} value={stats.active} tone="active" />
         </div>
 
+        {/* Tab bar */}
+        <div className="admin-tab-bar" role="tablist">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeTab === 'sessions'}
+            className={`admin-tab-btn ${activeTab === 'sessions' ? 'active' : ''}`}
+            onClick={() => setActiveTab('sessions')}
+          >
+            {t('adminTitle')}
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeTab === 'surveillance'}
+            className={`admin-tab-btn ${activeTab === 'surveillance' ? 'active' : ''}`}
+            onClick={() => setActiveTab('surveillance')}
+          >
+            ⚕ {t('surveillanceTab')}
+          </button>
+        </div>
+
+        {activeTab === 'surveillance' && <OutbreakSurveillance />}
+
+        {activeTab === 'sessions' && (
+          <>
         {error && (
           <div className="admin-error">
             <p className="error-text">{error}</p>
@@ -562,6 +592,8 @@ export function AdminPage() {
                 </aside>
               )}
             </div>
+          </>
+        )}
           </>
         )}
       </section>

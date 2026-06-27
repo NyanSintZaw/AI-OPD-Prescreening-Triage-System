@@ -561,6 +561,62 @@ class TriageService:
             red_flags,
         )
 
+        # ── Disease Surveillance Capture ──────────────────────────────────
+        # Build surveillance keywords from three sources (in priority order):
+        #   1. AI classify_triage_level output  → red_flags + symptoms_summary
+        #   2. Routing rule keyword matches      → structured symptom keywords
+        #   3. Emergency trigger keyword matches → structured trigger keywords
+        # We upsert one row per session so the record improves as the
+        # conversation progresses without creating duplicates.
+        surv_keywords: list[str] = []
+        surv_summary: str | None = None
+
+        if new_classification.get("classified") is True:
+            # Best-quality: AI explicitly classified the case.
+            surv_keywords = list(red_flags)
+            surv_summary = _classification_text(new_classification.get("symptoms_summary"))
+            if surv_summary and surv_summary not in surv_keywords:
+                surv_keywords.append(surv_summary)
+        else:
+            # Fallback: extract keywords from routing-rule / emergency-trigger
+            # matches so even short conversations produce surveillance data.
+            for rule in routing_matches:
+                for kw in (rule.keywords or []):
+                    if kw and kw not in surv_keywords:
+                        surv_keywords.append(kw)
+            for trigger in emergency_matches:
+                for kw in (trigger.keywords or []):
+                    if kw and kw not in surv_keywords:
+                        surv_keywords.append(kw)
+
+        if surv_keywords or surv_summary:
+            try:
+                location_area = await connection.fetchval(
+                    "SELECT location_area FROM sessions WHERE id = $1",
+                    session_id,
+                )
+                await connection.execute(
+                    """
+                    INSERT INTO disease_surveillance
+                        (session_id, symptom_keywords, symptoms_summary,
+                         severity_level, location_area)
+                    VALUES ($1, $2, $3, $4, $5)
+                    ON CONFLICT (session_id) DO UPDATE
+                        SET symptom_keywords = EXCLUDED.symptom_keywords,
+                            symptoms_summary = COALESCE(EXCLUDED.symptoms_summary, disease_surveillance.symptoms_summary),
+                            severity_level   = EXCLUDED.severity_level,
+                            location_area    = COALESCE(EXCLUDED.location_area, disease_surveillance.location_area),
+                            reported_at      = NOW()
+                    """,
+                    session_id,
+                    surv_keywords,
+                    surv_summary,
+                    severity_level,
+                    location_area,
+                )
+            except Exception as exc:
+                logger.warning("disease_surveillance upsert failed: %s", exc)
+
         assessment = await connection.fetchrow(
             """
             INSERT INTO severity_assessments (

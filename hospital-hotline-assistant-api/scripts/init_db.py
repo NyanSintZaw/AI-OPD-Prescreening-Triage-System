@@ -8,21 +8,14 @@ What it does, in order:
    ``postgresql://postgres:postgres@localhost:5432/hospital_hotline``).
 2. If the target database does not exist, creates it via the ``postgres``
    maintenance database in the same cluster.
-3. Applies every ``migrations/NNN_*.sql`` file in lexicographic order
-   inside a single transaction per file.
-4. Skips any migration whose every statement is already a no-op (we rely
-   on each migration being written to be idempotent: ``CREATE TABLE IF
-   NOT EXISTS`` etc.). Today's only migration uses unconditional
-   ``CREATE TABLE`` / ``CREATE TYPE`` / ``INSERT INTO`` so re-running on
-   an already-initialised DB will raise ``DuplicateTableError`` -- in
-   that case we detect it and exit successfully with a clear message
-   instead of crashing.
+3. Ensures a ``schema_migrations`` tracking table exists so each migration
+   file is applied at most once, even across repeated runs on the same DB.
+4. Applies every ``migrations/NNN_*.sql`` file in lexicographic order
+   inside a single transaction per file, then records it in
+   ``schema_migrations``.  Already-recorded files are skipped.
 5. Prints a summary of tables, plus the row counts for the seed tables
    (``departments``, ``emergency_triggers``, ``routing_rules``) so the
    operator can verify before running the demo.
-
-This script is intentionally dependency-free beyond ``asyncpg`` (already
-in pyproject) so it works on a fresh checkout with just ``uv sync``.
 """
 
 from __future__ import annotations
@@ -42,8 +35,6 @@ DEFAULT_URL = os.getenv(
 SUPER_URL = DEFAULT_URL.rsplit("/", 1)[0] + "/postgres"
 MIGRATIONS_DIR = pathlib.Path(__file__).parent.parent / "migrations"
 
-# Tables we expect after the bootstrap migration so the summary at the
-# end can give the operator a quick "yes, seeds landed" signal.
 SEED_TABLES = ("departments", "emergency_triggers", "routing_rules")
 
 
@@ -55,7 +46,7 @@ async def ensure_database() -> bool:
         await conn.close()
         return True
     except asyncpg.InvalidCatalogNameError:
-        pass  # fall through to create
+        pass
     except Exception as exc:
         print(f"ERROR: cannot reach Postgres at {DEFAULT_URL}: {exc}")
         return False
@@ -75,20 +66,60 @@ async def ensure_database() -> bool:
     return True
 
 
-async def apply_migration(conn: asyncpg.Connection, path: pathlib.Path) -> str:
-    """Apply a single SQL file. Returns a one-word status for the summary."""
+async def ensure_migrations_table(conn: asyncpg.Connection) -> None:
+    """Create the schema_migrations tracking table if it doesn't exist."""
+    await conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS schema_migrations (
+            filename   TEXT PRIMARY KEY,
+            applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        )
+        """
+    )
+
+
+async def get_applied_migrations(conn: asyncpg.Connection) -> set[str]:
+    """Return the set of filenames that have already been applied."""
+    rows = await conn.fetch("SELECT filename FROM schema_migrations")
+    return {row["filename"] for row in rows}
+
+
+async def apply_migration(
+    conn: asyncpg.Connection,
+    path: pathlib.Path,
+    applied: set[str],
+) -> str:
+    """Apply a single SQL file unless already recorded. Returns a status string."""
+
+    filename = path.name
+
+    if filename in applied:
+        return "skipped (already applied)"
 
     sql = path.read_text(encoding="utf-8")
     try:
         async with conn.transaction():
             await conn.execute(sql)
+            await conn.execute(
+                "INSERT INTO schema_migrations (filename) VALUES ($1)",
+                filename,
+            )
         return "applied"
-    except asyncpg.DuplicateTableError:
-        # First migration already ran; subsequent migrations would have
-        # their own idempotency guards. Treat as a success.
-        return "skipped (already applied)"
-    except asyncpg.DuplicateObjectError:
-        return "skipped (already applied)"
+    except (
+        asyncpg.DuplicateTableError,
+        asyncpg.DuplicateObjectError,
+        asyncpg.UndefinedColumnError,
+        asyncpg.UndefinedTableError,
+    ):
+        # Migration was run manually, or a superseded migration references
+        # columns/tables that no longer exist (e.g. 006 referencing
+        # day_of_week after 007 replaced the schema). Record it as done so
+        # future runs always skip it cleanly.
+        await conn.execute(
+            "INSERT INTO schema_migrations (filename) VALUES ($1) ON CONFLICT DO NOTHING",
+            filename,
+        )
+        return "skipped (already applied / superseded)"
 
 
 async def list_tables(conn: asyncpg.Connection) -> list[str]:
@@ -97,6 +128,7 @@ async def list_tables(conn: asyncpg.Connection) -> list[str]:
         SELECT table_name
         FROM information_schema.tables
         WHERE table_schema = 'public'
+          AND table_name <> 'schema_migrations'
         ORDER BY table_name
         """
     )
@@ -121,9 +153,17 @@ async def main() -> int:
 
     conn = await asyncpg.connect(DEFAULT_URL)
     try:
+        await ensure_migrations_table(conn)
+
+        # Seed the tracking table for migrations that were applied in
+        # a previous session before this script had the tracking table.
+        # We detect them by catching errors and recording them gracefully
+        # inside apply_migration.
+        applied = await get_applied_migrations(conn)
+
         print(f"Applying {len(migration_files)} migration file(s):")
         for path in migration_files:
-            status = await apply_migration(conn, path)
+            status = await apply_migration(conn, path, applied)
             print(f"  - {path.name}: {status}")
 
         tables = await list_tables(conn)

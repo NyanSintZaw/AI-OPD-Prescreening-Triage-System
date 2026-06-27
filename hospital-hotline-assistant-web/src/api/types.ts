@@ -359,3 +359,48 @@ export interface DoctorOut {
 export interface DoctorWithSchedulesOut extends DoctorOut {
   schedules: DoctorScheduleOut[];
 }
+
+// ── Disease Surveillance ──────────────────────────────────────────────────────
+
+export interface SessionLocationUpdate {
+  location_area: string;
+}
+
+export interface SymptomCount {
+  keyword: string;
+  count: number;
+}
+
+export interface AreaSymptomCount {
+  area: string;
+  keyword: string;
+  count: number;
+}
+
+export interface DailyCount {
+  date: string;
+  count: number;
+}
+
+export interface SeverityCount {
+  severity_level: string | null;
+  count: number;
+}
+
+export interface OutbreakAlert {
+  keyword: string;
+  area: string | null;
+  recent_count: number;
+  previous_count: number;
+  increase_pct: number;
+}
+
+export interface SurveillanceSummaryOut {
+  days: number;
+  total_reports: number;
+  top_symptoms: SymptomCount[];
+  by_area: AreaSymptomCount[];
+  daily_trend: DailyCount[];
+  severity_distribution: SeverityCount[];
+  outbreak_alerts: OutbreakAlert[];
+}

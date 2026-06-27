@@ -3779,3 +3779,388 @@ a:hover {
     gap: 0.9rem;
   }
 }
+
+/* ── Location Prompt Card ─────────────────────────────────────────────────── */
+
+.location-prompt-card {
+  background: color-mix(in srgb, var(--mch-cyan) 8%, var(--color-bg-card));
+  border: 1px solid color-mix(in srgb, var(--mch-cyan) 40%, transparent);
+  border-radius: 12px;
+  padding: 1rem 1.2rem;
+  margin: 0.5rem 0;
+}
+
+.location-prompt-title {
+  font-weight: 600;
+  margin: 0 0 0.2rem;
+  font-size: 0.95rem;
+  color: var(--color-text-heading);
+}
+
+.location-prompt-subtitle {
+  font-size: 0.82rem;
+  margin: 0 0 0.75rem;
+}
+
+.location-prompt-row {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.location-prompt-input {
+  flex: 1;
+  min-width: 180px;
+  padding: 0.4rem 0.75rem;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-size: 0.9rem;
+}
+
+.location-prompt-input:focus {
+  outline: none;
+  border-color: var(--mch-cyan);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--mch-cyan) 25%, transparent);
+}
+
+.location-prompt-confirm {
+  padding: 0.4rem 1rem;
+  font-size: 0.88rem;
+  white-space: nowrap;
+}
+
+.location-prompt-skip {
+  font-size: 0.82rem;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+}
+
+/* ── Admin Tab Bar ────────────────────────────────────────────────────────── */
+
+.admin-tab-bar {
+  display: flex;
+  gap: 0.25rem;
+  margin-bottom: 1.25rem;
+  border-bottom: 2px solid var(--color-border);
+  padding-bottom: 0;
+}
+
+.admin-tab-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0.55rem 1.1rem;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--color-text-muted);
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;
+  transition: color 0.15s, border-color 0.15s;
+  border-radius: 6px 6px 0 0;
+}
+
+.admin-tab-btn:hover {
+  color: var(--color-text);
+  background: color-mix(in srgb, var(--color-border) 40%, transparent);
+}
+
+.admin-tab-btn.active {
+  color: var(--mch-cyan);
+  border-bottom-color: var(--mch-cyan);
+  font-weight: 600;
+}
+
+/* ── Outbreak Surveillance Dashboard ─────────────────────────────────────── */
+
+.surv-container {
+  padding: 0.25rem 0 1rem;
+}
+
+.surv-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.surv-title {
+  font-size: 1.15rem;
+  margin: 0 0 0.2rem;
+}
+
+.surv-subtitle {
+  font-size: 0.82rem;
+  margin: 0;
+}
+
+.surv-day-filter {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+.surv-day-btn {
+  background: var(--color-bg-card);
+  border: 1px solid var(--color-border);
+  border-radius: 20px;
+  padding: 0.3rem 0.75rem;
+  font-size: 0.82rem;
+  cursor: pointer;
+  color: var(--color-text);
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.surv-day-btn:hover,
+.surv-day-btn.active {
+  background: var(--mch-cyan);
+  border-color: var(--mch-cyan);
+  color: #fff;
+}
+
+.surv-loading {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--color-text-muted);
+  padding: 2rem;
+}
+
+.surv-error {
+  padding: 1rem;
+  background: color-mix(in srgb, #ef4444 10%, var(--color-bg-card));
+  border-radius: 8px;
+  color: #ef4444;
+  margin-bottom: 1rem;
+}
+
+.surv-empty {
+  text-align: center;
+  color: var(--color-text-muted);
+  padding: 3rem 1rem;
+  font-size: 0.92rem;
+}
+
+.surv-kpi-row {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-bottom: 1.5rem;
+}
+
+.surv-kpi-card {
+  background: var(--color-bg-card);
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  padding: 0.75rem 1.1rem;
+  min-width: 110px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.surv-kpi-value {
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: var(--color-text-heading);
+  line-height: 1.1;
+}
+
+.surv-kpi-label {
+  font-size: 0.75rem;
+  margin-top: 0.25rem;
+  text-align: center;
+}
+
+.surv-alerts {
+  margin-bottom: 1.5rem;
+}
+
+.surv-alert-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+}
+
+.surv-alert-card {
+  background: color-mix(in srgb, #f59e0b 10%, var(--color-bg-card));
+  border: 1px solid color-mix(in srgb, #f59e0b 50%, transparent);
+  border-radius: 10px;
+  padding: 0.9rem 1rem;
+}
+
+.surv-alert-keyword {
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: var(--color-text-heading);
+  margin-bottom: 0.3rem;
+  text-transform: capitalize;
+}
+
+.surv-alert-area {
+  font-size: 0.82rem;
+  margin-bottom: 0.4rem;
+}
+
+.surv-alert-stats {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.2rem;
+}
+
+.surv-alert-count {
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+
+.surv-alert-increase {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #ef4444;
+  background: color-mix(in srgb, #ef4444 12%, transparent);
+  border-radius: 4px;
+  padding: 0.1em 0.45em;
+}
+
+.surv-alert-prev {
+  font-size: 0.75rem;
+}
+
+.surv-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+@media (max-width: 700px) {
+  .surv-grid { grid-template-columns: 1fr; }
+}
+
+.surv-panel {
+  background: var(--color-bg-card);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  padding: 1rem 1.2rem;
+}
+
+.surv-panel-full {
+  grid-column: 1 / -1;
+}
+
+.surv-section-title {
+  font-size: 0.9rem;
+  font-weight: 600;
+  margin: 0 0 0.85rem;
+  color: var(--color-text-heading);
+}
+
+.surv-bar-chart {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.surv-bar-row {
+  display: grid;
+  grid-template-columns: 140px 1fr 36px;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.surv-bar-label {
+  font-size: 0.78rem;
+  color: var(--color-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-transform: capitalize;
+}
+
+.surv-bar-track {
+  background: var(--color-border);
+  border-radius: 4px;
+  height: 8px;
+  overflow: hidden;
+}
+
+.surv-bar-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.4s ease;
+  min-width: 4px;
+}
+
+.surv-bar-value {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  text-align: right;
+}
+
+.surv-sparkline-wrap {
+  width: 100%;
+}
+
+.surv-sparkline {
+  width: 100%;
+  height: 80px;
+  display: block;
+}
+
+.surv-sparkline-labels {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 0.3rem;
+}
+
+.surv-sparkline-label {
+  font-size: 0.68rem;
+  color: var(--color-text-muted);
+}
+
+.surv-area-table-wrap {
+  overflow-x: auto;
+}
+
+.surv-area-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+}
+
+.surv-area-table th {
+  text-align: left;
+  padding: 0.4rem 0.6rem;
+  border-bottom: 1px solid var(--color-border);
+  color: var(--color-text-muted);
+  font-weight: 600;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.surv-area-table td {
+  padding: 0.4rem 0.6rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--color-border) 50%, transparent);
+  text-transform: capitalize;
+}
+
+.surv-area-table tr:last-child td {
+  border-bottom: none;
+}
+
+.surv-count-badge {
+  background: color-mix(in srgb, var(--mch-cyan) 15%, transparent);
+  color: var(--mch-cyan);
+  font-weight: 700;
+  border-radius: 4px;
+  padding: 0.1em 0.5em;
+  font-size: 0.8rem;
+}

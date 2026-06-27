@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 
@@ -14,6 +14,7 @@ class MatchResult:
     severity_override: str | None = None
     alert_message: str | None = None
     department_id: str | None = None
+    keywords: list[str] = field(default_factory=list)
 
 
 @dataclass(frozen=True)
@@ -183,6 +184,7 @@ def evaluate_emergency_triggers(
                 reason=f"Matched emergency trigger: {trigger['trigger_name']}",
                 severity_override="emergency",
                 alert_message=alert_message,
+                keywords=[str(k) for k in (trigger.get("trigger_keywords") or []) if str(k).strip()],
             )
         )
 
@@ -210,6 +212,7 @@ def evaluate_routing_rules(text: str, rules: list[dict[str, Any]]) -> list[Match
                 reason=f"Matched routing rule: {rule['rule_name']}",
                 severity_override=rule.get("severity_override"),
                 department_id=str(rule["department_id"]),
+                keywords=[str(k) for k in (rule.get("symptom_keywords") or []) if str(k).strip()],
             )
         )
 
