@@ -469,6 +469,11 @@ a:hover {
   font-size: 0.92rem;
 }
 
+.call-assessment-panel .muted.call-session-id,
+.chat-assessment-summary .muted.call-session-id {
+  margin-top: 1.25rem;
+}
+
 .call-home-btn {
   margin-top: 0.85rem;
   width: 100%;

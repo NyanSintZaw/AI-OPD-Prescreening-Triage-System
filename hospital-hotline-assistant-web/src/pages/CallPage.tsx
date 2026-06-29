@@ -82,7 +82,10 @@ export function CallPage() {
           const deptMap = new Map(
             departments.map((d) => [
               d.id,
-              language === 'th' ? d.name_th ?? d.name_en : d.name_en,
+              {
+                name: language === 'th' ? d.name_th ?? d.name_en : d.name_en,
+                code: d.code
+              }
             ]),
           );
           const next = toAssessment(payload, deptMap);
@@ -127,6 +130,8 @@ export function CallPage() {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const [mapAutoOpen, setMapAutoOpen] = useState(false);
 
   // When the call auto-ends after assessment, mark the session complete.
   useEffect(() => {
@@ -225,61 +230,65 @@ export function CallPage() {
     >
       <section className="call-page">
         <div className={`call-card ${assessmentReady ? 'assessment-ready' : ''}`}>
-          <div className="call-header">
-            <span className="call-status-pill">{t('callPageSubtitle')}</span>
-            <h1>{t('callPageTitle')}</h1>
-          </div>
-
-          <div
-            className={`call-orb ${
-              assessmentReady ? 'call-orb-complete' : `call-orb-${voiceCall.state}`
-            }`}
-          >
-            <div className="call-orb-ring" aria-hidden="true" />
-            <div className="call-orb-ring delay" aria-hidden="true" />
-            <div className="call-orb-core" aria-hidden="true">
-              <PhoneIcon />
-            </div>
-          </div>
-
-          <div className="call-status-block">
-            <span className={`call-status-text state-${voiceCall.state}`}>
-              {statusLabel || t('callTapToStart')}
-            </span>
-          </div>
-
-          {(voiceCall.state === 'starting' || voiceCall.state === 'greeting') && !callFinished && (
-            <div className="call-loading" role="status" aria-live="polite">
-              <div className="call-loading-spinner" aria-hidden="true" />
-              <div className="call-loading-text">
-                <p className="call-loading-title">{t('callStateStarting')}</p>
-                <p className="muted">{t('callPermissionHelp')}</p>
+          {!assessmentReady && (
+            <>
+              <div className="call-header">
+                <span className="call-status-pill">{t('callPageSubtitle')}</span>
+                <h1>{t('callPageTitle')}</h1>
               </div>
-            </div>
-          )}
 
-          {(voiceCall.lastTranscript || voiceCall.lastReply) && (
-            <div className="call-captions">
-              {voiceCall.lastTranscript && (
-                <div className="caption caption-user">
-                  <span className="caption-label">{t('lastYouSaid')}</span>
-                  <p>"{voiceCall.lastTranscript}"</p>
+              <div
+                className={`call-orb ${
+                  assessmentReady ? 'call-orb-complete' : `call-orb-${voiceCall.state}`
+                }`}
+              >
+                <div className="call-orb-ring" aria-hidden="true" />
+                <div className="call-orb-ring delay" aria-hidden="true" />
+                <div className="call-orb-core" aria-hidden="true">
+                  <PhoneIcon />
+                </div>
+              </div>
+
+              <div className="call-status-block">
+                <span className={`call-status-text state-${voiceCall.state}`}>
+                  {statusLabel || t('callTapToStart')}
+                </span>
+              </div>
+
+              {(voiceCall.state === 'starting' || voiceCall.state === 'greeting') && !callFinished && (
+                <div className="call-loading" role="status" aria-live="polite">
+                  <div className="call-loading-spinner" aria-hidden="true" />
+                  <div className="call-loading-text">
+                    <p className="call-loading-title">{t('callStateStarting')}</p>
+                    <p className="muted">{t('callPermissionHelp')}</p>
+                  </div>
                 </div>
               )}
-              {voiceCall.lastReply && (
-                <div className="caption caption-assistant">
-                  <span className="caption-label">{t('lastAssistantSaid')}</span>
-                  <p>{voiceCall.lastReply}</p>
+
+              {(voiceCall.lastTranscript || voiceCall.lastReply) && (
+                <div className="call-captions">
+                  {voiceCall.lastTranscript && (
+                    <div className="caption caption-user">
+                      <span className="caption-label">{t('lastYouSaid')}</span>
+                      <p>"{voiceCall.lastTranscript}"</p>
+                    </div>
+                  )}
+                  {voiceCall.lastReply && (
+                    <div className="caption caption-assistant">
+                      <span className="caption-label">{t('lastAssistantSaid')}</span>
+                      <p>{voiceCall.lastReply}</p>
+                    </div>
+                  )}
                 </div>
               )}
-            </div>
+            </>
           )}
 
           {assessmentReady && (
             <div className="call-assessment-panel assessment-complete">
               <h2>{t('callAssessmentCompleteTitle')}</h2>
               <p className="muted">{t('callAssessmentCompleteSubtitle')}</p>
-              {displayAssessment && <RecommendationCard assessment={displayAssessment} />}
+              {displayAssessment && <RecommendationCard assessment={displayAssessment} autoOpenMap={mapAutoOpen} />}
               {displayAssessment && (
                 <p className="muted call-session-id">
                   {t('sessionId')}: <code>{sessionId}</code>
@@ -291,6 +300,7 @@ export function CallPage() {
                   language={language}
                   assessment={displayAssessment}
                   autoOpenKey={`${sessionId}-${displayAssessment.assistantMessageId ?? displayAssessment.severity?.level ?? 'assessment'}`}
+                  onClose={() => setMapAutoOpen(true)}
                   triggerVariant="primary"
                 />
               )}

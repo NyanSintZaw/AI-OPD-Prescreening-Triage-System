@@ -34,6 +34,7 @@ export function ChatPage() {
     sendMessageStream,
   } = useChat(sessionId, language);
 
+  const [mapAutoOpen, setMapAutoOpen] = useState(false);
   const speech = useSpeechRecognition(language);
   const synthesis = useSpeechSynthesis(language);
   const frontdeskMode = (import.meta.env.VITE_FRONTDESK_MODE ?? 'false') === 'true';
@@ -284,7 +285,24 @@ export function ChatPage() {
           </div>
         )}
 
-        {assessmentComplete && assessment && <RecommendationCard assessment={assessment} />}
+        {assessmentComplete && assessment && (
+          <div className="chat-assessment-summary">
+            <RecommendationCard assessment={assessment} autoOpenMap={mapAutoOpen} />
+            <p className="muted call-session-id">
+              {t('sessionId')}: <code>{sessionId}</code>
+            </p>
+            <div style={{ marginTop: '16px' }}>
+              <PatientIdPassPopup
+                sessionId={sessionId}
+                language={language}
+                assessment={assessment}
+                autoOpenKey={`${sessionId}-${assessment.assistantMessageId ?? assessment.severity?.level ?? 'assessment'}`}
+                onClose={() => setMapAutoOpen(true)}
+                triggerVariant="primary"
+              />
+            </div>
+          </div>
+        )}
 
         {assessment?.followUpQuestion && (
           <div className="follow-up-card">
@@ -431,15 +449,6 @@ export function ChatPage() {
           >
             {t('send')}
           </button>
-          {assessmentComplete && assessment && (
-            <PatientIdPassPopup
-              sessionId={sessionId}
-              language={language}
-              assessment={assessment}
-              autoOpenKey={`${sessionId}-${assessment.assistantMessageId ?? assessment.severity?.level ?? 'assessment'}`}
-              triggerVariant="primary"
-            />
-          )}
         </div>
 
         {speech.error && <p className="error-text">{speech.error}</p>}
