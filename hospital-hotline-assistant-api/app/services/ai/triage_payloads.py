@@ -56,4 +56,5 @@ def _triage_result_to_payload(result: TriageResult) -> dict[str, Any]:
         "alert_sent": result.alert_sent,
         "model_name": result.model_name,
         "latency_ms": result.latency_ms,
+        "contact": result.contact or None,
     }

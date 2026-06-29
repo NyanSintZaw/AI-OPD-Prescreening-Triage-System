@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { api } from '../api';
 import { Layout } from '../components/Layout';
+import { HospitalMapViewer } from '../components/HospitalMapViewer';
 import { useLanguage, useSessionStorage } from '../hooks/useSession';
 import { prewarmVoiceCall } from '../hooks/voicePrewarm';
 
@@ -22,12 +23,22 @@ function ChatIcon() {
   );
 }
 
+function MapIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M20.5 3l-.16.03L15 5.1 9 3 3.36 4.9c-.21.07-.36.25-.36.48V20.5c0 .28.22.5.5.5l.16-.03L9 18.9l6 2.1 5.64-1.9c.21-.07.36-.25.36-.48V3.5c0-.28-.22-.5-.5-.5zM15 19l-6-2.11V5l6 2.11V19z" />
+    </svg>
+  );
+}
+
+
 export function LandingPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { language, setLanguage } = useLanguage();
   const { setSessionId } = useSessionStorage();
   const [startingMode, setStartingMode] = useState<'call' | 'chat' | null>(null);
+  const [showMap, setShowMap] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const startSession = async (mode: 'call' | 'chat') => {
@@ -102,7 +113,22 @@ export function LandingPage() {
                 <span className="mode-loading">{t('loading')}</span>
               )}
             </button>
+
+            <button
+              type="button"
+              className={`mode-tile mode-tile-map${showMap ? ' active' : ''}`}
+              onClick={() => setShowMap((v) => !v)}
+              disabled={startingMode !== null}
+            >
+              <span className="mode-icon mode-icon-map">
+                <MapIcon />
+              </span>
+              <span className="mode-title">{t('modeMapTitle')}</span>
+              <span className="mode-subtitle">{t('modeMapSubtitle')}</span>
+            </button>
           </div>
+
+          {showMap && <HospitalMapViewer />}
 
           <p className="landing-disclaimer muted">{t('disclaimer')}</p>
         </div>

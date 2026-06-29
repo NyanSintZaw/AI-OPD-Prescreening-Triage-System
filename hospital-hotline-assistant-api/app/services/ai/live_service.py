@@ -54,7 +54,7 @@ from app.services.ai.live_events import (
 )
 from app.services.ai.live_runner import HotlineADKLiveRunner
 from app.services.ai.triage_payloads import _triage_result_to_payload
-from app.services.triage_service import TriageService
+from app.services.triage_service import TriageService, _build_schedule_context
 
 logger = logging.getLogger(__name__)
 
@@ -110,7 +110,7 @@ EmergencyCallback = Callable[[dict[str, Any]], Awaitable[None]]
 AssessmentCallback = Callable[[dict[str, Any]], Awaitable[None]]
 
 
-def _kickoff_prompt(language: str) -> str:
+def _kickoff_prompt(language: str, schedule_context: str | None = None) -> str:
     """Build the synthetic content the live runner sends into its own queue
     on connect.
 
@@ -121,6 +121,10 @@ def _kickoff_prompt(language: str) -> str:
     just gives the live API a user turn to respond to. Wrapping it in
     brackets makes clear it's a stage direction rather than a literal
     caller utterance so the agent doesn't try to echo it back.
+
+    ``schedule_context`` is an optional ``[SCHEDULE: ...]`` block fetched
+    from the database at connect time so the agent can answer doctor
+    availability questions during the call.
     """
 
     lang_code = language if language in {"en", "th"} else "en"
@@ -129,10 +133,12 @@ def _kickoff_prompt(language: str) -> str:
         "โรงพยาบาลแม่ฟ้าหลวง" if lang_code == "th"
         else "Mae Fah Luang Hospital"
     )
+    schedule_line = f"\n{schedule_context}" if schedule_context else ""
     return (
         "[MODE: voice — reply in short spoken sentences, no formatting]\n"
         f"[LANG: {lang_code} — reply EXCLUSIVELY in {lang_name}. "
         "This is the session language and it does not change.]\n"
+        f"{schedule_line}"
         f"[CALL_START] The caller has just connected. Greet them warmly in {lang_name} "
         f"as the {hospital_name} hotline AI nurse and ask how you can help "
         "them today. Keep it to one or two short spoken sentences."
@@ -254,6 +260,15 @@ class LiveVoiceService:
             "first_audio_out_logged": False,
         }
 
+        # Fetch doctor schedule so the live agent can answer availability
+        # questions during the call. This mirrors the schedule_context
+        # injection already done in the text-chat path (triage_service.py).
+        schedule_context: str | None = None
+        try:
+            schedule_context = await _build_schedule_context(db_connection)
+        except Exception:  # noqa: BLE001 — non-fatal; call continues without schedule
+            logger.warning("Failed to fetch schedule context for live call %s", session_id)
+
         # Kickoff goes into the queue SYNCHRONOUSLY before we return from
         # connect(). This is the critical ordering invariant: the
         # frontend's first microphone blobs only start arriving after
@@ -267,10 +282,10 @@ class LiveVoiceService:
         try:
             kickoff_content = genai_types.Content(
                 role="user",
-                parts=[genai_types.Part(text=_kickoff_prompt(language))],
+                parts=[genai_types.Part(text=_kickoff_prompt(language, schedule_context))],
             )
             queue.send_content(content=kickoff_content)
-            logger.info("Live kickoff queued for %s", session_id)
+            logger.info("Live kickoff queued for %s (schedule=%s)", session_id, bool(schedule_context))
         except Exception:  # noqa: BLE001 — kickoff failure shouldn't tear the call down
             logger.exception("Live kickoff failed for %s", session_id)
 
