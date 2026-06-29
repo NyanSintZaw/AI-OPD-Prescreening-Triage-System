@@ -337,7 +337,7 @@ class LiveVoiceService:
         session = self._sessions.get(session_id)
         if session is None:
             raise ValueError("Session not found")
-        if session["muted"]:
+        if session["muted"] or not audio_chunk:
             return
 
         queue: LiveRequestQueue = session["queue"]

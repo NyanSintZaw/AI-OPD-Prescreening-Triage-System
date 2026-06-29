@@ -19,6 +19,7 @@ export interface ChatAssessment {
     reason?: string;
     confidence?: number;
     name?: string;
+    code?: string;
   };
   emergency?: {
     triggerId?: string;
@@ -46,7 +47,7 @@ export interface ChatAssessment {
 
 export function toAssessment(
   payload: ChatResponsePayload,
-  departmentNames: Map<string, string>,
+  departmentInfo: Map<string, { name: string; code: string }>,
 ): ChatAssessment {
   const deptId = payload.department?.department_id;
   return {
@@ -62,7 +63,8 @@ export function toAssessment(
           departmentId: deptId,
           reason: payload.department?.reason,
           confidence: payload.department?.confidence,
-          name: departmentNames.get(deptId),
+          name: departmentInfo.get(deptId)?.name,
+          code: departmentInfo.get(deptId)?.code,
         }
       : undefined,
     emergency: payload.emergency
@@ -130,7 +132,7 @@ export function useChat(sessionId: string | null, language: AppLanguage) {
   const [error, setError] = useState<string | null>(null);
   const [assessment, setAssessment] = useState<ChatAssessment | null>(null);
   const [streamingTurn, setStreamingTurn] = useState<StreamingTurn | null>(null);
-  const departmentsRef = useRef<Map<string, string>>(new Map());
+  const departmentsRef = useRef<Map<string, { name: string; code: string }>>(new Map());
   const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
@@ -149,7 +151,13 @@ export function useChat(sessionId: string | null, language: AppLanguage) {
         api.listDepartments(),
       ]);
       departmentsRef.current = new Map(
-        departments.map((d) => [d.id, language === 'th' ? d.name_th ?? d.name_en : d.name_en]),
+        departments.map((d) => [
+          d.id, 
+          {
+            name: language === 'th' ? d.name_th ?? d.name_en : d.name_en,
+            code: d.code
+          }
+        ]),
       );
       setMessages(msgs);
     } catch (err) {
@@ -180,7 +188,10 @@ export function useChat(sessionId: string | null, language: AppLanguage) {
             departmentsRef.current = new Map(
               departments.map((d) => [
                 d.id,
-                language === 'th' ? d.name_th ?? d.name_en : d.name_en,
+                {
+                  name: language === 'th' ? d.name_th ?? d.name_en : d.name_en,
+                  code: d.code
+                }
               ]),
             );
           } catch {
@@ -335,7 +346,10 @@ export function useChat(sessionId: string | null, language: AppLanguage) {
                 departmentsRef.current = new Map(
                   departments.map((d) => [
                     d.id,
-                    language === 'th' ? d.name_th ?? d.name_en : d.name_en,
+                    {
+                      name: language === 'th' ? d.name_th ?? d.name_en : d.name_en,
+                      code: d.code
+                    }
                   ]),
                 );
               } catch {
