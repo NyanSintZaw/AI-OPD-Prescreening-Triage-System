@@ -1,193 +1,110 @@
 {
-  "knowledge_base": "ER Triage Five-Level System",
-  "source": "ESI Triage Research Team, 2004 & Five-Level Triage Protocol",
-  "version": "1.0",
-  "last_updated": "2026-05-26",
-  "decision_tree": [
-    {
-      "step": 1,
-      "question": "Requires immediate life-saving intervention?",
-      "yes": "Level 1",
-      "no": "proceed to step 2"
-    },
-    {
-      "step": 2,
-      "question": "High risk situation? Confused, Lethargic, or Disoriented? Severe pain or distress?",
-      "yes": "Level 2",
-      "no": "proceed to step 3"
-    },
-    {
-      "step": 3,
-      "question": "How many different resources are needed?",
-      "none": "Level 5",
-      "one": "Level 4",
-      "many": "proceed to step 4"
-    },
-    {
-      "step": 4,
-      "question": "Danger zone vitals present?",
-      "danger_thresholds": {
-        "under_3_months": {
-          "HR": ">180",
-          "RR": ">50",
-          "SaO2": "<92%"
-        },
-        "3_months_to_3_years": {
-          "HR": ">160",
-          "RR": ">40",
-          "SaO2": "<92%"
-        },
-        "3_years_to_8_years": {
-          "HR": ">100",
-          "RR": ">20",
-          "SaO2": "<92%"
-        }
-      },
-      "yes_danger": "upgrade to Level 2",
-      "no_danger": "Level 3"
-    }
-  ],
+  "source": "uploaded_pdf",
+  "pdf_file": "triage_manual.pdf",
+  "generated_at": "2026-06-29T16:56:36.090679+00:00",
+  "decision_tree": {
+    "step1": "Is the patient dying (unresponsive, pulseless, not breathing)? If YES → Level 1",
+    "step2": "High-risk situation, confusion, severe pain (≥7/10), or acute distress? If YES → Level 2",
+    "step3": "Count expected resources: 0 → Level 5, 1 → Level 4, ≥2 → Step 4",
+    "step4": "Danger-zone vitals (HR<50 or >180, SpO2<90%, RR<10 or >40, SBP<90 mmHg)? YES → upgrade to Level 2, NO → Level 3"
+  },
   "triage_levels": [
     {
       "level": 1,
-      "color": "Red",
-      "label": "Immediate",
-      "key_question": "Is the patient dying?",
-      "examples": [
-        "Cardiac Arrest",
-        "Respiratory Arrest",
-        "Anaphylaxis",
-        "Unresponsiveness",
-        "Hypoglycemia",
-        "Imminent Childbirth",
-        "Limb Amputations"
-      ],
+      "color": "red",
+      "label": "Immediate / ฉุกเฉินวิกฤต",
       "response_time": "Immediate",
-      "placement": {
-        "cardiac_pulmonary_arrest": "Code Bed",
-        "other_level_1": "Treatment Area"
-      },
-      "assigned_team": "Treatment Nurse"
+      "description": "Triage Level 1 ส่งห้องฉุกเฉิน\nทันที\n(Immediate)\nไม่ใช่\n\n\n\n\n\nใช่\n\n\n\nไม่ใช่"
     },
     {
       "level": 2,
-      "color": "Orange",
-      "label": "Emergent",
-      "key_question": "High-risk situation? Is this a patient who shouldn't wait?",
-      "examples": [
-        "Confused",
-        "Lethargic",
-        "Disoriented",
-        "Severe Pain",
-        "Active Chest Pain",
-        "Suspected Coronary Syndrome",
-        "Signs of Stroke",
-        "Immunocompromised with fever",
-        "Suicidal",
-        "Homicidal",
-        "Amputations"
-      ],
-      "response_time": "10-15 minutes",
-      "placement": "Treatment Area",
-      "assigned_team": "Treatment Nurse"
+      "color": "orange",
+      "label": "Emergency / ฉุกเฉินเร่งด่วน",
+      "response_time": "≤10 minutes",
+      "description": "Triage Level 2"
     },
     {
       "level": 3,
-      "color": "Yellow",
-      "label": "Urgent",
-      "key_question": "How many resources needed? (2 or more) — Consider Vital Signs",
-      "danger_zone_vitals": {
-        "under_3_months": {
-          "HR": ">180",
-          "RR": ">50",
-          "SaO2": "<92%"
-        },
-        "3_months_to_3_years": {
-          "HR": ">160",
-          "RR": ">40",
-          "SaO2": "<92%"
-        },
-        "3_years_to_8_years": {
-          "HR": ">100",
-          "RR": ">20",
-          "SaO2": "<92%"
-        },
-        "note": "Temperature: Birth to 6 months — consider upgrading to Level 2"
-      },
-      "response_time": "60 minutes",
-      "placement": "Treatment Area",
-      "assigned_team": "Treatment Nurse"
+      "color": "yellow",
+      "label": "Urgent / ฉุกเฉิน",
+      "response_time": "≤30 minutes",
+      "description": "4. ประเมินสัญญาณชีพร่วมกับอาการที่ได้จากข้อมูลการซักประวัติ\n5. จัดส่งผู้ป่วยตามเกณฑ์ MOPH ED Triage การคัดแยกประเภท ดังนี้\n- ประเภทฉุกเฉินส่งห้องอุบัติเหตุและฉุกเฉินทันที\n- ประเภทปานกลาง ปานกลางและไม่เร่งด่วน ส่งหน่วยตรวจให้ถูกต้องตามอาการเจ็บป่วย\nลักษณะจ าเพาะเจาะจงส าหรับส่งต่อผู้ป่วยไปยังคลินิกเฉพาะทางโดยไม่ต้องผ่าน OPD ทั่วไป ส่งห้องฉุกเฉิน\nภายใน 15\nนาที\n(Urgency)\nส่งแผนก\nผู้ป่วยนอก\nเด็ก (อายุ 0 เดือน – 15 ปี)"
     },
     {
       "level": 4,
-      "color": "Green",
-      "label": "Less Urgent",
-      "key_question": "How many resources needed? (ONE) — Stable Vital Signs",
-      "examples": [
-        "Ankle Sprain",
-        "Strep Throat",
-        "UTI",
-        "Migraines with CT Head",
-        "Simple Lacerations",
-        "IV/IM Meds"
-      ],
-      "response_time": "2 hours",
-      "placement": "Holding/Monitoring Area",
-      "assigned_team": "Monitoring Nurse"
+      "color": "green",
+      "label": "Less-Urgent / กึ่งฉุกเฉิน",
+      "response_time": "≤60 minutes",
+      "description": "Standard Less-Urgent / กึ่งฉุกเฉิน level."
     },
     {
       "level": 5,
-      "color": "Blue",
-      "label": "Non-Urgent",
-      "key_question": "How many resources needed? (NONE)",
-      "examples": [
-        "Medication Refill",
-        "Out-patient for consultation only"
-      ],
-      "response_time": "4 hours",
-      "placement": "Waiting Area",
-      "assigned_team": "Monitoring Nurse"
+      "color": "blue",
+      "label": "Non-Urgent / ไม่ฉุกเฉิน",
+      "response_time": "≤120 minutes",
+      "description": "Standard Non-Urgent / ไม่ฉุกเฉิน level."
     }
   ],
-  "er_triage_team_composition": [
+  "sections": [
     {
-      "role": "Team Leader / Triage Nurse",
-      "count": 1,
-      "responsibilities": [
-        "Overall in-charge of the triage team",
-        "Perform quick assessment and brief history taking on arriving patients",
-        "Assign appropriate triage levels",
-        "Manage ED patient flow"
-      ],
-      "manages_levels": [1, 2, 3, 4, 5]
+      "title": "introduction",
+      "content": "คู่มือเกณฑ์การคัดกรองผู้ป่วย\n\nจุดคัดกรอง\nหน่วยตรวจรักษาทั่วไป\n\n\n\nโรงพยาบาลศูนย์การแพทย์มหาวิทยาลัยแม่ฟ้าหลวง\nคู่มือเกณฑ์การคัดกรองผู้ป่วย\nวัตถุประสงค์ เพื่อ\n1. ใช้ในการประเมินผู้ป่วยค้นหาปัญหาและความเสี่ยง เพื่อจัดล าดับความเร่งด่วนในการตรวจรักษาผู้ป่วย\n2. เพื่อแยกผู้ป่วยโรคติดต่อ ผู้ป่วยที่มีภาวะเสี่ยงต่อภาวะแพร่กระจายเชื้อ โรคอุบัติใหม่ อุบัติซ้ า จากผู้ป่วยทั่วไป\n3. เพื่อให้การปฏิบัติงานจุดคัดก",
+      "page": 1
     },
     {
-      "role": "Treatment Nurse",
-      "count": 3,
-      "responsibilities": [
-        "Perform thorough assessment of Level 1, 2, and 3 patients",
-        "Perform necessary nursing interventions",
-        "Administer Code Blue Protocols for Cardiac and/or Pulmonary Arrest",
-        "Refer patient to the ROD (Resident on Duty) for proper management",
-        "Carry out doctor's orders"
-      ],
-      "manages_levels": [1, 2, 3]
+      "title": "Chief complain",
+      "content": "Chief complain\nรายละเอียด\nหน่วยตรวจ\nArrhythmias ที่มีอาการร่วม เช่น\nใจสั่น\nHR> 100 ,< 40 /min, หัวใจเต้นผิดจังหวะ,ชีพจร\nจังหวะไม่สม่ าเสมอ\nหัวใจและหลอด\nเลือด\nหัวใจล้มเหลว\nมีอาการหายใจเหนื่อยหอบ(RR ≤ 30 bpm,\nSPO2 >95 %) นอนราบไม่ได้,มีภาวะบวม\nหัวใจและหลอด\nเลือด\nเต้านม\nคล าก้อนได้ที่เต้านม, มีสารคัดกลั่ง หรือเจ็บเต้านม ศัลยศาสตร์\nช่องท้อง\nคล าก้อนได้ที่ท้อง ปรึกษาส่องกล้อง\nศัลยศาสตร์\nทวารหนัก\nริดสีด",
+      "page": 3
     },
     {
-      "role": "Monitoring Nurse",
-      "count": 1,
-      "responsibilities": [
-        "Care of patients assigned to Level 4 and Level 5"
-      ],
-      "manages_levels": [4, 5]
+      "title": "Chief complain",
+      "content": "Chief complain\nรายละเอียด\nหน่วยตรวจ\nจมูกและคอ\nภูมิแพ้ เจ็บคอเรื้องรังมากกว่า 1 เดือน ไซนัส\nอักเสบ คัดจมูก ปวดสันจมูก เลือดก าเดาไหล ก้อน\nที่คอ และก้อนในปาก เสียงแหบ\nหู คอ จมูก\nอาการทางหู\nหูอื้น การได้ยินลดลง ปวดหู น้ าไหลจากหู เสียงดัง\nในหู เช่น วิ้ง เสียงแมลง\nหู คอ จมูก\nหูแว่วเสียงคน จับใจความได้\n\nจิตเวช\nซึมเศร้า ภาพหลอน ระแวง\nเริ่มเป็นครั้งแรกก่อนอายุ 60 ปี ถ้า > 60 ปี ส่ง\nอายุรศาสตร์\nจิตเวช\nเคร",
+      "page": 4
+    },
+    {
+      "title": "สัญญาณชีพอยู่ในภาวะอันตราย",
+      "content": "สัญญาณชีพอยู่ในภาวะอันตราย\n SBP > 180 mmHg หรือ DBP > 110 mmHg\n(ปฏิบัติตาม CPG Hypertensive crisis )\n HR > 120/min (ในขณะพัก)\n RR 21 –30/min ร่วมกับ หายใจมี Retraction หรือ\nได้ยินเสียงหายใจผิดปกติโดยที่ไม่ได้ใช้อุปกรณ์ช่วยฟัง\nเช่น wheeze, stridor เป็นต้น\n O2 sat 90 –94 ที่มีอาการหายใจเหนื่อย ร่วมกับ หายใจ\nมี Retraction\n» แผนกอายุรกรรม\n Stroke FASTTRACK: เวียนศีรษะร่วมกับทรงตัว\nไม่ได้ ตามองไม่",
+      "page": 6
+    },
+    {
+      "title": "สัญญาณชีพอันตรายส าหรับเด็ก",
+      "content": "สัญญาณชีพอันตรายส าหรับเด็ก\nอายุ\nHR\nRR\nSystolic BP\n< 1 mo\n> 190\n> 60\n< 60 mmHg\n1 mo – 12 mo\n> 180\n> 55\n< 70 mmHg\n1 yr – 3 yr\n> 140\n> 40\n70 + (อายุ × 2 )\n3 yr – 5 yr\n> 120\n> 35\n70 + (อายุ × 2 )\n6 yr – 10 yr\n> 120\n> 30\n70 + (อายุ × 2 )\n> 10 yr\n> 100\n> 20\n< 90 mmHg\nที่มา : ENA 2023 : ESI (5th), PALS 2020\n\n√ หายใจเร็ว ร่วมกับ Retraction  ปีกจมูกบาน\n√ O2 Sat < 94 %\n√ Alteration of consciousness\n√ ปวดมา",
+      "page": 7
+    },
+    {
+      "title": "แนวทางการดูแลรักษาผู้ป่วยเส้นเลือดสมองตีบหรืออุดตันเฉียบพลัน(Stroke Fast Track)",
+      "content": "แนวทางการดูแลรักษาผู้ป่วยเส้นเลือดสมองตีบหรืออุดตันเฉียบพลัน(Stroke Fast Track)\nโรงพยาบาลศูนย์การแพทย์มหาวิทยาลัยแม่ฟ้าหลวง\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nส่วนที่ 1 จุดคัดกรอง\nมาเอง/ญาตินำส่ง/\nEMS นำส่ง\nผู้ป่วยมาตรวจที่  ER/OPD\nเวลา ....................น.\nมีอาการตาม BEFAST (1 ใน 5 อาการ+Time ≤6 ชั่วโมง)\n B Balance : เสียการทรงตัว เดินเซ วิงเวียน หรือ ปวดศีรษะรุนแรง\n E Eye : มองไม่เห็น มีอาการตามืดบอดด้านเ",
+      "page": 8
+    },
+    {
+      "title": "เข้าระบบ Fast Track",
+      "content": "เข้าระบบ Fast Track\nแบบคัดกรองผู้ป่วยอาการเจ็บแน่นหน้าอก\n(Chest Pain Checklist)\nเริ่มเจ็บหน้าอก วันที่.....................เวลา............น. วันที่มาโรงพยาบาล............................\nผู้ป่วยยื่นบัตรซักประวัติที่หน่วยตรวจแรก(FMC)………………….เวลา..................น.\nCC : …………………………………………………………………………………………………………………..Pain scare = ………………\nการซักประวัติอาการเจ็บแน่นหน้าอกภายใน 12 ชั่วโมง\n เจ็บแน่นกลางอ",
+      "page": 8
+    },
+    {
+      "title": "ข้อบ่งชี้ในการปรึกษาแพทย์ออร์โธปิดิกส์",
+      "content": "ข้อบ่งชี้ในการปรึกษาแพทย์ออร์โธปิดิกส์\n1. การบาดเจ็บไขสันหลัง (spinal cord injury)\n2. การติดเชื้อบริเวณโดยรอบข้อเทียม (periprosthetic joint infection)\n3. กระดูกหักหรือข้อเคลื่อนหลุด (fractures/ dislocation)\n4. การบาดเจ็บของเส้นเอ็น (tendon injury)\n5. การบาดเจ็บจากการเล่นกีฬา (sport injury: cruciate ligament, rotator cuff, meniscus, etc)\n6. แผลเปิดเข้าข้อ(open joint injury)",
+      "page": 10
+    },
+    {
+      "title": "แนวทางการบริหารจัดการและนัดตรวจผู้ป่วยที่มีปัญหาทางสูติศาสตร์และนรีเวชวิทยา",
+      "content": "แนวทางการบริหารจัดการและนัดตรวจผู้ป่วยที่มีปัญหาทางสูติศาสตร์และนรีเวชวิทยา\n1. ภาวะทางสูติศาสตร์ ได้แก่ การตั้งครรภ์ทุกราย\n2. ภาวะ/โรคทางนรีเวชวิทยา ได้แก่\n2.1 การติดเชื้อของระบบอวัยวะสืบพันธุ์ ได้แก่ PID\n2.2 ความผิดปกติของอวัยวะสืบพันธุ์ภายนอก ช่องคลอด และปากมดลูกเช่น genital vaginal หรือ cervix\nlesions\n2.3 ก้อนเนื้องอกของมดลูกและรังไข่\n2.4 ภาวะปวดท้องน้อยเรื้อรัง\n2.5 ภาวะ PCOS\n2.6 ภาวะเลือดออกผิ",
+      "page": 10
+    },
+    {
+      "title": "• เลือดออกปริมาณมาก ร่วมกับ สัญญาณชีพเปลี่ยนแปลง",
+      "content": "• เลือดออกปริมาณมาก ร่วมกับ สัญญาณชีพเปลี่ยนแปลง\n• ทารกกำลังคลอดโดยมีส่วนนำใด ๆ ของทารกโผล่ออกมาให้เห็น\n• กำลังชัก\n สงสัยเจ็บครรภ์ ท้องแข็ง\n สงสัยมีน้ำเดิน\n สงสัยมีมูกเลือด/เลือดออกช่องคลอด\n สงสัยทารกในครรภ์ดิ้นลดลง\n วัดความดันโลหิต ≥ 140/90 mmHg หรือสงสัยครรภ์เป็นพิษ\n มีอาการแพ้ท้องรุนแรง จนกินไม่ได้\n มีอาการปวดท้อง มีไข้ และสารคัดหลังมีกลิ่นเหม็นทางช่อง\nคลอด",
+      "page": 11
+    },
+    {
+      "title": "แนวทางการรับผู้ป่วยหนjวยตรวจหู คอ จมูก",
+      "content": "แนวทางการรับผู้ป่วยหนjวยตรวจหู คอ จมูก\nอายุ < 15 ปี\n ต้องการท าการทดสอบ skin Prick test\n การได้ยินลดลง\n ตรวจคัดกรองการได้ยินในเด็กอายุ > 2 เดือน\nอายุ > 15 ปี\nกลุ่มอาการทางหู\n ปวดหู pain score > 7 คะแนนรวมกับมีหน้าเบี้ยว\n บ้านหมุน สัมพันธ์กับท่าทาง\n การได้ยินลดลง/เสียงดังในหู\n เวียนศีรษะ บ้านหมุน ที่มีใบส่งตัวระบุแพทย์ ENT\nกลุ่มอาการช่องปากและคอ\n มีก้อนโตเร็ว ผิวไม่เรียบ สงสัย CA\n คอบวมโต ",
+      "page": 12
+    },
+    {
+      "title": "แนวทางการรับผู้ป่วยนอกอายุรศาสตร์",
+      "content": "แนวทางการรับผู้ป่วยนอกอายุรศาสตร์\nUrgency condition > พยาบาลโทรปรึกษาแพทย์ประจ าหน่วยตรวจโดยตรงเพื่อรักษาทันที\n Cardio : recurrent chest pain despite medication <acute heart failure\n Chest : hemoptysis, acute pulmonary embolism\n GI : acute liver failure (abnormal liver enzyme+ coagulopathy +encephalopathy), moderate\nhepatitis (AST,ALT > 5xUNL) acute pancreatitis(serum amylase >3-5x UNL)\n Nepho",
+      "page": 13
     }
-  ],
-  "team_summary": {
-    "total_nurses": 5,
-    "breakdown": {
-      "team_leader_triage_nurse": 1,
-      "treatment_nurses": 3,
-      "monitoring_nurses": 1
-    }
-  }
+  ]
 }
