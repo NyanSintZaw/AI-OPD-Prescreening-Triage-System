@@ -404,3 +404,21 @@ export interface SurveillanceSummaryOut {
   severity_distribution: SeverityCount[];
   outbreak_alerts: OutbreakAlert[];
 }
+
+// ── Triage manual uploads ─────────────────────────────────────────────────────
+
+export type TriageManualStatus = 'processing' | 'ready' | 'failed';
+
+export interface TriageManualUploadOut {
+  id: string;
+  original_filename: string;
+  file_size_bytes: number | null;
+  chunks_count: number | null;
+  status: TriageManualStatus;
+  error_message: string | null;
+  uploaded_by: string | null;
+  uploaded_at: string | null;
+  completed_at: string | null;
+  /** Only present immediately after upload (202 response) */
+  message?: string;
+}

@@ -35,6 +35,7 @@ import type {
   SttResponsePayload,
   SurveillanceSummaryOut,
   SymptomEntryCreate,
+  TriageManualUploadOut,
 } from './types';
 
 async function detailFromResponse(response: Response): Promise<string> {
@@ -333,6 +334,30 @@ export const api = {
 
   getSurveillanceSummary: (days = 7) =>
     request<SurveillanceSummaryOut>(`/admin/surveillance?days=${days}`),
+
+  // ── Triage manual PDF upload ───────────────────────────────────────────────
+  uploadTriageManual: async (file: File): Promise<TriageManualUploadOut> => {
+    const token = (await import('./client')).getAdminToken();
+    const form = new FormData();
+    form.append('file', file);
+    const response = await fetch(`${baseUrl}/admin/triage-manual/upload`, {
+      method: 'POST',
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: form,
+    });
+    if (!response.ok) {
+      let detail = response.statusText;
+      try {
+        const body = (await response.json()) as { detail?: string };
+        detail = body.detail ?? detail;
+      } catch { /* ignore */ }
+      throw new Error(detail);
+    }
+    return response.json() as Promise<TriageManualUploadOut>;
+  },
+
+  getTriageManualStatus: () =>
+    request<TriageManualUploadOut | null>('/admin/triage-manual/status'),
 };
 
-export type { MessageOut, SessionOut, ConversationSummaryOut, DepartmentOut, DoctorOut, DoctorWithSchedulesOut, DoctorScheduleOut, SurveillanceSummaryOut };
+export type { MessageOut, SessionOut, ConversationSummaryOut, DepartmentOut, DoctorOut, DoctorWithSchedulesOut, DoctorScheduleOut, SurveillanceSummaryOut, TriageManualUploadOut };

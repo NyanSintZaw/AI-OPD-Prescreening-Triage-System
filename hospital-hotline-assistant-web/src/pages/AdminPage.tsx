@@ -10,10 +10,11 @@ import { getAdminEmail, getAdminToken } from '../api/client';
 import { Layout } from '../components/Layout';
 import { MessageBubble } from '../components/MessageBubble';
 import { OutbreakSurveillance } from '../components/OutbreakSurveillance';
+import { TriageManualUpload } from '../components/TriageManualUpload';
 import { useLanguage } from '../hooks/useSession';
 import type { SessionStatus, SeverityLevel } from '../api/types';
 
-type AdminTab = 'sessions' | 'surveillance';
+type AdminTab = 'sessions' | 'surveillance' | 'triage-manual';
 
 const AUTO_REFRESH_INTERVAL_MS = 30_000;
 const SEVERITY_FILTERS: Array<{ id: 'all' | SeverityLevel; tone: string }> = [
@@ -312,9 +313,19 @@ export function AdminPage() {
           >
             ⚕ {t('surveillanceTab')}
           </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeTab === 'triage-manual'}
+            className={`admin-tab-btn ${activeTab === 'triage-manual' ? 'active' : ''}`}
+            onClick={() => setActiveTab('triage-manual')}
+          >
+            📋 {t('triageManualTab')}
+          </button>
         </div>
 
         {activeTab === 'surveillance' && <OutbreakSurveillance />}
+        {activeTab === 'triage-manual' && <TriageManualUpload />}
 
         {activeTab === 'sessions' && (
           <>

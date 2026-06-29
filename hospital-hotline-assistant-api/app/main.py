@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 from contextlib import asynccontextmanager
 from uuid import UUID
 import asyncpg
+from pydantic import BaseModel
 from fastapi import (
     Depends,
     FastAPI,
@@ -1550,3 +1551,184 @@ async def get_surveillance_summary(
             for r in alert_rows
         ],
     )
+
+
+# ── Hybrid RAG triage endpoint ────────────────────────────────────────────────
+
+class _RagTriageRequest(BaseModel):
+    """Request body for the hybrid RAG triage endpoint."""
+    content: str
+    language: str = "th"
+    session_id: str | None = None
+
+
+@app.post("/triage/rag")
+async def rag_triage(
+    payload: _RagTriageRequest,
+    connection: asyncpg.Connection = Depends(get_connection),
+) -> JSONResponse:
+    """Run the hybrid Rule Engine + RAG triage pipeline.
+
+    Layer 1 evaluates hard rules (no LLM).  Layer 2 queries the official
+    triage manual via pgvector and produces a structured decision.
+    ``requires_nurse_review`` is always ``true``.
+    """
+    from app.services.triage_engine import run_triage
+
+    triggers_rows = await connection.fetch(
+        "SELECT * FROM emergency_triggers WHERE is_active = TRUE ORDER BY priority ASC"
+    )
+    rules_rows = await connection.fetch(
+        "SELECT * FROM routing_rules WHERE is_active = TRUE ORDER BY priority ASC"
+    )
+    patient_input = {
+        "content": payload.content,
+        "language": payload.language,
+        "session_id": payload.session_id or "anonymous",
+    }
+    result = await run_triage(
+        patient_input=patient_input,
+        emergency_triggers=[dict(r) for r in triggers_rows],
+        routing_rules=[dict(r) for r in rules_rows],
+    )
+    return JSONResponse(content=result)
+
+
+# ── Triage manual PDF upload ──────────────────────────────────────────────────
+
+async def _run_ingest_task(
+    *,
+    pool: asyncpg.Pool,
+    upload_id: str,
+    pdf_path: str,
+) -> None:
+    """Background task: clear old embeddings, ingest new PDF, update DB record."""
+    import asyncio
+    from concurrent.futures import ThreadPoolExecutor
+    from app.services.ai.rag_ingest import ingest_replace
+
+    async with pool.acquire() as conn:
+        try:
+            loop = asyncio.get_running_loop()
+            with ThreadPoolExecutor(max_workers=1) as executor:
+                chunks = await loop.run_in_executor(
+                    executor,
+                    lambda: ingest_replace(pdf_path),
+                )
+            await conn.execute(
+                """UPDATE triage_manual_uploads
+                      SET status='ready', chunks_count=$1, completed_at=NOW()
+                    WHERE id=$2""",
+                chunks,
+                upload_id,
+            )
+            logger.info("Triage manual ingested: %d chunks (upload_id=%s)", chunks, upload_id)
+        except Exception as exc:
+            logger.exception("Triage manual ingest failed for upload_id=%s", upload_id)
+            await conn.execute(
+                """UPDATE triage_manual_uploads
+                      SET status='failed', error_message=$1, completed_at=NOW()
+                    WHERE id=$2""",
+                str(exc)[:500],
+                upload_id,
+            )
+
+
+@app.post("/admin/triage-manual/upload")
+async def upload_triage_manual(
+    request: Request,
+    file: UploadFile = File(..., description="Hospital triage manual PDF"),
+    connection: asyncpg.Connection = Depends(get_connection),
+    admin_user: dict = Depends(require_roles("super_admin", "admin")),
+) -> JSONResponse:
+    """Upload a new triage manual PDF and trigger background RAG ingestion.
+
+    Replaces any previously uploaded manual.  The old pgvector embeddings are
+    deleted automatically before the new ones are stored.
+
+    Returns a JSON object with the upload ``id`` and initial ``status``.
+    """
+    import os
+
+    if not file.filename or not file.filename.lower().endswith(".pdf"):
+        raise HTTPException(status_code=400, detail="Only PDF files are accepted.")
+
+    # Save to a fixed path so the RAG ingest script can find it
+    save_path = getattr(settings, "triage_manual_path", "app/data/triage_manual.pdf")
+    os.makedirs(os.path.dirname(save_path) or ".", exist_ok=True)
+
+    content = await file.read()
+    file_size = len(content)
+
+    if file_size == 0:
+        raise HTTPException(status_code=400, detail="Uploaded file is empty.")
+    if file_size > 50 * 1024 * 1024:  # 50 MB guard
+        raise HTTPException(status_code=413, detail="File too large (max 50 MB).")
+
+    with open(save_path, "wb") as fh:
+        fh.write(content)
+
+    # Insert upload record
+    uploader = admin_user.get("email") or admin_user.get("id") or "unknown"
+    row = await connection.fetchrow(
+        """INSERT INTO triage_manual_uploads
+               (original_filename, file_size_bytes, status, uploaded_by)
+           VALUES ($1, $2, 'processing', $3)
+           RETURNING id, status, uploaded_at""",
+        file.filename,
+        file_size,
+        str(uploader),
+    )
+
+    upload_id = str(row["id"])
+
+    # Kick off background ingest (non-blocking)
+    pool: asyncpg.Pool = request.app.state.db_pool
+    asyncio.create_task(
+        _run_ingest_task(pool=pool, upload_id=upload_id, pdf_path=save_path)
+    )
+
+    return JSONResponse(
+        status_code=202,
+        content={
+            "id": upload_id,
+            "status": "processing",
+            "original_filename": file.filename,
+            "file_size_bytes": file_size,
+            "uploaded_at": row["uploaded_at"].isoformat(),
+            "message": "Upload received. Ingestion is running in the background.",
+        },
+    )
+
+
+@app.get("/admin/triage-manual/status")
+async def get_triage_manual_status(
+    connection: asyncpg.Connection = Depends(get_connection),
+    admin_user: dict = Depends(require_roles("super_admin", "admin")),
+) -> JSONResponse:
+    """Return the latest triage manual upload record.
+
+    The frontend polls this endpoint after uploading to track ingest progress.
+    Returns ``null`` when no manual has been uploaded yet.
+    """
+    row = await connection.fetchrow(
+        """SELECT id, original_filename, file_size_bytes, chunks_count,
+                  status, error_message, uploaded_by, uploaded_at, completed_at
+             FROM triage_manual_uploads
+            ORDER BY uploaded_at DESC
+            LIMIT 1"""
+    )
+    if row is None:
+        return JSONResponse(content=None)
+
+    return JSONResponse(content={
+        "id": str(row["id"]),
+        "original_filename": row["original_filename"],
+        "file_size_bytes": row["file_size_bytes"],
+        "chunks_count": row["chunks_count"],
+        "status": row["status"],
+        "error_message": row["error_message"],
+        "uploaded_by": row["uploaded_by"],
+        "uploaded_at": row["uploaded_at"].isoformat() if row["uploaded_at"] else None,
+        "completed_at": row["completed_at"].isoformat() if row["completed_at"] else None,
+    })

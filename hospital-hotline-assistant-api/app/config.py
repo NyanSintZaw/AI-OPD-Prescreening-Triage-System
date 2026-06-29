@@ -1,4 +1,4 @@
-from pydantic_settings import BaseSettings, SettingsConfigDict
+﻿from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     app_name: str = "Hospital Hotline Assistant API"
@@ -12,41 +12,23 @@ class Settings(BaseSettings):
         "http://localhost:5174",
         "http://127.0.0.1:5174",
     ]
-    # Toggle the in-process mock staff summary sink.
     mock_notifier_enabled: bool = True
-    # Reserved for future staff-summary integrations. Leave as None to
-    # use the mock notifier.
     notification_webhook_url: str | None = None
     alert_severity_threshold: str = "emergency"
     alert_cooldown_seconds: int = 300
     google_cloud_project: str | None = None
     google_cloud_location: str = "us-central1"
-    # Text / chat mode model. ``gemini-2.5-pro`` is the highest GA Pro-tier
-    # model on Vertex AI as of May 2026 — top quality, supports streaming,
-    # tool calls, and multimodal, and works on standard (non-preview-gated)
-    # Vertex projects. To try preview tiers like ``gemini-3.1-pro-preview``
-    # or the newer ``gemini-3.5-flash``, override ``GOOGLE_MODEL_NAME`` in
-    # ``.env`` after confirming your project's been allowlisted.
     google_model_name: str = "gemini-2.5-pro"
-    # Live API (voice WebSocket) model. The Gemini Live API has its own
-    # dedicated model family — Pro tier is NOT available for live audio
-    # on Vertex. ``gemini-live-2.5-flash-native-audio`` is the only GA
-    # Live model as of May 2026 (released Dec 2025, retires Dec 2026).
     google_live_model_name: str = "gemini-live-2.5-flash-native-audio"
     google_application_credentials: str | None = None
-    # ADK now drives the triage agent and assumes Google AI is online,
-    # so the default flips on. Override to False in non-AI test envs.
     google_ai_enabled: bool = True
-    # Route google-genai (and ADK underneath) through Vertex AI instead of
-    # the Gemini API. When True we authenticate with the service-account
-    # JSON in ``google_application_credentials`` + project/location above;
-    # no API key is needed. The companion env var ``GOOGLE_GENAI_USE_VERTEXAI``
-    # is exported into ``os.environ`` by ``adk_agent`` so the underlying
-    # google-genai client sees it.
     google_genai_use_vertexai: bool = True
     live_debug_events: bool = False
     live_debug_audio: bool = False
-
+    embed_model: str = "intfloat/multilingual-e5-small"
+    triage_manual_path: str = "app/data/triage_manual.pdf"
+    pgvector_table: str = "triage_knowledge"
+    pgvector_embed_dim: int = 384
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 
 settings = Settings()
