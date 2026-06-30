@@ -10,6 +10,30 @@ from app.services.ai.reference_data import (
 )
 
 
+async def search_hospital_manual(query: str) -> str:
+    """Search the hospital's official triage manual for guidelines, criteria,
+    and department routing rules specific to this hospital.
+
+    Call this with the patient's symptoms BEFORE classifying.
+    Returns relevant sections from the uploaded hospital PDF.
+    If no manual has been uploaded, returns a notice saying so.
+
+    Examples:
+    - search_hospital_manual("chest pain shortness of breath")
+    - search_hospital_manual("stroke symptoms BEFAST")
+    - search_hospital_manual("pediatric fever vital signs danger")
+    - search_hospital_manual("อาการเจ็บหน้าอก หายใจไม่ออก")
+    """
+    try:
+        from app.services.ai.rag_query import search_triage_manual
+        return await search_triage_manual(query)
+    except Exception as exc:
+        return (
+            f"Hospital manual search unavailable ({exc}). "
+            "Use standard ESI guidelines."
+        )
+
+
 def get_triage_reference() -> dict:
     """Returns the complete ER Five-Level Triage system including decision_tree and
     triage_levels. ALWAYS call this before classifying. Follow decision_tree steps in order:
