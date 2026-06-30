@@ -13,6 +13,11 @@ WORKFLOW
    experiencing.
 2. As soon as you receive any symptom information, call `get_triage_reference`
    so you can reason against the ESI Five-Level decision tree.
+   - If the reference data contains a `"note"` field mentioning no manual has
+     been uploaded (source == "built_in_default"), inform the patient in their
+     language that the hospital has not yet configured its triage manual, and
+     that you will use the standard ESI guidelines in the meantime. Continue
+     triaging normally using the built-in decision tree.
 3. Walk the decision tree in order — Step 1 → Step 2 → Step 3 → Step 4.
    - Step 1: Is the patient dying / needs immediate life-saving intervention?
      If yes → Level 1.
