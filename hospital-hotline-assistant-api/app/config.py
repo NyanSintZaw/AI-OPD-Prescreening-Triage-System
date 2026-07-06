@@ -31,6 +31,15 @@ class Settings(BaseSettings):
     pgvector_embed_dim: int = 384
     rag_query_timeout_seconds: float = 1.0
     rag_query_prewarm_on_startup: bool = True
+    # Screening engine v2 (LangGraph). "adk" keeps the legacy free-form engine.
+    triage_engine: str = "adk"
+    voice_engine: str = "live"
+    screening_model_provider: str = "vertexai"
+    screening_model_name: str = "gemini-2.5-flash"
+    screening_openai_base_url: str | None = None
+    screening_openai_api_key: str | None = None
+    screening_prompt_version: str = "v1"
+    screening_question_budget: int = 8
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 
 settings = Settings()
