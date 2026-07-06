@@ -660,7 +660,7 @@ class TriageService:
             [str(symptoms_summary)] if symptoms_summary else [content]
         )
 
-        model_name = f"adk:{settings.google_model_name}"
+        model_name = adk_result.get("model_name") or f"adk:{settings.google_model_name}"
 
         await connection.execute(
             """
@@ -1005,6 +1005,7 @@ class TriageService:
                     session_id=session_id,
                     reply=adk_result["reply"],
                     start=start,
+                    model_name=adk_result.get("model_name"),
                 )
                 yield {
                     "type": "turn_complete",
@@ -1030,6 +1031,7 @@ class TriageService:
                 session_id=session_id,
                 reply=adk_result["reply"],
                 start=start,
+                model_name=adk_result.get("model_name"),
             )
             yield {
                 "type": "turn_complete",
@@ -1065,9 +1067,10 @@ class TriageService:
         session_id: str,
         reply: str,
         start: float,
+        model_name: str | None = None,
     ) -> dict[str, Any]:
         latency_ms = int((perf_counter() - start) * 1000)
-        model_name = f"adk:{settings.google_model_name}"
+        model_name = model_name or f"adk:{settings.google_model_name}"
         msg_assistant = await connection.fetchrow(
             """
             INSERT INTO messages (

@@ -80,7 +80,14 @@ async def lifespan(app: FastAPI):
     app.state.db_pool = await create_pool()
     app.state.admin_tokens = {}
     notifier = MockNotificationService()
-    app.state.triage_service = TriageService(notifier=notifier)
+    # TRIAGE_ENGINE=adk keeps the legacy free-form ADK engine;
+    # TRIAGE_ENGINE=langgraph uses the deterministic screening engine v2.
+    from app.services.screening.engine import make_triage_engine
+
+    triage_engine = make_triage_engine(settings, pool=app.state.db_pool)
+    app.state.triage_service = TriageService(
+        notifier=notifier, triage_engine=triage_engine
+    )
     app.state.tts_client = GoogleTtsClient()
     app.state.stt_client = GoogleSttClient()
     # Gemini Live API bridge — owns the per-call WebSocket state for
