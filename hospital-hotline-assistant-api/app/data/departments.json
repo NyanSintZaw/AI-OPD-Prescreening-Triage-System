@@ -41,6 +41,30 @@
       "name": "OPD ENT (Ear, Nose, Throat)",
       "kind": "opd",
       "symptoms": ["ear pain", "sore throat", "sinus", "hearing loss", "nosebleed"]
+    },
+    {
+      "code": "opd_surgery",
+      "name": "OPD Surgery",
+      "kind": "opd",
+      "symptoms": ["breast lump", "abdominal mass", "hemorrhoids", "chronic wound", "keloid scar", "varicose veins"]
+    },
+    {
+      "code": "opd_ophthalmology",
+      "name": "OPD Ophthalmology",
+      "kind": "opd",
+      "symptoms": ["blurred vision", "red eye", "eye pain", "eye injury"]
+    },
+    {
+      "code": "opd_psychiatry",
+      "name": "OPD Psychiatry",
+      "kind": "opd",
+      "symptoms": ["depression", "anxiety", "hearing voices", "severe stress", "insomnia"]
+    },
+    {
+      "code": "opd_obgyn",
+      "name": "OPD Obstetrics & Gynecology",
+      "kind": "opd",
+      "symptoms": ["pregnancy", "vaginal bleeding", "pelvic pain", "irregular period"]
     }
   ]
 }
