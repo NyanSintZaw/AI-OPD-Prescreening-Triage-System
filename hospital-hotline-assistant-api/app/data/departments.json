@@ -1,0 +1,46 @@
+{
+  "departments": [
+    {
+      "code": "emergency",
+      "name": "Emergency Department",
+      "kind": "emergency",
+      "symptoms": ["chest pain", "difficulty breathing", "unconscious", "severe bleeding", "stroke"]
+    },
+    {
+      "code": "opd_general",
+      "name": "OPD General Practice",
+      "kind": "opd",
+      "symptoms": ["fever", "cold", "cough", "fatigue", "general checkup"]
+    },
+    {
+      "code": "opd_internal_medicine",
+      "name": "OPD Internal Medicine",
+      "kind": "opd",
+      "symptoms": ["dizziness", "headache", "high blood pressure", "diabetes follow-up", "abdominal discomfort"]
+    },
+    {
+      "code": "opd_pediatrics",
+      "name": "OPD Pediatrics",
+      "kind": "opd",
+      "symptoms": ["child fever", "child vomiting", "infant care", "growth concerns"]
+    },
+    {
+      "code": "opd_cardiology",
+      "name": "OPD Cardiology",
+      "kind": "opd",
+      "symptoms": ["heart palpitations", "chest tightness", "hypertension", "irregular heartbeat"]
+    },
+    {
+      "code": "opd_orthopedics",
+      "name": "OPD Orthopedics",
+      "kind": "opd",
+      "symptoms": ["joint pain", "broken bone", "back pain", "muscle injury", "swelling"]
+    },
+    {
+      "code": "opd_ent",
+      "name": "OPD ENT (Ear, Nose, Throat)",
+      "kind": "opd",
+      "symptoms": ["ear pain", "sore throat", "sinus", "hearing loss", "nosebleed"]
+    }
+  ]
+}

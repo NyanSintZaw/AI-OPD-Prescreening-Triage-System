@@ -21,7 +21,7 @@ from app.services.ai.tools import (  # noqa: E402
     get_department_list,
     get_triage_reference,
     record_contact_preference,
-    search_hospital_manual,
+    search_indexed_triage_manual,
 )
 
 APP_NAME: str = "hospital-hotline"
@@ -37,8 +37,8 @@ def build_triage_agent(
     include_contact_tool: bool = False,
 ) -> LlmAgent:
     tools = [
+        FunctionTool(search_indexed_triage_manual),
         FunctionTool(get_triage_reference),
-        FunctionTool(search_hospital_manual),
         FunctionTool(get_department_list),
         FunctionTool(classify_triage_level),
     ]

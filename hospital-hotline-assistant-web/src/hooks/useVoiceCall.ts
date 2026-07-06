@@ -194,10 +194,26 @@ function smartMergeTranscript(buffer: string, fragment: string): string {
       f = first.join(' ');
     }
   }
+  if (f.length >= 2 && f.length % 2 === 0) {
+    const midpoint = f.length / 2;
+    const first = f.slice(0, midpoint);
+    const second = f.slice(midpoint);
+    if (first === second) {
+      f = first;
+    }
+  }
   const b = buffer.trim();
   if (!b) return f;
   if (b.endsWith(f)) return b;
   if (f.startsWith(b)) return f;
+
+  const maxOverlap = Math.min(b.length, f.length);
+  for (let size = maxOverlap; size > 2; size -= 1) {
+    if (b.endsWith(f.slice(0, size))) {
+      return `${b}${f.slice(size)}`;
+    }
+  }
+
   return `${b} ${f}`;
 }
 

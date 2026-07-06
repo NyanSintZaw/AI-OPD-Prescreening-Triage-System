@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from time import perf_counter
 from typing import Any, AsyncIterator
 
@@ -125,6 +125,7 @@ class TriageService:
         language: str,
         input_mode: str,
         content: str,
+        persist_user_message: bool = True,
     ) -> dict[str, Any]:
         """Persist the user turn and load the per-turn reference data.
 
@@ -149,16 +150,18 @@ class TriageService:
             prior_metadata.get("triage_classification") or {}
         )
 
-        msg_user = await connection.fetchrow(
-            """
-            INSERT INTO messages (session_id, role, input_mode, content, metadata)
-            VALUES ($1, 'user', $2, $3, '{}'::jsonb)
-            RETURNING *
-            """,
-            session_id,
-            input_mode,
-            content,
-        )
+        msg_user = None
+        if persist_user_message:
+            msg_user = await connection.fetchrow(
+                """
+                INSERT INTO messages (session_id, role, input_mode, content, metadata)
+                VALUES ($1, 'user', $2, $3, '{}'::jsonb)
+                RETURNING *
+                """,
+                session_id,
+                input_mode,
+                content,
+            )
 
         departments = await connection.fetch(
             "SELECT id, code, kind, name_en, name_th FROM departments WHERE is_active = TRUE"
@@ -280,6 +283,7 @@ class TriageService:
         classification: dict[str, Any],
         contact: dict[str, Any],
         reply: str | None = None,
+        live_messages: list[dict[str, Any]] | None = None,
     ) -> tuple[TriageResult, dict[str, Any]]:
         """Persist a completed live-voice assessment without re-invoking ADK.
 
@@ -290,12 +294,15 @@ class TriageService:
         """
 
         start = perf_counter()
+        segmented_live_messages = self._normalize_live_messages(live_messages or [])
+
         ctx = await self._prepare_chat_turn(
             connection=connection,
             session_id=session_id,
             language=language,
             input_mode=input_mode,
             content=content,
+            persist_user_message=not segmented_live_messages,
         )
 
         agent_reply = (reply or "").strip()
@@ -324,6 +331,44 @@ class TriageService:
             "contact": contact,
             "input_mode": input_mode,
         }
+
+        if segmented_live_messages:
+            persisted_messages = await self._persist_live_messages(
+                connection=connection,
+                session_id=session_id,
+                messages=segmented_live_messages,
+            )
+            first_user_message = next(
+                (
+                    message
+                    for message in persisted_messages
+                    if message.get("role") == "user"
+                ),
+                None,
+            )
+            last_assistant_message = next(
+                (
+                    message
+                    for message in reversed(persisted_messages)
+                    if message.get("role") == "assistant"
+                ),
+                None,
+            )
+            if first_user_message is None:
+                first_user_message = await connection.fetchrow(
+                    """
+                    INSERT INTO messages (session_id, role, input_mode, content, metadata)
+                    VALUES ($1, 'user', $2, $3, $4::jsonb)
+                    RETURNING *
+                    """,
+                    session_id,
+                    input_mode,
+                    content or "[voice call]",
+                    {"source": "live_voice", "aggregate_fallback": True},
+                )
+                first_user_message = dict(first_user_message)
+            ctx["msg_user"] = first_user_message
+            ctx["assistant_message_override"] = last_assistant_message
 
         result, assistant_message = await self._finalize_chat_turn(
             connection=connection,
@@ -358,6 +403,84 @@ class TriageService:
         )
 
         return result, assistant_message
+
+    def _normalize_live_messages(
+        self, messages: list[dict[str, Any]]
+    ) -> list[dict[str, Any]]:
+        """Clean and coalesce live transcript events for DB display rows."""
+
+        normalized: list[dict[str, Any]] = []
+        for index, item in enumerate(messages):
+            role = item.get("role")
+            if role == "agent":
+                role = "assistant"
+            if role not in {"user", "assistant"}:
+                continue
+            content = str(item.get("content") or "").strip()
+            if not content:
+                continue
+            input_mode = item.get("input_mode") or (
+                "voice" if role == "user" else None
+            )
+            sequence = item.get("sequence")
+            if not isinstance(sequence, int):
+                sequence = index
+
+            if normalized and normalized[-1]["role"] == role:
+                previous = normalized[-1]["content"]
+                separator = "" if previous.endswith((" ", "\n")) else " "
+                normalized[-1]["content"] = f"{previous}{separator}{content}".strip()
+                normalized[-1]["sequence_end"] = sequence
+                continue
+
+            normalized.append(
+                {
+                    "role": role,
+                    "input_mode": input_mode,
+                    "content": content,
+                    "sequence": sequence,
+                    "sequence_end": sequence,
+                }
+            )
+        return normalized
+
+    async def _persist_live_messages(
+        self,
+        *,
+        connection: asyncpg.Connection,
+        session_id: str,
+        messages: list[dict[str, Any]],
+    ) -> list[dict[str, Any]]:
+        """Persist a live call transcript as chronological message rows."""
+
+        persisted: list[dict[str, Any]] = []
+        base_time = datetime.now(timezone.utc)
+        for index, message in enumerate(messages):
+            metadata = {
+                "source": "live_voice",
+                "sequence": message.get("sequence", index),
+                "sequence_end": message.get(
+                    "sequence_end",
+                    message.get("sequence", index),
+                ),
+            }
+            record = await connection.fetchrow(
+                """
+                INSERT INTO messages (
+                    session_id, role, input_mode, content, created_at, metadata
+                )
+                VALUES ($1, $2, $3, $4, $5, $6::jsonb)
+                RETURNING *
+                """,
+                session_id,
+                message["role"],
+                message.get("input_mode"),
+                message["content"],
+                base_time + timedelta(milliseconds=index),
+                metadata,
+            )
+            persisted.append(dict(record))
+        return persisted
 
     async def _notify_staff_assessment_summary(
         self,
@@ -670,19 +793,21 @@ class TriageService:
         # structured field, no follow_up_questions row.
         latency_ms = int((perf_counter() - start) * 1000)
 
-        msg_assistant = await connection.fetchrow(
-            """
-            INSERT INTO messages (
-                session_id, role, input_mode, content, model_name, response_latency_ms, metadata
+        msg_assistant = ctx.get("assistant_message_override")
+        if msg_assistant is None:
+            msg_assistant = await connection.fetchrow(
+                """
+                INSERT INTO messages (
+                    session_id, role, input_mode, content, model_name, response_latency_ms, metadata
+                )
+                VALUES ($1, 'assistant', NULL, $2, $3, $4, '{}'::jsonb)
+                RETURNING *
+                """,
+                session_id,
+                reply,
+                model_name,
+                latency_ms,
             )
-            VALUES ($1, 'assistant', NULL, $2, $3, $4, '{}'::jsonb)
-            RETURNING *
-            """,
-            session_id,
-            reply,
-            model_name,
-            latency_ms,
-        )
 
         alert_sent = False
 

@@ -14,9 +14,10 @@ DATA_DIR: pathlib.Path = pathlib.Path(__file__).parents[2] / "data"
 _TRIAGE_FILE = DATA_DIR / "er_triage_five_level_system.json"
 _DEPARTMENTS_FILE = DATA_DIR / "departments.json"
 
-# Built-in ESI 5-level fallback used when no PDF has been uploaded yet.
-_BUILTIN_FALLBACK: dict[str, Any] = {
-    "source": "built_in_default",
+_TRIAGE_FALLBACK: dict[str, Any] = {
+    "knowledge_base": "ER Triage Five-Level System fallback",
+    "source": "built-in minimal fallback",
+    "source_id": "built_in_default",
     "note": (
         "ยังไม่มีการอัปโหลดคู่มือการคัดกรองผู้ป่วย "
         "กรุณาแจ้งผู้ดูแลระบบเพื่ออัปโหลดไฟล์ PDF คู่มือโรงพยาบาล "
@@ -86,11 +87,11 @@ def _load_triage_reference() -> dict[str, Any]:
             return json.load(handle)
     except (FileNotFoundError, json.JSONDecodeError) as exc:
         logger.warning(
-            "Could not load %s (%s); using built-in ESI default.",
+            "Could not load %s (%s); using minimal fallback",
             _TRIAGE_FILE.name,
             exc,
         )
-        return _BUILTIN_FALLBACK
+        return _TRIAGE_FALLBACK
 
 
 def _load_departments() -> list[dict[str, Any]]:

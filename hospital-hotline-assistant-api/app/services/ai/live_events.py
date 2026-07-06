@@ -31,12 +31,29 @@ def _collapse_adjacent_repeat(text: str) -> str:
     """Collapse a fragment that is the same phrase emitted twice."""
 
     words = text.split()
-    if len(words) < 2 or len(words) % 2:
-        return text
-    midpoint = len(words) // 2
-    if words[:midpoint] == words[midpoint:]:
-        return " ".join(words[:midpoint])
+    if len(words) >= 2 and len(words) % 2 == 0:
+        midpoint = len(words) // 2
+        if words[:midpoint] == words[midpoint:]:
+            return " ".join(words[:midpoint])
+
+    # Thai and other scripts may not separate words with spaces, so the
+    # word-based repeat check above will not catch ``ประโยคประโยค``.
+    if len(text) >= 2 and len(text) % 2 == 0:
+        midpoint = len(text) // 2
+        if text[:midpoint] == text[midpoint:]:
+            return text[:midpoint]
+
     return text
+
+
+def _suffix_prefix_overlap(existing: str, fragment: str) -> int:
+    """Return the longest suffix(existing) that is a prefix(fragment)."""
+
+    max_len = min(len(existing), len(fragment))
+    for size in range(max_len, 2, -1):
+        if existing.endswith(fragment[:size]):
+            return size
+    return 0
 
 
 def _smart_append(chunks: list[str], fragment: str) -> str | None:
@@ -56,6 +73,13 @@ def _smart_append(chunks: list[str], fragment: str) -> str | None:
         chunks.clear()
         chunks.append(f)
         return delta or None
+    overlap = _suffix_prefix_overlap(existing, f)
+    if overlap:
+        delta = f[overlap:].strip()
+        if not delta:
+            return None
+        chunks.append(delta)
+        return delta
     chunks.append(f)
     return f
 

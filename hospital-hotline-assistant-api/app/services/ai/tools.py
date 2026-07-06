@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from app.services.ai.rag_query import search_triage_manual_status
 from app.services.ai.reference_data import (
     get_department_reference_data,
     get_triage_reference_data,
@@ -32,6 +33,17 @@ async def search_hospital_manual(query: str) -> str:
             f"Hospital manual search unavailable ({exc}). "
             "Use standard ESI guidelines."
         )
+
+
+async def search_indexed_triage_manual(query: str, language: str = "en") -> dict:
+    """Search the uploaded/indexed triage manual before static fallback.
+
+    Call this first for patient symptoms in English or Thai. If the returned
+    `available` field is false, continue with `get_triage_reference` and
+    `get_department_list`.
+    """
+
+    return await search_triage_manual_status(query=query, language=language)
 
 
 def get_triage_reference() -> dict:

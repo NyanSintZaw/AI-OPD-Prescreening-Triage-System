@@ -7,8 +7,31 @@ interface RecommendationCardProps {
   autoOpenMap?: boolean;
 }
 
+function localizeClinicalDetail(text: string | undefined, language: string): string | undefined {
+  const trimmed = text?.trim();
+  if (!trimmed) {
+    return undefined;
+  }
+
+  if (!language.startsWith('th')) {
+    return trimmed;
+  }
+
+  return trimmed
+    .replace(/No signs of respiratory distress or severe pain\.?/gi, 'ไม่มีสัญญาณหายใจลำบากหรือปวดรุนแรง')
+    .replace(/respiratory distress/gi, 'หายใจลำบาก')
+    .replace(/severe pain/gi, 'ปวดรุนแรง')
+    .replace(/sore throat/gi, 'เจ็บคอ')
+    .replace(/headache/gi, 'ปวดหัว')
+    .replace(/fever/gi, 'มีไข้')
+    .replace(/,\s*/g, ' ')
+    .replace(/\.\s*/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 export function RecommendationCard({ assessment, autoOpenMap = false }: RecommendationCardProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [showMapPopup, setShowMapPopup] = useState(autoOpenMap);
 
   useEffect(() => {
@@ -43,6 +66,10 @@ export function RecommendationCard({ assessment, autoOpenMap = false }: Recommen
   const mapDestination = assessment.department 
     ? getMapDestinationKey(assessment.department.code ?? assessment.department.departmentId) 
     : null;
+  const severityDetail = localizeClinicalDetail(
+    assessment.severity?.explanation,
+    i18n.language,
+  );
 
   return (
     <>
@@ -54,8 +81,8 @@ export function RecommendationCard({ assessment, autoOpenMap = false }: Recommen
             <span className={`severity-badge severity-${assessment.severity.level}`}>
               {t(`severity_${assessment.severity.level}`)}
             </span>
-            {assessment.severity.explanation && (
-              <span className="recommendation-detail"> — {assessment.severity.explanation}</span>
+            {severityDetail && (
+              <span className="recommendation-detail"> — {severityDetail}</span>
             )}
           </p>
         )}
@@ -91,9 +118,6 @@ export function RecommendationCard({ assessment, autoOpenMap = false }: Recommen
           <p>
             <strong>{t('department')}:</strong>{' '}
             {assessment.department.name ?? assessment.department.departmentId}
-            {assessment.department.reason && (
-              <span className="recommendation-detail"> — {assessment.department.reason}</span>
-            )}
           </p>
         )}
         

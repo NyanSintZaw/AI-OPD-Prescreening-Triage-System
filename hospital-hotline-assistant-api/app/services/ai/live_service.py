@@ -90,6 +90,10 @@ _NO_THAI_PHRASES = (
 _CONTACT_GOODBYE_DELAY_SECONDS = 1.2
 _CONTACT_REPLY_WAIT_SECONDS = 3.0
 _CONTACT_REPLY_POLL_SECONDS = 0.1
+_VOICE_STYLE_LINE = (
+    "[VOICE_STYLE: speak a little slowly, with brief pauses and clear "
+    "pronunciation]\n"
+)
 
 # Transcript callback: receives ("user"|"agent", text). Called from the
 # live event loop so should be cheap and non-blocking — typically just
@@ -130,23 +134,57 @@ def _kickoff_prompt(language: str, schedule_context: str | None = None) -> str:
     lang_code = language if language in {"en", "th"} else "en"
     lang_name = "English" if lang_code == "en" else "Thai"
     hospital_name = (
-        "โรงพยาบาลแม่ฟ้าหลวง" if lang_code == "th"
-        else "Mae Fah Luang Hospital"
+        "โรงพยาบาลศูนย์การแพทย์มหาวิทยาลัยแม่ฟ้าหลวง" if lang_code == "th"
+        else "Mae Fah Luang University Medical Center Hospital"
     )
     schedule_line = f"\n{schedule_context}" if schedule_context else ""
     return (
         "[MODE: voice — reply in short spoken sentences, no formatting]\n"
+        f"{_VOICE_STYLE_LINE}"
         f"[LANG: {lang_code} — reply EXCLUSIVELY in {lang_name}. "
         "This is the session language and it does not change.]\n"
         f"{schedule_line}"
         f"[CALL_START] The caller has just connected. Greet them warmly in {lang_name} "
         f"as the {hospital_name} hotline AI nurse and ask how you can help "
-        "them today. Keep it to one or two short spoken sentences."
+        f"them today. Use the hospital name exactly as written: {hospital_name}. "
+        "Do not abbreviate it, shorten it, translate it differently, or change it. "
+        "Keep it to one or two short spoken sentences."
     )
 
 
 def _normalize_language(language: str) -> str:
     return language if language in {"en", "th"} else "en"
+
+
+def _append_conversation_event(
+    session: dict[str, Any],
+    *,
+    role: str,
+    content: str,
+) -> None:
+    """Append a live transcript delta while preserving role-turn boundaries."""
+
+    text = content.strip()
+    if not text:
+        return
+
+    events: list[dict[str, Any]] = session.setdefault("conversation_events", [])
+    if events and events[-1].get("role") == role:
+        previous = str(events[-1].get("content") or "")
+        separator = "" if previous.endswith((" ", "\n")) else " "
+        events[-1]["content"] = f"{previous}{separator}{text}".strip()
+        return
+
+    sequence = int(session.get("conversation_sequence") or 0)
+    session["conversation_sequence"] = sequence + 1
+    events.append(
+        {
+            "sequence": sequence,
+            "role": role,
+            "input_mode": "voice" if role == "user" else None,
+            "content": text,
+        }
+    )
 
 
 def _contains_phrase(text: str, phrases: tuple[str, ...]) -> bool:
@@ -226,6 +264,8 @@ class LiveVoiceService:
             "queue": queue,
             "transcript": [],         # accumulates caller speech (input transcription)
             "agent_transcript": [],   # accumulates agent speech (output transcription)
+            "conversation_events": [],  # chronological caller/agent display messages
+            "conversation_sequence": 0,
             "muted": False,
             "activity_open": False,
             "language": language,
@@ -238,6 +278,7 @@ class LiveVoiceService:
             "contact_preference": {},
             "contact_flow": "idle",
             "contact_transcript_index": 0,
+            "contact_goodbye_queued": False,
             "assessment_finalized": False,
             "pipeline_failed": False,
             # Tracks whether we have already replayed the live transcript
@@ -555,13 +596,19 @@ class LiveVoiceService:
             text = getattr(input_tx, "text", None)
             if text:
                 delta = _smart_append(session["transcript"], str(text))
-                if delta and transcript_cb is not None:
-                    try:
-                        await transcript_cb("user", delta)
-                    except Exception:
-                        logger.exception(
-                            "transcript_cb(user) failed for %s", session_id
-                        )
+                if delta:
+                    _append_conversation_event(
+                        session,
+                        role="user",
+                        content=delta,
+                    )
+                    if transcript_cb is not None:
+                        try:
+                            await transcript_cb("user", delta)
+                        except Exception:
+                            logger.exception(
+                                "transcript_cb(user) failed for %s", session_id
+                            )
 
         output_tx = getattr(event, "output_transcription", None)
         if output_tx is not None:
@@ -574,14 +621,24 @@ class LiveVoiceService:
                 cleaned = _strip_meta_markers(str(text))
                 if not cleaned:
                     cleaned = ""
-                delta = _smart_append(session["agent_transcript"], cleaned) if cleaned else None
-                if delta and transcript_cb is not None:
-                    try:
-                        await transcript_cb("agent", delta)
-                    except Exception:
-                        logger.exception(
-                            "transcript_cb(agent) failed for %s", session_id
-                        )
+                delta = (
+                    _smart_append(session["agent_transcript"], cleaned)
+                    if cleaned
+                    else None
+                )
+                if delta:
+                    _append_conversation_event(
+                        session,
+                        role="assistant",
+                        content=delta,
+                    )
+                    if transcript_cb is not None:
+                        try:
+                            await transcript_cb("agent", delta)
+                        except Exception:
+                            logger.exception(
+                                "transcript_cb(agent) failed for %s", session_id
+                            )
 
     async def _handle_tool_response(
         self,
@@ -674,7 +731,11 @@ class LiveVoiceService:
                 # Final preference recorded — proceed to assessment.
                 session["contact_flow"] = "done"
                 asyncio.create_task(
-                    self._finish_contact_flow(session_id, session)
+                    self._finish_contact_flow(
+                        session_id,
+                        session,
+                        speak_goodbye=False,
+                    )
                 )
 
     # ------------------------------------------------------------------
@@ -706,6 +767,7 @@ class LiveVoiceService:
                     text=(
                         "[SYSTEM_ACTION]\n"
                         "[MODE: voice — reply in short spoken sentences, no formatting]\n"
+                        f"{_VOICE_STYLE_LINE}"
                         f"[LANG: {lang_code} — reply EXCLUSIVELY in {lang_name}.]\n"
                         f"{text}"
                     )
@@ -770,16 +832,22 @@ class LiveVoiceService:
         session: dict[str, Any],
         *,
         goodbye_reply: str = "",
+        speak_goodbye: bool = True,
     ) -> None:
         if session.get("contact_completion_started"):
             return
         session["contact_completion_started"] = True
         await self._persist_contact_preference(session_id, session)
         try:
-            if goodbye_reply.strip():
-                self._speak_contact_agent_reply(session, goodbye_reply)
-            else:
-                self._send_agent_instruction(session, self._contact_goodbye_prompt(session))
+            if speak_goodbye and not session.get("contact_goodbye_queued"):
+                session["contact_goodbye_queued"] = True
+                if goodbye_reply.strip():
+                    self._speak_contact_agent_reply(session, goodbye_reply)
+                else:
+                    self._send_agent_instruction(
+                        session,
+                        self._contact_goodbye_prompt(session),
+                    )
         except Exception:
             logger.exception("Failed to queue contact goodbye for %s", session_id)
         await asyncio.sleep(_CONTACT_GOODBYE_DELAY_SECONDS)
@@ -1017,6 +1085,7 @@ class LiveVoiceService:
                         classification=classification,
                         contact=session.get("contact_preference") or {},
                         reply=agent_reply or None,
+                        live_messages=session.get("conversation_events") or [],
                     )
             else:
                 result, _ = await self.triage_service.finalize_live_assessment(
@@ -1028,6 +1097,7 @@ class LiveVoiceService:
                     classification=classification,
                     contact=session.get("contact_preference") or {},
                     reply=agent_reply or None,
+                    live_messages=session.get("conversation_events") or [],
                 )
         except Exception:
             logger.exception(

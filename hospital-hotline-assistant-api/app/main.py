@@ -89,9 +89,17 @@ async def lifespan(app: FastAPI):
     app.state.live_voice_service = LiveVoiceService(
         triage_service=app.state.triage_service
     )
+    app.state.rag_prewarm_task = None
+    if settings.rag_query_prewarm_on_startup:
+        from app.services.ai.rag_query import start_rag_query_engine_prewarm
+
+        app.state.rag_prewarm_task = start_rag_query_engine_prewarm()
     try:
         yield
     finally:
+        prewarm_task = getattr(app.state, "rag_prewarm_task", None)
+        if prewarm_task is not None and not prewarm_task.done():
+            prewarm_task.cancel()
         await app.state.db_pool.close()
 
 app = FastAPI(title=settings.app_name, lifespan=lifespan)

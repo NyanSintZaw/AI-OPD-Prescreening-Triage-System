@@ -29,6 +29,8 @@ class Settings(BaseSettings):
     triage_manual_path: str = "app/data/triage_manual.pdf"
     pgvector_table: str = "triage_knowledge"
     pgvector_embed_dim: int = 384
+    rag_query_timeout_seconds: float = 1.0
+    rag_query_prewarm_on_startup: bool = True
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 
 settings = Settings()

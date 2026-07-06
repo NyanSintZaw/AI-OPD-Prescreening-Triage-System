@@ -35,6 +35,7 @@ from app.services.ai.tools import (
     classify_triage_level,
     get_department_list,
     get_triage_reference,
+    search_indexed_triage_manual,
 )
 
 __all__ = [
@@ -64,4 +65,5 @@ __all__ = [
     "get_department_reference_data",
     "get_triage_reference",
     "get_triage_reference_data",
+    "search_indexed_triage_manual",
 ]
