@@ -69,6 +69,16 @@ VOICE_GREETING = {
     "th": "สวัสดีค่ะ ระบบผู้ช่วยคัดกรองของโรงพยาบาลค่ะ วันนี้มีอาการอะไรให้ช่วยดูแลคะ",
 }
 
+VOICE_DIDNT_HEAR = {
+    "en": "Sorry, I didn't catch that. Could you say it again?",
+    "th": "ขอโทษค่ะ ไม่ได้ยินชัดเจน ช่วยพูดอีกครั้งได้ไหมคะ",
+}
+
+VOICE_ERROR = {
+    "en": "Sorry, something went wrong on our side. Could you repeat that?",
+    "th": "ขอโทษค่ะ ระบบขัดข้องชั่วคราว ช่วยพูดอีกครั้งได้ไหมคะ",
+}
+
 # Fallback department display names; the engine overrides these with the
 # database's bilingual names when available.
 DEPARTMENT_NAMES: dict[str, dict[str, str]] = {

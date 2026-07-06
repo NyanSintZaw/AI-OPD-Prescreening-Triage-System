@@ -92,12 +92,24 @@ async def lifespan(app: FastAPI):
     )
     app.state.tts_client = GoogleTtsClient()
     app.state.stt_client = GoogleSttClient()
-    # Gemini Live API bridge — owns the per-call WebSocket state for
-    # voice mode. Reuses the same TriageService so live and text produce
-    # the same triage assessment payloads.
-    app.state.live_voice_service = LiveVoiceService(
-        triage_service=app.state.triage_service
-    )
+    # Voice bridge — owns the per-call WebSocket state for voice mode.
+    # VOICE_ENGINE=live keeps the Gemini Live full-duplex bridge;
+    # VOICE_ENGINE=turn runs calls turn-by-turn through the same
+    # TriageService pipeline as text chat (STT → process_chat → TTS),
+    # so the deterministic screening engine controls voice too. Both
+    # expose the same surface to the /ws/voice route.
+    if settings.voice_engine == "turn":
+        from app.services.screening.voice_bridge import TurnVoiceService
+
+        app.state.live_voice_service = TurnVoiceService(
+            triage_service=app.state.triage_service,
+            stt_client=app.state.stt_client,
+            tts_client=app.state.tts_client,
+        )
+    else:
+        app.state.live_voice_service = LiveVoiceService(
+            triage_service=app.state.triage_service
+        )
     app.state.rag_prewarm_task = None
     if settings.rag_query_prewarm_on_startup:
         from app.services.ai.rag_query import start_rag_query_engine_prewarm
