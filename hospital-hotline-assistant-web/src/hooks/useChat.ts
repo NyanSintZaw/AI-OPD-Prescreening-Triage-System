@@ -43,6 +43,8 @@ export interface ChatAssessment {
   latencyMs?: number;
   assistantMessageId?: string;
   contact?: Record<string, unknown> | null;
+  /** 'complete' once the rules engine has produced a routing decision. */
+  assessmentStatus?: 'complete' | 'in_progress';
 }
 
 export function toAssessment(
@@ -93,6 +95,7 @@ export function toAssessment(
     latencyMs: payload.latency_ms ?? undefined,
     assistantMessageId: payload.assistant_message_id ?? undefined,
     contact: payload.contact ?? undefined,
+    assessmentStatus: payload.assessment_status ?? undefined,
   };
 }
 

@@ -338,6 +338,22 @@ export function NursePage() {
                     ) : null}
                   </div>
 
+                  {(review.disposition_reasons?.length ?? 0) > 0 && (
+                    <details className="nurse-ai-reasoning">
+                      <summary>{t('aiReasoningTitle')}</summary>
+                      <ul>
+                        {review.disposition_reasons!.map((reason) => (
+                          <li key={reason.rule_id}>
+                            {language === 'th' ? reason.text_th : reason.text_en}
+                            {reason.citation ? (
+                              <span className="muted"> — {reason.citation}</span>
+                            ) : null}
+                          </li>
+                        ))}
+                      </ul>
+                    </details>
+                  )}
+
                   {review.reviewed_at && (
                     <div className="nurse-card-reviewed-at">
                       {review.reviewer_name && (

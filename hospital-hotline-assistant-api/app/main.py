@@ -136,7 +136,8 @@ async def _serialize_review(
             (s.metadata->>'patient_contact_requested')::boolean AS patient_contact_requested,
             NULLIF(s.metadata->>'patient_contact_phone', '') AS patient_contact_phone,
             NULLIF(s.metadata->>'patient_contact_preferred_time', '') AS patient_contact_preferred_time,
-            NULLIF(s.metadata->>'patient_contact_relation', '') AS patient_contact_relation
+            NULLIF(s.metadata->>'patient_contact_relation', '') AS patient_contact_relation,
+            s.metadata->'triage_classification'->'disposition_reasons' AS disposition_reasons
         FROM assessment_reviews ar
         JOIN sessions s ON s.id = ar.session_id
         LEFT JOIN admin_users reviewer ON reviewer.id = ar.reviewer_id
@@ -393,13 +394,12 @@ async def chat(
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
+    from app.services.ai.triage_payloads import assessment_status, severity_payload
+
     return ChatResponse(
         reply=result.reply,
-        severity={
-            "level": result.severity_level,
-            "explanation": result.severity_explanation,
-            "confidence": result.severity_confidence,
-        },
+        severity=severity_payload(result),
+        assessment_status=assessment_status(result),
         department={
             "department_id": result.department_id,
             "reason": result.department_reason,
@@ -760,6 +760,61 @@ async def conversation_summary(
     return records_to_dicts(records)
 
 
+@app.get("/admin/sessions/{session_id}/trace")
+async def get_session_trace(
+    session_id: UUID,
+    _admin_user: dict = Depends(require_roles("admin", "super_admin", "viewer")),
+    connection: asyncpg.Connection = Depends(get_connection),
+):
+    """Full AI decision trace for one session (SRS Explainability / F40).
+
+    Returns the screening engine state (findings, slots, disposition with
+    fired rules + manual citations) and the per-call ai_inference_audit
+    timeline. Only available for sessions run by the screening engine v2.
+    """
+
+    state_row = await connection.fetchrow(
+        """
+        SELECT state, criteria_version_id, prompt_version, updated_at
+        FROM screening_sessions WHERE session_id = $1
+        """,
+        session_id,
+    )
+    audit_rows = await connection.fetch(
+        """
+        SELECT turn_no, call_site, model_name, prompt_version, criteria_version_id,
+               rules_trace, validator_result, ok, latency_ms, created_at
+        FROM ai_inference_audit
+        WHERE session_id = $1
+        ORDER BY created_at ASC
+        """,
+        session_id,
+    )
+    if state_row is None and not audit_rows:
+        raise HTTPException(
+            status_code=404,
+            detail="No screening-engine trace for this session",
+        )
+
+    engine_state = state_row["state"] if state_row else None
+    if isinstance(engine_state, str):
+        import json as _json
+
+        engine_state = _json.loads(engine_state)
+    return {
+        "session_id": str(session_id),
+        "criteria_version_id": (
+            str(state_row["criteria_version_id"])
+            if state_row and state_row["criteria_version_id"]
+            else None
+        ),
+        "prompt_version": state_row["prompt_version"] if state_row else None,
+        "updated_at": state_row["updated_at"] if state_row else None,
+        "engine_state": engine_state,
+        "audit": records_to_dicts(audit_rows),
+    }
+
+
 @app.get("/admin/reviews", response_model=list[AssessmentReviewOut])
 async def list_assessment_reviews(
     status: str = "pending",
@@ -778,7 +833,8 @@ async def list_assessment_reviews(
             (s.metadata->>'patient_contact_requested')::boolean AS patient_contact_requested,
             NULLIF(s.metadata->>'patient_contact_phone', '') AS patient_contact_phone,
             NULLIF(s.metadata->>'patient_contact_preferred_time', '') AS patient_contact_preferred_time,
-            NULLIF(s.metadata->>'patient_contact_relation', '') AS patient_contact_relation
+            NULLIF(s.metadata->>'patient_contact_relation', '') AS patient_contact_relation,
+            s.metadata->'triage_classification'->'disposition_reasons' AS disposition_reasons
         FROM assessment_reviews ar
         JOIN sessions s ON s.id = ar.session_id
         LEFT JOIN admin_users reviewer ON reviewer.id = ar.reviewer_id

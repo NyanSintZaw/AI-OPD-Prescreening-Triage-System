@@ -307,21 +307,18 @@ class TriageService:
 
         agent_reply = (reply or "").strip()
         if not agent_reply:
-            level = classification.get("level")
-            label = classification.get("label") or ""
+            # Patients never see the triage level — department guidance only.
             dept = classification.get("department_code") or ""
             if language == "th":
                 agent_reply = (
-                    f"สรุปการคัดแยก: ระดับ {level} ({label}). "
-                    f"แนะนำไปแผนก {dept}."
-                    if level
+                    f"การประเมินเสร็จสมบูรณ์แล้วค่ะ กรุณาไปที่แผนก {dept} นะคะ"
+                    if dept
                     else "การประเมินเสร็จสมบูรณ์แล้วค่ะ"
                 )
             else:
                 agent_reply = (
-                    f"Triage complete: Level {level} ({label}). "
-                    f"Please proceed to {dept}."
-                    if level
+                    f"Your assessment is complete. Please proceed to {dept}."
+                    if dept
                     else "Your assessment is complete."
                 )
 

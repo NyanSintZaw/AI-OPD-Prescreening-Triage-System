@@ -201,6 +201,7 @@ class ChatSymptomsOut(BaseModel):
 class ChatResponse(BaseModel):
     reply: str
     severity: ChatSeverityOut
+    assessment_status: str | None = None  # "complete" | "in_progress"
     department: ChatDepartmentOut | None = None
     emergency: ChatEmergencyOut | None = None
     symptoms: ChatSymptomsOut | None = None
@@ -276,6 +277,8 @@ class AssessmentReviewOut(BaseModel):
     patient_contact_phone: str | None = None
     patient_contact_preferred_time: str | None = None
     patient_contact_relation: str | None = None
+    # AI reasoning trace: fired rule ids + manual citations (screening engine v2)
+    disposition_reasons: list[dict[str, Any]] | None = None
     notes: str | None = None
     reviewed_at: datetime | None = None
     created_at: datetime

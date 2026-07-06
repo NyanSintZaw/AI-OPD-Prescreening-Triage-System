@@ -437,6 +437,31 @@ a:hover {
   background: #fff1f1;
 }
 
+.triage-panel.triage-panel-neutral {
+  border-color: var(--mch-cyan, #3ea3cb);
+  background: #f2fbff;
+}
+
+.nurse-ai-reasoning {
+  margin-top: 0.6rem;
+  font-size: 0.9rem;
+}
+
+.nurse-ai-reasoning summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--mch-navy, #213253);
+}
+
+.nurse-ai-reasoning ul {
+  margin: 0.4rem 0 0;
+  padding-left: 1.2rem;
+}
+
+.nurse-ai-reasoning li {
+  margin-bottom: 0.25rem;
+}
+
 .triage-alert-note {
   margin-top: 0.35rem;
   color: var(--mch-red-dark);

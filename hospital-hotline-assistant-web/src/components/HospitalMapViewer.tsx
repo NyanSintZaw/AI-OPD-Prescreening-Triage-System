@@ -3,7 +3,7 @@
  * Renders the floor-map.svg directly with an SVG route overlay.
  * Uses an A* grid pathfinder ported from public/hospital-map/app.js.
  */
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 // ── Map constants ──────────────────────────────────────────────────────────────

@@ -49,6 +49,7 @@ class ScreeningTriageEngine:
         prompt_version: str = "v1",
         model_label: str = "screening:unknown",
         department_names: dict[str, dict[str, str]] | None = None,
+        rag_search=None,
     ) -> None:
         self._store = store or InMemoryStateStore()
         self._prompt_version = prompt_version
@@ -62,6 +63,7 @@ class ScreeningTriageEngine:
                 code: [n for n in lang_names.values() if n]
                 for code, lang_names in names.items()
             },
+            rag_search=rag_search,
         )
         self._graph = build_screening_graph(deps)
 
@@ -176,6 +178,14 @@ class ScreeningTriageEngine:
             reply=templates.ESCALATION[state.language], escalated=True,
         )
         await self._store.save(state)
+        await self._store.write_audit(
+            session_id=session_id,
+            turn_no=state.turn_count,
+            entries=result.get("audit") or [],
+            model_name=self._model_label,
+            prompt_version=state.prompt_version,
+            criteria_version_id=state.criteria_version_id,
+        )
 
         return {
             "reply": output.reply,
@@ -201,6 +211,13 @@ def make_triage_engine(settings, pool=None):
         ):
             model = build_chat_model(settings)
         store = PostgresStateStore(pool) if pool is not None else InMemoryStateStore()
+        rag_search = None
+        try:
+            from app.services.ai.rag_query import search_triage_manual
+
+            rag_search = search_triage_manual
+        except Exception:  # pragma: no cover - RAG stack optional in dev
+            logger.warning("RAG grounding unavailable for screening engine")
         return ScreeningTriageEngine(
             model=model,
             store=store,
@@ -210,6 +227,7 @@ def make_triage_engine(settings, pool=None):
                 f"screening:{settings.screening_model_provider}:"
                 f"{settings.screening_model_name}"
             ),
+            rag_search=rag_search,
         )
 
     from app.services.ai.triage_engine import LlmTriageEngine

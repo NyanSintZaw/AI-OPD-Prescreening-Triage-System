@@ -51,6 +51,18 @@ def build_classification(state, disposition: DispositionResult) -> dict:
         "distress_score": int(distress) if distress is not None else None,
         "distress_type": "breathing_difficulty" if distress is not None else None,
         "red_flags": red_flags,
+        # Nurse-facing reasoning (Infermedica root_cause pattern): which rules
+        # fired and their manual citations. Persisted with the classification
+        # into session metadata; never shown to the patient.
+        "disposition_reasons": [
+            {
+                "rule_id": r.rule_id,
+                "text_en": r.text_en,
+                "text_th": r.text_th,
+                "citation": r.citation,
+            }
+            for r in disposition.reasons
+        ],
     }
 
 

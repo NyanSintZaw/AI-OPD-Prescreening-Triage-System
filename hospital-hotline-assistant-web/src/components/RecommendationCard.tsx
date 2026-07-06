@@ -7,31 +7,8 @@ interface RecommendationCardProps {
   autoOpenMap?: boolean;
 }
 
-function localizeClinicalDetail(text: string | undefined, language: string): string | undefined {
-  const trimmed = text?.trim();
-  if (!trimmed) {
-    return undefined;
-  }
-
-  if (!language.startsWith('th')) {
-    return trimmed;
-  }
-
-  return trimmed
-    .replace(/No signs of respiratory distress or severe pain\.?/gi, 'ไม่มีสัญญาณหายใจลำบากหรือปวดรุนแรง')
-    .replace(/respiratory distress/gi, 'หายใจลำบาก')
-    .replace(/severe pain/gi, 'ปวดรุนแรง')
-    .replace(/sore throat/gi, 'เจ็บคอ')
-    .replace(/headache/gi, 'ปวดหัว')
-    .replace(/fever/gi, 'มีไข้')
-    .replace(/,\s*/g, ' ')
-    .replace(/\.\s*/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
-}
-
 export function RecommendationCard({ assessment, autoOpenMap = false }: RecommendationCardProps) {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const [showMapPopup, setShowMapPopup] = useState(autoOpenMap);
 
   useEffect(() => {
@@ -39,7 +16,6 @@ export function RecommendationCard({ assessment, autoOpenMap = false }: Recommen
       setShowMapPopup(true);
     }
   }, [autoOpenMap]);
-  const redFlags = assessment.symptoms?.redFlags ?? [];
 
   if (!assessment.severity && !assessment.department) {
     return null;
@@ -63,61 +39,28 @@ export function RecommendationCard({ assessment, autoOpenMap = false }: Recommen
     return null;
   };
 
-  const mapDestination = assessment.department 
-    ? getMapDestinationKey(assessment.department.code ?? assessment.department.departmentId) 
+  const mapDestination = assessment.department
+    ? getMapDestinationKey(assessment.department.code ?? assessment.department.departmentId)
     : null;
-  const severityDetail = localizeClinicalDetail(
-    assessment.severity?.explanation,
-    i18n.language,
-  );
 
+  // Patients only ever see WHERE to go — never the triage level, scores, or
+  // red flags. Clinical detail stays on the nurse/admin surfaces.
   return (
     <>
       <div className="recommendation-card">
         <h3>{t('recommendationTitle')}</h3>
-        {assessment.severity && (
-          <p>
-            <strong>{t('severity')}:</strong>{' '}
-            <span className={`severity-badge severity-${assessment.severity.level}`}>
-              {t(`severity_${assessment.severity.level}`)}
-            </span>
-            {severityDetail && (
-              <span className="recommendation-detail"> — {severityDetail}</span>
-            )}
-          </p>
-        )}
-        {assessment.symptoms?.painScore !== undefined && (
-          <p>
-            <strong>{t('painScore')}:</strong> {assessment.symptoms.painScore}/10
-            {assessment.symptoms.painLocation && (
-              <span className="recommendation-detail">
-                {' '}
-                — {assessment.symptoms.painLocation}
-              </span>
-            )}
-          </p>
-        )}
-        {assessment.symptoms?.distressScore !== undefined && (
-          <p>
-            <strong>{t('distressScore')}:</strong>{' '}
-            {assessment.symptoms.distressScore}/10
-            {assessment.symptoms.distressType && (
-              <span className="recommendation-detail">
-                {' '}
-                — {assessment.symptoms.distressType}
-              </span>
-            )}
-          </p>
-        )}
-        {redFlags.length > 0 && (
-          <p>
-            <strong>{t('redFlags')}:</strong> {redFlags.join(', ')}
-          </p>
-        )}
         {assessment.department && (
           <p>
             <strong>{t('department')}:</strong>{' '}
             {assessment.department.name ?? assessment.department.departmentId}
+          </p>
+        )}
+        {assessment.department && (
+          <p className="recommendation-detail">
+            {t('proceedToGuidance', {
+              department:
+                assessment.department.name ?? assessment.department.departmentId,
+            })}
           </p>
         )}
         

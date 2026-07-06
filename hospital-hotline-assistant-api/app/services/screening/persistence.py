@@ -25,6 +25,19 @@ class StateStore(Protocol):
         otherwise the active one."""
         ...
 
+    async def write_audit(
+        self,
+        *,
+        session_id: str,
+        turn_no: int,
+        entries: list[dict],
+        model_name: str,
+        prompt_version: str,
+        criteria_version_id: str | None,
+    ) -> None:
+        """Persist per-call audit entries for one turn (SRS traceability)."""
+        ...
+
 
 class InMemoryStateStore:
     """Dev/test store: process-local state, bundled seed criteria."""
@@ -44,6 +57,10 @@ class InMemoryStateStore:
         self, pinned_version_id: str | None
     ) -> tuple[str | None, ScreeningCriteria]:
         return pinned_version_id, self._criteria
+
+    async def write_audit(self, **kwargs) -> None:
+        self.audit_log = getattr(self, "audit_log", [])
+        self.audit_log.append(kwargs)
 
 
 class PostgresStateStore:
@@ -97,3 +114,46 @@ class PostgresStateStore:
                     pinned_version_id,
                 )
             return await get_active_criteria(conn)
+
+    async def write_audit(
+        self,
+        *,
+        session_id: str,
+        turn_no: int,
+        entries: list[dict],
+        model_name: str,
+        prompt_version: str,
+        criteria_version_id: str | None,
+    ) -> None:
+        if not entries:
+            return
+        rows = []
+        for entry in entries:
+            payload = dict(entry)
+            call_site = str(payload.pop("call_site", "unknown"))
+            ok = bool(payload.pop("ok", True))
+            latency_ms = payload.pop("latency_ms", None)
+            violations = payload.pop("violations", None)
+            rows.append((
+                session_id, turn_no, call_site, model_name, prompt_version,
+                criteria_version_id,
+                json.dumps(payload, ensure_ascii=False) if payload else None,
+                json.dumps(violations, ensure_ascii=False) if violations else None,
+                ok,
+                int(latency_ms) if latency_ms is not None else None,
+            ))
+        try:
+            async with self._pool.acquire() as conn:
+                await conn.executemany(
+                    """
+                    INSERT INTO ai_inference_audit (
+                        session_id, turn_no, call_site, model_name, prompt_version,
+                        criteria_version_id, rules_trace, validator_result, ok, latency_ms
+                    )
+                    VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8::jsonb, $9, $10)
+                    """,
+                    rows,
+                )
+        except Exception:
+            # Audit must never break a patient turn.
+            logger.exception("failed to write ai_inference_audit rows")

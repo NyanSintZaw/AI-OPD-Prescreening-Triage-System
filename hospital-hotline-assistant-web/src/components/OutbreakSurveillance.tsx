@@ -22,15 +22,16 @@ function BarChart({
   valueKey = 'count',
   max,
 }: {
-  data: Record<string, unknown>[];
+  data: ReadonlyArray<object>;
   labelKey?: string;
   valueKey?: string;
   max?: number;
 }) {
-  const maxVal = max ?? Math.max(...data.map((d) => Number(d[valueKey]) || 0), 1);
+  const rows = data as ReadonlyArray<Record<string, unknown>>;
+  const maxVal = max ?? Math.max(...rows.map((d) => Number(d[valueKey]) || 0), 1);
   return (
     <div className="surv-bar-chart">
-      {data.map((item, i) => {
+      {rows.map((item, i) => {
         const pct = (Number(item[valueKey]) / maxVal) * 100;
         return (
           <div key={i} className="surv-bar-row">

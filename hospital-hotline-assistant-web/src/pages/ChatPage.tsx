@@ -38,10 +38,14 @@ export function ChatPage() {
   const speech = useSpeechRecognition(language);
   const synthesis = useSpeechSynthesis(language);
   const frontdeskMode = (import.meta.env.VITE_FRONTDESK_MODE ?? 'false') === 'true';
+  // Screening engine v2 sends assessment_status; the legacy engine is
+  // inferred from a known severity level. Patients never see the level.
+  const assessmentDecided =
+    assessment?.assessmentStatus === 'complete' ||
+    Boolean(assessment?.severity?.level && assessment.severity.level !== 'unknown');
   const assessmentComplete = Boolean(
-    assessment?.severity?.level && 
-    assessment.severity.level !== 'unknown' && 
-    assessment.contact?.contact_preference_recorded && 
+    assessmentDecided &&
+    assessment?.contact?.contact_preference_recorded &&
     !assessment.contact?.needs_followup
   );
 
@@ -275,12 +279,13 @@ export function ChatPage() {
           </div>
         ) : null}
 
-        {assessmentComplete && assessment?.severity && assessment.severity.level !== 'unknown' && (
-          <div className={`triage-panel severity-${assessment.severity.level}`}>
+        {assessmentComplete && (
+          <div className="triage-panel triage-panel-neutral">
             <div>
-              <strong>{t('triageStatus')}:</strong>{' '}
-              {t(`severity_${assessment.severity.level}`)}
-              {assessment.severity.explanation ? ` - ${assessment.severity.explanation}` : ''}
+              <strong>{t('assessmentCompleteNotice')}</strong>
+              {assessment?.department?.name
+                ? ` ${t('proceedToGuidance', { department: assessment.department.name })}`
+                : ''}
             </div>
           </div>
         )}

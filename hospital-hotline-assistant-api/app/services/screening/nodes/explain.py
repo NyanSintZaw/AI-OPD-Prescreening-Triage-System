@@ -7,6 +7,7 @@ hands the flow to TriageService's contact state machine.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from time import perf_counter
 
@@ -30,6 +31,7 @@ _EXPLAIN_PROMPT = {
         "Patient's reported symptoms: {summary}\n"
         "Send the patient to: {department}\n"
         "{urgency_line}"
+        "{reference}"
         "End with exactly this question: \"{contact_question}\""
     ),
     "th": (
@@ -40,8 +42,14 @@ _EXPLAIN_PROMPT = {
         "อาการที่ผู้ป่วยเล่า: {summary}\n"
         "ให้ผู้ป่วยไปที่: {department}\n"
         "{urgency_line}"
+        "{reference}"
         "จบด้วยคำถามนี้เท่านั้น: \"{contact_question}\""
     ),
+}
+
+_REFERENCE_LINE = {
+    "en": "Approved hospital guidance you may draw phrasing from (do not quote levels):\n{passages}\n",
+    "th": "ข้อมูลอ้างอิงจากคู่มือโรงพยาบาลที่ใช้ประกอบได้ (ห้ามอ้างถึงระดับ):\n{passages}\n",
 }
 
 _URGENCY_LINE = {
@@ -79,10 +87,24 @@ def make_explain_node(deps: GraphDeps):
 
         reply = fallback_explanation(state, deps)
         if deps.model is not None:
+            reference = ""
+            if deps.rag_search is not None and not is_emergency:
+                try:
+                    passages = await asyncio.wait_for(
+                        deps.rag_search(classification.get("symptoms_summary") or ""),
+                        timeout=1.5,
+                    )
+                    if passages and passages.strip():
+                        reference = _REFERENCE_LINE[language].format(
+                            passages=passages.strip()[:1200]
+                        )
+                except Exception:
+                    logger.debug("rag grounding unavailable; explaining without it")
             prompt = _EXPLAIN_PROMPT[language].format(
                 summary=classification.get("symptoms_summary") or "-",
                 department=department,
                 urgency_line=_URGENCY_LINE[language] if is_emergency else "",
+                reference=reference,
                 contact_question=templates.CONTACT_QUESTION[language],
             )
             started = perf_counter()

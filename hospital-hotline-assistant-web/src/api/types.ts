@@ -167,6 +167,13 @@ export interface AssessmentReviewOut {
   patient_contact_phone: string | null;
   patient_contact_preferred_time: string | null;
   patient_contact_relation: string | null;
+  /** Screening engine v2: fired rule ids + manual citations behind the routing. */
+  disposition_reasons?: Array<{
+    rule_id: string;
+    text_en: string;
+    text_th: string;
+    citation?: string;
+  }> | null;
   notes: string | null;
   reviewed_at: string | null;
   created_at: string;
@@ -212,6 +219,8 @@ export interface ChatResponsePayload {
     explanation?: string;
     confidence?: number;
   };
+  /** Screening engine v2: patients never see the level; gate UI on this. */
+  assessment_status?: 'complete' | 'in_progress' | null;
   department?: {
     department_id?: string;
     reason?: string;
