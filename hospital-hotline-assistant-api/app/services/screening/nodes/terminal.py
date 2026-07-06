@@ -25,6 +25,8 @@ def make_escalate_node(deps: GraphDeps):
         state = graph_state["s"]
         state.phase = "escalated_to_nurse"
         reply = templates.ESCALATION[state.language]
-        return {"s": state, "output": TurnOutput(reply=reply, escalated=True)}
+        audit = graph_state.get("audit") or []
+        audit.append({"call_site": "escalation", "ok": True})
+        return {"s": state, "audit": audit, "output": TurnOutput(reply=reply, escalated=True)}
 
     return escalate

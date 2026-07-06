@@ -36,6 +36,12 @@ import type {
   SurveillanceSummaryOut,
   SymptomEntryCreate,
   TriageManualUploadOut,
+  AiMetricsOut,
+  CriteriaDiffOut,
+  CriteriaEditResponse,
+  CriteriaUploadResponse,
+  CriteriaVersionDetail,
+  CriteriaVersionSummary,
 } from './types';
 
 async function detailFromResponse(response: Response): Promise<string> {
@@ -358,6 +364,65 @@ export const api = {
 
   getTriageManualStatus: () =>
     request<TriageManualUploadOut | null>('/admin/triage-manual/status'),
+
+  // ── Screening criteria governance (engine v2) ─────────────────────────────
+  uploadScreeningCriteria: async (file: File): Promise<CriteriaUploadResponse> => {
+    const token = (await import('./client')).getAdminToken();
+    const form = new FormData();
+    form.append('file', file);
+    const response = await fetch(`${baseUrl}/admin/criteria/upload`, {
+      method: 'POST',
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: form,
+    });
+    if (!response.ok) {
+      throw new Error(await detailFromResponse(response));
+    }
+    return response.json() as Promise<CriteriaUploadResponse>;
+  },
+
+  listCriteriaVersions: () =>
+    request<CriteriaVersionSummary[]>('/admin/criteria/versions'),
+
+  getCriteriaVersion: (versionId: string) =>
+    request<CriteriaVersionDetail>(`/admin/criteria/versions/${versionId}`),
+
+  getCriteriaDiff: (versionId: string, against?: string) =>
+    request<CriteriaDiffOut>(
+      `/admin/criteria/versions/${versionId}/diff${against ? `?against=${against}` : ''}`,
+    ),
+
+  updateCriteriaVersion: (versionId: string, criteria: Record<string, unknown>) =>
+    request<CriteriaEditResponse>(`/admin/criteria/versions/${versionId}`, {
+      method: 'PUT',
+      body: JSON.stringify(criteria),
+    }),
+
+  submitCriteriaVersion: (versionId: string) =>
+    request<{ id: string; status: string }>(
+      `/admin/criteria/versions/${versionId}/submit`,
+      { method: 'POST' },
+    ),
+
+  approveCriteriaVersion: (versionId: string) =>
+    request<{ id: string; status: string }>(
+      `/admin/criteria/versions/${versionId}/approve`,
+      { method: 'POST' },
+    ),
+
+  activateCriteriaVersion: (versionId: string) =>
+    request<{ id: string; status: string }>(
+      `/admin/criteria/versions/${versionId}/activate`,
+      { method: 'POST' },
+    ),
+
+  getAiMetrics: (params: { from?: string; to?: string } = {}) => {
+    const query = new URLSearchParams();
+    if (params.from) query.set('from', params.from);
+    if (params.to) query.set('to', params.to);
+    const suffix = query.toString();
+    return request<AiMetricsOut>(`/admin/ai-metrics${suffix ? `?${suffix}` : ''}`);
+  },
 };
 
-export type { MessageOut, SessionOut, ConversationSummaryOut, DepartmentOut, DoctorOut, DoctorWithSchedulesOut, DoctorScheduleOut, SurveillanceSummaryOut, TriageManualUploadOut };
+export type { MessageOut, SessionOut, ConversationSummaryOut, DepartmentOut, DoctorOut, DoctorWithSchedulesOut, DoctorScheduleOut, SurveillanceSummaryOut, TriageManualUploadOut, AiMetricsOut, CriteriaDiffOut, CriteriaVersionDetail, CriteriaVersionSummary };

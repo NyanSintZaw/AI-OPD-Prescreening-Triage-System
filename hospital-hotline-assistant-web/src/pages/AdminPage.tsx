@@ -11,10 +11,11 @@ import { Layout } from '../components/Layout';
 import { MessageBubble } from '../components/MessageBubble';
 import { OutbreakSurveillance } from '../components/OutbreakSurveillance';
 import { TriageManualUpload } from '../components/TriageManualUpload';
+import { CriteriaManager } from '../components/CriteriaManager';
 import { useLanguage } from '../hooks/useSession';
 import type { SessionStatus, SeverityLevel } from '../api/types';
 
-type AdminTab = 'sessions' | 'surveillance' | 'triage-manual';
+type AdminTab = 'sessions' | 'surveillance' | 'triage-manual' | 'criteria';
 
 const AUTO_REFRESH_INTERVAL_MS = 30_000;
 const SEVERITY_FILTERS: Array<{ id: 'all' | SeverityLevel; tone: string }> = [
@@ -322,10 +323,20 @@ export function AdminPage() {
           >
             📋 {t('triageManualTab')}
           </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeTab === 'criteria'}
+            className={`admin-tab-btn ${activeTab === 'criteria' ? 'active' : ''}`}
+            onClick={() => setActiveTab('criteria')}
+          >
+            🧾 {t('criteriaTab')}
+          </button>
         </div>
 
         {activeTab === 'surveillance' && <OutbreakSurveillance />}
         {activeTab === 'triage-manual' && <TriageManualUpload />}
+        {activeTab === 'criteria' && <CriteriaManager />}
 
         {activeTab === 'sessions' && (
           <>

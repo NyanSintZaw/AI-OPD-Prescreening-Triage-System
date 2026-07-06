@@ -7,11 +7,13 @@ from uuid import UUID
 import asyncpg
 from pydantic import BaseModel
 from fastapi import (
+    Body,
     Depends,
     FastAPI,
     File,
     Form,
     HTTPException,
+    Query,
     Request,
     UploadFile,
     WebSocket,
@@ -1803,3 +1805,500 @@ async def get_triage_manual_status(
         "uploaded_at": row["uploaded_at"].isoformat() if row["uploaded_at"] else None,
         "completed_at": row["completed_at"].isoformat() if row["completed_at"] else None,
     })
+
+
+# ── Screening criteria governance (SRS F31-F35) ───────────────────────────────
+#
+# Lifecycle: upload → draft (LLM extraction merges into the active payload in
+# the background) → head-nurse edit (PUT) → submit → approve → activate.
+# Activating retires the current active version in the same transaction;
+# activating a retired version is the rollback path. Sessions pin the version
+# they started with, so activation never changes an in-flight conversation.
+
+CRITERIA_UPLOAD_DIR = "app/data/uploads/criteria"
+CRITERIA_UPLOAD_SUFFIXES = {".pdf", ".txt", ".md", ".csv", ".docx"}
+_CRITERIA_PROCESSING_PREFIX = "Extracting"
+
+
+def _jsonb(value):
+    """asyncpg returns JSONB as str unless a codec is registered."""
+    return json.loads(value) if isinstance(value, str) else value
+
+
+def _criteria_version_summary(row) -> dict:
+    change_summary = row["change_summary"] or ""
+    return {
+        "id": str(row["id"]),
+        "version_no": row["version_no"],
+        "status": row["status"],
+        "change_summary": change_summary,
+        "processing": change_summary.startswith(_CRITERIA_PROCESSING_PREFIX),
+        "uploaded_by": row["uploaded_by"],
+        "reviewed_by": row["reviewed_by"],
+        "created_at": row["created_at"].isoformat() if row["created_at"] else None,
+        "reviewed_at": row["reviewed_at"].isoformat() if row["reviewed_at"] else None,
+        "activated_at": row["activated_at"].isoformat() if row["activated_at"] else None,
+    }
+
+
+async def _active_criteria_payload(conn: asyncpg.Connection) -> dict:
+    """Raw payload of the active version, or the bundled seed on a fresh DB."""
+    row = await conn.fetchrow(
+        "SELECT criteria FROM screening_criteria_versions WHERE status = 'active'"
+    )
+    if row is not None:
+        return _jsonb(row["criteria"])
+    from app.services.screening.rules.criteria_store import SEED_CRITERIA_PATH
+
+    return json.loads(SEED_CRITERIA_PATH.read_text(encoding="utf-8"))
+
+
+async def _run_criteria_extract_task(
+    *,
+    pool: asyncpg.Pool,
+    version_id: str,
+    file_path: str,
+    filename: str,
+) -> None:
+    """Background task: extract rules from the uploaded document into the draft."""
+    from app.services.screening.criteria_upload import extract_criteria_draft
+    from app.services.screening.model_adapter import build_chat_model
+
+    try:
+        async with pool.acquire() as conn:
+            base = await _active_criteria_payload(conn)
+        model = build_chat_model(settings)
+        draft, warnings = await extract_criteria_draft(
+            file_path=file_path,
+            filename=filename,
+            model=model,
+            base_payload=base,
+        )
+        summary = f"Extracted from {filename}"
+        if warnings:
+            summary += f" — {len(warnings)} warning(s): " + "; ".join(warnings[:10])
+        async with pool.acquire() as conn:
+            await conn.execute(
+                """UPDATE screening_criteria_versions
+                      SET criteria = $1::jsonb, change_summary = $2
+                    WHERE id = $3""",
+                json.dumps(draft, ensure_ascii=False),
+                summary[:4000],
+                UUID(version_id),
+            )
+        logger.info("Criteria extraction complete for version %s", version_id)
+    except Exception as exc:
+        logger.exception("Criteria extraction failed for version %s", version_id)
+        try:
+            async with pool.acquire() as conn:
+                await conn.execute(
+                    """UPDATE screening_criteria_versions
+                          SET change_summary = $1 WHERE id = $2""",
+                    f"Extraction failed ({filename}): {exc}"[:2000],
+                    UUID(version_id),
+                )
+        except Exception:
+            logger.exception("Could not record extraction failure for %s", version_id)
+
+
+@app.post("/admin/criteria/upload")
+async def upload_screening_criteria(
+    request: Request,
+    file: UploadFile = File(..., description="Screening criteria document (PDF/TXT/MD/CSV/DOCX)"),
+    connection: asyncpg.Connection = Depends(get_connection),
+    admin_user: dict = Depends(require_roles("super_admin", "admin")),
+) -> JSONResponse:
+    """Upload a screening-criteria document and create a draft version.
+
+    The draft starts as a copy of the currently active criteria; a background
+    LLM extraction merges rules found in the document into it. The draft is
+    then reviewed/edited before submit → approve → activate.
+    """
+    import os
+    from pathlib import Path as _Path
+    from uuid import uuid4
+
+    suffix = _Path(file.filename or "").suffix.lower()
+    if suffix not in CRITERIA_UPLOAD_SUFFIXES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unsupported file type {suffix or '(none)'}; "
+                   f"accepted: {', '.join(sorted(CRITERIA_UPLOAD_SUFFIXES))}",
+        )
+
+    content = await file.read()
+    if not content:
+        raise HTTPException(status_code=400, detail="Uploaded file is empty.")
+    if len(content) > 50 * 1024 * 1024:
+        raise HTTPException(status_code=413, detail="File too large (max 50 MB).")
+
+    os.makedirs(CRITERIA_UPLOAD_DIR, exist_ok=True)
+    save_path = os.path.join(CRITERIA_UPLOAD_DIR, f"{uuid4()}{suffix}")
+    with open(save_path, "wb") as fh:
+        fh.write(content)
+
+    base = await _active_criteria_payload(connection)
+    uploader = admin_user.get("email") or admin_user.get("id") or "unknown"
+    row = await connection.fetchrow(
+        """
+        INSERT INTO screening_criteria_versions
+            (version_no, status, criteria, change_summary, uploaded_by)
+        VALUES (
+            (SELECT COALESCE(MAX(version_no), 0) + 1 FROM screening_criteria_versions),
+            'draft', $1::jsonb, $2, $3
+        )
+        RETURNING id, version_no, created_at
+        """,
+        json.dumps(base, ensure_ascii=False),
+        f"{_CRITERIA_PROCESSING_PREFIX} rules from {file.filename}…",
+        str(uploader),
+    )
+    version_id = str(row["id"])
+
+    pool: asyncpg.Pool = request.app.state.db_pool
+    asyncio.create_task(
+        _run_criteria_extract_task(
+            pool=pool,
+            version_id=version_id,
+            file_path=save_path,
+            filename=file.filename or f"upload{suffix}",
+        )
+    )
+
+    return JSONResponse(
+        status_code=202,
+        content={
+            "id": version_id,
+            "version_no": row["version_no"],
+            "status": "draft",
+            "processing": True,
+            "created_at": row["created_at"].isoformat(),
+            "message": "Upload received. Rule extraction is running in the background.",
+        },
+    )
+
+
+@app.get("/admin/criteria/versions")
+async def list_criteria_versions(
+    _admin_user: dict = Depends(require_roles("super_admin", "admin", "viewer")),
+    connection: asyncpg.Connection = Depends(get_connection),
+):
+    rows = await connection.fetch(
+        """
+        SELECT id, version_no, status, change_summary, uploaded_by, reviewed_by,
+               created_at, reviewed_at, activated_at
+        FROM screening_criteria_versions
+        ORDER BY version_no DESC
+        """
+    )
+    return [_criteria_version_summary(row) for row in rows]
+
+
+@app.get("/admin/criteria/versions/{version_id}")
+async def get_criteria_version_detail(
+    version_id: UUID,
+    _admin_user: dict = Depends(require_roles("super_admin", "admin", "viewer")),
+    connection: asyncpg.Connection = Depends(get_connection),
+):
+    from app.services.screening.criteria_upload import validation_errors
+
+    row = await connection.fetchrow(
+        "SELECT * FROM screening_criteria_versions WHERE id = $1", version_id
+    )
+    if row is None:
+        raise HTTPException(status_code=404, detail="Criteria version not found")
+    payload = _jsonb(row["criteria"])
+    result = _criteria_version_summary(row)
+    result["criteria"] = payload
+    result["validation_errors"] = validation_errors(payload)
+    return result
+
+
+@app.get("/admin/criteria/versions/{version_id}/diff")
+async def diff_criteria_version(
+    version_id: UUID,
+    against: UUID | None = Query(
+        None, description="Version to compare against (default: the active version)"
+    ),
+    _admin_user: dict = Depends(require_roles("super_admin", "admin", "viewer")),
+    connection: asyncpg.Connection = Depends(get_connection),
+):
+    """Section-level diff (added/removed/changed rule ids) vs another version."""
+    from app.services.screening.criteria_upload import diff_criteria
+
+    row = await connection.fetchrow(
+        "SELECT criteria FROM screening_criteria_versions WHERE id = $1", version_id
+    )
+    if row is None:
+        raise HTTPException(status_code=404, detail="Criteria version not found")
+
+    if against is not None:
+        base_row = await connection.fetchrow(
+            "SELECT id, criteria FROM screening_criteria_versions WHERE id = $1",
+            against,
+        )
+        if base_row is None:
+            raise HTTPException(status_code=404, detail="Comparison version not found")
+        base_payload = _jsonb(base_row["criteria"])
+        base_id = str(base_row["id"])
+    else:
+        base_payload = await _active_criteria_payload(connection)
+        base_id = "active"
+
+    return {
+        "version_id": str(version_id),
+        "against": base_id,
+        "diff": diff_criteria(base_payload, _jsonb(row["criteria"])),
+    }
+
+
+@app.put("/admin/criteria/versions/{version_id}")
+async def edit_criteria_version(
+    version_id: UUID,
+    criteria: dict = Body(..., description="Full criteria JSON document"),
+    _admin_user: dict = Depends(require_roles("super_admin", "admin")),
+    connection: asyncpg.Connection = Depends(get_connection),
+):
+    """Replace a draft's criteria JSON (the pressure valve for imperfect extraction).
+
+    Saves even when the document has validation errors — they are returned so
+    the editor can fix them iteratively — but submit/activate require a clean
+    document.
+    """
+    from app.services.screening.criteria_upload import validation_errors
+
+    row = await connection.fetchrow(
+        "SELECT status FROM screening_criteria_versions WHERE id = $1", version_id
+    )
+    if row is None:
+        raise HTTPException(status_code=404, detail="Criteria version not found")
+    if row["status"] not in ("draft", "pending_review"):
+        raise HTTPException(
+            status_code=409,
+            detail=f"Only draft/pending_review versions are editable (status: {row['status']})",
+        )
+
+    await connection.execute(
+        "UPDATE screening_criteria_versions SET criteria = $1::jsonb WHERE id = $2",
+        json.dumps(criteria, ensure_ascii=False),
+        version_id,
+    )
+    errors = validation_errors(criteria)
+    return {"id": str(version_id), "saved": True, "validation_errors": errors}
+
+
+async def _criteria_status_transition(
+    connection: asyncpg.Connection,
+    version_id: UUID,
+    *,
+    from_statuses: tuple[str, ...],
+    to_status: str,
+    reviewer: str | None = None,
+) -> dict:
+    row = await connection.fetchrow(
+        "SELECT status, criteria FROM screening_criteria_versions WHERE id = $1",
+        version_id,
+    )
+    if row is None:
+        raise HTTPException(status_code=404, detail="Criteria version not found")
+    if row["status"] not in from_statuses:
+        raise HTTPException(
+            status_code=409,
+            detail=f"Cannot move {row['status']} → {to_status}; "
+                   f"requires status in {list(from_statuses)}",
+        )
+
+    from app.services.screening.criteria_upload import validation_errors
+
+    errors = validation_errors(_jsonb(row["criteria"]))
+    if errors:
+        raise HTTPException(
+            status_code=422,
+            detail={"message": "Criteria document is invalid", "errors": errors[:20]},
+        )
+
+    if to_status == "active":
+        async with connection.transaction():
+            await connection.execute(
+                """UPDATE screening_criteria_versions
+                      SET status = 'retired' WHERE status = 'active'"""
+            )
+            await connection.execute(
+                """UPDATE screening_criteria_versions
+                      SET status = 'active', activated_at = NOW() WHERE id = $1""",
+                version_id,
+            )
+    elif reviewer is not None:
+        await connection.execute(
+            """UPDATE screening_criteria_versions
+                  SET status = $1, reviewed_by = $2, reviewed_at = NOW()
+                WHERE id = $3""",
+            to_status,
+            reviewer,
+            version_id,
+        )
+    else:
+        await connection.execute(
+            "UPDATE screening_criteria_versions SET status = $1 WHERE id = $2",
+            to_status,
+            version_id,
+        )
+    return {"id": str(version_id), "status": to_status}
+
+
+@app.post("/admin/criteria/versions/{version_id}/submit")
+async def submit_criteria_version(
+    version_id: UUID,
+    _admin_user: dict = Depends(require_roles("super_admin", "admin")),
+    connection: asyncpg.Connection = Depends(get_connection),
+):
+    return await _criteria_status_transition(
+        connection, version_id, from_statuses=("draft",), to_status="pending_review"
+    )
+
+
+@app.post("/admin/criteria/versions/{version_id}/approve")
+async def approve_criteria_version(
+    version_id: UUID,
+    admin_user: dict = Depends(require_roles("super_admin", "admin")),
+    connection: asyncpg.Connection = Depends(get_connection),
+):
+    reviewer = str(admin_user.get("email") or admin_user.get("id") or "unknown")
+    return await _criteria_status_transition(
+        connection,
+        version_id,
+        from_statuses=("pending_review",),
+        to_status="approved",
+        reviewer=reviewer,
+    )
+
+
+@app.post("/admin/criteria/versions/{version_id}/activate")
+async def activate_criteria_version(
+    version_id: UUID,
+    _admin_user: dict = Depends(require_roles("super_admin", "admin")),
+    connection: asyncpg.Connection = Depends(get_connection),
+):
+    """Activate an approved version. Activating a retired version = rollback."""
+    return await _criteria_status_transition(
+        connection,
+        version_id,
+        from_statuses=("approved", "retired"),
+        to_status="active",
+    )
+
+
+@app.get("/admin/ai-metrics")
+async def get_ai_metrics(
+    date_from: str | None = Query(None, alias="from", description="ISO date/datetime lower bound"),
+    date_to: str | None = Query(None, alias="to", description="ISO date/datetime upper bound"),
+    _admin_user: dict = Depends(require_roles("super_admin", "admin", "viewer")),
+    connection: asyncpg.Connection = Depends(get_connection),
+):
+    """Aggregate AI transparency metrics over ai_inference_audit (SRS F40).
+
+    Feeds the head-nurse governance panel: call volumes/ok-rates/latency per
+    LLM call site, dispositions by level and department, validator violation
+    counts, and escalation totals.
+    """
+
+    def _parse_bound(raw: str | None, name: str):
+        if raw is None:
+            return None
+        try:
+            parsed = datetime.fromisoformat(raw)
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=400, detail=f"Invalid {name} datetime: {raw}"
+            ) from exc
+        if parsed.tzinfo is None:
+            parsed = parsed.replace(tzinfo=timezone.utc)
+        return parsed
+
+    bounds = []
+    clauses = []
+    lower = _parse_bound(date_from, "from")
+    if lower is not None:
+        bounds.append(lower)
+        clauses.append(f"created_at >= ${len(bounds)}")
+    upper = _parse_bound(date_to, "to")
+    if upper is not None:
+        bounds.append(upper)
+        clauses.append(f"created_at <= ${len(bounds)}")
+    where = ("WHERE " + " AND ".join(clauses)) if clauses else ""
+
+    call_sites = await connection.fetch(
+        f"""
+        SELECT call_site,
+               COUNT(*) AS calls,
+               COUNT(*) FILTER (WHERE ok) AS ok_calls,
+               ROUND(AVG(latency_ms) FILTER (WHERE latency_ms IS NOT NULL)) AS avg_latency_ms
+        FROM ai_inference_audit
+        {where}
+        GROUP BY call_site
+        ORDER BY call_site
+        """,
+        *bounds,
+    )
+    dispositions = await connection.fetch(
+        f"""
+        SELECT rules_trace->>'level' AS level,
+               rules_trace->>'department_code' AS department_code,
+               COUNT(*) AS count
+        FROM ai_inference_audit
+        {where + (' AND ' if where else 'WHERE ')} call_site = 'disposition'
+        GROUP BY 1, 2
+        ORDER BY 1, 2
+        """,
+        *bounds,
+    )
+    violations = await connection.fetch(
+        f"""
+        SELECT violation, COUNT(*) AS count
+        FROM ai_inference_audit,
+             LATERAL jsonb_array_elements_text(validator_result) AS violation
+        {where + (' AND ' if where else 'WHERE ')} validator_result IS NOT NULL
+        GROUP BY violation
+        ORDER BY count DESC
+        """,
+        *bounds,
+    )
+    totals_row = await connection.fetchrow(
+        f"""
+        SELECT
+            COUNT(DISTINCT session_id) AS sessions,
+            COUNT(*) FILTER (WHERE call_site = 'escalation') AS escalations,
+            COUNT(*) FILTER (WHERE call_site = 'extraction' AND NOT ok) AS extraction_failures,
+            COUNT(*) FILTER (WHERE call_site = 'disposition') AS dispositions
+        FROM ai_inference_audit
+        {where}
+        """,
+        *bounds,
+    )
+
+    return {
+        "from": lower.isoformat() if lower else None,
+        "to": upper.isoformat() if upper else None,
+        "totals": dict(totals_row) if totals_row else {},
+        "call_sites": [
+            {
+                "call_site": r["call_site"],
+                "calls": r["calls"],
+                "ok_calls": r["ok_calls"],
+                "ok_rate": round(r["ok_calls"] / r["calls"], 4) if r["calls"] else None,
+                "avg_latency_ms": int(r["avg_latency_ms"]) if r["avg_latency_ms"] is not None else None,
+            }
+            for r in call_sites
+        ],
+        "dispositions": [
+            {
+                "level": int(r["level"]) if r["level"] is not None else None,
+                "department_code": r["department_code"],
+                "count": r["count"],
+            }
+            for r in dispositions
+        ],
+        "validator_violations": [
+            {"violation": r["violation"], "count": r["count"]} for r in violations
+        ],
+    }
