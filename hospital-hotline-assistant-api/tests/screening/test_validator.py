@@ -36,6 +36,14 @@ def test_you_have_to_is_not_diagnosis():
     assert "diagnosis" not in codes("You have to go to the emergency department now.")
 
 
+def test_interrogative_you_have_is_not_diagnosis():
+    """History-taking questions are legitimate — only declaratives diagnose."""
+    assert "diagnosis" not in codes("Do you have chest pain or tightness with it?")
+    assert "diagnosis" not in codes("Did you have a fever earlier today?")
+    assert "diagnosis" not in codes("If you have trouble breathing, tell staff at once.")
+    assert "diagnosis" in codes("You have a chest infection.")
+
+
 def test_prescription_patterns():
     assert "prescription" in codes("Take 500 mg paracetamol every 6 hours.")
     assert "prescription" in codes("ทานยาพารา 2 เม็ดทุก 6 ชั่วโมงนะคะ", language="th")

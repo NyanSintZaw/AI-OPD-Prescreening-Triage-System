@@ -1,5 +1,13 @@
 """Hybrid triage agent: Rule Engine (Layer 1) + RAG-augmented LLM (Layer 2).
 
+.. deprecated::
+    This pydantic-ai stack (Stack B, ``POST /triage/rag``) is superseded by
+    the deterministic screening engine v2 in ``app/services/screening/``
+    (``TRIAGE_ENGINE=langgraph``), which replaces keyword matching over raw
+    text with structured findings evaluated against versioned, nurse-approved
+    criteria. The endpoint is kept for comparison/demo only — do not build
+    new features on it.
+
 Layer 1 — Hard rules (no LLM):
     Uses existing *rule_engine.py* to match emergency triggers and routing
     rules.  If a match is found the decision is returned immediately with

@@ -40,7 +40,13 @@ _COLOR_CONTEXT = re.compile(
 # --- diagnosis / prescription -------------------------------------------------
 
 _DIAGNOSIS_PATTERNS = [
-    re.compile(r"\byou (?:likely |probably |definitely |may )?have\b (?!to\b)", re.IGNORECASE),
+    # Declarative "you have X" is a diagnosis; interrogative "do you have X"
+    # is legitimate history-taking (verbatim and paraphrased questions).
+    re.compile(
+        r"(?<!\bdo )(?<!\bdid )(?<!\bif )(?<!\bwhen )"
+        r"\byou (?:likely |probably |definitely |may )?have\b(?!\s+to\b)",
+        re.IGNORECASE,
+    ),
     re.compile(r"\bdiagnos(?:is|ed|e)\b", re.IGNORECASE),
     re.compile(r"คุณ(?:น่าจะ|อาจจะ|คงจะ)?(?:เป็นโรค|ป่วยเป็น)"),
     re.compile(r"วินิจฉัยว่า"),
