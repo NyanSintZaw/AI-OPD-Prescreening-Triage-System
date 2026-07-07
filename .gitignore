@@ -52,3 +52,8 @@ tmp/
 # Hospital triage data — uploaded by each admin, never committed
 hospital-hotline-assistant-api/app/data/triage_manual.pdf
 hospital-hotline-assistant-api/app/data/er_triage_five_level_system.json
+
+# omblepy device pairing state and BP measurement exports — machine/patient specific
+omblepy/ubpm.json
+omblepy/user*.csv
+omblepy/backup_user*.csv

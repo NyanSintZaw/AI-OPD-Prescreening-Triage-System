@@ -39,6 +39,102 @@ class SessionLocationUpdate(BaseModel):
     location_area: str = Field(..., min_length=1, max_length=100)
 
 
+class SessionVitalsUpdate(BaseModel):
+    systolic: int = Field(..., ge=40, le=300)
+    diastolic: int = Field(..., ge=20, le=200)
+    pulse_bpm: int | None = Field(default=None, ge=20, le=250)
+    measured_at: datetime | None = None
+    source: Literal["device", "manual"] = "device"
+    reading_id: UUID | None = None
+
+
+class BpFetchRequest(BaseModel):
+    """Optional body for the cuff fetch: links the stored reading to the
+    kiosk session as soon as it is captured."""
+
+    session_id: UUID | None = None
+
+
+class BpWatchRequest(BaseModel):
+    """Body for the long-poll watch: wait up to ``timeout_seconds`` for the
+    cuff's finished-measurement broadcast, then fetch immediately."""
+
+    session_id: UUID | None = None
+    timeout_seconds: float = Field(default=25, ge=5, le=45)
+
+
+class BloodPressureFetchResponse(BaseModel):
+    """Result of a kiosk-side omblepy fetch. ``status`` is always set;
+    the reading fields are only present when ``status == "ok"``."""
+
+    status: Literal[
+        "ok",
+        "busy",
+        "not_configured",
+        "device_not_found",
+        "pairing_error",
+        "wrong_device",
+        "timeout",
+        "no_records",
+        "not_seen",
+        "error",
+    ]
+    systolic: int | None = None
+    diastolic: int | None = None
+    pulse_bpm: int | None = None
+    measured_at: datetime | None = None
+    is_recent: bool | None = None
+    irregular_heartbeat: bool | None = None
+    body_movement: bool | None = None
+    message: str | None = None
+    reading_id: UUID | None = None
+
+
+class BpDeviceStatusOut(BaseModel):
+    """Current cuff configuration shown in the admin portal."""
+
+    device_name: str
+    device_mac: str | None
+    configured: bool
+    busy: bool
+    supported_models: list[str]
+
+
+class BpScanDeviceOut(BaseModel):
+    mac: str
+    name: str | None = None
+    rssi: int | None = None
+    is_omron: bool = False
+
+
+class BpScanResponse(BaseModel):
+    status: Literal["ok", "busy", "error"]
+    devices: list[BpScanDeviceOut] = Field(default_factory=list)
+    message: str | None = None
+
+
+class BpPairRequest(BaseModel):
+    mac: str = Field(..., min_length=1, max_length=64)
+    device_name: str = Field(..., min_length=1, max_length=32)
+
+
+class BpPairResponse(BaseModel):
+    status: Literal[
+        "ok",
+        "busy",
+        "invalid",
+        "device_not_found",
+        "pairing_error",
+        "wrong_device",
+        "timeout",
+        "not_configured",
+        "error",
+    ]
+    device_name: str | None = None
+    device_mac: str | None = None
+    message: str | None = None
+
+
 class SessionOut(BaseModel):
     id: UUID
     language: LanguageCode

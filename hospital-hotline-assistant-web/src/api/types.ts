@@ -369,6 +369,84 @@ export interface DoctorWithSchedulesOut extends DoctorOut {
   schedules: DoctorScheduleOut[];
 }
 
+// ── Vitals (blood pressure kiosk) ─────────────────────────────────────────────
+
+export type BloodPressureFetchStatus =
+  | 'ok'
+  | 'busy'
+  | 'not_configured'
+  | 'device_not_found'
+  | 'pairing_error'
+  | 'wrong_device'
+  | 'timeout'
+  | 'no_records'
+  | 'not_seen'
+  | 'error';
+
+export interface BloodPressureFetchResponse {
+  status: BloodPressureFetchStatus;
+  systolic: number | null;
+  diastolic: number | null;
+  pulse_bpm: number | null;
+  measured_at: string | null;
+  is_recent: boolean | null;
+  irregular_heartbeat: boolean | null;
+  body_movement: boolean | null;
+  message: string | null;
+  reading_id?: string | null;
+}
+
+export interface SessionVitalsUpdate {
+  systolic: number;
+  diastolic: number;
+  pulse_bpm?: number | null;
+  measured_at?: string | null;
+  source?: 'device' | 'manual';
+  reading_id?: string | null;
+}
+
+export interface BpDeviceStatusOut {
+  device_name: string;
+  device_mac: string | null;
+  configured: boolean;
+  busy: boolean;
+  supported_models: string[];
+}
+
+export interface BpScanDeviceOut {
+  mac: string;
+  name: string | null;
+  rssi: number | null;
+  is_omron: boolean;
+}
+
+export interface BpScanResponse {
+  status: 'ok' | 'busy' | 'error';
+  devices: BpScanDeviceOut[];
+  message: string | null;
+}
+
+export interface BpPairRequest {
+  mac: string;
+  device_name: string;
+}
+
+export interface BpPairResponse {
+  status:
+    | 'ok'
+    | 'busy'
+    | 'invalid'
+    | 'device_not_found'
+    | 'pairing_error'
+    | 'wrong_device'
+    | 'timeout'
+    | 'not_configured'
+    | 'error';
+  device_name: string | null;
+  device_mac: string | null;
+  message: string | null;
+}
+
 // ── Disease Surveillance ──────────────────────────────────────────────────────
 
 export interface SessionLocationUpdate {

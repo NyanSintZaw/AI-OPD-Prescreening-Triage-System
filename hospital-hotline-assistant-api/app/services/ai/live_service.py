@@ -54,7 +54,11 @@ from app.services.ai.live_events import (
 )
 from app.services.ai.live_runner import HotlineADKLiveRunner
 from app.services.ai.triage_payloads import _triage_result_to_payload
-from app.services.triage_service import TriageService, _build_schedule_context
+from app.services.triage_service import (
+    TriageService,
+    _build_schedule_context,
+    _vitals_context,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -114,7 +118,11 @@ EmergencyCallback = Callable[[dict[str, Any]], Awaitable[None]]
 AssessmentCallback = Callable[[dict[str, Any]], Awaitable[None]]
 
 
-def _kickoff_prompt(language: str, schedule_context: str | None = None) -> str:
+def _kickoff_prompt(
+    language: str,
+    schedule_context: str | None = None,
+    vitals_context: str | None = None,
+) -> str:
     """Build the synthetic content the live runner sends into its own queue
     on connect.
 
@@ -138,12 +146,14 @@ def _kickoff_prompt(language: str, schedule_context: str | None = None) -> str:
         else "Mae Fah Luang University Medical Center Hospital"
     )
     schedule_line = f"\n{schedule_context}" if schedule_context else ""
+    vitals_line = f"\n{vitals_context}" if vitals_context else ""
     return (
         "[MODE: voice — reply in short spoken sentences, no formatting]\n"
         f"{_VOICE_STYLE_LINE}"
         f"[LANG: {lang_code} — reply EXCLUSIVELY in {lang_name}. "
         "This is the session language and it does not change.]\n"
         f"{schedule_line}"
+        f"{vitals_line}"
         f"[CALL_START] The caller has just connected. Greet them warmly in {lang_name} "
         f"as the {hospital_name} hotline AI nurse and ask how you can help "
         f"them today. Use the hospital name exactly as written: {hospital_name}. "
@@ -252,10 +262,13 @@ class LiveVoiceService:
         """
 
         row = await db_connection.fetchrow(
-            "SELECT id FROM sessions WHERE id = $1", session_id
+            "SELECT id, metadata FROM sessions WHERE id = $1", session_id
         )
         if row is None:
             raise ValueError("Session not found")
+        # Vitals captured by the kiosk BP gate before the call started —
+        # surfaced to the live agent via the kickoff prompt below.
+        vitals_context = _vitals_context(dict(row["metadata"] or {}))
 
         await self.live_runner.ensure_live_session(session_id, language)
 
@@ -323,7 +336,11 @@ class LiveVoiceService:
         try:
             kickoff_content = genai_types.Content(
                 role="user",
-                parts=[genai_types.Part(text=_kickoff_prompt(language, schedule_context))],
+                parts=[
+                    genai_types.Part(
+                        text=_kickoff_prompt(language, schedule_context, vitals_context)
+                    )
+                ],
             )
             queue.send_content(content=kickoff_content)
             logger.info("Live kickoff queued for %s (schedule=%s)", session_id, bool(schedule_context))

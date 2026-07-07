@@ -98,6 +98,35 @@ def _classification_text(value: Any) -> str | None:
     return text or None
 
 
+def _vitals_context(metadata: dict[str, Any]) -> str | None:
+    """Render session-stored vitals (kiosk cuff / manual entry) as a
+    bracketed context line for the agent, mirroring the ``[SCHEDULE: ...]``
+    and ``[PHASE: ...]`` injection convention. Returns None when the
+    session has no usable blood-pressure reading."""
+
+    vitals = metadata.get("vitals") or {}
+    systolic = vitals.get("systolic")
+    diastolic = vitals.get("diastolic")
+    if not systolic or not diastolic:
+        return None
+    parts = [f"blood pressure {systolic}/{diastolic} mmHg"]
+    if vitals.get("pulse_bpm"):
+        parts.append(f"pulse {vitals['pulse_bpm']} bpm")
+    if vitals.get("measured_at"):
+        parts.append(f"measured at {vitals['measured_at']}")
+    source = vitals.get("source")
+    if source:
+        parts.append(
+            "source: kiosk cuff" if source == "device" else "source: patient-reported"
+        )
+    return (
+        "[PATIENT_VITALS: "
+        + ", ".join(parts)
+        + " — factor these vitals into the triage decision and do not ask "
+        "the patient to measure their blood pressure again.]"
+    )
+
+
 def _classification_red_flags(value: Any) -> list[str]:
     if value is None:
         return []
@@ -254,11 +283,16 @@ class TriageService:
         # agents pick the right reply format (voice = short spoken;
         # text = readable prose).
         # ----------------------------------------------------------------
+        agent_content = content
+        vitals_line = _vitals_context(ctx["prior_metadata"])
+        if vitals_line:
+            agent_content = f"{vitals_line}\n{content}"
+
         adk_result = await self.triage_engine.run_turn(
             session_id=session_id,
             language=language,
             input_mode=input_mode,
-            content=content,
+            content=agent_content,
             schedule_context=ctx.get("schedule_context"),
         )
 
@@ -926,6 +960,9 @@ class TriageService:
                 f"[CONTACT_FLOW: {contact_flow}]\n"
                 f"{content}"
             )
+        vitals_line = _vitals_context(prior_metadata)
+        if vitals_line:
+            agent_content = f"{vitals_line}\n{agent_content}"
 
         # Consume the ADK stream. We accumulate the reply locally as
         # we go so that the final ``adk_result`` we feed into

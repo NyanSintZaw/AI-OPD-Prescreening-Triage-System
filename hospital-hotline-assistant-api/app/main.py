@@ -32,6 +32,10 @@ from app.services.admin_auth import (
     validate_admin_token,
     verify_password,
 )
+from app.services.blood_pressure import (
+    BloodPressureFetchError,
+    BloodPressureService,
+)
 from app.services.google_stt import GoogleSttClient
 from app.services.google_tts import GoogleTtsClient
 from app.services.live_voice_service import LiveVoiceService
@@ -62,6 +66,13 @@ from app.schemas import (
     FollowUpQuestionAnswerUpdate,
     FollowUpQuestionCreate,
     FollowUpQuestionOut,
+    BloodPressureFetchResponse,
+    BpDeviceStatusOut,
+    BpFetchRequest,
+    BpWatchRequest,
+    BpPairRequest,
+    BpPairResponse,
+    BpScanResponse,
     MessageCreate,
     MessageOut,
     RoutingRuleOut,
@@ -69,6 +80,7 @@ from app.schemas import (
     SessionLocationUpdate,
     SessionOut,
     SessionUpdate,
+    SessionVitalsUpdate,
     SeverityAssessmentCreate,
     RoutingFeedbackOut,
     SttResponse,
@@ -115,6 +127,8 @@ async def lifespan(app: FastAPI):
         from app.services.ai.rag_query import start_rag_query_engine_prewarm
 
         app.state.rag_prewarm_task = start_rag_query_engine_prewarm()
+    # Kiosk-side Omron cuff reader (omblepy subprocess wrapper).
+    app.state.bp_service = BloodPressureService()
     try:
         yield
     finally:
@@ -356,6 +370,280 @@ async def update_session_location(
     if record is None:
         raise HTTPException(status_code=404, detail="Session not found")
     return {"session_id": str(record["id"]), "location_area": record["location_area"]}
+
+
+async def _store_bp_reading(
+    connection: asyncpg.Connection,
+    *,
+    session_id: UUID | None,
+    systolic: int,
+    diastolic: int,
+    pulse_bpm: int | None,
+    measured_at: datetime | None,
+    irregular_heartbeat: bool | None = None,
+    body_movement: bool | None = None,
+    source: str = "device",
+) -> UUID | None:
+    """Insert a reading into ``bp_readings`` and return its id.
+
+    Device readings are deduplicated on (measured_at, systolic, diastolic):
+    the kiosk polls the cuff while waiting, so the same measurement arrives
+    several times. On a duplicate, the existing row is returned and its
+    session link is filled in if it was still missing.
+    """
+    if measured_at is not None and measured_at.tzinfo is not None:
+        # bp_readings.measured_at is the cuff's own (naive, local) clock.
+        measured_at = measured_at.astimezone().replace(tzinfo=None)
+    row = await connection.fetchrow(
+        """
+        INSERT INTO bp_readings
+            (session_id, systolic, diastolic, pulse_bpm, measured_at,
+             irregular_heartbeat, body_movement, source)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        ON CONFLICT (measured_at, systolic, diastolic) WHERE source = 'device'
+        DO NOTHING
+        RETURNING id
+        """,
+        session_id,
+        systolic,
+        diastolic,
+        pulse_bpm,
+        measured_at,
+        irregular_heartbeat,
+        body_movement,
+        source,
+    )
+    if row is not None:
+        return row["id"]
+    # Duplicate device reading from an earlier poll — reuse it and attach
+    # the session if this call knows it and the stored row does not yet.
+    row = await connection.fetchrow(
+        """
+        UPDATE bp_readings
+        SET session_id = COALESCE(session_id, $4)
+        WHERE source = 'device'
+          AND measured_at = $1 AND systolic = $2 AND diastolic = $3
+        RETURNING id
+        """,
+        measured_at,
+        systolic,
+        diastolic,
+        session_id,
+    )
+    return row["id"] if row is not None else None
+
+
+@app.put("/sessions/{session_id}/vitals")
+async def update_session_vitals(
+    session_id: UUID,
+    payload: SessionVitalsUpdate,
+    connection: asyncpg.Connection = Depends(get_connection),
+):
+    """Store a blood-pressure reading on the session so the triage agent
+    (text chat and live voice) can factor it into the assessment.
+    Called by the vitals gate UI after a cuff fetch or manual entry.
+    """
+    session_row = await connection.fetchrow(
+        "SELECT metadata FROM sessions WHERE id = $1", session_id
+    )
+    if session_row is None:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    metadata = dict(session_row["metadata"] or {})
+    vitals = {
+        "systolic": payload.systolic,
+        "diastolic": payload.diastolic,
+        "pulse_bpm": payload.pulse_bpm,
+        "measured_at": payload.measured_at.isoformat() if payload.measured_at else None,
+        "source": payload.source,
+        "recorded_at": datetime.now(timezone.utc).isoformat(),
+    }
+    metadata["vitals"] = vitals
+    await connection.execute(
+        "UPDATE sessions SET metadata = $2::jsonb WHERE id = $1",
+        session_id,
+        metadata,
+    )
+
+    # Keep the durable bp_readings row in sync: link the row created at
+    # fetch time when we have its id, otherwise store this (e.g. manual)
+    # reading now.
+    if payload.reading_id is not None:
+        await connection.execute(
+            "UPDATE bp_readings SET session_id = $2 WHERE id = $1",
+            payload.reading_id,
+            session_id,
+        )
+    else:
+        await _store_bp_reading(
+            connection,
+            session_id=session_id,
+            systolic=payload.systolic,
+            diastolic=payload.diastolic,
+            pulse_bpm=payload.pulse_bpm,
+            measured_at=payload.measured_at,
+            source=payload.source,
+        )
+    return {"session_id": str(session_id), "vitals": vitals}
+
+
+@app.post("/vitals/blood-pressure/fetch", response_model=BloodPressureFetchResponse)
+async def fetch_blood_pressure(
+    request: Request,
+    payload: BpFetchRequest | None = None,
+    connection: asyncpg.Connection = Depends(get_connection),
+):
+    """Pull the latest reading from the Omron cuff over Bluetooth.
+
+    Runs omblepy on the API host. Always returns 200 with a ``status``
+    field so the kiosk UI can branch on failure modes (device not
+    advertising, busy, ...) without an error-handling side channel.
+
+    A fresh reading is persisted to ``bp_readings`` immediately — before
+    the patient decides to continue — so the measurement survives even if
+    they cancel the voice/chat flow right after measuring.
+    """
+    bp_service: BloodPressureService = request.app.state.bp_service
+    try:
+        reading = await bp_service.fetch_latest()
+    except BloodPressureFetchError as exc:
+        return BloodPressureFetchResponse(status=exc.code, message=str(exc))
+    except Exception as exc:  # noqa: BLE001 — surface as structured error
+        logger.exception("Unexpected omblepy failure")
+        return BloodPressureFetchResponse(status="error", message=str(exc))
+
+    return await _persist_and_build_bp_response(
+        bp_service, connection, reading, payload.session_id if payload else None
+    )
+
+
+async def _persist_and_build_bp_response(
+    bp_service: BloodPressureService,
+    connection: asyncpg.Connection,
+    reading,
+    session_id: UUID | None,
+) -> BloodPressureFetchResponse:
+    is_recent = bp_service.is_recent(reading)
+    reading_id: UUID | None = None
+    if is_recent:
+        # Stale cuff history (is_recent=False) is reported to the UI but
+        # not stored — only measurements taken at the kiosk go to the DB.
+        try:
+            reading_id = await _store_bp_reading(
+                connection,
+                session_id=session_id,
+                systolic=reading.systolic,
+                diastolic=reading.diastolic,
+                pulse_bpm=reading.pulse_bpm,
+                measured_at=reading.measured_at,
+                irregular_heartbeat=reading.irregular_heartbeat,
+                body_movement=reading.body_movement,
+                source="device",
+            )
+        except Exception:  # noqa: BLE001 — reading display must not fail
+            logger.exception("Failed to persist bp reading")
+
+    return BloodPressureFetchResponse(
+        status="ok",
+        systolic=reading.systolic,
+        diastolic=reading.diastolic,
+        pulse_bpm=reading.pulse_bpm,
+        measured_at=reading.measured_at,
+        is_recent=is_recent,
+        irregular_heartbeat=reading.irregular_heartbeat,
+        body_movement=reading.body_movement,
+        reading_id=reading_id,
+    )
+
+
+@app.post("/vitals/blood-pressure/watch", response_model=BloodPressureFetchResponse)
+async def watch_blood_pressure(
+    request: Request,
+    payload: BpWatchRequest | None = None,
+    connection: asyncpg.Connection = Depends(get_connection),
+):
+    """Long-poll: wait for the cuff's finished-measurement broadcast, then
+    fetch and return the reading immediately.
+
+    The cuff is silent while measuring and starts advertising the moment
+    it finishes — that advertisement is the real "patient is done" signal,
+    so the fetch begins ~1s after the measurement ends. Returns status
+    ``not_seen`` when nothing appeared within ``timeout_seconds`` so the
+    kiosk can re-arm without any dead time.
+    """
+    bp_service: BloodPressureService = request.app.state.bp_service
+    timeout = payload.timeout_seconds if payload else 25.0
+    try:
+        reading = await bp_service.watch_and_fetch(timeout)
+    except BloodPressureFetchError as exc:
+        return BloodPressureFetchResponse(status=exc.code, message=str(exc))
+    except Exception as exc:  # noqa: BLE001 — surface as structured error
+        logger.exception("Unexpected watch failure")
+        return BloodPressureFetchResponse(status="error", message=str(exc))
+
+    return await _persist_and_build_bp_response(
+        bp_service, connection, reading, payload.session_id if payload else None
+    )
+
+
+@app.get("/admin/bp-device", response_model=BpDeviceStatusOut)
+async def get_bp_device_status(
+    request: Request,
+    _admin_user: dict = Depends(require_roles("super_admin", "admin", "viewer")),
+):
+    """Current cuff configuration for the admin portal device manager."""
+    bp_service: BloodPressureService = request.app.state.bp_service
+    return BpDeviceStatusOut(
+        device_name=settings.bp_device_name,
+        device_mac=settings.bp_device_mac,
+        configured=bool(settings.bp_device_mac),
+        busy=bp_service.is_busy,
+        supported_models=bp_service.supported_models(),
+    )
+
+
+@app.post("/admin/bp-device/scan", response_model=BpScanResponse)
+async def scan_bp_devices(
+    request: Request,
+    _admin_user: dict = Depends(require_roles("super_admin", "admin")),
+):
+    """Sweep for nearby BLE devices (~6s) so the admin can pick the cuff.
+
+    Mirrors omblepy's interactive selection table: likely Omron monitors
+    are flagged and sorted first.
+    """
+    bp_service: BloodPressureService = request.app.state.bp_service
+    try:
+        devices = await bp_service.scan_devices()
+    except BloodPressureFetchError as exc:
+        return BpScanResponse(status="busy" if exc.code == "busy" else "error", message=str(exc))
+    except Exception as exc:  # noqa: BLE001 — surface as structured error
+        logger.exception("BLE scan failed")
+        return BpScanResponse(status="error", message=str(exc))
+    return BpScanResponse(status="ok", devices=devices)
+
+
+@app.post("/admin/bp-device/pair", response_model=BpPairResponse)
+async def pair_bp_device(
+    payload: BpPairRequest,
+    request: Request,
+    _admin_user: dict = Depends(require_roles("super_admin", "admin")),
+):
+    """Program the pairing key into the selected cuff and make it the
+    active kiosk device (persists to .env, effective immediately)."""
+    bp_service: BloodPressureService = request.app.state.bp_service
+    try:
+        await bp_service.pair_device(payload.mac, payload.device_name)
+    except BloodPressureFetchError as exc:
+        return BpPairResponse(status=exc.code, message=str(exc))
+    except Exception as exc:  # noqa: BLE001 — surface as structured error
+        logger.exception("Unexpected pairing failure")
+        return BpPairResponse(status="error", message=str(exc))
+    return BpPairResponse(
+        status="ok",
+        device_name=settings.bp_device_name,
+        device_mac=settings.bp_device_mac,
+    )
 
 
 @app.post("/sessions/{session_id}/messages", response_model=MessageOut, status_code=status.HTTP_201_CREATED)

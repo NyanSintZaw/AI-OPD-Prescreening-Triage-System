@@ -1,0 +1,434 @@
+// AI OPD Prescreening & Triage System — Database Diagram
+// Import at https://dbdiagram.io (New Diagram → paste this file)
+// Source of truth: hospital-hotline-assistant-api/migrations/001–011
+
+Project hospital_hotline_assistant {
+  database_type: 'PostgreSQL'
+  Note: 'Hospital hotline AI triage: voice/text sessions, severity assessment, OPD routing, nurse review, doctor schedules, and disease surveillance.'
+}
+
+// ── Enums ────────────────────────────────────────────────────────────────
+
+Enum language_code {
+  th
+  en
+}
+
+Enum session_status {
+  active
+  completed
+  reset
+  escalated
+}
+
+Enum message_role {
+  user
+  assistant
+  system
+}
+
+Enum input_mode {
+  voice
+  text
+}
+
+Enum severity_level {
+  emergency
+  urgent
+  general
+  unknown
+}
+
+Enum admin_role {
+  super_admin
+  admin
+  viewer
+}
+
+Enum department_kind {
+  emergency
+  opd
+}
+
+Enum review_status {
+  pending
+  approved
+  corrected
+}
+
+// ── Conversation ─────────────────────────────────────────────────────────
+
+Table sessions {
+  id uuid [primary key]
+  language language_code [not null, default: 'th']
+  status session_status [not null, default: 'active']
+  started_at timestamptz [not null, default: `now()`]
+  ended_at timestamptz
+  user_agent text
+  ip_hash text
+  location_area varchar(100) [note: 'Patient-reported area, used by surveillance']
+  metadata jsonb [not null, default: '{}', note: 'Also holds vitals (BP cuff) and patient contact preference']
+}
+
+Table messages {
+  id uuid [primary key]
+  session_id uuid [not null]
+  role message_role [not null]
+  input_mode input_mode
+  content text [not null]
+  audio_url text
+  transcript_confidence numeric(5,4) [note: '0–1, STT confidence']
+  model_name text
+  response_latency_ms integer
+  created_at timestamptz [not null, default: `now()`]
+  metadata jsonb [not null, default: '{}']
+}
+
+Table symptom_entries {
+  id uuid [primary key]
+  session_id uuid [not null]
+  message_id uuid
+  raw_text text [not null]
+  normalized_symptoms jsonb [not null, default: '[]']
+  body_location text
+  duration_text text
+  pain_score smallint [note: '0–10']
+  pain_location text
+  distress_score smallint [note: '0–10']
+  distress_type text
+  red_flags jsonb [not null, default: '[]']
+  created_at timestamptz [not null, default: `now()`]
+}
+
+Table follow_up_questions {
+  id uuid [primary key]
+  session_id uuid [not null]
+  question_text text [not null]
+  reason text
+  asked_at timestamptz [not null, default: `now()`]
+  answer_message_id uuid
+  answered_at timestamptz
+}
+
+// ── Triage & Routing ─────────────────────────────────────────────────────
+
+Table severity_assessments {
+  id uuid [primary key]
+  session_id uuid [not null]
+  source_message_id uuid
+  severity severity_level [not null, default: 'unknown']
+  confidence numeric(5,4) [note: '0–1']
+  explanation text
+  detected_triggers jsonb [not null, default: '[]']
+  created_at timestamptz [not null, default: `now()`]
+}
+
+Table departments {
+  id uuid [primary key]
+  code varchar(50) [not null, unique]
+  kind department_kind [not null, default: 'opd']
+  name_en varchar(150) [not null]
+  name_th varchar(150)
+  description_en text
+  description_th text
+  is_active boolean [not null, default: true]
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+}
+
+Table routing_rules {
+  id uuid [primary key]
+  department_id uuid [not null]
+  rule_name varchar(150) [not null]
+  description text
+  symptom_keywords "text[]" [not null]
+  condition_json jsonb [not null, default: '{}', note: '{"all":[...],"any":[...]} keyword logic']
+  severity_override severity_level
+  priority integer [not null, default: 100, note: 'Lower = evaluated first']
+  is_active boolean [not null, default: true]
+  created_by uuid
+  updated_by uuid
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+}
+
+Table emergency_triggers {
+  id uuid [primary key]
+  trigger_name varchar(150) [not null]
+  description text
+  trigger_keywords "text[]" [not null]
+  condition_json jsonb [not null, default: '{}']
+  alert_message_en text [not null]
+  alert_message_th text
+  priority integer [not null, default: 1]
+  is_active boolean [not null, default: true]
+  created_by uuid
+  updated_by uuid
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+}
+
+Table department_recommendations {
+  id uuid [primary key]
+  session_id uuid [not null]
+  assessment_id uuid
+  department_id uuid [not null]
+  confidence numeric(5,4) [note: '0–1']
+  reason text
+  created_at timestamptz [not null, default: `now()`]
+}
+
+Table emergency_events {
+  id uuid [primary key]
+  session_id uuid [not null]
+  trigger_id uuid
+  source_message_id uuid
+  detected_symptoms jsonb [not null, default: '[]']
+  alert_message text [not null]
+  created_at timestamptz [not null, default: `now()`]
+}
+
+// ── Staff Review & Feedback ──────────────────────────────────────────────
+
+Table admin_users {
+  id uuid [primary key]
+  email varchar(255) [not null, unique]
+  password_hash text [not null]
+  full_name varchar(150)
+  role admin_role [not null, default: 'viewer']
+  is_active boolean [not null, default: true]
+  last_login_at timestamptz
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+}
+
+Table assessment_reviews {
+  id uuid [primary key]
+  session_id uuid [not null]
+  assessment_id uuid [not null, unique, note: 'One review per AI assessment']
+  reviewer_id uuid
+  status review_status [not null, default: 'pending']
+  proposed_department_id uuid [note: 'AI-proposed department']
+  confirmed_department_id uuid [note: 'Nurse-confirmed department']
+  ai_assessment_score smallint [note: '1–10 nurse rating of AI quality']
+  ai_assessment_scale smallint [not null, default: 10, note: '5 or 10']
+  notes text
+  reviewed_at timestamptz
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+}
+
+Table routing_feedback {
+  id uuid [primary key]
+  session_id uuid [not null]
+  assessment_id uuid
+  original_department_id uuid
+  corrected_department_id uuid [not null]
+  original_urgency severity_level
+  corrected_urgency severity_level
+  reported_by uuid
+  reason text
+  created_at timestamptz [not null, default: `now()`]
+}
+
+Table audit_logs {
+  id uuid [primary key]
+  admin_user_id uuid
+  action varchar(100) [not null]
+  entity_type varchar(100) [not null]
+  entity_id uuid
+  before_data jsonb
+  after_data jsonb
+  created_at timestamptz [not null, default: `now()`]
+}
+
+// ── Doctors & Schedules ──────────────────────────────────────────────────
+
+Table doctors {
+  id uuid [primary key]
+  department_id uuid
+  full_name text [not null]
+  title text [not null, default: 'Dr.']
+  specialization text
+  phone_ext text
+  notes text
+  is_active boolean [not null, default: true]
+  created_by uuid
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+}
+
+Table doctor_schedules {
+  id uuid [primary key]
+  doctor_id uuid [not null]
+  schedule_date date [not null]
+  start_time time [not null]
+  end_time time [not null]
+  break_start time
+  break_end time
+  room text
+  slot_label text [note: 'e.g. Morning, Afternoon, On-Call']
+  is_available boolean [not null, default: true]
+  notes text
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+
+  indexes {
+    (doctor_id, schedule_date, start_time) [unique]
+  }
+}
+
+// ── Surveillance & Knowledge Base ────────────────────────────────────────
+
+Table disease_surveillance {
+  id uuid [primary key]
+  session_id uuid [not null, unique, note: 'One surveillance record per session']
+  symptom_keywords "text[]" [not null]
+  symptoms_summary text
+  severity_level varchar(20)
+  location_area varchar(100)
+  reported_at timestamptz [not null, default: `now()`]
+}
+
+Table triage_manual_uploads {
+  id uuid [primary key]
+  original_filename varchar(255) [not null]
+  file_size_bytes bigint
+  chunks_count int [note: 'RAG chunks created from the PDF']
+  status varchar(20) [not null, default: 'processing', note: 'processing | ready | failed']
+  error_message text
+  uploaded_by varchar(100)
+  uploaded_at timestamptz [not null, default: `now()`]
+  completed_at timestamptz
+}
+
+// ── Relationships ────────────────────────────────────────────────────────
+
+Ref: messages.session_id > sessions.id
+Ref: symptom_entries.session_id > sessions.id
+Ref: symptom_entries.message_id > messages.id
+Ref: follow_up_questions.session_id > sessions.id
+Ref: follow_up_questions.answer_message_id > messages.id
+
+Ref: severity_assessments.session_id > sessions.id
+Ref: severity_assessments.source_message_id > messages.id
+Ref: routing_rules.department_id > departments.id
+Ref: routing_rules.created_by > admin_users.id
+Ref: routing_rules.updated_by > admin_users.id
+Ref: emergency_triggers.created_by > admin_users.id
+Ref: emergency_triggers.updated_by > admin_users.id
+Ref: department_recommendations.session_id > sessions.id
+Ref: department_recommendations.assessment_id > severity_assessments.id
+Ref: department_recommendations.department_id > departments.id
+Ref: emergency_events.session_id > sessions.id
+Ref: emergency_events.trigger_id > emergency_triggers.id
+Ref: emergency_events.source_message_id > messages.id
+
+Ref: assessment_reviews.session_id > sessions.id
+Ref: assessment_reviews.assessment_id - severity_assessments.id // one-to-one
+Ref: assessment_reviews.reviewer_id > admin_users.id
+Ref: assessment_reviews.proposed_department_id > departments.id
+Ref: assessment_reviews.confirmed_department_id > departments.id
+Ref: routing_feedback.session_id > sessions.id
+Ref: routing_feedback.assessment_id > severity_assessments.id
+Ref: routing_feedback.original_department_id > departments.id
+Ref: routing_feedback.corrected_department_id > departments.id
+Ref: routing_feedback.reported_by > admin_users.id
+Ref: audit_logs.admin_user_id > admin_users.id
+
+Ref: doctors.department_id > departments.id
+Ref: doctors.created_by > admin_users.id
+Ref: doctor_schedules.doctor_id > doctors.id
+
+Ref: disease_surveillance.session_id - sessions.id // one-to-one
+
+// ── Sample Records ───────────────────────────────────────────────────────
+
+Records departments(id, code, kind, name_en, name_th, is_active) {
+  'dept-emergency', 'emergency', 'emergency', 'Emergency Department', 'แผนกฉุกเฉิน', true
+  'dept-opd-general', 'opd_general', 'opd', 'OPD General Practice', 'OPD เวชปฏิบัติทั่วไป', true
+  'dept-opd-cardio', 'opd_cardiology', 'opd', 'OPD Cardiology', 'OPD โรคหัวใจ', true
+  'dept-opd-ent', 'opd_ent', 'opd', 'OPD ENT', 'OPD หู คอ จมูก', true
+}
+
+Records admin_users(id, email, full_name, role) {
+  'adm-ops', 'ops.admin@mfu.local', 'Operations Admin', 'super_admin'
+  'adm-nurse', 'opd.nurse@mfu.local', 'OPD Nurse', 'admin'
+}
+
+Records sessions(id, language, status, started_at, location_area) {
+  'sess-001', 'th', 'completed', '2026-07-07 09:15:00', 'Mueang Chiang Rai'
+  'sess-002', 'en', 'escalated', '2026-07-07 10:02:00', 'Mae Sai'
+}
+
+Records messages(id, session_id, role, input_mode, content) {
+  'msg-001', 'sess-001', 'user', 'voice', 'มีไข้ ไอ และเจ็บคอมา 2 วัน'
+  'msg-002', 'sess-001', 'assistant', null, 'อาการของคุณเข้าข่ายไม่ฉุกเฉิน แนะนำ OPD เวชปฏิบัติทั่วไป'
+  'msg-003', 'sess-002', 'user', 'text', 'Chest pain and shortness of breath since this morning'
+}
+
+Records symptom_entries(id, session_id, message_id, raw_text, pain_score, distress_score) {
+  'sym-001', 'sess-001', 'msg-001', 'มีไข้ ไอ และเจ็บคอมา 2 วัน', 3, 2
+  'sym-002', 'sess-002', 'msg-003', 'Chest pain and shortness of breath', 8, 7
+}
+
+Records follow_up_questions(id, session_id, question_text, answer_message_id) {
+  'fu-001', 'sess-001', 'อาการไข้เป็นมากี่วันแล้ว?', 'msg-001'
+}
+
+Records severity_assessments(id, session_id, source_message_id, severity, confidence) {
+  'asm-001', 'sess-001', 'msg-001', 'general', 0.86
+  'asm-002', 'sess-002', 'msg-003', 'emergency', 0.95
+}
+
+Records department_recommendations(id, session_id, assessment_id, department_id, confidence) {
+  'rec-001', 'sess-001', 'asm-001', 'dept-opd-general', 0.82
+  'rec-002', 'sess-002', 'asm-002', 'dept-emergency', 0.97
+}
+
+Records routing_rules(id, department_id, rule_name, priority, is_active) {
+  'rule-001', 'dept-opd-cardio', 'OPD chest discomfort without emergency signs', 40, true
+  'rule-002', 'dept-opd-ent', 'OPD ENT symptoms', 50, true
+  'rule-003', 'dept-opd-general', 'OPD general symptoms', 90, true
+}
+
+Records emergency_triggers(id, trigger_name, alert_message_en, priority) {
+  'trg-001', 'Chest pain with breathing difficulty', 'This may be an emergency. Please seek immediate medical care.', 1
+  'trg-002', 'Loss of consciousness', 'Loss of consciousness may be an emergency. Please seek immediate medical care.', 1
+}
+
+Records emergency_events(id, session_id, trigger_id, source_message_id, alert_message) {
+  'evt-001', 'sess-002', 'trg-001', 'msg-003', 'This may be an emergency. Please seek immediate medical care.'
+}
+
+Records assessment_reviews(id, session_id, assessment_id, reviewer_id, status, proposed_department_id, confirmed_department_id, ai_assessment_score) {
+  'rev-001', 'sess-001', 'asm-001', 'adm-nurse', 'approved', 'dept-opd-general', 'dept-opd-general', 9
+  'rev-002', 'sess-002', 'asm-002', null, 'pending', 'dept-emergency', null, null
+}
+
+Records routing_feedback(id, session_id, assessment_id, original_department_id, corrected_department_id, reported_by, reason) {
+  'fb-001', 'sess-001', 'asm-001', 'dept-opd-general', 'dept-opd-ent', 'adm-nurse', 'Symptoms are primarily throat-related'
+}
+
+Records audit_logs(id, admin_user_id, action, entity_type, entity_id) {
+  'log-001', 'adm-nurse', 'approve_review', 'assessment_reviews', 'rev-001'
+}
+
+Records doctors(id, department_id, full_name, title, specialization, is_active) {
+  'doc-001', 'dept-opd-cardio', 'Somchai Jaidee', 'Dr.', 'Cardiology', true
+  'doc-002', 'dept-opd-general', 'Suda Rakthai', 'Dr.', 'Family Medicine', true
+}
+
+Records doctor_schedules(id, doctor_id, schedule_date, start_time, end_time, room, slot_label) {
+  'schd-001', 'doc-001', '2026-07-07', '08:30', '12:00', 'OPD-204', 'Morning'
+  'schd-002', 'doc-002', '2026-07-07', '13:00', '16:30', 'OPD-101', 'Afternoon'
+}
+
+Records disease_surveillance(id, session_id, symptoms_summary, severity_level, location_area, reported_at) {
+  'ds-001', 'sess-001', 'fever, cough, sore throat', 'general', 'Mueang Chiang Rai', '2026-07-07 09:20:00'
+  'ds-002', 'sess-002', 'chest pain, shortness of breath', 'emergency', 'Mae Sai', '2026-07-07 10:05:00'
+}
+
+Records triage_manual_uploads(id, original_filename, chunks_count, status, uploaded_by) {
+  'tmu-001', 'MOPH-triage-manual-2026.pdf', 142, 'ready', 'ops.admin@mfu.local'
+}

@@ -6,6 +6,11 @@ import type {
   AssessmentReviewApproveRequest,
   AssessmentReviewCorrectRequest,
   AssessmentReviewOut,
+  BloodPressureFetchResponse,
+  BpDeviceStatusOut,
+  BpPairRequest,
+  BpPairResponse,
+  BpScanResponse,
   ChatRequestPayload,
   ChatResponsePayload,
   ChatStreamEvent,
@@ -31,6 +36,7 @@ import type {
   SessionLocationUpdate,
   SessionOut,
   SessionUpdate,
+  SessionVitalsUpdate,
   SeverityAssessmentCreate,
   SttResponsePayload,
   SurveillanceSummaryOut,
@@ -330,6 +336,39 @@ export const api = {
     request<DoctorWithSchedulesOut[]>(
       `/schedules/available${scheduleDate ? `?schedule_date=${scheduleDate}` : ''}`,
     ),
+
+  // ── Vitals (blood pressure kiosk) ──────────────────────────────────────────
+  fetchBloodPressure: (sessionId?: string | null) =>
+    request<BloodPressureFetchResponse>('/vitals/blood-pressure/fetch', {
+      method: 'POST',
+      body: JSON.stringify({ session_id: sessionId ?? null }),
+    }),
+
+  /** Long-poll: resolves as soon as the cuff broadcasts a finished
+   *  measurement and the backend has pulled it, or with status
+   *  'not_seen' after timeoutSeconds so the caller can re-arm. */
+  watchBloodPressure: (sessionId?: string | null, timeoutSeconds = 25) =>
+    request<BloodPressureFetchResponse>('/vitals/blood-pressure/watch', {
+      method: 'POST',
+      body: JSON.stringify({ session_id: sessionId ?? null, timeout_seconds: timeoutSeconds }),
+    }),
+
+  updateSessionVitals: (sessionId: string, payload: SessionVitalsUpdate) =>
+    request<{ session_id: string; vitals: Record<string, unknown> }>(
+      `/sessions/${sessionId}/vitals`,
+      { method: 'PUT', body: JSON.stringify(payload) },
+    ),
+
+  getBpDeviceStatus: () => request<BpDeviceStatusOut>('/admin/bp-device'),
+
+  scanBpDevices: () =>
+    request<BpScanResponse>('/admin/bp-device/scan', { method: 'POST' }),
+
+  pairBpDevice: (payload: BpPairRequest) =>
+    request<BpPairResponse>('/admin/bp-device/pair', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
 
   // ── Disease Surveillance ───────────────────────────────────────────────────
   updateSessionLocation: (sessionId: string, payload: SessionLocationUpdate) =>
