@@ -67,6 +67,7 @@ from app.schemas import (
     BloodPressureFetchResponse,
     BpDeviceStatusOut,
     BpFetchRequest,
+    BpWatchRequest,
     BpPairRequest,
     BpPairResponse,
     BpScanResponse,
@@ -481,6 +482,17 @@ async def fetch_blood_pressure(
         logger.exception("Unexpected omblepy failure")
         return BloodPressureFetchResponse(status="error", message=str(exc))
 
+    return await _persist_and_build_bp_response(
+        bp_service, connection, reading, payload.session_id if payload else None
+    )
+
+
+async def _persist_and_build_bp_response(
+    bp_service: BloodPressureService,
+    connection: asyncpg.Connection,
+    reading,
+    session_id: UUID | None,
+) -> BloodPressureFetchResponse:
     is_recent = bp_service.is_recent(reading)
     reading_id: UUID | None = None
     if is_recent:
@@ -489,7 +501,7 @@ async def fetch_blood_pressure(
         try:
             reading_id = await _store_bp_reading(
                 connection,
-                session_id=payload.session_id if payload else None,
+                session_id=session_id,
                 systolic=reading.systolic,
                 diastolic=reading.diastolic,
                 pulse_bpm=reading.pulse_bpm,
@@ -511,6 +523,36 @@ async def fetch_blood_pressure(
         irregular_heartbeat=reading.irregular_heartbeat,
         body_movement=reading.body_movement,
         reading_id=reading_id,
+    )
+
+
+@app.post("/vitals/blood-pressure/watch", response_model=BloodPressureFetchResponse)
+async def watch_blood_pressure(
+    request: Request,
+    payload: BpWatchRequest | None = None,
+    connection: asyncpg.Connection = Depends(get_connection),
+):
+    """Long-poll: wait for the cuff's finished-measurement broadcast, then
+    fetch and return the reading immediately.
+
+    The cuff is silent while measuring and starts advertising the moment
+    it finishes — that advertisement is the real "patient is done" signal,
+    so the fetch begins ~1s after the measurement ends. Returns status
+    ``not_seen`` when nothing appeared within ``timeout_seconds`` so the
+    kiosk can re-arm without any dead time.
+    """
+    bp_service: BloodPressureService = request.app.state.bp_service
+    timeout = payload.timeout_seconds if payload else 25.0
+    try:
+        reading = await bp_service.watch_and_fetch(timeout)
+    except BloodPressureFetchError as exc:
+        return BloodPressureFetchResponse(status=exc.code, message=str(exc))
+    except Exception as exc:  # noqa: BLE001 — surface as structured error
+        logger.exception("Unexpected watch failure")
+        return BloodPressureFetchResponse(status="error", message=str(exc))
+
+    return await _persist_and_build_bp_response(
+        bp_service, connection, reading, payload.session_id if payload else None
     )
 
 

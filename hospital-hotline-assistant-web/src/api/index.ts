@@ -338,6 +338,15 @@ export const api = {
       body: JSON.stringify({ session_id: sessionId ?? null }),
     }),
 
+  /** Long-poll: resolves as soon as the cuff broadcasts a finished
+   *  measurement and the backend has pulled it, or with status
+   *  'not_seen' after timeoutSeconds so the caller can re-arm. */
+  watchBloodPressure: (sessionId?: string | null, timeoutSeconds = 25) =>
+    request<BloodPressureFetchResponse>('/vitals/blood-pressure/watch', {
+      method: 'POST',
+      body: JSON.stringify({ session_id: sessionId ?? null, timeout_seconds: timeoutSeconds }),
+    }),
+
   updateSessionVitals: (sessionId: string, payload: SessionVitalsUpdate) =>
     request<{ session_id: string; vitals: Record<string, unknown> }>(
       `/sessions/${sessionId}/vitals`,

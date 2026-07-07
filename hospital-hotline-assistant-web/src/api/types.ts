@@ -371,6 +371,7 @@ export type BloodPressureFetchStatus =
   | 'wrong_device'
   | 'timeout'
   | 'no_records'
+  | 'not_seen'
   | 'error';
 
 export interface BloodPressureFetchResponse {

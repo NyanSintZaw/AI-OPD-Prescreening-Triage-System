@@ -55,6 +55,14 @@ class BpFetchRequest(BaseModel):
     session_id: UUID | None = None
 
 
+class BpWatchRequest(BaseModel):
+    """Body for the long-poll watch: wait up to ``timeout_seconds`` for the
+    cuff's finished-measurement broadcast, then fetch immediately."""
+
+    session_id: UUID | None = None
+    timeout_seconds: float = Field(default=25, ge=5, le=45)
+
+
 class BloodPressureFetchResponse(BaseModel):
     """Result of a kiosk-side omblepy fetch. ``status`` is always set;
     the reading fields are only present when ``status == "ok"``."""
@@ -68,6 +76,7 @@ class BloodPressureFetchResponse(BaseModel):
         "wrong_device",
         "timeout",
         "no_records",
+        "not_seen",
         "error",
     ]
     systolic: int | None = None

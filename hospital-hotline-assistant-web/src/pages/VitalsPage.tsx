@@ -13,13 +13,18 @@ type WatchStage = 'press-start' | 'measuring' | 'reading';
 /** How long the "press START now" prompt stays before switching copy. */
 const PRESS_START_MS = 8_000;
 /**
- * No BLE attempts during the first stretch: the cuff needs to begin
- * inflating undisturbed, and it isn't connectable mid-measurement anyway.
+ * Short head start before arming the watch: the cuff is silent while it
+ * inflates anyway, and the backend now detects the exact moment the
+ * measurement finishes (the cuff's own BLE broadcast), so this no longer
+ * needs to cover the whole measurement.
  */
-const WATCH_GRACE_MS = 35_000;
+const WATCH_GRACE_MS = 15_000;
 /** Give up on auto-detection after this long and show a retry screen. */
 const WATCH_DEADLINE_MS = 4 * 60_000;
-const WATCH_RETRY_DELAY_MS = 5_000;
+/** Server-side long-poll window per watch call. */
+const WATCH_CALL_TIMEOUT_S = 25;
+/** Pause between calls only after unexpected statuses/network errors. */
+const WATCH_RETRY_DELAY_MS = 1_000;
 /** Tolerated cuff-vs-kiosk clock drift when judging reading freshness. */
 const CLOCK_SKEW_MS = 90_000;
 
@@ -78,9 +83,10 @@ export function VitalsPage() {
 
   /**
    * Hands-free measurement flow: prompt the patient to press START, then
-   * quietly poll the cuff until a reading measured AFTER the anchor
-   * appears. The cuff cannot be started over BLE, but detecting the
-   * finished measurement automatically removes every other screen touch.
+   * arm a backend long-poll that listens for the cuff's own
+   * "measurement finished" Bluetooth broadcast and pulls the reading the
+   * moment it appears — no blind timed polling. The freshness anchor
+   * still decides whether a returned reading belongs to THIS attempt.
    */
   const startWatching = async (resume = false) => {
     const token = ++watchTokenRef.current;
@@ -92,8 +98,24 @@ export function VitalsPage() {
     setStep('watching');
 
     if (resume) {
-      // The patient likely already measured — poll right away.
+      // The patient likely already measured — try a direct fetch first,
+      // in case the cuff's post-measurement broadcast window already
+      // passed (then only a fetch attempt can still reach it).
       setWatchStage('reading');
+      try {
+        const result = await api.fetchBloodPressure(sessionId);
+        if (watchTokenRef.current !== token) return;
+        if (result.status === 'ok' && result.measured_at) {
+          const measuredMs = new Date(result.measured_at).getTime();
+          if (measuredMs >= anchor - CLOCK_SKEW_MS) {
+            setReading(result);
+            setStep('result');
+            return;
+          }
+        }
+      } catch {
+        // Fall through to the watch loop.
+      }
     } else {
       setWatchStage('press-start');
       await sleep(PRESS_START_MS);
@@ -108,9 +130,9 @@ export function VitalsPage() {
         setStep('error');
         return;
       }
-      setWatchStage('reading');
+      setWatchStage('measuring');
       try {
-        const result = await api.fetchBloodPressure(sessionId);
+        const result = await api.watchBloodPressure(sessionId, WATCH_CALL_TIMEOUT_S);
         if (watchTokenRef.current !== token) return;
         if (result.status === 'ok' && result.measured_at) {
           const measuredMs = new Date(result.measured_at).getTime();
@@ -121,12 +143,15 @@ export function VitalsPage() {
           }
           // Stale record from before this measurement — keep waiting.
         }
-        // device_not_found / busy mid-measurement are expected; retry.
+        if (result.status === 'not_seen') {
+          // Nothing broadcast within the window — re-arm with no delay.
+          continue;
+        }
+        // busy / device_not_found etc.: brief pause, then retry below.
       } catch {
         // Network hiccup — retry until the deadline.
       }
       if (watchTokenRef.current !== token) return;
-      setWatchStage('measuring');
       await sleep(WATCH_RETRY_DELAY_MS);
     }
   };

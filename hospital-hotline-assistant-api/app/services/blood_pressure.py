@@ -236,6 +236,54 @@ class BloodPressureService:
                 )
             return reading
 
+    async def watch_and_fetch(self, timeout_seconds: float) -> BloodPressureReading:
+        """Wait for the cuff to announce a finished measurement, then fetch.
+
+        The cuff is silent while measuring and starts advertising over BLE
+        the moment the measurement ends (its "please sync me" broadcast).
+        Passively listening for that advertisement is the actual
+        "patient finished measuring" signal — the fetch starts within
+        ~a second of it appearing, instead of blind timed polling.
+
+        Raises ``not_seen`` when no advertisement arrived within
+        ``timeout_seconds`` so the caller can immediately re-arm.
+        """
+        if not settings.bp_device_mac:
+            raise BloodPressureFetchError(
+                "not_configured",
+                "BP_DEVICE_MAC is not set in the API .env file.",
+            )
+        if self._lock.locked():
+            raise BloodPressureFetchError(
+                "busy", "A blood pressure operation is already in progress."
+            )
+
+        target = settings.bp_device_mac.strip().lower()
+        seen = asyncio.Event()
+
+        def _on_advertisement(device, _advertisement) -> None:
+            if (device.address or "").strip().lower() == target:
+                seen.set()
+
+        async with self._lock:
+            scanner = bleak.BleakScanner(detection_callback=_on_advertisement)
+            await scanner.start()
+            try:
+                await asyncio.wait_for(seen.wait(), timeout=timeout_seconds)
+            except asyncio.TimeoutError:
+                raise BloodPressureFetchError(
+                    "not_seen",
+                    "The monitor has not announced a finished measurement yet.",
+                )
+            finally:
+                try:
+                    await scanner.stop()
+                except Exception:  # noqa: BLE001 — adapter quirk, not fatal
+                    logger.debug("BLE scanner stop failed", exc_info=True)
+
+        # The cuff is advertising right now, so connect immediately.
+        return await self.fetch_latest()
+
     @staticmethod
     def is_recent(reading: BloodPressureReading) -> bool:
         """Heuristic freshness check (device clock vs server clock)."""
