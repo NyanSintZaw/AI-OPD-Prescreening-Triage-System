@@ -93,7 +93,8 @@ def final_turn(reply: str = "Please proceed to the Emergency Department.") -> li
 
 
 class Harness:
-    def __init__(self) -> None:
+    def __init__(self, language: str = "en") -> None:
+        self.language = language
         self.stt = FakeStt()
         self.tts = FakeTts()
         self.triage = FakeTriageService()
@@ -120,7 +121,7 @@ class Harness:
 
         await self.service.connect(
             SESSION_ID,
-            "en",
+            self.language,
             FakeConn(),
             transcript_callback=on_transcript,
             emergency_callback=on_emergency,
@@ -383,3 +384,34 @@ async def test_unknown_session_rejected():
     with pytest.raises(ValueError):
         await service.connect(SESSION_ID, "en", NoSessionConn())
     assert not service.should_keep_pipeline_open(SESSION_ID)
+
+
+# ── bilingual voice ─────────────────────────────────────────────────────────────
+
+async def test_thai_voice_turn_uses_thai_language_end_to_end():
+    """A Thai voice session must greet in Thai and pass language='th' into
+    STT (th-TH), the triage engine, and TTS (Thai voice) — proving the
+    deterministic engine drives voice in Thai, not just English."""
+    harness = Harness(language="th")
+    await harness.start()
+    try:
+        # greeting is the Thai template, TTS asked to speak Thai
+        await harness.wait_until(lambda: harness.chunks)
+        assert harness.transcripts[0] == ("agent", templates.VOICE_GREETING["th"])
+        assert harness.tts.calls[0]["language"] == "th"
+
+        harness.stt.transcripts.append("เจ็บแน่นหน้าอก")
+        harness.triage.turns.append(interview_turn("เป็นมานานแค่ไหนคะ"))
+        await harness.speak_turn()
+        await harness.wait_until(
+            lambda: ("agent", "เป็นมานานแค่ไหนคะ") in harness.transcripts
+        )
+
+        # STT transcribed with Thai locale
+        assert harness.stt.calls[0]["language"] == "th"
+        # engine turn ran in Thai
+        assert harness.triage.contents == ["เจ็บแน่นหน้าอก"]
+        # every TTS call for this session spoke Thai
+        assert all(call["language"] == "th" for call in harness.tts.calls)
+    finally:
+        await harness.stop()

@@ -181,9 +181,15 @@ front and centre.
   (with its rule trace) for the nurses to rule on — which itself is useful
   input to the next criteria version.
 
-### 5.4 Open decision
+### 5.4 Scope decision (recorded 2026-07-07)
 
-Scope for the first run — **(a)** safety-focused (emergency recall +
-precision + agreement on clearly-mappable walk-ins), or **(b)** broader
-(all mappable rows, full confusion matrix). (a) is faster, cheaper, and the
-cleaner story; (b) is more exhaustive but noisier given §2.
+**Decided: (a) safety-focused, deferred.** The first run — when built — will
+report emergency recall + precision + department agreement on the
+clearly-mappable walk-in subset, and keep the raw per-row JSONL so the
+broader confusion matrix (b) can be computed later without re-spending
+LLM quota. (a) is the credible, defensible story for the hospital IT team;
+(b) is noisier given the §2 data-shape caveats.
+
+**Status: not yet built.** Deferred until after the live E2E demo dry-run,
+because it needs Google credentials + quota and cannot run in CI. Build is a
+single offline script (`scripts/replay_his_benchmark.py`) per §5.2.
