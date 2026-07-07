@@ -3,9 +3,12 @@ from __future__ import annotations
 import logging
 from datetime import datetime, timedelta, timezone
 from time import perf_counter
-from typing import Any, AsyncIterator
+from typing import TYPE_CHECKING, Any, AsyncIterator
 
 import asyncpg
+
+if TYPE_CHECKING:
+    from app.services.screening.his import HisAdapter
 
 from app.config import settings
 from app.services.ai.triage_models import TriageResult
@@ -139,12 +142,20 @@ class TriageService:
         self,
         notifier: BaseNotificationService | None = None,
         triage_engine: TriageEngine | None = None,
+        his_adapter: "HisAdapter | None" = None,
     ) -> None:
         self.triage_engine: TriageEngine = triage_engine or LlmTriageEngine()
         # Default to the mock notifier so the demo + tests work without
         # any external transport. Callers can inject a production sink
         # real staff-summary channel once one is configured.
         self.notifier: BaseNotificationService = notifier or MockNotificationService()
+        # HIS write-back (stage 1 at disposition, stage 2 at nurse confirm).
+        # Defaults to the mock so the flow never depends on a live HIS.
+        if his_adapter is None:
+            from app.services.screening.his import MockHisAdapter
+
+            his_adapter = MockHisAdapter()
+        self.his_adapter: "HisAdapter" = his_adapter
 
     async def _prepare_chat_turn(
         self,

@@ -99,8 +99,15 @@ async def lifespan(app: FastAPI):
     from app.services.screening.engine import make_triage_engine
 
     triage_engine = make_triage_engine(settings, pool=app.state.db_pool)
+    # HIS adapter: his_mode="http" talks to the hospital HIS (or the
+    # standalone hospital-his-mock service); otherwise a logging mock.
+    from app.services.screening.his import build_his_adapter
+
+    app.state.his_adapter = build_his_adapter(settings)
     app.state.triage_service = TriageService(
-        notifier=notifier, triage_engine=triage_engine
+        notifier=notifier,
+        triage_engine=triage_engine,
+        his_adapter=app.state.his_adapter,
     )
     app.state.tts_client = GoogleTtsClient()
     app.state.stt_client = GoogleSttClient()

@@ -45,6 +45,12 @@ class Settings(BaseSettings):
     screening_openai_api_key: str | None = None
     screening_prompt_version: str = "v1"
     screening_question_budget: int = 8
+    # HIS integration. "mock" logs referrals and accepts every visit;
+    # "http" talks to the hospital HIS API (or the hospital-his-mock service).
+    his_mode: str = "mock"
+    his_base_url: str | None = None
+    his_api_key: str | None = None
+    his_timeout_seconds: float = 5.0
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 
 settings = Settings()
