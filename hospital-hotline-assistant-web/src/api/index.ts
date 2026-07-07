@@ -30,6 +30,8 @@ import type {
   LanguageCode,
   MessageCreate,
   MessageOut,
+  LinkVisitRequest,
+  LinkVisitResponse,
   RoutingRuleOut,
   RoutingFeedbackOut,
   SessionCreate,
@@ -118,6 +120,12 @@ export const api = {
     }),
 
   getSession: (sessionId: string) => request<SessionOut>(`/sessions/${sessionId}`),
+
+  linkVisit: (sessionId: string, visitId: string) =>
+    request<LinkVisitResponse>(`/sessions/${sessionId}/link-visit`, {
+      method: 'POST',
+      body: JSON.stringify({ visit_id: visitId } satisfies LinkVisitRequest),
+    }),
 
   updateSession: (sessionId: string, payload: SessionUpdate) =>
     request<SessionOut>(`/sessions/${sessionId}`, {
@@ -464,4 +472,4 @@ export const api = {
   },
 };
 
-export type { MessageOut, SessionOut, ConversationSummaryOut, DepartmentOut, DoctorOut, DoctorWithSchedulesOut, DoctorScheduleOut, SurveillanceSummaryOut, TriageManualUploadOut, AiMetricsOut, CriteriaDiffOut, CriteriaVersionDetail, CriteriaVersionSummary };
+export type { MessageOut, SessionOut, ConversationSummaryOut, DepartmentOut, DoctorOut, DoctorWithSchedulesOut, DoctorScheduleOut, SurveillanceSummaryOut, TriageManualUploadOut, AiMetricsOut, CriteriaDiffOut, CriteriaVersionDetail, CriteriaVersionSummary, LinkVisitResponse };

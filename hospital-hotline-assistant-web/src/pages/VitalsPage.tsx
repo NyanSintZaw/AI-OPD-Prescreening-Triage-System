@@ -56,6 +56,10 @@ export function VitalsPage() {
   const [reading, setReading] = useState<BloodPressureFetchResponse | null>(null);
   const [errorKey, setErrorKey] = useState<string>('vitalsErrGeneric');
   const [saving, setSaving] = useState(false);
+  // Patient-typed vitals captured at the booth alongside the cuff reading.
+  const [weightKg, setWeightKg] = useState('');
+  const [heightCm, setHeightCm] = useState('');
+  const [temperatureC, setTemperatureC] = useState('');
 
   // Invalidates any in-flight watch loop when the user navigates away,
   // cancels, or restarts: each loop captures the token at start and
@@ -164,10 +168,17 @@ export function VitalsPage() {
     setSaving(true);
     try {
       if (sessionId) {
+        const parseNum = (v: string) => {
+          const n = Number.parseFloat(v);
+          return Number.isFinite(n) ? n : undefined;
+        };
         await api.updateSessionVitals(sessionId, {
           systolic: reading.systolic,
           diastolic: reading.diastolic,
           pulse_bpm: reading.pulse_bpm,
+          weight_kg: parseNum(weightKg),
+          height_cm: parseNum(heightCm),
+          temperature_c: parseNum(temperatureC),
           measured_at: reading.measured_at,
           source: 'device',
           reading_id: reading.reading_id,
@@ -301,6 +312,47 @@ export function VitalsPage() {
               {reading.irregular_heartbeat && (
                 <p className="vitals-warning">{t('vitalsIrregular')}</p>
               )}
+
+              <div className="vitals-extra">
+                <span className="vitals-extra-label">{t('vitalsExtraTitle')}</span>
+                <div className="vitals-extra-grid">
+                  <label className="vitals-extra-field">
+                    <span>{t('vitalsWeight')}</span>
+                    <input
+                      type="number"
+                      inputMode="decimal"
+                      min={1}
+                      max={400}
+                      value={weightKg}
+                      onChange={(e) => setWeightKg(e.target.value)}
+                    />
+                  </label>
+                  <label className="vitals-extra-field">
+                    <span>{t('vitalsHeight')}</span>
+                    <input
+                      type="number"
+                      inputMode="decimal"
+                      min={1}
+                      max={272}
+                      value={heightCm}
+                      onChange={(e) => setHeightCm(e.target.value)}
+                    />
+                  </label>
+                  <label className="vitals-extra-field">
+                    <span>{t('vitalsTemperature')}</span>
+                    <input
+                      type="number"
+                      inputMode="decimal"
+                      min={30}
+                      max={45}
+                      step={0.1}
+                      value={temperatureC}
+                      onChange={(e) => setTemperatureC(e.target.value)}
+                    />
+                  </label>
+                </div>
+              </div>
+
               <div className="vitals-actions">
                 <button
                   type="button"

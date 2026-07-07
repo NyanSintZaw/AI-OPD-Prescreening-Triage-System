@@ -400,9 +400,24 @@ export interface SessionVitalsUpdate {
   systolic: number;
   diastolic: number;
   pulse_bpm?: number | null;
+  weight_kg?: number | null;
+  height_cm?: number | null;
+  temperature_c?: number | null;
   measured_at?: string | null;
   source?: 'device' | 'manual';
   reading_id?: string | null;
+}
+
+export interface LinkVisitRequest {
+  visit_id: string;
+}
+
+export interface LinkVisitResponse {
+  linked: boolean;
+  visit_id: string;
+  age_years?: number | null;
+  appointment?: boolean;
+  has_his_vitals?: boolean;
 }
 
 export interface BpDeviceStatusOut {

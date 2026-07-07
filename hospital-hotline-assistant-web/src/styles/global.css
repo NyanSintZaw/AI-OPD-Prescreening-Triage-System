@@ -5221,3 +5221,92 @@ a:hover {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.55; }
 }
+
+/* ── Booth visit-ID field + patient-typed vitals (HIS integration) ───────── */
+
+.visit-id-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin: 0 auto 1.25rem;
+  max-width: 420px;
+  text-align: left;
+}
+
+.visit-id-label {
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.visit-id-input {
+  padding: 0.7rem 0.85rem;
+  border: 1px solid var(--color-border, #cbd5e1);
+  border-radius: 10px;
+  font-size: 1.05rem;
+  letter-spacing: 0.03em;
+}
+
+.visit-id-input:focus {
+  outline: 2px solid var(--mch-cyan, #00a5b5);
+  outline-offset: 1px;
+}
+
+.visit-id-hint {
+  font-size: 0.78rem;
+  color: var(--color-muted, #64748b);
+}
+
+.vitals-extra {
+  width: 100%;
+  margin: 0.5rem 0 1rem;
+  text-align: left;
+}
+
+.vitals-extra-label {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+  color: var(--color-muted, #64748b);
+}
+
+.vitals-extra-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.6rem;
+}
+
+.vitals-extra-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.78rem;
+}
+
+.vitals-extra-field input {
+  padding: 0.5rem 0.55rem;
+  border: 1px solid var(--color-border, #cbd5e1);
+  border-radius: 8px;
+  font-size: 0.95rem;
+}
+
+@media (max-width: 480px) {
+  .vitals-extra-grid { grid-template-columns: 1fr; }
+}
+
+/* ── Nurse slip-code lookup ──────────────────────────────────────────────── */
+
+.nurse-slip-search {
+  min-width: 260px;
+}
+
+.nurse-slip-code {
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-weight: 700;
+  font-size: 0.9rem;
+  letter-spacing: 0.04em;
+  color: var(--mch-cyan-dark, #007681);
+  background: var(--mch-cyan-soft, rgba(0, 165, 181, 0.1));
+  padding: 0.1rem 0.45rem;
+  border-radius: 6px;
+}

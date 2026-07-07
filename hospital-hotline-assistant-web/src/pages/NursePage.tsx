@@ -7,6 +7,7 @@ import { Layout } from '../components/Layout';
 import { MessageBubble } from '../components/MessageBubble';
 import { DoctorScheduleManager } from '../components/DoctorScheduleManager';
 import { useLanguage } from '../hooks/useSession';
+import { slipCode, slipSearchKey } from '../utils/slipCode';
 import type { AssessmentReviewOut, DepartmentOut, RoutingFeedbackOut } from '../api/types';
 
 type NurseTab = 'reviews' | 'schedules';
@@ -39,6 +40,7 @@ export function NursePage() {
   );
   const [scoreByAssessment, setScoreByAssessment] = useState<Record<string, string>>({});
   const [contactRequestedOnly, setContactRequestedOnly] = useState(false);
+  const [slipQuery, setSlipQuery] = useState('');
   const [reviewDataLoading, setReviewDataLoading] = useState(true);
 
   const [selectedReview, setSelectedReview] = useState<AssessmentReviewOut | null>(null);
@@ -177,13 +179,18 @@ export function NursePage() {
     return t('patientContactUnknown');
   };
 
-  const filteredReviews = useMemo(
-    () =>
-      contactRequestedOnly
-        ? reviews.filter((review) => review.patient_contact_requested === true)
-        : reviews,
-    [contactRequestedOnly, reviews],
-  );
+  const filteredReviews = useMemo(() => {
+    let rows = contactRequestedOnly
+      ? reviews.filter((review) => review.patient_contact_requested === true)
+      : reviews;
+    const key = slipSearchKey(slipQuery);
+    if (key) {
+      rows = rows.filter((review) =>
+        slipSearchKey(slipCode(review.session_id)).includes(key),
+      );
+    }
+    return rows;
+  }, [contactRequestedOnly, reviews, slipQuery]);
 
   const contactRequestedCount = useMemo(
     () => reviews.filter((review) => review.patient_contact_requested === true).length,
@@ -250,6 +257,14 @@ export function NursePage() {
         )}
 
         {activeTab === 'reviews' && <div className="admin-toolbar nurse-toolbar">
+          <input
+            type="search"
+            className="admin-search nurse-slip-search"
+            placeholder={t('nurseSlipSearchPlaceholder')}
+            value={slipQuery}
+            onChange={(e) => setSlipQuery(e.target.value)}
+            aria-label={t('nurseSlipSearchPlaceholder')}
+          />
           <div className="chip-group" role="group" aria-label={t('nurseContactFilterLabel')}>
             <span className="chip-group-label">{t('nurseContactFilterLabel')}</span>
             <button
@@ -291,6 +306,9 @@ export function NursePage() {
                       <span className={`status-pill status-${review.status}`}>
                         {t(`review_${review.status}`)}
                       </span>
+                      <code className="nurse-slip-code" title={t('nurseSlipCodeLabel')}>
+                        {slipCode(review.session_id)}
+                      </code>
                       <code className="nurse-session-code">{review.session_id}</code>
                     </div>
                     <button
@@ -381,8 +399,9 @@ export function NursePage() {
                 <div>
                   <p className="nurse-review-modal-kicker">{t('nurseCaseReview')}</p>
                   <h2 id="nurse-review-modal-title">
-                    {selectedReview.session_id}
+                    {slipCode(selectedReview.session_id)}
                   </h2>
+                  <code className="nurse-session-code">{selectedReview.session_id}</code>
                 </div>
                 <button
                   type="button"
