@@ -1,0 +1,40 @@
+version: '3.8'
+
+# Databases for local development. Run BOTH databases in Docker with one
+# command; run the backend (uv) and frontend (npm) on your own device.
+#
+#   docker compose up -d        # start Postgres (:5432) + mock hospital DB (:8001)
+#   docker compose down         # stop
+#   docker compose down -v      # stop + wipe Postgres data
+#
+# - postgres:  our database (sessions, criteria, audit, …). Apply migrations
+#              and seed criteria against it as usual (see the api README).
+# - his-mock:  the mock hospital HIS database (separate, SQLite). Auto-seeds
+#              the synthetic pre-registration sample on a fresh container.
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: hospital_hotline_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: hospital_hotline
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  his-mock:
+    build: ./hospital-his-mock
+    container_name: hospital_his_mock
+    restart: unless-stopped
+    ports:
+      - "8001:8001"
+    environment:
+      # Must match the backend's HIS_API_KEY (default demo-his-key).
+      HIS_MOCK_API_KEY: ${HIS_MOCK_API_KEY:-demo-his-key}
+
+volumes:
+  postgres_data:

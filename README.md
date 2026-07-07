@@ -24,18 +24,28 @@ The backend `chat` endpoint is the single orchestration entry point: it logs the
 
 ## Quick start (dev)
 
-### 1. Database (PostgreSQL 16)
+### 1. Databases (Docker) — run these in Docker; run the app on your device
 
-The simplest path is Docker:
+Both databases come up with one command from the repo root:
 
-```powershell
-docker run -d --name hospital-hotline-pg `
-  -e POSTGRES_PASSWORD=postgres -e POSTGRES_USER=postgres -e POSTGRES_DB=hospital_hotline `
-  -p 5433:5432 postgres:16-alpine
-
-docker cp hospital-hotline-assistant-api/migrations/001_hospital_hotline_schema.sql hospital-hotline-pg:/tmp/schema.sql
-docker exec hospital-hotline-pg psql -U postgres -d hospital_hotline -f /tmp/schema.sql
+```bash
+docker compose up -d      # Postgres (:5432) + mock hospital DB (:8001)
+docker compose down       # stop
+docker compose down -v    # stop + wipe Postgres data
 ```
+
+- **postgres** — our database (sessions, criteria, audit …). After it's up,
+  apply the migrations in order and seed criteria (see the
+  [api README](./hospital-hotline-assistant-api) / `CLAUDE.md`):
+  `psql "$DATABASE_URL" -f migrations/00X_*.sql` then
+  `uv run python scripts/seed_screening_criteria.py`.
+- **his-mock** — the mock hospital HIS database (separate, SQLite). Auto-seeds
+  the synthetic pre-registration sample; reachable at `http://localhost:8001`
+  (`/docs` is the "hospital side" window). See
+  [`hospital-his-mock`](./hospital-his-mock).
+
+The backend and frontend run on your device (below), connecting to these on
+`localhost`.
 
 ### 2. Backend
 
