@@ -30,7 +30,11 @@ class LlmTriageEngine:
         input_mode: str,
         content: str,
         schedule_context: str | None = None,
+        turn_context: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
+        # The ADK path receives vitals as a bracketed text line injected by
+        # TriageService (``[PATIENT_VITALS: …]``); it does not consume the
+        # structured turn_context. Accepted for a uniform engine surface.
         return await self._runner.chat(
             session_id=session_id,
             language=language,
@@ -47,6 +51,7 @@ class LlmTriageEngine:
         input_mode: str,
         content: str,
         schedule_context: str | None = None,
+        turn_context: dict[str, Any] | None = None,
     ) -> AsyncIterator[dict[str, Any]]:
         async for event in self._runner.chat_stream(
             session_id=session_id,

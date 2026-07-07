@@ -43,9 +43,25 @@ class SessionVitalsUpdate(BaseModel):
     systolic: int = Field(..., ge=40, le=300)
     diastolic: int = Field(..., ge=20, le=200)
     pulse_bpm: int | None = Field(default=None, ge=20, le=250)
+    # Patient-typed vitals captured at the booth alongside the cuff reading.
+    weight_kg: float | None = Field(default=None, gt=0, le=400)
+    height_cm: float | None = Field(default=None, gt=0, le=272)
+    temperature_c: float | None = Field(default=None, ge=30, le=45)
     measured_at: datetime | None = None
     source: Literal["device", "manual"] = "device"
     reading_id: UUID | None = None
+
+
+class LinkVisitRequest(BaseModel):
+    visit_id: str = Field(..., min_length=1, max_length=64)
+
+
+class LinkVisitResponse(BaseModel):
+    linked: bool
+    visit_id: str
+    age_years: int | None = None
+    appointment: bool = False
+    has_his_vitals: bool = False
 
 
 class BpFetchRequest(BaseModel):

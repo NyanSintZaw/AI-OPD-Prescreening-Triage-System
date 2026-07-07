@@ -130,6 +130,25 @@ def _vitals_context(metadata: dict[str, Any]) -> str | None:
     )
 
 
+def _turn_context(metadata: dict[str, Any]) -> dict[str, Any] | None:
+    """Objective, non-LLM inputs for the deterministic engine: patient age
+    (from a linked HIS visit) and measured vitals (cuff / manual / HIS).
+
+    The screening engine merges these into its state before the red-flag
+    gate runs, so e.g. a cuff reading of 84/53 fires the danger-vitals rule
+    on turn 1. The ADK engine ignores this (it gets vitals as text instead).
+    """
+    ctx: dict[str, Any] = {}
+    visit = metadata.get("visit") or {}
+    age = visit.get("age_years")
+    if isinstance(age, (int, float)) and age >= 0:
+        ctx["age_years"] = age
+    vitals = metadata.get("vitals") or {}
+    if vitals:
+        ctx["vitals"] = vitals
+    return ctx or None
+
+
 def _classification_red_flags(value: Any) -> list[str]:
     if value is None:
         return []
@@ -305,6 +324,7 @@ class TriageService:
             input_mode=input_mode,
             content=agent_content,
             schedule_context=ctx.get("schedule_context"),
+            turn_context=_turn_context(ctx["prior_metadata"]),
         )
 
         return await self._finalize_chat_turn(
@@ -992,6 +1012,7 @@ class TriageService:
                 input_mode=input_mode,
                 content=agent_content,
                 schedule_context=ctx.get("schedule_context"),
+                turn_context=_turn_context(prior_metadata),
             ):
                 event_type = event.get("type")
                 if event_type == "delta":

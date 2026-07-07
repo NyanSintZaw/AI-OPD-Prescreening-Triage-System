@@ -40,6 +40,7 @@ from app.services.google_stt import GoogleSttClient
 from app.services.google_tts import GoogleTtsClient
 from app.services.live_voice_service import LiveVoiceService
 from app.services.notification_service import MockNotificationService
+from app.services.slip_code import slip_code_for
 
 logger = logging.getLogger(__name__)
 from app.schemas import (
@@ -66,6 +67,8 @@ from app.schemas import (
     FollowUpQuestionAnswerUpdate,
     FollowUpQuestionCreate,
     FollowUpQuestionOut,
+    LinkVisitRequest,
+    LinkVisitResponse,
     BloodPressureFetchResponse,
     BpDeviceStatusOut,
     BpFetchRequest,
@@ -307,7 +310,73 @@ async def create_session(payload: SessionCreate, connection: asyncpg.Connection 
         payload.ip_hash,
         payload.metadata,
     )
+    # Stamp the slip code (shown on the patient slip, searched by nurses at
+    # the destination) so every session — anonymous or visit-linked — has one.
+    metadata = dict(record["metadata"] or {})
+    metadata["slip_code"] = slip_code_for(str(record["id"]))
+    record = await connection.fetchrow(
+        "UPDATE sessions SET metadata = $2::jsonb WHERE id = $1 RETURNING *",
+        record["id"],
+        metadata,
+    )
     return record_to_dict(record)
+
+
+@app.post("/sessions/{session_id}/link-visit", response_model=LinkVisitResponse)
+async def link_visit(
+    session_id: UUID,
+    payload: LinkVisitRequest,
+    request: Request,
+    connection: asyncpg.Connection = Depends(get_connection),
+):
+    """Link a hospital visit to this session.
+
+    The patient types (or scans) the visit ID issued at the registration
+    booth; we validate it against the HIS and pull demographics (birthdate →
+    age) and any HIS-recorded vitals into session metadata so the screening
+    engine can pre-fill them. Unknown visit → ``linked=false`` and the
+    patient continues anonymously.
+    """
+    session_row = await connection.fetchrow(
+        "SELECT metadata FROM sessions WHERE id = $1", session_id
+    )
+    if session_row is None:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    adapter = request.app.state.his_adapter
+    info = await adapter.validate_visit(payload.visit_id)
+    if info is None or not info.is_active:
+        return LinkVisitResponse(linked=False, visit_id=payload.visit_id)
+
+    metadata = dict(session_row["metadata"] or {})
+    metadata["visit"] = {
+        "visit_id": info.visit_id,
+        "hn": info.patient_id,
+        "birthdate": info.birthdate,
+        "age_years": info.age_years,
+        "appointment": info.appointment,
+        "linked_at": datetime.now(timezone.utc).isoformat(),
+    }
+    # Seed session vitals with anything the HIS already holds; a later cuff
+    # reading or manual entry overrides these.
+    his_vitals = {k: v for k, v in (info.vitals or {}).items() if v is not None}
+    if his_vitals:
+        merged = dict(metadata.get("vitals") or {})
+        merged.update(his_vitals)
+        merged.setdefault("source", "his")
+        metadata["vitals"] = merged
+    await connection.execute(
+        "UPDATE sessions SET metadata = $2::jsonb WHERE id = $1",
+        session_id,
+        metadata,
+    )
+    return LinkVisitResponse(
+        linked=True,
+        visit_id=info.visit_id,
+        age_years=info.age_years,
+        appointment=info.appointment,
+        has_his_vitals=bool(his_vitals),
+    )
 
 @app.get("/sessions/{session_id}", response_model=SessionOut)
 async def get_session(session_id: UUID, connection: asyncpg.Connection = Depends(get_connection)):
@@ -457,7 +526,10 @@ async def update_session_vitals(
         raise HTTPException(status_code=404, detail="Session not found")
 
     metadata = dict(session_row["metadata"] or {})
+    # Preserve any patient-typed vitals from a prior call on this session.
+    existing_vitals = dict(metadata.get("vitals") or {})
     vitals = {
+        **existing_vitals,
         "systolic": payload.systolic,
         "diastolic": payload.diastolic,
         "pulse_bpm": payload.pulse_bpm,
@@ -465,6 +537,12 @@ async def update_session_vitals(
         "source": payload.source,
         "recorded_at": datetime.now(timezone.utc).isoformat(),
     }
+    if payload.weight_kg is not None:
+        vitals["weight_kg"] = payload.weight_kg
+    if payload.height_cm is not None:
+        vitals["height_cm"] = payload.height_cm
+    if payload.temperature_c is not None:
+        vitals["temperature"] = payload.temperature_c
     metadata["vitals"] = vitals
     await connection.execute(
         "UPDATE sessions SET metadata = $2::jsonb WHERE id = $1",

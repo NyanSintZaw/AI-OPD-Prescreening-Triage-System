@@ -20,6 +20,7 @@ from .graph import build_screening_graph
 from .nodes.base import GraphDeps
 from .persistence import InMemoryStateStore, StateStore
 from .state import ScreeningState, TurnOutput
+from .vitals import normalize_vitals
 
 logger = logging.getLogger(__name__)
 
@@ -85,12 +86,14 @@ class ScreeningTriageEngine:
         input_mode: str,
         content: str,
         schedule_context: str | None = None,
+        turn_context: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         return await self._execute(
             session_id=session_id,
             language=language,
             input_mode=input_mode,
             content=content,
+            turn_context=turn_context,
         )
 
     async def run_turn_stream(
@@ -101,12 +104,14 @@ class ScreeningTriageEngine:
         input_mode: str,
         content: str,
         schedule_context: str | None = None,
+        turn_context: dict[str, Any] | None = None,
     ) -> AsyncIterator[dict[str, Any]]:
         result = await self._execute(
             session_id=session_id,
             language=language,
             input_mode=input_mode,
             content=content,
+            turn_context=turn_context,
         )
         yield {"type": "delta", "text": result["reply"]}
         if result["classification"].get("classified") is True:
@@ -137,6 +142,27 @@ class ScreeningTriageEngine:
 
     # -- internals ---------------------------------------------------------------
 
+    @staticmethod
+    def _apply_turn_context(
+        state: ScreeningState, turn_context: dict[str, Any] | None
+    ) -> None:
+        """Merge booth-supplied age + measured vitals into the state before
+        the graph runs, so the red-flag gate evaluates real numbers (e.g. a
+        cuff reading of 84/53 fires the danger-vitals rule deterministically).
+
+        Objective vitals/age override prior values; the LLM never sees or
+        decides these, it only extracts symptoms.
+        """
+        if not turn_context:
+            return
+        age = turn_context.get("age_years")
+        if isinstance(age, (int, float)) and age >= 0:
+            state.age_years = float(age)
+            state.age_asked = True  # never ask — the HIS gave it to us
+        vitals = normalize_vitals(turn_context.get("vitals"))
+        if vitals:
+            state.vitals.update(vitals)
+
     def _new_state(self, session_id: str, language: str, input_mode: str) -> ScreeningState:
         return ScreeningState(
             session_id=session_id,
@@ -152,7 +178,13 @@ class ScreeningTriageEngine:
         return contact_turn, cleaned
 
     async def _execute(
-        self, *, session_id: str, language: str, input_mode: str, content: str
+        self,
+        *,
+        session_id: str,
+        language: str,
+        input_mode: str,
+        content: str,
+        turn_context: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         contact_turn, user_text = self._parse_content(content)
         state = await self._store.load(session_id)
@@ -161,6 +193,7 @@ class ScreeningTriageEngine:
         if language in ("en", "th"):
             state.language = language  # session language is locked upstream
         state.mode = "voice" if input_mode == "voice" else "text"
+        self._apply_turn_context(state, turn_context)
 
         version_id, criteria = await self._store.get_criteria(state.criteria_version_id)
         state.criteria_version_id = version_id

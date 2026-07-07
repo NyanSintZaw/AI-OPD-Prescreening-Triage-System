@@ -54,8 +54,14 @@ class TriageEngine(Protocol):
         language: str,
         input_mode: str,
         content: str,
+        schedule_context: str | None = None,
+        turn_context: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
-        """Return the model turn result with reply/classification/contact."""
+        """Return the model turn result with reply/classification/contact.
+
+        ``turn_context`` carries objective, non-LLM inputs (age, measured
+        vitals) the deterministic engine merges into state before deciding.
+        """
 
     async def run_turn_stream(
         self,
@@ -64,6 +70,8 @@ class TriageEngine(Protocol):
         language: str,
         input_mode: str,
         content: str,
+        schedule_context: str | None = None,
+        turn_context: dict[str, Any] | None = None,
     ) -> AsyncIterator[dict[str, Any]]:
         """Stream model events for a turn."""
 
