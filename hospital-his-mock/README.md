@@ -40,6 +40,23 @@ is blank. Then our system fills the blanks in two stages:
 
 ## Run
 
+### With Docker (recommended for the team — just like Postgres)
+
+No Python/uv needed — only Docker. Same pattern as starting the Postgres DB:
+
+```bash
+cd hospital-his-mock
+docker compose up -d          # API on http://localhost:8001
+docker compose down           # stop
+docker compose down && docker compose up -d --build   # reset to clean before-state
+```
+
+A fresh container auto-seeds the synthetic pre-registration sample. To load a
+real export instead, uncomment the `volumes` + `HIS_MOCK_DATA_PATH` block in
+`docker-compose.yml`.
+
+### Locally with uv
+
 ```bash
 cd hospital-his-mock
 uv sync
@@ -53,8 +70,8 @@ uv run uvicorn his_mock.main:app --port 8001
 ```
 
 Open http://localhost:8001/docs — this doubles as the **"hospital side" window**
-for the demo: watch a visit's prescreen record appear (stage 1) and flip to
-`confirmed`/`rerouted` (stage 2) as the flow runs.
+for the demo: watch a visit's record go blank → `screened` (stage 1) →
+`routed` (stage 2) as the flow runs.
 
 ## API
 
