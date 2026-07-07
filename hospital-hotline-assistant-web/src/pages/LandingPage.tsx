@@ -65,7 +65,9 @@ export function LandingPage() {
         user_agent: navigator.userAgent,
       });
       setSessionId(session.id);
-      navigate(mode === 'call' ? '/call' : '/chat');
+      // Route through the blood-pressure gate before the conversation
+      // starts; it forwards to /call or /chat when the patient is done.
+      navigate(`/vitals?mode=${mode}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : t('error'));
       setStartingMode(null);

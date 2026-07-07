@@ -6,6 +6,11 @@ import type {
   AssessmentReviewApproveRequest,
   AssessmentReviewCorrectRequest,
   AssessmentReviewOut,
+  BloodPressureFetchResponse,
+  BpDeviceStatusOut,
+  BpPairRequest,
+  BpPairResponse,
+  BpScanResponse,
   ChatRequestPayload,
   ChatResponsePayload,
   ChatStreamEvent,
@@ -31,6 +36,7 @@ import type {
   SessionLocationUpdate,
   SessionOut,
   SessionUpdate,
+  SessionVitalsUpdate,
   SeverityAssessmentCreate,
   SttResponsePayload,
   SurveillanceSummaryOut,
@@ -324,6 +330,29 @@ export const api = {
     request<DoctorWithSchedulesOut[]>(
       `/schedules/available${scheduleDate ? `?schedule_date=${scheduleDate}` : ''}`,
     ),
+
+  // ── Vitals (blood pressure kiosk) ──────────────────────────────────────────
+  fetchBloodPressure: () =>
+    request<BloodPressureFetchResponse>('/vitals/blood-pressure/fetch', {
+      method: 'POST',
+    }),
+
+  updateSessionVitals: (sessionId: string, payload: SessionVitalsUpdate) =>
+    request<{ session_id: string; vitals: Record<string, unknown> }>(
+      `/sessions/${sessionId}/vitals`,
+      { method: 'PUT', body: JSON.stringify(payload) },
+    ),
+
+  getBpDeviceStatus: () => request<BpDeviceStatusOut>('/admin/bp-device'),
+
+  scanBpDevices: () =>
+    request<BpScanResponse>('/admin/bp-device/scan', { method: 'POST' }),
+
+  pairBpDevice: (payload: BpPairRequest) =>
+    request<BpPairResponse>('/admin/bp-device/pair', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
 
   // ── Disease Surveillance ───────────────────────────────────────────────────
   updateSessionLocation: (sessionId: string, payload: SessionLocationUpdate) =>

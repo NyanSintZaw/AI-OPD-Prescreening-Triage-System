@@ -30,6 +30,10 @@ from app.services.admin_auth import (
     validate_admin_token,
     verify_password,
 )
+from app.services.blood_pressure import (
+    BloodPressureFetchError,
+    BloodPressureService,
+)
 from app.services.google_stt import GoogleSttClient
 from app.services.google_tts import GoogleTtsClient
 from app.services.live_voice_service import LiveVoiceService
@@ -60,6 +64,11 @@ from app.schemas import (
     FollowUpQuestionAnswerUpdate,
     FollowUpQuestionCreate,
     FollowUpQuestionOut,
+    BloodPressureFetchResponse,
+    BpDeviceStatusOut,
+    BpPairRequest,
+    BpPairResponse,
+    BpScanResponse,
     MessageCreate,
     MessageOut,
     RoutingRuleOut,
@@ -67,6 +76,7 @@ from app.schemas import (
     SessionLocationUpdate,
     SessionOut,
     SessionUpdate,
+    SessionVitalsUpdate,
     SeverityAssessmentCreate,
     RoutingFeedbackOut,
     SttResponse,
@@ -89,6 +99,8 @@ async def lifespan(app: FastAPI):
     app.state.live_voice_service = LiveVoiceService(
         triage_service=app.state.triage_service
     )
+    # Kiosk-side Omron cuff reader (omblepy subprocess wrapper).
+    app.state.bp_service = BloodPressureService()
     try:
         yield
     finally:
@@ -326,6 +338,129 @@ async def update_session_location(
     if record is None:
         raise HTTPException(status_code=404, detail="Session not found")
     return {"session_id": str(record["id"]), "location_area": record["location_area"]}
+
+
+@app.put("/sessions/{session_id}/vitals")
+async def update_session_vitals(
+    session_id: UUID,
+    payload: SessionVitalsUpdate,
+    connection: asyncpg.Connection = Depends(get_connection),
+):
+    """Store a blood-pressure reading on the session so the triage agent
+    (text chat and live voice) can factor it into the assessment.
+    Called by the vitals gate UI after a cuff fetch or manual entry.
+    """
+    session_row = await connection.fetchrow(
+        "SELECT metadata FROM sessions WHERE id = $1", session_id
+    )
+    if session_row is None:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    metadata = dict(session_row["metadata"] or {})
+    vitals = {
+        "systolic": payload.systolic,
+        "diastolic": payload.diastolic,
+        "pulse_bpm": payload.pulse_bpm,
+        "measured_at": payload.measured_at.isoformat() if payload.measured_at else None,
+        "source": payload.source,
+        "recorded_at": datetime.now(timezone.utc).isoformat(),
+    }
+    metadata["vitals"] = vitals
+    await connection.execute(
+        "UPDATE sessions SET metadata = $2::jsonb WHERE id = $1",
+        session_id,
+        metadata,
+    )
+    return {"session_id": str(session_id), "vitals": vitals}
+
+
+@app.post("/vitals/blood-pressure/fetch", response_model=BloodPressureFetchResponse)
+async def fetch_blood_pressure(request: Request):
+    """Pull the latest reading from the Omron cuff over Bluetooth.
+
+    Runs omblepy on the API host (takes ~20-30s while it talks to the
+    cuff). Always returns 200 with a ``status`` field so the kiosk UI can
+    branch on failure modes (device not advertising, busy, ...) without
+    an error-handling side channel.
+    """
+    bp_service: BloodPressureService = request.app.state.bp_service
+    try:
+        reading = await bp_service.fetch_latest()
+    except BloodPressureFetchError as exc:
+        return BloodPressureFetchResponse(status=exc.code, message=str(exc))
+    except Exception as exc:  # noqa: BLE001 — surface as structured error
+        logger.exception("Unexpected omblepy failure")
+        return BloodPressureFetchResponse(status="error", message=str(exc))
+    return BloodPressureFetchResponse(
+        status="ok",
+        systolic=reading.systolic,
+        diastolic=reading.diastolic,
+        pulse_bpm=reading.pulse_bpm,
+        measured_at=reading.measured_at,
+        is_recent=bp_service.is_recent(reading),
+        irregular_heartbeat=reading.irregular_heartbeat,
+        body_movement=reading.body_movement,
+    )
+
+
+@app.get("/admin/bp-device", response_model=BpDeviceStatusOut)
+async def get_bp_device_status(
+    request: Request,
+    _admin_user: dict = Depends(require_roles("super_admin", "admin", "viewer")),
+):
+    """Current cuff configuration for the admin portal device manager."""
+    bp_service: BloodPressureService = request.app.state.bp_service
+    return BpDeviceStatusOut(
+        device_name=settings.bp_device_name,
+        device_mac=settings.bp_device_mac,
+        configured=bool(settings.bp_device_mac),
+        busy=bp_service.is_busy,
+        supported_models=bp_service.supported_models(),
+    )
+
+
+@app.post("/admin/bp-device/scan", response_model=BpScanResponse)
+async def scan_bp_devices(
+    request: Request,
+    _admin_user: dict = Depends(require_roles("super_admin", "admin")),
+):
+    """Sweep for nearby BLE devices (~6s) so the admin can pick the cuff.
+
+    Mirrors omblepy's interactive selection table: likely Omron monitors
+    are flagged and sorted first.
+    """
+    bp_service: BloodPressureService = request.app.state.bp_service
+    try:
+        devices = await bp_service.scan_devices()
+    except BloodPressureFetchError as exc:
+        return BpScanResponse(status="busy" if exc.code == "busy" else "error", message=str(exc))
+    except Exception as exc:  # noqa: BLE001 — surface as structured error
+        logger.exception("BLE scan failed")
+        return BpScanResponse(status="error", message=str(exc))
+    return BpScanResponse(status="ok", devices=devices)
+
+
+@app.post("/admin/bp-device/pair", response_model=BpPairResponse)
+async def pair_bp_device(
+    payload: BpPairRequest,
+    request: Request,
+    _admin_user: dict = Depends(require_roles("super_admin", "admin")),
+):
+    """Program the pairing key into the selected cuff and make it the
+    active kiosk device (persists to .env, effective immediately)."""
+    bp_service: BloodPressureService = request.app.state.bp_service
+    try:
+        await bp_service.pair_device(payload.mac, payload.device_name)
+    except BloodPressureFetchError as exc:
+        return BpPairResponse(status=exc.code, message=str(exc))
+    except Exception as exc:  # noqa: BLE001 — surface as structured error
+        logger.exception("Unexpected pairing failure")
+        return BpPairResponse(status="error", message=str(exc))
+    return BpPairResponse(
+        status="ok",
+        device_name=settings.bp_device_name,
+        device_mac=settings.bp_device_mac,
+    )
 
 
 @app.post("/sessions/{session_id}/messages", response_model=MessageOut, status_code=status.HTTP_201_CREATED)

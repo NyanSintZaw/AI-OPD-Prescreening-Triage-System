@@ -25,6 +25,11 @@ class Settings(BaseSettings):
     google_genai_use_vertexai: bool = True
     live_debug_events: bool = False
     live_debug_audio: bool = False
+    bp_device_name: str = "hem-7280t"
+    bp_device_mac: str | None = None
+    bp_omblepy_dir: str | None = None
+    bp_python_bin: str | None = None
+    bp_fetch_timeout_seconds: int = 120
     embed_model: str = "intfloat/multilingual-e5-small"
     triage_manual_path: str = "app/data/triage_manual.pdf"
     pgvector_table: str = "triage_knowledge"

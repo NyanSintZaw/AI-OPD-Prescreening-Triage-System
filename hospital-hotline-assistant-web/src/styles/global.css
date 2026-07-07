@@ -4553,3 +4553,456 @@ a:hover {
 .tm-confirm-yes {
   background: var(--color-emergency, #ef4444) !important;
 }
+
+/* ── Vitals gate (blood pressure kiosk) ─────────────────────────────── */
+.vitals-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.vitals-icon {
+  width: 72px;
+  height: 72px;
+  margin: 0 auto 1rem;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--color-emergency-bg);
+}
+
+.vitals-icon svg {
+  width: 36px;
+  height: 36px;
+  fill: var(--mch-red, #dc2626);
+}
+
+.vitals-icon-pulse svg {
+  animation: vitals-heartbeat 1.1s ease-in-out infinite;
+}
+
+@keyframes vitals-heartbeat {
+  0%, 100% { transform: scale(1); }
+  15% { transform: scale(1.18); }
+  30% { transform: scale(1); }
+  45% { transform: scale(1.12); }
+  60% { transform: scale(1); }
+}
+
+.vitals-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  width: min(100%, 340px);
+  margin: 1.5rem auto 0;
+}
+
+.vitals-actions .primary-btn,
+.vitals-actions .secondary-btn {
+  width: 100%;
+}
+
+.vitals-skip {
+  background: none;
+  border: none;
+  color: var(--color-muted);
+  text-decoration: underline;
+  cursor: pointer;
+  font-size: 0.9rem;
+  margin-top: 1.25rem;
+  padding: 0.25rem;
+}
+
+.vitals-steps {
+  text-align: left;
+  margin: 1rem auto 0;
+  padding-left: 1.5rem;
+  max-width: 420px;
+  color: var(--color-text);
+  line-height: 1.6;
+  display: grid;
+  gap: 0.6rem;
+}
+
+.vitals-progress {
+  width: min(100%, 340px);
+  height: 8px;
+  border-radius: 999px;
+  background: var(--color-bg-alt);
+  overflow: hidden;
+  margin: 1.5rem auto 0;
+}
+
+.vitals-progress-bar {
+  height: 100%;
+  width: 40%;
+  border-radius: 999px;
+  background: var(--color-primary);
+  animation: vitals-progress-slide 1.6s ease-in-out infinite;
+}
+
+@keyframes vitals-progress-slide {
+  0% { transform: translateX(-110%); }
+  100% { transform: translateX(280%); }
+}
+
+.vitals-readings {
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+  margin-top: 1.25rem;
+  flex-wrap: wrap;
+}
+
+.vitals-reading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: var(--color-bg-alt);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: 1rem 1.25rem;
+  min-width: 108px;
+}
+
+.vitals-value {
+  font-family: var(--font-heading);
+  font-size: 2.1rem;
+  font-weight: 700;
+  color: var(--color-text-heading);
+  line-height: 1.1;
+}
+
+.vitals-label {
+  font-size: 0.85rem;
+  color: var(--color-muted);
+  margin-top: 0.35rem;
+}
+
+.vitals-unit {
+  font-size: 0.75rem;
+  color: var(--color-muted);
+}
+
+.vitals-measured-at {
+  margin: 1rem 0 0;
+  font-size: 0.9rem;
+}
+
+.vitals-warning {
+  background: #fef9ec;
+  border: 1px solid var(--mch-gold, #d1a054);
+  color: var(--color-text);
+  border-radius: var(--radius-sm);
+  padding: 0.6rem 0.9rem;
+  font-size: 0.9rem;
+  margin: 0.75rem auto 0;
+  max-width: 420px;
+}
+
+/* ── Admin: BP device manager ───────────────────────────────────────── */
+.bpdev-container {
+  padding: 0.25rem 0 1rem;
+}
+
+.bpdev-grid {
+  display: grid;
+  grid-template-columns: minmax(280px, 380px) 1fr;
+  gap: 1.25rem;
+  align-items: start;
+}
+
+@media (max-width: 860px) {
+  .bpdev-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.bpdev-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: 1.25rem 1.4rem 1.5rem;
+  box-shadow: var(--shadow-card);
+}
+
+.bpdev-card-title {
+  margin: 0 0 1rem;
+  font-size: 1rem;
+}
+
+.bpdev-current {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.bpdev-device-icon {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--color-bg-alt);
+  flex-shrink: 0;
+}
+
+.bpdev-device-icon svg {
+  width: 28px;
+  height: 28px;
+  fill: var(--color-muted);
+}
+
+.bpdev-device-icon.ok {
+  background: var(--color-emergency-bg);
+}
+
+.bpdev-device-icon.ok svg {
+  fill: var(--mch-red, #dc2626);
+}
+
+.bpdev-current-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  align-items: flex-start;
+}
+
+.bpdev-model {
+  font-family: var(--font-heading);
+  font-weight: 700;
+  font-size: 1.15rem;
+  color: var(--color-text-heading);
+}
+
+.bpdev-mac {
+  font-size: 0.8rem;
+  background: var(--color-bg-alt);
+  padding: 0.1rem 0.4rem;
+  border-radius: var(--radius-sm);
+}
+
+.bpdev-chip {
+  display: inline-block;
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 0.15rem 0.6rem;
+  border-radius: 999px;
+}
+
+.bpdev-chip.chip-ok {
+  background: #e8f7ee;
+  color: #157347;
+  border: 1px solid #b6e2c8;
+}
+
+.bpdev-chip.chip-warn {
+  background: #fef9ec;
+  color: #92640a;
+  border: 1px solid #ecd9a6;
+}
+
+.bpdev-chip-inline {
+  margin-left: 0.5rem;
+}
+
+.bpdev-hint {
+  font-size: 0.85rem;
+  margin: 0 0 0.75rem;
+}
+
+.bpdev-test-btn {
+  width: 100%;
+}
+
+.bpdev-progress {
+  margin-top: 1rem;
+}
+
+.bpdev-test-result {
+  margin-top: 1rem;
+  border: 1px solid #b6e2c8;
+  background: #f2fbf5;
+  border-radius: var(--radius);
+  padding: 0.85rem 1rem;
+}
+
+.bpdev-test-ok {
+  color: #157347;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.bpdev-test-values {
+  display: flex;
+  gap: 1.25rem;
+  flex-wrap: wrap;
+  margin-top: 0.5rem;
+  font-size: 0.95rem;
+}
+
+.bpdev-test-error {
+  margin-top: 0.9rem;
+}
+
+.bpdev-steps {
+  text-align: left;
+  margin: 0 0 1rem;
+  padding-left: 1.4rem;
+  display: grid;
+  gap: 0.5rem;
+  line-height: 1.55;
+  font-size: 0.92rem;
+}
+
+.bpdev-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin-bottom: 1rem;
+  font-size: 0.88rem;
+  font-weight: 600;
+  max-width: 260px;
+}
+
+.bpdev-select {
+  padding: 0.55rem 0.7rem;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  font: inherit;
+  font-weight: 500;
+}
+
+.bpdev-center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 0.4rem;
+  padding: 1.25rem 0 0.5rem;
+}
+
+.bpdev-radar {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  border: 3px solid var(--color-primary);
+  position: relative;
+  margin-bottom: 0.75rem;
+  animation: bpdev-radar-ring 1.4s ease-out infinite;
+}
+
+@keyframes bpdev-radar-ring {
+  0% { box-shadow: 0 0 0 0 rgba(64, 165, 200, 0.45); }
+  100% { box-shadow: 0 0 0 26px rgba(64, 165, 200, 0); }
+}
+
+.bpdev-pair-icon {
+  margin-bottom: 0.5rem;
+}
+
+.bpdev-table-wrap {
+  max-height: 320px;
+  overflow-y: auto;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+}
+
+.bpdev-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+}
+
+.bpdev-table th {
+  position: sticky;
+  top: 0;
+  background: var(--color-bg-alt);
+  text-align: left;
+  padding: 0.55rem 0.8rem;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--color-muted);
+}
+
+.bpdev-table td {
+  padding: 0.55rem 0.8rem;
+  border-top: 1px solid var(--color-border);
+}
+
+.bpdev-row {
+  cursor: pointer;
+}
+
+.bpdev-row:hover {
+  background: var(--color-bg-alt);
+}
+
+.bpdev-row.omron {
+  background: #f2fbf5;
+}
+
+.bpdev-row.selected {
+  background: var(--color-user-bubble);
+  outline: 2px solid var(--color-primary);
+  outline-offset: -2px;
+}
+
+.bpdev-signal {
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 16px;
+}
+
+.bpdev-signal-bar {
+  width: 4px;
+  border-radius: 1px;
+  background: var(--color-border-strong);
+}
+
+.bpdev-signal-bar.on {
+  background: var(--color-primary);
+}
+
+.bpdev-actions {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  align-items: center;
+  margin-top: 1rem;
+}
+
+.bpdev-success-check {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: #e8f7ee;
+  color: #157347;
+  font-size: 1.8rem;
+  font-weight: 700;
+  margin-bottom: 0.4rem;
+}
+
+.bpdev-success-title {
+  font-family: var(--font-heading);
+  font-weight: 700;
+  font-size: 1.1rem;
+  margin: 0;
+  color: var(--color-text-heading);
+}
+
+.vitals-press-start {
+  color: var(--color-primary-dark);
+  animation: vitals-press-start-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes vitals-press-start-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.55; }
+}
