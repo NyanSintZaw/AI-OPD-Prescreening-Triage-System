@@ -1,0 +1,3 @@
+[submodule "omblepy"]
+	path = omblepy
+	url = https://github.com/userx14/omblepy.git
