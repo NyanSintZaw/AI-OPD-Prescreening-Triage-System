@@ -66,6 +66,7 @@ from app.schemas import (
     FollowUpQuestionOut,
     BloodPressureFetchResponse,
     BpDeviceStatusOut,
+    BpFetchRequest,
     BpPairRequest,
     BpPairResponse,
     BpScanResponse,
@@ -340,6 +341,67 @@ async def update_session_location(
     return {"session_id": str(record["id"]), "location_area": record["location_area"]}
 
 
+async def _store_bp_reading(
+    connection: asyncpg.Connection,
+    *,
+    session_id: UUID | None,
+    systolic: int,
+    diastolic: int,
+    pulse_bpm: int | None,
+    measured_at: datetime | None,
+    irregular_heartbeat: bool | None = None,
+    body_movement: bool | None = None,
+    source: str = "device",
+) -> UUID | None:
+    """Insert a reading into ``bp_readings`` and return its id.
+
+    Device readings are deduplicated on (measured_at, systolic, diastolic):
+    the kiosk polls the cuff while waiting, so the same measurement arrives
+    several times. On a duplicate, the existing row is returned and its
+    session link is filled in if it was still missing.
+    """
+    if measured_at is not None and measured_at.tzinfo is not None:
+        # bp_readings.measured_at is the cuff's own (naive, local) clock.
+        measured_at = measured_at.astimezone().replace(tzinfo=None)
+    row = await connection.fetchrow(
+        """
+        INSERT INTO bp_readings
+            (session_id, systolic, diastolic, pulse_bpm, measured_at,
+             irregular_heartbeat, body_movement, source)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        ON CONFLICT (measured_at, systolic, diastolic) WHERE source = 'device'
+        DO NOTHING
+        RETURNING id
+        """,
+        session_id,
+        systolic,
+        diastolic,
+        pulse_bpm,
+        measured_at,
+        irregular_heartbeat,
+        body_movement,
+        source,
+    )
+    if row is not None:
+        return row["id"]
+    # Duplicate device reading from an earlier poll — reuse it and attach
+    # the session if this call knows it and the stored row does not yet.
+    row = await connection.fetchrow(
+        """
+        UPDATE bp_readings
+        SET session_id = COALESCE(session_id, $4)
+        WHERE source = 'device'
+          AND measured_at = $1 AND systolic = $2 AND diastolic = $3
+        RETURNING id
+        """,
+        measured_at,
+        systolic,
+        diastolic,
+        session_id,
+    )
+    return row["id"] if row is not None else None
+
+
 @app.put("/sessions/{session_id}/vitals")
 async def update_session_vitals(
     session_id: UUID,
@@ -371,17 +433,44 @@ async def update_session_vitals(
         session_id,
         metadata,
     )
+
+    # Keep the durable bp_readings row in sync: link the row created at
+    # fetch time when we have its id, otherwise store this (e.g. manual)
+    # reading now.
+    if payload.reading_id is not None:
+        await connection.execute(
+            "UPDATE bp_readings SET session_id = $2 WHERE id = $1",
+            payload.reading_id,
+            session_id,
+        )
+    else:
+        await _store_bp_reading(
+            connection,
+            session_id=session_id,
+            systolic=payload.systolic,
+            diastolic=payload.diastolic,
+            pulse_bpm=payload.pulse_bpm,
+            measured_at=payload.measured_at,
+            source=payload.source,
+        )
     return {"session_id": str(session_id), "vitals": vitals}
 
 
 @app.post("/vitals/blood-pressure/fetch", response_model=BloodPressureFetchResponse)
-async def fetch_blood_pressure(request: Request):
+async def fetch_blood_pressure(
+    request: Request,
+    payload: BpFetchRequest | None = None,
+    connection: asyncpg.Connection = Depends(get_connection),
+):
     """Pull the latest reading from the Omron cuff over Bluetooth.
 
-    Runs omblepy on the API host (takes ~20-30s while it talks to the
-    cuff). Always returns 200 with a ``status`` field so the kiosk UI can
-    branch on failure modes (device not advertising, busy, ...) without
-    an error-handling side channel.
+    Runs omblepy on the API host. Always returns 200 with a ``status``
+    field so the kiosk UI can branch on failure modes (device not
+    advertising, busy, ...) without an error-handling side channel.
+
+    A fresh reading is persisted to ``bp_readings`` immediately — before
+    the patient decides to continue — so the measurement survives even if
+    they cancel the voice/chat flow right after measuring.
     """
     bp_service: BloodPressureService = request.app.state.bp_service
     try:
@@ -391,15 +480,37 @@ async def fetch_blood_pressure(request: Request):
     except Exception as exc:  # noqa: BLE001 — surface as structured error
         logger.exception("Unexpected omblepy failure")
         return BloodPressureFetchResponse(status="error", message=str(exc))
+
+    is_recent = bp_service.is_recent(reading)
+    reading_id: UUID | None = None
+    if is_recent:
+        # Stale cuff history (is_recent=False) is reported to the UI but
+        # not stored — only measurements taken at the kiosk go to the DB.
+        try:
+            reading_id = await _store_bp_reading(
+                connection,
+                session_id=payload.session_id if payload else None,
+                systolic=reading.systolic,
+                diastolic=reading.diastolic,
+                pulse_bpm=reading.pulse_bpm,
+                measured_at=reading.measured_at,
+                irregular_heartbeat=reading.irregular_heartbeat,
+                body_movement=reading.body_movement,
+                source="device",
+            )
+        except Exception:  # noqa: BLE001 — reading display must not fail
+            logger.exception("Failed to persist bp reading")
+
     return BloodPressureFetchResponse(
         status="ok",
         systolic=reading.systolic,
         diastolic=reading.diastolic,
         pulse_bpm=reading.pulse_bpm,
         measured_at=reading.measured_at,
-        is_recent=bp_service.is_recent(reading),
+        is_recent=is_recent,
         irregular_heartbeat=reading.irregular_heartbeat,
         body_movement=reading.body_movement,
+        reading_id=reading_id,
     )
 
 

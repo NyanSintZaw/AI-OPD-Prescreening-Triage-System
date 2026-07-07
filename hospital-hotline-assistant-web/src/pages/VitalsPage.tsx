@@ -110,7 +110,7 @@ export function VitalsPage() {
       }
       setWatchStage('reading');
       try {
-        const result = await api.fetchBloodPressure();
+        const result = await api.fetchBloodPressure(sessionId);
         if (watchTokenRef.current !== token) return;
         if (result.status === 'ok' && result.measured_at) {
           const measuredMs = new Date(result.measured_at).getTime();
@@ -145,6 +145,7 @@ export function VitalsPage() {
           pulse_bpm: reading.pulse_bpm,
           measured_at: reading.measured_at,
           source: 'device',
+          reading_id: reading.reading_id,
         });
       }
     } catch {

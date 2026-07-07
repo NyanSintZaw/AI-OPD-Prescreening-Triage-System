@@ -35,22 +35,33 @@ class sharedDeviceDriverCode():
         newUnreadRecordSettings = unreadRecordsSettingsCopy[:4] + resetUnreadRecordsBytes * 2 + unreadRecordsSettingsCopy[8:]
         self.cachedSettingsBytes[slice(*self.settingsUnreadRecordsBytes)] = newUnreadRecordSettings
     
-    async def getRecords(self, btobj, useUnreadCounter, syncTime):
+    async def getRecords(self, btobj, useUnreadCounter, syncTime, latestOnly = False):
+        if(latestOnly and self.settingsUnreadRecordsBytes is None):
+            logger.warning("This driver does not define settingsUnreadRecordsBytes, ignoring latestOnly and reading all records.")
+            latestOnly = False
+        if(latestOnly):
+            #latest-only is strictly read-only: never clear the unread counters
+            useUnreadCounter = False
+
         await btobj.unlockWithUnlockKey()
         await btobj.startTransmission()
 
-        #cache settings for time sync and for unread record counter
+        #cache settings for time sync, unread record counter and latest-record lookup
 
-        if(syncTime or useUnreadCounter):
+        if(syncTime or useUnreadCounter or latestOnly):
             #initialize cached settings bytes with zeros and use bytearray so that the values are mutable
-            self.cachedSettingsBytes = bytearray(b'\0' * (self.settingsWriteAddress - self.settingsReadAddress)) 
+            self.cachedSettingsBytes = bytearray(b'\0' * (self.settingsWriteAddress - self.settingsReadAddress))
             for section in [self.settingsUnreadRecordsBytes, self.settingsTimeSyncBytes]:
+                if(section is None):
+                    continue
                 sectionNumBytes = section[1] - section[0]
                 if(sectionNumBytes >= 54):
                     raise ValueError("Section to big for a single read")
                 self.cachedSettingsBytes[slice(*section)] = await btobj.readContinuousEepromData(self.settingsReadAddress+section[0], sectionNumBytes, sectionNumBytes)
-        
-        if(useUnreadCounter):
+
+        if(latestOnly):
+            allUsersReadCommandsList = await self._getReadCommands_LatestRecordOnly()
+        elif(useUnreadCounter):
             allUsersReadCommandsList = await self._getReadCommands_OnlyNewRecords()
         else:
             allUsersReadCommandsList = await self._getReadCommands_AllRecords()
@@ -127,6 +138,20 @@ class sharedDeviceDriverCode():
             readCmds = self.calcRingBufferRecordReadLocations(userIdx, unreadRecordsForUser, lastWrittenSlotForUser)
             allUsersReadCommandsList.append(readCmds)
         return allUsersReadCommandsList
+    async def _getReadCommands_LatestRecordOnly(self):
+        #read a single record per user: the ring buffer slot right before the write pointer
+        allUsersReadCommandsList = []
+        readRecordsInfoByteArray = self.cachedSettingsBytes[slice(*self.settingsUnreadRecordsBytes)]
+        for userIdx in range(len(self.userStartAdressesList)):
+            lastWrittenSlotForUser = self._bytearrayBitsToInt(readRecordsInfoByteArray[2*userIdx+0:2*userIdx+2], 8, 15)
+            latestRecordSlot = (lastWrittenSlotForUser - 1) % self.perUserRecordsCountList[userIdx]
+            logger.info(f"Current ring buffer slot user{userIdx+1}: {lastWrittenSlotForUser}, reading only slot {latestRecordSlot}.")
+            readCommand = dict()
+            readCommand["address"] = self.userStartAdressesList[userIdx] + latestRecordSlot * self.recordByteSize
+            readCommand["size"]    = self.recordByteSize
+            allUsersReadCommandsList.append([readCommand])
+        return allUsersReadCommandsList
+
     async def _getReadCommands_AllRecords(self):
         allUsersReadCommandsList = []
         for userIdx, userStartAddress in enumerate(self.userStartAdressesList):

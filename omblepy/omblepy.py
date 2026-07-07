@@ -313,6 +313,16 @@ def appendCsv(allRecords):
             if allRecords[userIdx]:
                 writer.writerow(allRecords[userIdx][-1])           #only the single most recent reading
 
+def printJsonResult(allRecords):
+    #machine-readable output for the kiosk API: one stdout line, no files written
+    serializable = []
+    for userRecords in allRecords:
+        serializable.append([
+            {**rec, "datetime": rec["datetime"].strftime("%Y-%m-%d %H:%M:%S")}
+            for rec in userRecords
+        ])
+    print("OMBLEPY_RESULT_JSON " + json.dumps(serializable), flush=True)
+
 def saveUBPMJson(allRecords):
     f = pathlib.Path(f"ubpm.json")
     UBPM = {}
@@ -352,6 +362,8 @@ async def main():
     parser.add_argument("-p", "--pair",       action="store_true",          help="Programm the pairing key into the device. Needs to be done only once.")
     parser.add_argument("-m", "--mac",                          type=ascii, help="Bluetooth Mac address of the device (e.g. 00:1b:63:84:45:e6 (win/lin) or A114A715-43E5-45A0-8683-8676EEAE885D (macOS)). If not specified, will scan for devices and display a selection dialog.")
     parser.add_argument('-n', "--newRecOnly", action="store_true",          help="Considers the unread records counter and only reads new records. Resets these counters afterwards. If not enabled, all records are read and the unread counters are not cleared.")
+    parser.add_argument('-l', "--latestOnly", action="store_true",          help="Only read the single most recent record for each user. Much faster than a full memory read and strictly read-only: unread counters are left untouched. Takes precedence over -n.")
+    parser.add_argument("--jsonOut",          action="store_true",          help="Print all records as a single machine-readable JSON line on stdout (prefixed with OMBLEPY_RESULT_JSON) instead of writing user*.csv / ubpm.json files.")
     parser.add_argument('-t', "--timeSync",   action="store_true",          help="Update the time on the omron device by using the current system time.")
     parser.add_argument('-k', "--key",                          type=str,   help="Pairing key as a 32-character hex-string (e.g. 0123456789abcdef0123456789abcdef). If not specified, uses default key.")
     parser.add_argument("--adapter",                            type=str,   help="Linux/BlueZ only: specify which BT adapter to use (e.g. hci0, hci1). Defaults to whatever BlueZ picks; needed on multi-adapter systems if the cuff is bonded on a non-default adapter.")
@@ -522,7 +534,7 @@ async def main():
         else:
             logger.info("communication started")
             try:
-                allRecs = await devSpecificDriver.getRecords(btobj = bluetoothTxRxObj, useUnreadCounter = args.newRecOnly, syncTime = args.timeSync)
+                allRecs = await devSpecificDriver.getRecords(btobj = bluetoothTxRxObj, useUnreadCounter = args.newRecOnly, syncTime = args.timeSync, latestOnly = args.latestOnly)
             except ValueError as e:
                 err_msg = str(e)
                 if "pairing key does not match stored one" in err_msg:
@@ -539,8 +551,11 @@ async def main():
                     return
                 raise
             logger.info("communication finished")
-            appendCsv(allRecs)
-            saveUBPMJson(allRecs)
+            if(args.jsonOut):
+                printJsonResult(allRecs)
+            else:
+                appendCsv(allRecs)
+                saveUBPMJson(allRecs)
     finally:
         logger.info("disconnect")
         if bleClient.is_connected:

@@ -383,6 +383,7 @@ export interface BloodPressureFetchResponse {
   irregular_heartbeat: boolean | null;
   body_movement: boolean | null;
   message: string | null;
+  reading_id?: string | null;
 }
 
 export interface SessionVitalsUpdate {
@@ -391,6 +392,7 @@ export interface SessionVitalsUpdate {
   pulse_bpm?: number | null;
   measured_at?: string | null;
   source?: 'device' | 'manual';
+  reading_id?: string | null;
 }
 
 export interface BpDeviceStatusOut {

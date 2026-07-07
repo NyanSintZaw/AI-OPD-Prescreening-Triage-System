@@ -1,21 +1,22 @@
 """Fetch the latest blood-pressure reading from an Omron cuff via omblepy.
 
 Runs the bundled ``omblepy`` CLI (repo-root ``omblepy/`` folder) as a
-subprocess on the host machine's Bluetooth adapter, then parses the
-``user1.csv`` / ``user2.csv`` files it writes into its working directory.
+subprocess on the host machine's Bluetooth adapter with ``--jsonOut``,
+then parses the reading straight from the ``OMBLEPY_RESULT_JSON`` line on
+stdout — no intermediate CSV files are written or read.
 Only one fetch may run at a time — BLE adapters do not handle concurrent
 connections to the same peripheral, so a module-level asyncio lock guards
 the subprocess and callers get a ``busy`` status instead of queueing.
 
 The CLI's exit code is not a reliable success signal (some failure paths
 log an error and return 0), so success additionally requires the
-"communication finished" log line and a parseable record in the CSVs.
+"communication finished" log line and a parseable record in the JSON.
 """
 
 from __future__ import annotations
 
 import asyncio
-import csv
+import json
 import logging
 import re
 import sys
@@ -29,7 +30,7 @@ from app.config import settings
 
 logger = logging.getLogger(__name__)
 
-_CSV_FILES = ("user1.csv", "user2.csv")
+_RESULT_MARKER = "OMBLEPY_RESULT_JSON "
 _RECENT_WINDOW = timedelta(minutes=15)
 
 # Same address formats omblepy accepts: classic BT MAC (win/linux) or the
@@ -108,30 +109,36 @@ def _classify_failure(output: str) -> BloodPressureFetchError:
     return BloodPressureFetchError("error", " | ".join(tail) or "omblepy failed")
 
 
-def _parse_latest_record(omblepy_dir: Path) -> BloodPressureReading | None:
-    """Return the newest reading across the per-user CSVs, or None."""
+def _parse_result_json(output: str) -> BloodPressureReading | None:
+    """Return the newest reading from omblepy's ``--jsonOut`` stdout line."""
+    payload: str | None = None
+    for line in output.splitlines():
+        if line.startswith(_RESULT_MARKER):
+            payload = line[len(_RESULT_MARKER):]
+    if payload is None:
+        return None
+    try:
+        all_user_records = json.loads(payload)
+    except json.JSONDecodeError:
+        return None
     latest: BloodPressureReading | None = None
-    for name in _CSV_FILES:
-        path = omblepy_dir / name
-        if not path.exists():
-            continue
-        with path.open(newline="", encoding="utf-8") as infile:
-            for row in csv.DictReader(infile):
-                try:
-                    reading = BloodPressureReading(
-                        systolic=int(row["sys"]),
-                        diastolic=int(row["dia"]),
-                        pulse_bpm=int(row["bpm"]),
-                        measured_at=datetime.strptime(
-                            row["datetime"], "%Y-%m-%d %H:%M:%S"
-                        ),
-                        irregular_heartbeat=bool(int(row.get("ihb") or 0)),
-                        body_movement=bool(int(row.get("mov") or 0)),
-                    )
-                except (KeyError, ValueError):
-                    continue
-                if latest is None or reading.measured_at > latest.measured_at:
-                    latest = reading
+    for user_records in all_user_records:
+        for row in user_records:
+            try:
+                reading = BloodPressureReading(
+                    systolic=int(row["sys"]),
+                    diastolic=int(row["dia"]),
+                    pulse_bpm=int(row["bpm"]),
+                    measured_at=datetime.strptime(
+                        row["datetime"], "%Y-%m-%d %H:%M:%S"
+                    ),
+                    irregular_heartbeat=bool(int(row.get("ihb") or 0)),
+                    body_movement=bool(int(row.get("mov") or 0)),
+                )
+            except (KeyError, TypeError, ValueError):
+                continue
+            if latest is None or reading.measured_at > latest.measured_at:
+                latest = reading
     return latest
 
 
@@ -172,18 +179,20 @@ class BloodPressureService:
             )
 
         async with self._lock:
-            # Remove stale result files so a leftover CSV from an earlier
-            # run can never be mistaken for this run's output.
-            for name in _CSV_FILES:
-                (self.omblepy_dir / name).unlink(missing_ok=True)
-
             # No ``-t`` (device clock sync): the hem-7280t driver has no
             # settingsTimeSyncBytes section and crashes on it. The kiosk's
             # freshness check instead trusts the cuff clock within a
             # 90-second skew window.
+            # ``-l`` (latest only) reads just the newest record per user via
+            # the ring-buffer write pointer instead of dumping the cuff's
+            # full memory — much faster, and read-only on the device.
+            # ``--jsonOut`` returns the reading on stdout; nothing is
+            # written to disk.
             cmd = [
                 self.python_bin,
                 "omblepy.py",
+                "-l",
+                "--jsonOut",
                 "-d",
                 settings.bp_device_name,
                 "-m",
@@ -218,7 +227,7 @@ class BloodPressureService:
             if process.returncode != 0 or "communication finished" not in output:
                 raise _classify_failure(output)
 
-            reading = _parse_latest_record(self.omblepy_dir)
+            reading = _parse_result_json(output)
             if reading is None:
                 raise BloodPressureFetchError(
                     "no_records",

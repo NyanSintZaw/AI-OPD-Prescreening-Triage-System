@@ -332,9 +332,10 @@ export const api = {
     ),
 
   // ── Vitals (blood pressure kiosk) ──────────────────────────────────────────
-  fetchBloodPressure: () =>
+  fetchBloodPressure: (sessionId?: string | null) =>
     request<BloodPressureFetchResponse>('/vitals/blood-pressure/fetch', {
       method: 'POST',
+      body: JSON.stringify({ session_id: sessionId ?? null }),
     }),
 
   updateSessionVitals: (sessionId: string, payload: SessionVitalsUpdate) =>

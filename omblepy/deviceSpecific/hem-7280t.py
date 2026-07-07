@@ -16,7 +16,8 @@ class deviceSpecificDriver(sharedDeviceDriverCode):
     settingsReadAddress             = 0x0260
     settingsWriteAddress            = 0x0286
 
-    #settingsUnreadRecordsBytes      = [0x00, 0x08]
+    #same layout as hem-7322t; only used read-only (latestOnly), counter reset untested on this model
+    settingsUnreadRecordsBytes      = [0x00, 0x08]
     #settingsTimeSyncBytes           = [0x14, 0x1e]
 
     def deviceSpecific_ParseRecordFormat(self, singleRecordAsByteArray):

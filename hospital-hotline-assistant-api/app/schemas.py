@@ -45,6 +45,14 @@ class SessionVitalsUpdate(BaseModel):
     pulse_bpm: int | None = Field(default=None, ge=20, le=250)
     measured_at: datetime | None = None
     source: Literal["device", "manual"] = "device"
+    reading_id: UUID | None = None
+
+
+class BpFetchRequest(BaseModel):
+    """Optional body for the cuff fetch: links the stored reading to the
+    kiosk session as soon as it is captured."""
+
+    session_id: UUID | None = None
 
 
 class BloodPressureFetchResponse(BaseModel):
@@ -70,6 +78,7 @@ class BloodPressureFetchResponse(BaseModel):
     irregular_heartbeat: bool | None = None
     body_movement: bool | None = None
     message: str | None = None
+    reading_id: UUID | None = None
 
 
 class BpDeviceStatusOut(BaseModel):
