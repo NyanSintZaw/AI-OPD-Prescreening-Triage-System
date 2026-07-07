@@ -1236,10 +1236,69 @@ async def list_assessment_reviews(
     return records_to_dicts(rows)
 
 
+async def _push_his_routing(
+    request: Request,
+    connection: asyncpg.Connection,
+    *,
+    session_id,
+    department_id,
+    confirmed_by: str,
+    rerouted: bool,
+) -> None:
+    """Stage-2 HIS write-back: record the nurse's confirmation/reroute of a
+    routing against the linked visit. Best-effort; status stored on the
+    session metadata for transparency, never raises into the endpoint."""
+    if not department_id:
+        return
+    session_row = await connection.fetchrow(
+        "SELECT metadata FROM sessions WHERE id = $1", session_id
+    )
+    if session_row is None:
+        return
+    metadata = dict(session_row["metadata"] or {})
+    visit = metadata.get("visit") or {}
+    visit_id = visit.get("visit_id")
+    if not visit_id:
+        return  # anonymous session — nothing to write back
+    dept = await connection.fetchrow(
+        "SELECT code, name_th FROM departments WHERE id = $1", department_id
+    )
+    if dept is None:
+        return
+    from app.services.screening.his import his_department_name
+
+    his_dept = his_department_name(dept["code"]) or dept["name_th"] or dept["code"]
+    adapter = request.app.state.his_adapter
+    ok = False
+    try:
+        ok = await adapter.confirm_routing(
+            visit_id,
+            department=his_dept,
+            complaint=None,
+            confirmed_by=confirmed_by,
+            rerouted=rerouted,
+        )
+    except Exception:  # pragma: no cover - defensive
+        logger.exception("[session=%s] HIS stage-2 routing raised", session_id)
+    metadata["his_routing"] = {
+        "status": "pushed" if ok else "failed",
+        "department": his_dept,
+        "rerouted": rerouted,
+        "confirmed_by": confirmed_by,
+        "at": datetime.now(timezone.utc).isoformat(),
+    }
+    await connection.execute(
+        "UPDATE sessions SET metadata = $2::jsonb WHERE id = $1",
+        session_id,
+        metadata,
+    )
+
+
 @app.post("/admin/reviews/{assessment_id}/approve", response_model=AssessmentReviewOut)
 async def approve_assessment_review(
     assessment_id: UUID,
     payload: AssessmentReviewApproveRequest,
+    request: Request,
     admin_user: dict = Depends(require_roles("admin", "super_admin")),
     connection: asyncpg.Connection = Depends(get_connection),
 ):
@@ -1280,6 +1339,15 @@ async def approve_assessment_review(
             "Approved by OPD nurse review",
         )
 
+    await _push_his_routing(
+        request,
+        connection,
+        session_id=row["session_id"],
+        department_id=row["confirmed_department_id"],
+        confirmed_by=str(admin_user.get("email") or admin_user["id"]),
+        rerouted=False,
+    )
+
     return await _serialize_review(connection, assessment_id)
 
 
@@ -1287,6 +1355,7 @@ async def approve_assessment_review(
 async def correct_assessment_review(
     assessment_id: UUID,
     payload: AssessmentReviewCorrectRequest,
+    request: Request,
     admin_user: dict = Depends(require_roles("admin", "super_admin")),
     connection: asyncpg.Connection = Depends(get_connection),
 ):
@@ -1359,6 +1428,15 @@ async def correct_assessment_review(
         None,
         payload.reason,
         payload.reason,
+    )
+
+    await _push_his_routing(
+        request,
+        connection,
+        session_id=review_before["session_id"],
+        department_id=payload.confirmed_department_id,
+        confirmed_by=str(admin_user.get("email") or admin_user["id"]),
+        rerouted=True,
     )
 
     return await _serialize_review(connection, assessment_id)

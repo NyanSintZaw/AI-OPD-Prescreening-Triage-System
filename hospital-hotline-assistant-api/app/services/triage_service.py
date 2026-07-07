@@ -149,6 +149,29 @@ def _turn_context(metadata: dict[str, Any]) -> dict[str, Any] | None:
     return ctx or None
 
 
+def _disposition_reason_texts(classification: dict[str, Any]) -> list[str]:
+    """Flatten the engine's disposition_reasons into plain strings for the
+    HIS referral. Handles both string lists and the structured
+    ``{rule_id, citation, text_en, text_th}`` shape."""
+    reasons = classification.get("disposition_reasons") or []
+    out: list[str] = []
+    for item in reasons:
+        if isinstance(item, str):
+            text = item.strip()
+        elif isinstance(item, dict):
+            text = str(
+                item.get("text_en") or item.get("text_th") or item.get("rule_id") or ""
+            ).strip()
+            citation = str(item.get("citation") or "").strip()
+            if text and citation:
+                text = f"{text} ({citation})"
+        else:
+            text = str(item).strip()
+        if text:
+            out.append(text)
+    return out
+
+
 def _classification_red_flags(value: Any) -> list[str]:
     if value is None:
         return []
@@ -892,6 +915,20 @@ class TriageService:
             existing_metadata["escalation_reason"] = (
                 severity_explanation or "Emergency triage match"
             )
+
+        # Stage-1 HIS write-back: once a linked visit reaches a terminal
+        # disposition, push the pending pre-screening result to the hospital
+        # (recommended dept, complaint, vitals, reasons). Best-effort — never
+        # blocks or fails the patient turn; status recorded for the nurse view.
+        await self._maybe_push_referral(
+            metadata=existing_metadata,
+            session_id=session_id,
+            severity_level=severity_level,
+            department_code=adk_dept_code,
+            symptoms_summary=symptoms_summary,
+            classification=classification,
+        )
+
         await connection.execute(
             """
             UPDATE sessions
@@ -929,6 +966,61 @@ class TriageService:
             contact=contact,
         )
         return result, dict(msg_assistant)
+
+    async def _maybe_push_referral(
+        self,
+        *,
+        metadata: dict[str, Any],
+        session_id: str,
+        severity_level: str,
+        department_code: str | None,
+        symptoms_summary: str | None,
+        classification: dict[str, Any],
+    ) -> None:
+        """Stage-1 HIS write-back (mutates ``metadata`` with the result).
+
+        Fires once per session, only when a visit is linked and the turn
+        produced a terminal disposition. Any HIS error is swallowed so the
+        patient flow is never affected; the recorded status lets a nurse
+        (or a later retry) see it did not sync.
+        """
+        from app.services.screening.his import his_department_name
+
+        visit = metadata.get("visit") or {}
+        visit_id = visit.get("visit_id")
+        if not visit_id:
+            return
+        if severity_level in (None, "unknown") or not department_code:
+            return  # still interviewing — not a terminal disposition
+        already = metadata.get("his_referral") or {}
+        if already.get("status") == "pushed":
+            return  # don't re-push on repeat/post-completion turns
+
+        reasons = _disposition_reason_texts(classification)
+        his_department = his_department_name(department_code) or department_code
+        referral = {
+            "visit_id": visit_id,
+            "session_ref": session_id,
+            "slip_code": metadata.get("slip_code"),
+            "recommended_department": his_department,
+            "complaint": symptoms_summary,
+            "vitals": metadata.get("vitals") or {},
+            "reasons": reasons,
+        }
+        status = "pushed"
+        try:
+            ok = await self.his_adapter.push_referral(referral)
+            if not ok:
+                status = "failed"
+        except Exception:  # pragma: no cover - defensive: HIS must never break triage
+            logger.exception("[session=%s] HIS stage-1 push raised", session_id)
+            status = "failed"
+        metadata["his_referral"] = {
+            "status": status,
+            "department_code": department_code,
+            "his_department": his_department,
+            "pushed_at": datetime.now(timezone.utc).isoformat(),
+        }
 
     async def process_chat_stream(
         self,
