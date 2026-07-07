@@ -5310,3 +5310,60 @@ a:hover {
   padding: 0.1rem 0.45rem;
   border-radius: 6px;
 }
+
+/* ── Admin Hospital DB panel (mock HIS before/after view) ────────────────── */
+
+.hdb-panel { display: flex; flex-direction: column; gap: 1rem; }
+.hdb-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; }
+.hdb-header h2 { margin: 0 0 0.2rem; }
+.hdb-unavailable { padding: 1.5rem; text-align: center; }
+
+.hdb-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+  gap: 1.25rem;
+  align-items: start;
+}
+@media (max-width: 820px) { .hdb-body { grid-template-columns: 1fr; } }
+
+.hdb-table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+.hdb-table th, .hdb-table td {
+  text-align: left; padding: 0.5rem 0.6rem;
+  border-bottom: 1px solid var(--color-border, #e2e8f0);
+}
+.hdb-table tbody tr { cursor: pointer; }
+.hdb-table tbody tr:hover { background: var(--mch-cyan-soft, rgba(0,165,181,0.08)); }
+.hdb-table tbody tr.active { background: var(--mch-cyan-soft, rgba(0,165,181,0.14)); }
+
+.hdb-status {
+  display: inline-block; padding: 0.12rem 0.55rem; border-radius: 999px;
+  font-size: 0.75rem; font-weight: 600;
+}
+.hdb-status-registered { background: #e2e8f0; color: #475569; }
+.hdb-status-screened   { background: #fde9c8; color: #9a6413; }
+.hdb-status-routed     { background: #cdeccf; color: #1f7a2e; }
+
+.hdb-detail {
+  border: 1px solid var(--color-border, #e2e8f0);
+  border-radius: 12px; padding: 1rem; background: var(--color-surface, #fff);
+}
+.hdb-detail-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; }
+.hdb-detail h4 {
+  margin: 1rem 0 0.4rem; font-size: 0.8rem; text-transform: uppercase;
+  letter-spacing: 0.04em; color: var(--color-muted, #64748b);
+}
+.hdb-field {
+  display: flex; justify-content: space-between; gap: 0.75rem;
+  padding: 0.35rem 0; border-bottom: 1px dashed var(--color-border, #eef2f6);
+}
+.hdb-field-label { color: var(--color-muted, #64748b); display: flex; align-items: center; gap: 0.4rem; }
+.hdb-field-value { font-weight: 600; text-align: right; word-break: break-word; }
+.hdb-field.blank .hdb-field-value { color: #cbd5e1; font-weight: 400; }
+.hdb-field.filled .hdb-field-value { color: var(--mch-cyan-dark, #007681); }
+
+.hdb-stage-tag {
+  font-size: 0.62rem; font-weight: 700; padding: 0.04rem 0.35rem;
+  border-radius: 5px; letter-spacing: 0.03em;
+}
+.hdb-stage-1 { background: #fde9c8; color: #9a6413; }
+.hdb-stage-2 { background: #cdeccf; color: #1f7a2e; }

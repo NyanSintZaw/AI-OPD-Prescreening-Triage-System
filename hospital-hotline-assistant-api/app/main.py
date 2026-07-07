@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 from contextlib import asynccontextmanager
 from uuid import UUID
 import asyncpg
+import httpx
 from pydantic import BaseModel
 from fastapi import (
     Body,
@@ -1292,6 +1293,51 @@ async def _push_his_routing(
         session_id,
         metadata,
     )
+
+
+# ── Hospital DB (mock HIS) read-only proxy for the admin dashboard ──────────
+# Lets the demo show the visit record go blank → screened → routed inside our
+# app, framed as "the admin also oversees the hospital DB". Only meaningful in
+# HIS_MODE=http; degrades to an empty/unavailable response otherwise.
+
+async def _his_proxy_get(path: str) -> dict | None:
+    if settings.his_mode != "http" or not settings.his_base_url:
+        return None
+    headers = {"X-API-Key": settings.his_api_key} if settings.his_api_key else {}
+    url = f"{settings.his_base_url.rstrip('/')}{path}"
+    try:
+        async with httpx.AsyncClient(timeout=settings.his_timeout_seconds) as client:
+            resp = await client.get(url, headers=headers)
+        if resp.status_code == 200:
+            return resp.json()
+        if resp.status_code == 404:
+            raise HTTPException(status_code=404, detail="Visit not found in HIS")
+    except HTTPException:
+        raise
+    except httpx.HTTPError as exc:
+        logger.warning("HIS proxy GET %s failed: %s", path, exc)
+    return None
+
+
+@app.get("/admin/his/visits")
+async def admin_his_visits(
+    _admin_user: dict = Depends(require_roles("super_admin", "admin", "viewer")),
+):
+    data = await _his_proxy_get("/api/visits")
+    if data is None:
+        return {"available": False, "visits": []}
+    return {"available": True, **data}
+
+
+@app.get("/admin/his/visits/{visit_id}")
+async def admin_his_visit_detail(
+    visit_id: str,
+    _admin_user: dict = Depends(require_roles("super_admin", "admin", "viewer")),
+):
+    data = await _his_proxy_get(f"/api/visits/{visit_id}")
+    if data is None:
+        return {"available": False, "visit": None}
+    return {"available": True, "visit": data}
 
 
 @app.post("/admin/reviews/{assessment_id}/approve", response_model=AssessmentReviewOut)

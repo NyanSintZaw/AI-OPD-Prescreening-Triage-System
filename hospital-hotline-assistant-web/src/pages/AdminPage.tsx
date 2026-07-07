@@ -13,10 +13,11 @@ import { BpDeviceManager } from '../components/BpDeviceManager';
 import { OutbreakSurveillance } from '../components/OutbreakSurveillance';
 import { TriageManualUpload } from '../components/TriageManualUpload';
 import { CriteriaManager } from '../components/CriteriaManager';
+import { HospitalDbPanel } from '../components/HospitalDbPanel';
 import { useLanguage } from '../hooks/useSession';
 import type { SessionStatus, SeverityLevel } from '../api/types';
 
-type AdminTab = 'sessions' | 'surveillance' | 'triage-manual' | 'criteria' | 'bp-device';
+type AdminTab = 'sessions' | 'surveillance' | 'triage-manual' | 'criteria' | 'bp-device' | 'hospital-db';
 
 const AUTO_REFRESH_INTERVAL_MS = 30_000;
 const SEVERITY_FILTERS: Array<{ id: 'all' | SeverityLevel; tone: string }> = [
@@ -342,12 +343,22 @@ export function AdminPage() {
           >
             🩺 {t('bpdevTab')}
           </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeTab === 'hospital-db'}
+            className={`admin-tab-btn ${activeTab === 'hospital-db' ? 'active' : ''}`}
+            onClick={() => setActiveTab('hospital-db')}
+          >
+            🏥 {t('hospitalDbTab')}
+          </button>
         </div>
 
         {activeTab === 'surveillance' && <OutbreakSurveillance />}
         {activeTab === 'triage-manual' && <TriageManualUpload />}
         {activeTab === 'criteria' && <CriteriaManager />}
         {activeTab === 'bp-device' && <BpDeviceManager />}
+        {activeTab === 'hospital-db' && <HospitalDbPanel />}
 
         {activeTab === 'sessions' && (
           <>

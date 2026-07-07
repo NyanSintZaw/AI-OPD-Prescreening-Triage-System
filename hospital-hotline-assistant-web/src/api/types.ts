@@ -412,6 +412,52 @@ export interface LinkVisitRequest {
   visit_id: string;
 }
 
+export type HisScreeningStatus = 'registered' | 'screened' | 'routed';
+
+export interface HisVisitSummary {
+  visit_id: string;
+  hnx: string | null;
+  appointment: boolean;
+  birthdate: string | null;
+  screening_status: HisScreeningStatus;
+  modify_time: string | null;
+}
+
+export interface HisVisitDetail {
+  visit_id: string;
+  hnx: string | null;
+  appointment: boolean;
+  birthdate: string | null;
+  screening_status: HisScreeningStatus;
+  vitals: {
+    weight: number | null;
+    height: number | null;
+    bmi: number | null;
+    waist_width: number | null;
+    pressure: string | null;
+    systolic: number | null;
+    diastolic: number | null;
+    temperature: number | null;
+    pulse: number | null;
+  };
+  measure: { spid: string | null; name: string | null; department: string | null };
+  nurse_chief_complaint: string | null;
+  nurse_patient_illness: string | null;
+  first_location: { id: string | null; name: string | null; department: string | null };
+  second_location: { id: string | null; name: string | null; department: string | null };
+  modify_time: string | null;
+}
+
+export interface HisVisitsResponse {
+  available: boolean;
+  visits: HisVisitSummary[];
+}
+
+export interface HisVisitDetailResponse {
+  available: boolean;
+  visit: HisVisitDetail | null;
+}
+
 export interface LinkVisitResponse {
   linked: boolean;
   visit_id: string;

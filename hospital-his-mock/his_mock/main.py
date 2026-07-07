@@ -23,7 +23,7 @@ from typing import Any
 from fastapi import Depends, FastAPI, Header, HTTPException, Request
 from pydantic import BaseModel, Field
 
-from .database import connect, seed_from_csv
+from .database import connect, parse_pressure, seed_from_csv
 
 PACKAGE_DIR = Path(__file__).resolve().parent
 SAMPLE_CSV = PACKAGE_DIR.parent / "sample_visits.csv"
@@ -41,7 +41,8 @@ class PrescreenIn(BaseModel):
     session_ref: str
     slip_code: str | None = None
     recommended_department: str
-    complaint: str | None = None
+    complaint: str | None = None          # our concise symptoms_summary
+    reason: str | None = None             # our routing key_reason
     vitals: dict[str, Any] | None = None
     reasons: list[str] = Field(default_factory=list)
 
@@ -51,6 +52,35 @@ class RoutingIn(BaseModel):
     complaint: str | None = None
     confirmed_by: str
     rerouted: bool = False
+
+
+def _vitals_to_columns(vitals: dict[str, Any] | None) -> dict[str, Any]:
+    """Map our referral vitals dict to the export's visit columns.
+
+    Booth vitals arrive as ``systolic/diastolic/pulse_bpm/weight_kg/
+    height_cm/temperature``; the export stores raw ``pressure`` "sys/dia",
+    ``pulse``, ``weight``, ``height``, ``temperature`` and a computed ``bmi``.
+    """
+    v = vitals or {}
+    systolic = v.get("systolic")
+    diastolic = v.get("diastolic")
+    pressure = f"{systolic}/{diastolic}" if systolic and diastolic else None
+    weight = v.get("weight_kg")
+    height = v.get("height_cm")
+    bmi = None
+    try:
+        if weight and height:
+            bmi = round(float(weight) / (float(height) / 100) ** 2, 2)
+    except (TypeError, ValueError, ZeroDivisionError):
+        bmi = None
+    return {
+        "pressure": pressure,
+        "pulse": v.get("pulse_bpm"),
+        "weight": weight,
+        "height": height,
+        "temperature": v.get("temperature"),
+        "bmi": bmi,
+    }
 
 
 def _api_key() -> str:
@@ -75,29 +105,54 @@ def build_app(db_path: str | Path | None = None) -> FastAPI:
     resolved_db = Path(db_path or os.environ.get("HIS_MOCK_DB_PATH", "his_mock.db"))
     conn = connect(resolved_db)
     if conn.execute("SELECT COUNT(*) FROM visits").fetchone()[0] == 0:
-        source = os.environ.get("HIS_MOCK_DATA_PATH", "") or str(SAMPLE_CSV)
+        # A real export (HIS_MOCK_DATA_PATH) loads complete rows; the bundled
+        # synthetic sample loads in pre-registration state (screening fields
+        # blank) so the demo shows our system filling them in.
+        real_source = os.environ.get("HIS_MOCK_DATA_PATH", "")
+        source = real_source or str(SAMPLE_CSV)
         if Path(source).exists():
-            count = seed_from_csv(conn, source)
+            count = seed_from_csv(
+                conn, source, pre_registration_only=not real_source
+            )
             print(f"[his-mock] seeded {count} visits from {source}")
     app.state.db = conn
 
     def get_db(request: Request) -> sqlite3.Connection:
         return request.app.state.db
 
+    def _screening_status(row: sqlite3.Row) -> str:
+        """registered → screened → routed, from which fields are filled."""
+        if row["second_location_department"]:
+            return "routed"
+        if row["first_location_department"]:
+            return "screened"
+        return "registered"
+
     def visit_payload(row: sqlite3.Row) -> dict[str, Any]:
+        systolic, diastolic = parse_pressure(row["pressure"])
         return {
             "visit_id": row["visit_id"],
-            "hn": row["hn"],
+            "hnx": row["hnx"],
             "appointment": bool(row["appointment"]),
             "birthdate": row["birthdate"],
+            "screening_status": _screening_status(row),
+            # Vitals as the export carries them (raw pressure) plus a parsed
+            # split for convenience.
             "vitals": {
                 "weight": row["weight"],
                 "height": row["height"],
                 "bmi": row["bmi"],
-                "systolic": row["systolic"],
-                "diastolic": row["diastolic"],
+                "waist_width": row["waist_width"],
+                "pressure": row["pressure"],
+                "systolic": systolic,
+                "diastolic": diastolic,
                 "temperature": row["temperature"],
                 "pulse": row["pulse"],
+            },
+            "measure": {
+                "spid": row["measure_spid"],
+                "name": row["measure_name"],
+                "department": row["measure_department"],
             },
             "nurse_chief_complaint": row["nurse_chief_complaint"],
             "nurse_patient_illness": row["nurse_patient_illness"],
@@ -129,6 +184,7 @@ def build_app(db_path: str | Path | None = None) -> FastAPI:
             "slip_code": row["slip_code"],
             "recommended_department": row["recommended_department"],
             "complaint": row["complaint"],
+            "reason": row["reason"],
             "vitals": json.loads(row["vitals"]) if row["vitals"] else None,
             "reasons": json.loads(row["reasons"]) if row["reasons"] else [],
             "status": row["status"],
@@ -136,6 +192,27 @@ def build_app(db_path: str | Path | None = None) -> FastAPI:
             "confirmed_by": row["confirmed_by"],
             "created_at": row["created_at"],
             "updated_at": row["updated_at"],
+        }
+
+    @app.get("/api/visits", dependencies=[Depends(require_api_key)])
+    def list_visits(db: sqlite3.Connection = Depends(get_db)):
+        """List all visits with their before/after screening status — powers
+        the admin dashboard's 'Hospital DB' view."""
+        rows = db.execute(
+            "SELECT * FROM visits ORDER BY visit_id"
+        ).fetchall()
+        return {
+            "visits": [
+                {
+                    "visit_id": r["visit_id"],
+                    "hnx": r["hnx"],
+                    "appointment": bool(r["appointment"]),
+                    "birthdate": r["birthdate"],
+                    "screening_status": _screening_status(r),
+                    "modify_time": r["modify_time"],
+                }
+                for r in rows
+            ]
         }
 
     @app.get("/api/visits/{visit_id}", dependencies=[Depends(require_api_key)])
@@ -152,24 +229,27 @@ def build_app(db_path: str | Path | None = None) -> FastAPI:
         payload: PrescreenIn,
         db: sqlite3.Connection = Depends(get_db),
     ):
-        """Stage 1 write-back: the AI booth's pending prescreen result.
+        """Stage 1 write-back — objective booth data only.
 
-        Mirrors what the nurse screening station does today: stamps the
-        booth as first_location and records the chief complaint, leaving
-        second_location for the confirmation step.
+        Writes the measurements taken at our booth + the booth as
+        first_location/measure onto the visit row. The clinical narrative
+        (complaint summary, reason) and the recommended department are HELD
+        in prescreen_results (pending) and NOT published to the visit row
+        until a nurse confirms at the destination (Stage 2).
         """
         fetch_visit(db, visit_id)
         db.execute(
             """
             INSERT INTO prescreen_results
                 (visit_id, session_ref, slip_code, recommended_department,
-                 complaint, vitals, reasons, status)
-            VALUES (?, ?, ?, ?, ?, ?, ?, 'pending')
+                 complaint, reason, vitals, reasons, status)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending')
             ON CONFLICT(visit_id) DO UPDATE SET
                 session_ref = excluded.session_ref,
                 slip_code = excluded.slip_code,
                 recommended_department = excluded.recommended_department,
                 complaint = excluded.complaint,
+                reason = excluded.reason,
                 vitals = excluded.vitals,
                 reasons = excluded.reasons,
                 status = 'pending',
@@ -183,23 +263,30 @@ def build_app(db_path: str | Path | None = None) -> FastAPI:
                 payload.slip_code,
                 payload.recommended_department,
                 payload.complaint,
+                payload.reason,
                 json.dumps(payload.vitals) if payload.vitals is not None else None,
                 json.dumps(payload.reasons),
             ),
         )
+        cols = _vitals_to_columns(payload.vitals)
         db.execute(
             """
             UPDATE visits SET
+                measure_spid = ?, measure_name = ?, measure_department = ?,
                 first_location_id = ?, first_location_name = ?,
                 first_location_department = ?,
-                nurse_chief_complaint = COALESCE(?, nurse_chief_complaint)
+                pressure = ?, pulse = ?, weight = ?, height = ?,
+                temperature = ?, bmi = ?,
+                modify_time = datetime('now')
             WHERE visit_id = ?
             """,
             (
-                AI_BOOTH_LOCATION["id"],
-                AI_BOOTH_LOCATION["name"],
+                AI_BOOTH_LOCATION["id"], AI_BOOTH_LOCATION["name"],
                 AI_BOOTH_LOCATION["department"],
-                payload.complaint,
+                AI_BOOTH_LOCATION["id"], AI_BOOTH_LOCATION["name"],
+                AI_BOOTH_LOCATION["department"],
+                cols["pressure"], cols["pulse"], cols["weight"], cols["height"],
+                cols["temperature"], cols["bmi"],
                 visit_id,
             ),
         )
@@ -218,9 +305,11 @@ def build_app(db_path: str | Path | None = None) -> FastAPI:
         payload: RoutingIn,
         db: sqlite3.Connection = Depends(get_db),
     ):
-        """Stage 2 write-back: nurse confirmation (or reroute) at the
-        destination department. Updates the visit's second_location and
-        finalizes the prescreen record."""
+        """Stage 2 write-back — publish the clinical narrative + routing.
+
+        Human sign-off. Promotes the held complaint summary + reason into the
+        nurse_* fields and writes second_location (the confirmed/rerouted
+        department) onto the visit row."""
         fetch_visit(db, visit_id)
         existing = db.execute(
             "SELECT * FROM prescreen_results WHERE visit_id = ?", (visit_id,)
@@ -233,7 +322,6 @@ def build_app(db_path: str | Path | None = None) -> FastAPI:
             """
             UPDATE prescreen_results SET
                 status = ?, confirmed_department = ?, confirmed_by = ?,
-                complaint = COALESCE(?, complaint),
                 updated_at = datetime('now')
             WHERE visit_id = ?
             """,
@@ -241,23 +329,28 @@ def build_app(db_path: str | Path | None = None) -> FastAPI:
                 "rerouted" if payload.rerouted else "confirmed",
                 payload.department,
                 payload.confirmed_by,
-                payload.complaint,
                 visit_id,
             ),
         )
+        # Publish the held clinical narrative. On reroute, the nurse's note
+        # (payload.complaint) overrides the AI reason for the illness field.
+        chief_complaint = existing["complaint"]
+        illness = payload.complaint or existing["reason"]
         db.execute(
             """
             UPDATE visits SET
+                nurse_chief_complaint = ?, nurse_patient_illness = ?,
                 second_location_id = ?, second_location_name = ?,
                 second_location_department = ?,
-                nurse_chief_complaint = COALESCE(?, nurse_chief_complaint)
+                modify_time = datetime('now')
             WHERE visit_id = ?
             """,
             (
+                chief_complaint,
+                illness,
                 None,
                 payload.department,
                 payload.department,
-                payload.complaint,
                 visit_id,
             ),
         )

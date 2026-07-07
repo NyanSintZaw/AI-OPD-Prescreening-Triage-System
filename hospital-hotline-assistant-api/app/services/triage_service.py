@@ -1004,6 +1004,9 @@ class TriageService:
             "slip_code": metadata.get("slip_code"),
             "recommended_department": his_department,
             "complaint": symptoms_summary,
+            # The routing reason (key_reason); published to the hospital
+            # record only at Stage 2 (nurse confirm), held pending until then.
+            "reason": classification.get("key_reason"),
             "vitals": metadata.get("vitals") or {},
             "reasons": reasons,
         }

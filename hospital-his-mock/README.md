@@ -9,17 +9,34 @@ REST API, exactly like the real HIS.
 The triage backend talks to it through `HttpHisAdapter`
 (`hospital-hotline-assistant-api/app/services/screening/his/http_adapter.py`).
 
+The `visits` table is a **faithful, column-for-column mirror** of the real MFU
+`Prescreen` export, so the hospital IT team sees literally their own screening
+table.
+
+### Before/after demo model
+
+Each visit starts in its **post-registration, pre-screening** state — only
+`visit_id`/`hnx`/`birthdate`/`appointment` are filled; every screening field
+is blank. Then our system fills the blanks in two stages:
+
+- **Stage 1** (`POST /api/visits/{id}/prescreen`, at the patient's receipt):
+  measurements (`pressure`, `pulse`, `weight`, `height`, `bmi`, `temperature`)
+  + our booth as `measure_*`/`first_location_*`. Status → `screened`.
+- **Stage 2** (`PUT /api/visits/{id}/routing`, on nurse confirm): the held
+  clinical narrative (`nurse_chief_complaint`, `nurse_patient_illness`) +
+  `second_location` (department). Status → `routed`.
+
+`waist_width` is never written (a field we don't measure). See
+`docs/his-integration.md` §0 for the full field-ownership table.
+
 ## Data
 
 - **`sample_visits.csv`** — a small, fully **synthetic** set of demo visits
-  (fabricated IDs, HNs, and clinical text). Committed so the demo runs with no
-  real data.
+  loaded in **pre-registration state** (only the registration fields filled).
+  Committed so the demo runs with no real data.
 - **Real hospital exports stay out of git** (`.gitignore` blocks `Prescreen*.csv`
-  and `*.db`). Point the loader at one with `HIS_MOCK_DATA_PATH`.
-
-The CSV layout matches the hospital's 7-day prescreen export
-(`visit_id, hnx, appointment, birthdate, pressure, temperature, pulse,
-nurse_chief_complaint, …, first/second_location_*`).
+  and `*.db`). Point the loader at one with `HIS_MOCK_DATA_PATH` — a real export
+  loads complete rows; the synthetic sample loads pre-registration.
 
 ## Run
 
@@ -46,10 +63,11 @@ All endpoints require `X-API-Key` (default `demo-his-key`, override with
 
 | Method | Path | Purpose |
 |---|---|---|
-| GET | `/api/visits/{visit_id}` | Visit + patient birthdate + HIS vitals (booth reads this after the patient types their visit ID) |
-| POST | `/api/visits/{visit_id}/prescreen` | **Stage 1**: AI booth pushes the pending prescreen (dept, complaint, vitals, reasons) |
-| PUT | `/api/visits/{visit_id}/routing` | **Stage 2**: nurse confirms or reroutes at the destination |
-| GET | `/api/visits/{visit_id}/prescreen` | Read the current prescreen record |
+| GET | `/api/visits` | List all visits with `screening_status` (registered/screened/routed) — powers the admin Hospital DB tab |
+| GET | `/api/visits/{visit_id}` | Full visit row (demographics + any filled screening fields); booth reads this after the patient types their visit ID |
+| POST | `/api/visits/{visit_id}/prescreen` | **Stage 1**: write booth measurements + booth location; hold dept/complaint/reason pending |
+| PUT | `/api/visits/{visit_id}/routing` | **Stage 2**: nurse confirms/reroutes → publish narrative + second_location |
+| GET | `/api/visits/{visit_id}/prescreen` | Read the held/finalized prescreen record |
 | GET | `/api/departments` | Distinct department names known to the HIS |
 
 ## Config

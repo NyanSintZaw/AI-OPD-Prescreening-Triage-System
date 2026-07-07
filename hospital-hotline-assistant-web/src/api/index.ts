@@ -30,6 +30,10 @@ import type {
   LanguageCode,
   MessageCreate,
   MessageOut,
+  HisVisitSummary,
+  HisVisitDetail,
+  HisVisitsResponse,
+  HisVisitDetailResponse,
   LinkVisitRequest,
   LinkVisitResponse,
   RoutingRuleOut,
@@ -388,6 +392,12 @@ export const api = {
   getSurveillanceSummary: (days = 7) =>
     request<SurveillanceSummaryOut>(`/admin/surveillance?days=${days}`),
 
+  // ── Hospital DB (mock HIS) read-only view ──────────────────────────────────
+  getHisVisits: () => request<HisVisitsResponse>('/admin/his/visits'),
+
+  getHisVisit: (visitId: string) =>
+    request<HisVisitDetailResponse>(`/admin/his/visits/${visitId}`),
+
   // ── Triage manual PDF upload ───────────────────────────────────────────────
   uploadTriageManual: async (file: File): Promise<TriageManualUploadOut> => {
     const token = (await import('./client')).getAdminToken();
@@ -472,4 +482,4 @@ export const api = {
   },
 };
 
-export type { MessageOut, SessionOut, ConversationSummaryOut, DepartmentOut, DoctorOut, DoctorWithSchedulesOut, DoctorScheduleOut, SurveillanceSummaryOut, TriageManualUploadOut, AiMetricsOut, CriteriaDiffOut, CriteriaVersionDetail, CriteriaVersionSummary, LinkVisitResponse };
+export type { MessageOut, SessionOut, ConversationSummaryOut, DepartmentOut, DoctorOut, DoctorWithSchedulesOut, DoctorScheduleOut, SurveillanceSummaryOut, TriageManualUploadOut, AiMetricsOut, CriteriaDiffOut, CriteriaVersionDetail, CriteriaVersionSummary, LinkVisitResponse, HisVisitSummary, HisVisitDetail };

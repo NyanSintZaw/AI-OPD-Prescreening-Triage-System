@@ -43,12 +43,15 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    csv_path = SAMPLE_CSV if args.sample or not args.csv else Path(args.csv)
+    use_sample = args.sample or not args.csv
+    csv_path = SAMPLE_CSV if use_sample else Path(args.csv)
     if not Path(csv_path).exists():
         raise SystemExit(f"CSV not found: {csv_path}")
 
     conn = connect(args.db)
-    count = seed_from_csv(conn, csv_path)
+    # The synthetic sample seeds pre-registration state (screening fields
+    # blank) for the before/after demo; a real export loads complete rows.
+    count = seed_from_csv(conn, csv_path, pre_registration_only=use_sample)
     print(f"Seeded {count} visits from {csv_path} into {args.db}")
 
 

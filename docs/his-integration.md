@@ -13,6 +13,39 @@ in `hospital-his-mock/sample_visits.csv`. All figures below are from that
 
 ---
 
+## 0. What we READ vs what/when we WRITE (the demo's core model)
+
+The mock hospital DB (`hospital-his-mock`, a faithful mirror of the
+`Prescreen` export) starts each visit in its **post-registration,
+pre-screening** state: only the fields the hospital already knows are
+filled; everything the screening produces is blank until our system writes
+it back. The two write-backs are split by data ownership and human sign-off.
+
+| Field(s) | State | Who / when |
+|---|---|---|
+| `visit_id`, `hnx`, `birthdate`, `appointment` | pre-filled at registration | **hospital** — we only READ (birthdate → age) |
+| `weight`, `height`, `bmi`, `pressure`, `pulse`, `temperature` | blank → filled | **Stage 1** (instant, at receipt) — measured at our booth |
+| `measure_*`, `first_location_*` | blank → filled | **Stage 1** — our AI booth identity |
+| `nurse_chief_complaint` (our `symptoms_summary`, not the raw chat) | blank → filled | **Stage 2** — nurse sign-off |
+| `nurse_patient_illness` (our routing reason = `key_reason`) | blank → filled | **Stage 2** — held from Stage 1, published on confirm |
+| `second_location_*` (the department) | blank → filled | **Stage 2** — nurse confirms/reroutes at the destination |
+| `waist_width` | stays blank | nobody — a field we deliberately don't touch |
+
+**Stage 1** fires the instant the patient finishes and gets their receipt
+(session id on the slip): objective booth measurements + which booth. The
+recommended department and reason are **held** on our side (patient slip +
+`prescreen_results` pending) — NOT written to the hospital record.
+**Stage 2** fires only when the patient reaches the routed department and the
+nurse looks them up by session id and confirms/reroutes; that sign-off is
+what publishes the clinical narrative + department. The raw multi-turn
+conversation is never written to the hospital DB (only the engine's condensed
+`symptoms_summary` / `key_reason`).
+
+Status the demo shows on the admin **Hospital DB** tab: `registered` →
+`screened` (Stage 1) → `routed` (Stage 2).
+
+---
+
 ## 1. Departments: what we route to, and what we don't
 
 The AI engine routes to **11 destinations**. The hospital's export contains
