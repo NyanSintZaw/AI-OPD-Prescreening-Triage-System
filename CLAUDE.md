@@ -32,10 +32,13 @@ pytest is configured with `asyncio_mode = "auto"` — async tests need no decora
 Database (PostgreSQL 16 + pgvector):
 
 ```bash
-docker compose up -d                           # from api dir; postgres on 5432, db "hospital_hotline"
-psql "$DATABASE_URL" -f migrations/00X_*.sql   # migrations are raw SQL, applied manually in order (no Alembic)
-uv run python scripts/seed_screening_criteria.py   # seed/refresh screening criteria v1 (engine v2; idempotent)
+docker compose up -d                           # root compose: postgres :5432 + mock hospital DB (HIS) :8001
+uv run python scripts/init_db.py               # one command: applies ALL migrations (idempotent, tracks in schema_migrations), seeds criteria v1, health-checks the mock HIS
+# manual alternative: psql "$DATABASE_URL" -f migrations/00X_*.sql (raw SQL, in order, no Alembic)
+uv run python scripts/seed_screening_criteria.py   # criteria-only reseed/refresh (init_db.py already runs this)
 ```
+
+The mock hospital HIS (`hospital-his-mock/`) is a separate SQLite service that auto-seeds itself on startup; `init_db.py` only health-checks it. Both DBs run via Docker; the app runs on the host.
 
 Config comes from `.env` (copy `.env.example`). `scripts/` has connectivity checkers (`check_db.py`, `check_vertex.py`, etc.).
 

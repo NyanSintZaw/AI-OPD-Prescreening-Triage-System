@@ -34,14 +34,17 @@ docker compose down       # stop
 docker compose down -v    # stop + wipe Postgres data
 ```
 
-- **postgres** — our database (sessions, criteria, audit …). After it's up,
-  apply the migrations in order and seed criteria (see the
-  [api README](./hospital-hotline-assistant-api) / `CLAUDE.md`):
-  `psql "$DATABASE_URL" -f migrations/00X_*.sql` then
-  `uv run python scripts/seed_screening_criteria.py`.
+- **postgres** — our database (sessions, criteria, audit …). Once the
+  containers are up, one command applies all migrations, seeds criteria, and
+  confirms both databases are ready:
+
+  ```bash
+  cd hospital-hotline-assistant-api && uv run python scripts/init_db.py
+  ```
+
 - **his-mock** — the mock hospital HIS database (separate, SQLite). Auto-seeds
   the synthetic pre-registration sample; reachable at `http://localhost:8001`
-  (`/docs` is the "hospital side" window). See
+  (`/docs` is the "hospital side" window). `init_db.py` health-checks it. See
   [`hospital-his-mock`](./hospital-his-mock).
 
 The backend and frontend run on your device (below), connecting to these on
