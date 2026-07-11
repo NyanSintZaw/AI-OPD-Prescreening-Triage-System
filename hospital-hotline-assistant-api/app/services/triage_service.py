@@ -673,17 +673,26 @@ class TriageService:
             if not severity_explanation:
                 severity_explanation = matched_trigger.reason
 
-        matched_rule = routing_matches[0] if routing_matches else None
+        # The langgraph screening engine is authoritative: its own deterministic
+        # rules (red-flag gate, disposition, department map) run every turn. The
+        # legacy keyword routing-rule and pain/distress scale overrides are the
+        # ADK path's engine — under langgraph they fire on *interview* turns and
+        # wrongly assign a department + severity, marking the turn complete (which
+        # then auto-ends voice calls). Skip them there. The emergency keyword
+        # trigger above stays as an escalate-only safety net for both engines.
+        is_langgraph = getattr(settings, "triage_engine", "adk") == "langgraph"
+        matched_rule = None if is_langgraph else (routing_matches[0] if routing_matches else None)
         if matched_rule and matched_rule.severity_override and severity_level != "emergency":
             severity_level = matched_rule.severity_override
             if not severity_explanation:
                 severity_explanation = matched_rule.reason
 
-        scale_override = evaluate_scale_override(classification, severity_level)
-        if scale_override.severity and severity_level != "emergency":
-            severity_level = scale_override.severity
-            if scale_override.reason:
-                severity_explanation = scale_override.reason
+        if not is_langgraph:
+            scale_override = evaluate_scale_override(classification, severity_level)
+            if scale_override.severity and severity_level != "emergency":
+                severity_level = scale_override.severity
+                if scale_override.reason:
+                    severity_explanation = scale_override.reason
 
         # Department resolution with MFU OPD-first policy.
         adk_dept_code = decision.opd_department_code
@@ -708,6 +717,10 @@ class TriageService:
             logger.warning(
                 "Department code '%s' not found in active departments", adk_dept_code
             )
+        elif is_langgraph and severity_level == "unknown":
+            # Interview turn under the deterministic engine — it has not disposed
+            # yet, so assign no department (assessment_status stays in_progress).
+            pass
         elif matched_rule and matched_rule.department_id:
             matched_kind = next(
                 (
