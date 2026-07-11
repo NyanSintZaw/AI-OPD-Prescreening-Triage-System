@@ -39,7 +39,6 @@ from app.services.blood_pressure import (
 )
 from app.services.google_stt import GoogleSttClient
 from app.services.google_tts import GoogleTtsClient
-from app.services.live_voice_service import LiveVoiceService
 from app.services.notification_service import MockNotificationService
 from app.services.slip_code import slip_code_for
 
@@ -98,8 +97,7 @@ async def lifespan(app: FastAPI):
     app.state.db_pool = await create_pool()
     app.state.admin_tokens = {}
     notifier = MockNotificationService()
-    # TRIAGE_ENGINE=adk keeps the legacy free-form ADK engine;
-    # TRIAGE_ENGINE=langgraph uses the deterministic screening engine v2.
+    # The deterministic screening engine (LangGraph) is the only engine.
     from app.services.screening.engine import make_triage_engine
 
     triage_engine = make_triage_engine(settings, pool=app.state.db_pool)
@@ -115,24 +113,16 @@ async def lifespan(app: FastAPI):
     )
     app.state.tts_client = GoogleTtsClient()
     app.state.stt_client = GoogleSttClient()
-    # Voice bridge — owns the per-call WebSocket state for voice mode.
-    # VOICE_ENGINE=live keeps the Gemini Live full-duplex bridge;
-    # VOICE_ENGINE=turn runs calls turn-by-turn through the same
-    # TriageService pipeline as text chat (STT → process_chat → TTS),
-    # so the deterministic screening engine controls voice too. Both
-    # expose the same surface to the /ws/voice route.
-    if settings.voice_engine == "turn":
-        from app.services.screening.voice_bridge import TurnVoiceService
+    # Voice runs turn-by-turn through the same screening pipeline as text
+    # chat (STT → process_chat_stream → TTS), so the deterministic engine
+    # controls voice too. Owns the per-call WebSocket state for /ws/voice.
+    from app.services.screening.voice_bridge import TurnVoiceService
 
-        app.state.live_voice_service = TurnVoiceService(
-            triage_service=app.state.triage_service,
-            stt_client=app.state.stt_client,
-            tts_client=app.state.tts_client,
-        )
-    else:
-        app.state.live_voice_service = LiveVoiceService(
-            triage_service=app.state.triage_service
-        )
+    app.state.live_voice_service = TurnVoiceService(
+        triage_service=app.state.triage_service,
+        stt_client=app.state.stt_client,
+        tts_client=app.state.tts_client,
+    )
     app.state.rag_prewarm_task = None
     if settings.rag_query_prewarm_on_startup:
         from app.services.ai.rag_query import start_rag_query_engine_prewarm
@@ -1541,14 +1531,14 @@ async def list_routing_feedback(
 async def voice_call(websocket: WebSocket, session_id: str):
     await websocket.accept()
     pool: asyncpg.Pool = websocket.app.state.db_pool
-    live_voice_service: LiveVoiceService = websocket.app.state.live_voice_service
+    live_voice_service = websocket.app.state.live_voice_service  # TurnVoiceService
     requested_language = websocket.query_params.get("language", "en")
     language = requested_language if requested_language in {"en", "th"} else "en"
 
-    # Callbacks forward live transcripts + emergency banner triggers from
-    # the ADK event loop to the frontend over the WS. ``send_*`` may
-    # raise if the client closed the socket mid-send; swallow those so a
-    # disconnect race doesn't crash the pipeline.
+    # Callbacks forward turn transcripts + emergency banner triggers to the
+    # frontend over the WS. ``send_*`` may raise if the client closed the
+    # socket mid-send; swallow those so a disconnect race doesn't crash the
+    # pipeline.
     async def push_transcript(role: str, text: str) -> None:
         try:
             await websocket.send_json(
@@ -2133,47 +2123,6 @@ async def get_surveillance_summary(
             for r in alert_rows
         ],
     )
-
-
-# ── Hybrid RAG triage endpoint ────────────────────────────────────────────────
-
-class _RagTriageRequest(BaseModel):
-    """Request body for the hybrid RAG triage endpoint."""
-    content: str
-    language: str = "th"
-    session_id: str | None = None
-
-
-@app.post("/triage/rag")
-async def rag_triage(
-    payload: _RagTriageRequest,
-    connection: asyncpg.Connection = Depends(get_connection),
-) -> JSONResponse:
-    """Run the hybrid Rule Engine + RAG triage pipeline.
-
-    Layer 1 evaluates hard rules (no LLM).  Layer 2 queries the official
-    triage manual via pgvector and produces a structured decision.
-    ``requires_nurse_review`` is always ``true``.
-    """
-    from app.services.triage_engine import run_triage
-
-    triggers_rows = await connection.fetch(
-        "SELECT * FROM emergency_triggers WHERE is_active = TRUE ORDER BY priority ASC"
-    )
-    rules_rows = await connection.fetch(
-        "SELECT * FROM routing_rules WHERE is_active = TRUE ORDER BY priority ASC"
-    )
-    patient_input = {
-        "content": payload.content,
-        "language": payload.language,
-        "session_id": payload.session_id or "anonymous",
-    }
-    result = await run_triage(
-        patient_input=patient_input,
-        emergency_triggers=[dict(r) for r in triggers_rows],
-        routing_rules=[dict(r) for r in rules_rows],
-    )
-    return JSONResponse(content=result)
 
 
 # ── Triage manual PDF upload ──────────────────────────────────────────────────

@@ -232,37 +232,32 @@ class ScreeningTriageEngine:
 
 
 def make_triage_engine(settings, pool=None):
-    """Engine factory for the app lifespan: TRIAGE_ENGINE=adk|langgraph."""
+    """Build the deterministic screening engine (the only engine)."""
 
-    if getattr(settings, "triage_engine", "adk") == "langgraph":
-        from .model_adapter import build_chat_model
-        from .persistence import PostgresStateStore
+    from .model_adapter import build_chat_model
+    from .persistence import PostgresStateStore
 
-        model = None
-        if getattr(settings, "google_ai_enabled", False) or (
-            settings.screening_model_provider == "openai_compatible"
-        ):
-            model = build_chat_model(settings)
-        store = PostgresStateStore(pool) if pool is not None else InMemoryStateStore()
-        rag_search = None
-        try:
-            from app.services.ai.rag_query import search_triage_manual
+    model = None
+    if getattr(settings, "google_ai_enabled", False) or (
+        settings.screening_model_provider == "openai_compatible"
+    ):
+        model = build_chat_model(settings)
+    store = PostgresStateStore(pool) if pool is not None else InMemoryStateStore()
+    rag_search = None
+    try:
+        from app.services.ai.rag_query import search_triage_manual
 
-            rag_search = search_triage_manual
-        except Exception:  # pragma: no cover - RAG stack optional in dev
-            logger.warning("RAG grounding unavailable for screening engine")
-        return ScreeningTriageEngine(
-            model=model,
-            store=store,
-            question_budget=getattr(settings, "screening_question_budget", 8),
-            prompt_version=getattr(settings, "screening_prompt_version", "v1"),
-            model_label=(
-                f"screening:{settings.screening_model_provider}:"
-                f"{settings.screening_model_name}"
-            ),
-            rag_search=rag_search,
-        )
-
-    from app.services.ai.triage_engine import LlmTriageEngine
-
-    return LlmTriageEngine()
+        rag_search = search_triage_manual
+    except Exception:  # pragma: no cover - RAG stack optional in dev
+        logger.warning("RAG grounding unavailable for screening engine")
+    return ScreeningTriageEngine(
+        model=model,
+        store=store,
+        question_budget=getattr(settings, "screening_question_budget", 8),
+        prompt_version=getattr(settings, "screening_prompt_version", "v1"),
+        model_label=(
+            f"screening:{settings.screening_model_provider}:"
+            f"{settings.screening_model_name}"
+        ),
+        rag_search=rag_search,
+    )

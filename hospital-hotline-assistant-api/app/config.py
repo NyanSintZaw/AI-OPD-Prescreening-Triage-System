@@ -18,13 +18,11 @@ class Settings(BaseSettings):
     alert_cooldown_seconds: int = 300
     google_cloud_project: str | None = None
     google_cloud_location: str = "us-central1"
-    google_model_name: str = "gemini-2.5-pro"
-    google_live_model_name: str = "gemini-live-2.5-flash-native-audio"
+    # General Gemini model for non-triage features (e.g. surveillance extraction).
+    google_model_name: str = "gemini-2.5-flash"
     google_application_credentials: str | None = None
     google_ai_enabled: bool = True
     google_genai_use_vertexai: bool = True
-    live_debug_events: bool = False
-    live_debug_audio: bool = False
     bp_device_name: str = "hem-7280t"
     bp_device_mac: str | None = None
     bp_omblepy_dir: str | None = None
@@ -36,9 +34,7 @@ class Settings(BaseSettings):
     pgvector_embed_dim: int = 384
     rag_query_timeout_seconds: float = 1.0
     rag_query_prewarm_on_startup: bool = True
-    # Screening engine v2 (LangGraph). "adk" keeps the legacy free-form engine.
-    triage_engine: str = "adk"
-    voice_engine: str = "live"
+    # Deterministic screening engine (LangGraph) — the only triage/voice engine.
     screening_model_provider: str = "vertexai"
     screening_model_name: str = "gemini-2.5-flash"
     screening_openai_base_url: str | None = None
@@ -51,6 +47,10 @@ class Settings(BaseSettings):
     his_base_url: str | None = None
     his_api_key: str | None = None
     his_timeout_seconds: float = 5.0
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
+    # extra="ignore" so retired env vars (e.g. TRIAGE_ENGINE / VOICE_ENGINE
+    # from older .env files) don't break startup.
+    model_config = SettingsConfigDict(
+        env_file=".env", env_file_encoding="utf-8", extra="ignore"
+    )
 
 settings = Settings()

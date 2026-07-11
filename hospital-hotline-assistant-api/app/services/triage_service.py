@@ -11,19 +11,13 @@ if TYPE_CHECKING:
     from app.services.screening.his import HisAdapter
 
 from app.config import settings
-from app.services.ai.triage_models import TriageResult
+from app.services.ai.triage_models import TriageEngine, TriageResult
 from app.services.ai.triage_payloads import _triage_result_to_payload
 from app.services.notification_service import (
     BaseNotificationService,
     EmergencyAlert,
     MockNotificationService,
 )
-from app.services.rule_engine import (
-    evaluate_emergency_triggers,
-    evaluate_routing_rules,
-    evaluate_scale_override,
-)
-from app.services.triage_engine import LlmTriageEngine, TriageEngine
 
 
 logger = logging.getLogger(__name__)
@@ -101,42 +95,13 @@ def _classification_text(value: Any) -> str | None:
     return text or None
 
 
-def _vitals_context(metadata: dict[str, Any]) -> str | None:
-    """Render session-stored vitals (kiosk cuff / manual entry) as a
-    bracketed context line for the agent, mirroring the ``[SCHEDULE: ...]``
-    and ``[PHASE: ...]`` injection convention. Returns None when the
-    session has no usable blood-pressure reading."""
-
-    vitals = metadata.get("vitals") or {}
-    systolic = vitals.get("systolic")
-    diastolic = vitals.get("diastolic")
-    if not systolic or not diastolic:
-        return None
-    parts = [f"blood pressure {systolic}/{diastolic} mmHg"]
-    if vitals.get("pulse_bpm"):
-        parts.append(f"pulse {vitals['pulse_bpm']} bpm")
-    if vitals.get("measured_at"):
-        parts.append(f"measured at {vitals['measured_at']}")
-    source = vitals.get("source")
-    if source:
-        parts.append(
-            "source: kiosk cuff" if source == "device" else "source: patient-reported"
-        )
-    return (
-        "[PATIENT_VITALS: "
-        + ", ".join(parts)
-        + " — factor these vitals into the triage decision and do not ask "
-        "the patient to measure their blood pressure again.]"
-    )
-
-
 def _turn_context(metadata: dict[str, Any]) -> dict[str, Any] | None:
     """Objective, non-LLM inputs for the deterministic engine: patient age
     (from a linked HIS visit) and measured vitals (cuff / manual / HIS).
 
     The screening engine merges these into its state before the red-flag
     gate runs, so e.g. a cuff reading of 84/53 fires the danger-vitals rule
-    on turn 1. The ADK engine ignores this (it gets vitals as text instead).
+    on turn 1.
     """
     ctx: dict[str, Any] = {}
     visit = metadata.get("visit") or {}
@@ -186,7 +151,12 @@ class TriageService:
         triage_engine: TriageEngine | None = None,
         his_adapter: "HisAdapter | None" = None,
     ) -> None:
-        self.triage_engine: TriageEngine = triage_engine or LlmTriageEngine()
+        if triage_engine is None:
+            # The deterministic screening engine (LangGraph) is the only engine.
+            from app.services.screening.engine import make_triage_engine
+
+            triage_engine = make_triage_engine(settings)
+        self.triage_engine: TriageEngine = triage_engine
         # Default to the mock notifier so the demo + tests work without
         # any external transport. Callers can inject a production sink
         # real staff-summary channel once one is configured.
@@ -264,32 +234,6 @@ class TriageService:
             for record in departments
         }
 
-        emergency_triggers = await connection.fetch(
-            """
-            SELECT id, trigger_name, trigger_keywords, condition_json, alert_message_en, alert_message_th, priority
-            FROM emergency_triggers
-            WHERE is_active = TRUE
-            ORDER BY priority ASC, trigger_name ASC
-            """
-        )
-        routing_rules = await connection.fetch(
-            """
-            SELECT id, department_id, rule_name, symptom_keywords, condition_json, severity_override, priority
-            FROM routing_rules
-            WHERE is_active = TRUE
-            ORDER BY priority ASC, rule_name ASC
-            """
-        )
-
-        emergency_matches = evaluate_emergency_triggers(
-            content,
-            [dict(item) for item in emergency_triggers],
-            language=language,
-        )
-        routing_matches = evaluate_routing_rules(
-            content, [dict(item) for item in routing_rules]
-        )
-
         await self.triage_engine.ensure_session(
             session_id=session_id,
             language=language,
@@ -305,8 +249,6 @@ class TriageService:
             "prior_contact": {},
             "department_by_code": department_by_code,
             "department_name_by_id": department_name_by_id,
-            "emergency_matches": emergency_matches,
-            "routing_matches": routing_matches,
             "schedule_context": schedule_context,
         }
 
@@ -329,23 +271,14 @@ class TriageService:
             content=content,
         )
 
-        # ----------------------------------------------------------------
-        # ADK turn. The HotlineADKRunner owns the InMemorySessionService
-        # that holds rolling chat history per session, so there is no DB
-        # history fetch here. ``input_mode`` is forwarded as-is so the
-        # agents pick the right reply format (voice = short spoken;
-        # text = readable prose).
-        # ----------------------------------------------------------------
-        agent_content = content
-        vitals_line = _vitals_context(ctx["prior_metadata"])
-        if vitals_line:
-            agent_content = f"{vitals_line}\n{content}"
-
-        adk_result = await self.triage_engine.run_turn(
+        # One bounded screening-engine turn. Objective inputs (age from a
+        # linked HIS visit, measured vitals) go through ``turn_context`` — the
+        # engine merges them into state before its red-flag gate runs.
+        engine_result = await self.triage_engine.run_turn(
             session_id=session_id,
             language=language,
             input_mode=input_mode,
-            content=agent_content,
+            content=content,
             schedule_context=ctx.get("schedule_context"),
             turn_context=_turn_context(ctx["prior_metadata"]),
         )
@@ -357,215 +290,8 @@ class TriageService:
             content=content,
             start=start,
             ctx=ctx,
-            adk_result=adk_result,
+            adk_result=engine_result,
         )
-
-    async def finalize_live_assessment(
-        self,
-        *,
-        connection: asyncpg.Connection,
-        session_id: str,
-        language: str,
-        input_mode: str,
-        content: str,
-        classification: dict[str, Any],
-        contact: dict[str, Any],
-        reply: str | None = None,
-        live_messages: list[dict[str, Any]] | None = None,
-    ) -> tuple[TriageResult, dict[str, Any]]:
-        """Persist a completed live-voice assessment without re-invoking ADK.
-
-        Called when the live pipeline has already collected classification
-        via tool responses. Skips the
-        expensive ``adk_runner.chat`` round-trip and writes the same DB
-        rows + staff notifications as a normal chat turn.
-        """
-
-        start = perf_counter()
-        segmented_live_messages = self._normalize_live_messages(live_messages or [])
-
-        ctx = await self._prepare_chat_turn(
-            connection=connection,
-            session_id=session_id,
-            language=language,
-            input_mode=input_mode,
-            content=content,
-            persist_user_message=not segmented_live_messages,
-        )
-
-        agent_reply = (reply or "").strip()
-        if not agent_reply:
-            # Patients never see the triage level — department guidance only.
-            dept = classification.get("department_code") or ""
-            if language == "th":
-                agent_reply = (
-                    f"การประเมินเสร็จสมบูรณ์แล้วค่ะ กรุณาไปที่แผนก {dept} นะคะ"
-                    if dept
-                    else "การประเมินเสร็จสมบูรณ์แล้วค่ะ"
-                )
-            else:
-                agent_reply = (
-                    f"Your assessment is complete. Please proceed to {dept}."
-                    if dept
-                    else "Your assessment is complete."
-                )
-
-        adk_result: dict[str, Any] = {
-            "reply": agent_reply,
-            "classification": classification,
-            "contact": contact,
-            "input_mode": input_mode,
-        }
-
-        if segmented_live_messages:
-            persisted_messages = await self._persist_live_messages(
-                connection=connection,
-                session_id=session_id,
-                messages=segmented_live_messages,
-            )
-            first_user_message = next(
-                (
-                    message
-                    for message in persisted_messages
-                    if message.get("role") == "user"
-                ),
-                None,
-            )
-            last_assistant_message = next(
-                (
-                    message
-                    for message in reversed(persisted_messages)
-                    if message.get("role") == "assistant"
-                ),
-                None,
-            )
-            if first_user_message is None:
-                first_user_message = await connection.fetchrow(
-                    """
-                    INSERT INTO messages (session_id, role, input_mode, content, metadata)
-                    VALUES ($1, 'user', $2, $3, $4::jsonb)
-                    RETURNING *
-                    """,
-                    session_id,
-                    input_mode,
-                    content or "[voice call]",
-                    {"source": "live_voice", "aggregate_fallback": True},
-                )
-                first_user_message = dict(first_user_message)
-            ctx["msg_user"] = first_user_message
-            ctx["assistant_message_override"] = last_assistant_message
-
-        result, assistant_message = await self._finalize_chat_turn(
-            connection=connection,
-            session_id=session_id,
-            language=language,
-            content=content,
-            start=start,
-            ctx=ctx,
-            adk_result=adk_result,
-        )
-
-        await self._notify_staff_assessment_summary(
-            connection=connection,
-            session_id=session_id,
-            language=language,
-            result=result,
-            classification=classification,
-            contact=contact,
-        )
-
-        await connection.execute(
-            """
-            UPDATE sessions
-            SET status = CASE
-                    WHEN status = 'escalated' THEN status
-                    ELSE 'completed'
-                END,
-                ended_at = COALESCE(ended_at, NOW())
-            WHERE id = $1
-            """,
-            session_id,
-        )
-
-        return result, assistant_message
-
-    def _normalize_live_messages(
-        self, messages: list[dict[str, Any]]
-    ) -> list[dict[str, Any]]:
-        """Clean and coalesce live transcript events for DB display rows."""
-
-        normalized: list[dict[str, Any]] = []
-        for index, item in enumerate(messages):
-            role = item.get("role")
-            if role == "agent":
-                role = "assistant"
-            if role not in {"user", "assistant"}:
-                continue
-            content = str(item.get("content") or "").strip()
-            if not content:
-                continue
-            input_mode = item.get("input_mode") or (
-                "voice" if role == "user" else None
-            )
-            sequence = item.get("sequence")
-            if not isinstance(sequence, int):
-                sequence = index
-
-            if normalized and normalized[-1]["role"] == role:
-                previous = normalized[-1]["content"]
-                separator = "" if previous.endswith((" ", "\n")) else " "
-                normalized[-1]["content"] = f"{previous}{separator}{content}".strip()
-                normalized[-1]["sequence_end"] = sequence
-                continue
-
-            normalized.append(
-                {
-                    "role": role,
-                    "input_mode": input_mode,
-                    "content": content,
-                    "sequence": sequence,
-                    "sequence_end": sequence,
-                }
-            )
-        return normalized
-
-    async def _persist_live_messages(
-        self,
-        *,
-        connection: asyncpg.Connection,
-        session_id: str,
-        messages: list[dict[str, Any]],
-    ) -> list[dict[str, Any]]:
-        """Persist a live call transcript as chronological message rows."""
-
-        persisted: list[dict[str, Any]] = []
-        base_time = datetime.now(timezone.utc)
-        for index, message in enumerate(messages):
-            metadata = {
-                "source": "live_voice",
-                "sequence": message.get("sequence", index),
-                "sequence_end": message.get(
-                    "sequence_end",
-                    message.get("sequence", index),
-                ),
-            }
-            record = await connection.fetchrow(
-                """
-                INSERT INTO messages (
-                    session_id, role, input_mode, content, created_at, metadata
-                )
-                VALUES ($1, $2, $3, $4, $5, $6::jsonb)
-                RETURNING *
-                """,
-                session_id,
-                message["role"],
-                message.get("input_mode"),
-                message["content"],
-                base_time + timedelta(milliseconds=index),
-                metadata,
-            )
-            persisted.append(dict(record))
-        return persisted
 
     async def _notify_staff_assessment_summary(
         self,
@@ -639,8 +365,6 @@ class TriageService:
         prior_classification = ctx["prior_classification"]
         department_by_code = ctx["department_by_code"]
         department_name_by_id = ctx["department_name_by_id"]
-        emergency_matches = ctx["emergency_matches"]
-        routing_matches = ctx["routing_matches"]
 
         reply = adk_result["reply"]
         new_classification: dict[str, Any] = adk_result.get("classification", {})
@@ -649,8 +373,10 @@ class TriageService:
         classification: dict[str, Any] = new_classification or prior_classification
         contact: dict[str, Any] = adk_result.get("contact", {}) or {}
 
-        # Severity comes from the swappable triage engine so the ADK path
-        # and future trained-model path can share the same persistence flow.
+        # The deterministic screening engine is authoritative: it decides the
+        # MOPH level and department from versioned criteria every turn. This
+        # path only persists that decision — no keyword rule engine, no
+        # override chain.
         decision = self.triage_engine.decision_from_classification(classification)
         severity_level = decision.severity_level
         severity_confidence: float | None = (
@@ -664,81 +390,34 @@ class TriageService:
         distress_type = _classification_text(classification.get("distress_type"))
         red_flags = _classification_red_flags(classification.get("red_flags"))
 
-        # Override order: ADK decision -> emergency keyword trigger ->
-        # routing rule -> pain/distress scale. Later rules may escalate
-        # acuity, but nothing can downgrade an existing emergency.
-        matched_trigger = emergency_matches[0] if emergency_matches else None
-        if matched_trigger:
-            severity_level = "emergency"
-            if not severity_explanation:
-                severity_explanation = matched_trigger.reason
-
-        # The langgraph screening engine is authoritative: its own deterministic
-        # rules (red-flag gate, disposition, department map) run every turn. The
-        # legacy keyword routing-rule and pain/distress scale overrides are the
-        # ADK path's engine — under langgraph they fire on *interview* turns and
-        # wrongly assign a department + severity, marking the turn complete (which
-        # then auto-ends voice calls). Skip them there. The emergency keyword
-        # trigger above stays as an escalate-only safety net for both engines.
-        is_langgraph = getattr(settings, "triage_engine", "adk") == "langgraph"
-        matched_rule = None if is_langgraph else (routing_matches[0] if routing_matches else None)
-        if matched_rule and matched_rule.severity_override and severity_level != "emergency":
-            severity_level = matched_rule.severity_override
-            if not severity_explanation:
-                severity_explanation = matched_rule.reason
-
-        if not is_langgraph:
-            scale_override = evaluate_scale_override(classification, severity_level)
-            if scale_override.severity and severity_level != "emergency":
-                severity_level = scale_override.severity
-                if scale_override.reason:
-                    severity_explanation = scale_override.reason
-
-        # Department resolution with MFU OPD-first policy.
-        adk_dept_code = decision.opd_department_code
+        # Department: the engine's code, OPD-first coerced. Levels 1–2 force
+        # the emergency department; interview turns (severity still 'unknown')
+        # get no department so assessment_status stays in_progress.
+        dept_code = decision.opd_department_code
         if severity_level == "emergency":
-            adk_dept_code = "emergency"
-        elif adk_dept_code and not str(adk_dept_code).startswith("opd_"):
+            dept_code = "emergency"
+        elif dept_code and not str(dept_code).startswith("opd_"):
             logger.warning(
                 "Non-emergency classification used non-OPD code '%s'; coercing to opd_general",
-                adk_dept_code,
+                dept_code,
             )
-            adk_dept_code = "opd_general"
+            dept_code = "opd_general"
 
         department_id: str | None = None
         department_reason: str | None = None
         department_confidence: float | None = None
 
-        if adk_dept_code and adk_dept_code in department_by_code:
-            department_id = department_by_code[adk_dept_code]["id"]
+        if dept_code and dept_code in department_by_code:
+            department_id = department_by_code[dept_code]["id"]
             department_reason = severity_explanation
             department_confidence = severity_confidence
-        elif adk_dept_code:
+        elif dept_code:
             logger.warning(
-                "Department code '%s' not found in active departments", adk_dept_code
+                "Department code '%s' not found in active departments", dept_code
             )
-        elif is_langgraph and severity_level == "unknown":
-            # Interview turn under the deterministic engine — it has not disposed
-            # yet, so assign no department (assessment_status stays in_progress).
+        elif severity_level == "unknown":
+            # Interview turn — the engine has not disposed yet, no department.
             pass
-        elif matched_rule and matched_rule.department_id:
-            matched_kind = next(
-                (
-                    item["kind"]
-                    for item in department_by_code.values()
-                    if item["id"] == matched_rule.department_id
-                ),
-                None,
-            )
-            if severity_level != "emergency" and matched_kind != "opd":
-                logger.warning(
-                    "Routing rule selected non-OPD department '%s' for non-emergency; skipping",
-                    matched_rule.department_id,
-                )
-            else:
-                department_id = matched_rule.department_id
-                department_reason = matched_rule.reason
-                department_confidence = matched_rule.confidence
         elif severity_level == "emergency" and "emergency" in department_by_code:
             department_id = department_by_code["emergency"]["id"]
             department_reason = "Emergency severity requires emergency department"
@@ -749,16 +428,16 @@ class TriageService:
             department_confidence = 0.6
 
         emergency_alert_message = None
-        # ADK doesn't emit a structured symptoms list per turn -- the
-        # classifier's ``symptoms_summary`` is a sentence. Use it when
-        # present, otherwise fall back to the raw user content so the
-        # emergency_events row always carries something useful.
+        # The engine emits a one-line ``symptoms_summary``; fall back to the
+        # raw user content so surveillance always has something.
         symptoms_summary = decision.symptoms_summary
         detected_symptoms: list[str] = (
             [str(symptoms_summary)] if symptoms_summary else [content]
         )
 
-        model_name = adk_result.get("model_name") or f"adk:{settings.google_model_name}"
+        model_name = adk_result.get("model_name") or (
+            f"screening:{getattr(settings, 'screening_model_name', 'unknown')}"
+        )
 
         await connection.execute(
             """
@@ -783,32 +462,17 @@ class TriageService:
         )
 
         # ── Disease Surveillance Capture ──────────────────────────────────
-        # Build surveillance keywords from three sources (in priority order):
-        #   1. AI classify_triage_level output  → red_flags + symptoms_summary
-        #   2. Routing rule keyword matches      → structured symptom keywords
-        #   3. Emergency trigger keyword matches → structured trigger keywords
-        # We upsert one row per session so the record improves as the
-        # conversation progresses without creating duplicates.
+        # Surveillance keywords come from the engine's classification
+        # (red flags + one-line summary). We upsert one row per session so
+        # the record improves as the conversation progresses.
         surv_keywords: list[str] = []
         surv_summary: str | None = None
 
         if new_classification.get("classified") is True:
-            # Best-quality: AI explicitly classified the case.
             surv_keywords = list(red_flags)
             surv_summary = _classification_text(new_classification.get("symptoms_summary"))
             if surv_summary and surv_summary not in surv_keywords:
                 surv_keywords.append(surv_summary)
-        else:
-            # Fallback: extract keywords from routing-rule / emergency-trigger
-            # matches so even short conversations produce surveillance data.
-            for rule in routing_matches:
-                for kw in (rule.keywords or []):
-                    if kw and kw not in surv_keywords:
-                        surv_keywords.append(kw)
-            for trigger in emergency_matches:
-                for kw in (trigger.keywords or []):
-                    if kw and kw not in surv_keywords:
-                        surv_keywords.append(kw)
 
         if surv_keywords or surv_summary:
             try:
@@ -851,7 +515,7 @@ class TriageService:
             severity_level,
             severity_confidence,
             severity_explanation,
-            [item.name for item in emergency_matches],
+            red_flags,
         )
         assessment_id = str(assessment["id"]) if assessment else None
 
@@ -937,7 +601,7 @@ class TriageService:
             metadata=existing_metadata,
             session_id=session_id,
             severity_level=severity_level,
-            department_code=adk_dept_code,
+            department_code=dept_code,
             symptoms_summary=symptoms_summary,
             classification=classification,
         )
@@ -960,7 +624,7 @@ class TriageService:
             department_id=department_id,
             department_reason=department_reason,
             department_confidence=department_confidence,
-            emergency_trigger_id=matched_trigger.id if matched_trigger else None,
+            emergency_trigger_id=None,
             emergency_alert_message=emergency_alert_message,
             detected_symptoms=detected_symptoms,
             # ADK weaves the follow-up question into ``reply`` itself --
@@ -1099,9 +763,6 @@ class TriageService:
                 f"[CONTACT_FLOW: {contact_flow}]\n"
                 f"{content}"
             )
-        vitals_line = _vitals_context(prior_metadata)
-        if vitals_line:
-            agent_content = f"{vitals_line}\n{agent_content}"
 
         # Consume the ADK stream. We accumulate the reply locally as
         # we go so that the final ``adk_result`` we feed into
@@ -1244,7 +905,9 @@ class TriageService:
         model_name: str | None = None,
     ) -> dict[str, Any]:
         latency_ms = int((perf_counter() - start) * 1000)
-        model_name = model_name or f"adk:{settings.google_model_name}"
+        model_name = model_name or (
+            f"screening:{getattr(settings, 'screening_model_name', 'unknown')}"
+        )
         msg_assistant = await connection.fetchrow(
             """
             INSERT INTO messages (

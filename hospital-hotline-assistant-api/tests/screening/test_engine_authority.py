@@ -1,17 +1,12 @@
-"""Regression: the langgraph engine is authoritative in _finalize_chat_turn.
+"""The screening engine is the sole authority in _finalize_chat_turn.
 
-The legacy keyword routing-rule + scale overrides (the ADK path's engine)
-must NOT fire under TRIAGE_ENGINE=langgraph — otherwise they assign a
-department + severity on an *interview* turn, marking it complete and
-auto-ending voice calls. (Found via the voice sanity check: an English
-cough matched the "OPD general symptoms" routing rule mid-interview.)
+There is no legacy keyword rule engine any more: an interview turn (empty
+classification) must stay in_progress with no department; a disposed turn
+persists exactly the engine's severity + department.
 """
 
 import time
 
-import pytest
-
-from app.services import triage_service as ts_mod
 from app.services.ai.triage_models import TriageDecision
 from app.services.triage_service import TriageService
 
@@ -30,32 +25,27 @@ class FakeConn:
         return "OK"
 
 
+_SEV = {1: "emergency", 2: "emergency", 3: "urgent", 4: "general", 5: "general"}
+
+
 class FakeEngine:
-    """Interview turn => empty classification => severity 'unknown'."""
+    """Maps a classification dict to a decision the way the real engine does."""
 
     def decision_from_classification(self, classification):
         classified = bool(classification.get("classified"))
+        level = classification.get("level")
         return TriageDecision(
-            esi_level=classification.get("level") if classified else None,
-            severity_level="general" if classified else "unknown",
+            esi_level=level if classified else None,
+            severity_level=_SEV.get(level, "unknown") if classified else "unknown",
             opd_department_code=classification.get("department_code") if classified else None,
-            key_reason=None,
+            key_reason="reason",
             symptoms_summary="cough",
             needs_emergency_contact=False,
             classification=classification,
         )
 
 
-class FakeRoutingRule:
-    name = "OPD general symptoms"
-    severity_override = "general"
-    department_id = "d1"
-    reason = "Matched routing rule: OPD general symptoms"
-    confidence = 0.75
-    keywords = ["cough", "cold"]
-
-
-def make_ctx(routing_matches):
+def make_ctx():
     return {
         "msg_user": {"id": "u1"},
         "prior_metadata": {},
@@ -65,15 +55,11 @@ def make_ctx(routing_matches):
             "emergency": {"id": "e1", "kind": "emergency"},
         },
         "department_name_by_id": {"d1": "OPD General", "e1": "ER"},
-        "emergency_matches": [],
-        "routing_matches": routing_matches,
-        # Provide the assistant message so finalize skips the messages insert.
-        "assistant_message_override": {"id": "m1", "content": "May I ask your age?"},
+        "assistant_message_override": {"id": "m1", "content": "reply"},
     }
 
 
-async def _finalize(engine_flag, routing_matches, monkeypatch):
-    monkeypatch.setattr(ts_mod.settings, "triage_engine", engine_flag)
+async def _finalize(classification):
     svc = TriageService(triage_engine=FakeEngine())
     result, _ = await svc._finalize_chat_turn(
         connection=FakeConn(),
@@ -81,22 +67,27 @@ async def _finalize(engine_flag, routing_matches, monkeypatch):
         language="en",
         content="I have a cough for three days",
         start=time.perf_counter(),
-        ctx=make_ctx(routing_matches),
-        adk_result={"reply": "May I ask your age?", "classification": {}, "contact": {}},
+        ctx=make_ctx(),
+        adk_result={"reply": "…", "classification": classification, "contact": {}},
     )
     return result
 
 
-async def test_langgraph_interview_turn_not_completed_by_routing_rule(monkeypatch):
-    """A cough matches the OPD-general routing rule, but under langgraph the
-    interview turn must stay in_progress (severity unknown, no department)."""
-    result = await _finalize("langgraph", [FakeRoutingRule()], monkeypatch)
-    assert result.severity_level == "unknown"   # NOT 'general'
+async def test_interview_turn_stays_in_progress():
+    """No classification yet → severity unknown, no department assigned."""
+    result = await _finalize({})
+    assert result.severity_level == "unknown"
     assert result.department_id is None
 
 
-async def test_adk_still_applies_routing_rule(monkeypatch):
-    """The ADK path keeps its legacy rule-engine behavior unchanged."""
-    result = await _finalize("adk", [FakeRoutingRule()], monkeypatch)
+async def test_disposed_turn_persists_engine_department():
+    """A disposition routes exactly to the engine's department code."""
+    result = await _finalize({"classified": True, "level": 4, "department_code": "opd_general"})
     assert result.severity_level == "general"
     assert result.department_id == "d1"
+
+
+async def test_emergency_forces_emergency_department():
+    result = await _finalize({"classified": True, "level": 1, "department_code": "opd_general"})
+    assert result.severity_level == "emergency"
+    assert result.department_id == "e1"  # coerced to the emergency department

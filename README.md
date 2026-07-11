@@ -50,28 +50,43 @@ docker compose down -v    # stop + wipe Postgres data
 The backend and frontend run on your device (below), connecting to these on
 `localhost`.
 
-### 2. Backend
+### 2. Backend (Python 3.11, managed with [uv](https://docs.astral.sh/uv/))
 
-```powershell
+```bash
 cd hospital-hotline-assistant-api
-python -m venv .venv; .\.venv\Scripts\Activate.ps1
-pip install -r requirements.txt
-copy .env.example .env   # then edit DATABASE_URL, Slack webhook, Google AI keys
-uvicorn app.main:app --reload
+uv sync                                   # install deps (no requirements.txt — uv-managed)
+cp .env.example .env                      # then set GOOGLE_CLOUD_PROJECT + GOOGLE_APPLICATION_CREDENTIALS
+uv run python scripts/init_db.py          # migrations + criteria + HIS health-check (see step 1)
+uv run uvicorn app.main:app --reload      # http://localhost:8000  (docs at /docs; ~15s to warm up)
 ```
 
-Backend serves at `http://127.0.0.1:8000` (docs at `/docs`).
+`.env.example` already sets the flags for the new system —
+`TRIAGE_ENGINE=langgraph`, `VOICE_ENGINE=turn`, and `HIS_MODE=http` /
+`HIS_BASE_URL=http://localhost:8001`. Leave them as-is; just fill in your
+Google Vertex project + service-account key. `DATABASE_URL` must match the
+Postgres password (`postgres`, per the compose file).
 
-### 3. Frontend
+### 3. Frontend (React + Vite)
 
-```powershell
+```bash
 cd hospital-hotline-assistant-web
-copy .env.example .env
+cp .env.example .env                       # VITE_API_BASE_URL defaults to http://localhost:8000
 npm install
-npm run dev
+npm run dev                                # http://localhost:5173
 ```
 
-Frontend serves at `http://localhost:5173`.
+### 4. Walk the demo
+
+Open **http://localhost:5173**:
+
+- **Patient booth** (`/patient`) — type a hospital **visit ID** (the mock seeds
+  `990000000000000001`–`…008`; `…003` is a child → pediatrics), take/enter
+  vitals, then chat in Thai or English.
+- **Admin** (`/admin`) — the **🏥 Hospital DB** tab shows the visit go
+  `registered → screened → routed` live.
+- **Nurse** (`/nurse`) — search by the slip code on the patient's receipt,
+  then Confirm / Reroute (this publishes the department + reason back to the
+  hospital DB).
 
 ## Features
 

@@ -9,12 +9,11 @@ from app.services.ai.triage_models import TriageResult
 
 
 def should_redact_patient_severity() -> bool:
-    """Patients never see the triage level when the deterministic screening
-    engine is active — they only get the department destination (nurse
-    requirement / SRS scope boundary). Nurse/admin surfaces read the DB rows
-    and are unaffected."""
+    """Patients never see the triage level — they only get the department
+    destination (nurse requirement / SRS scope boundary). Nurse/admin surfaces
+    read the DB rows and are unaffected."""
 
-    return getattr(settings, "triage_engine", "adk") == "langgraph"
+    return True
 
 
 def severity_payload(result: TriageResult, *, redact: bool | None = None) -> dict[str, Any]:
