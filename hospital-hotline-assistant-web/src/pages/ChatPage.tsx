@@ -38,16 +38,12 @@ export function ChatPage() {
   const speech = useSpeechRecognition(language);
   const synthesis = useSpeechSynthesis(language);
   const frontdeskMode = (import.meta.env.VITE_FRONTDESK_MODE ?? 'false') === 'true';
-  // Screening engine v2 sends assessment_status; the legacy engine is
-  // inferred from a known severity level. Patients never see the level.
-  const assessmentDecided =
+  // The screening engine sends assessment_status. Patients never see the
+  // level. The booth flow has no post-assessment contact step, so a decided
+  // assessment is a complete one.
+  const assessmentComplete =
     assessment?.assessmentStatus === 'complete' ||
     Boolean(assessment?.severity?.level && assessment.severity.level !== 'unknown');
-  const assessmentComplete = Boolean(
-    assessmentDecided &&
-    assessment?.contact?.contact_preference_recorded &&
-    !assessment.contact?.needs_followup
-  );
 
   const voiceCall = useVoiceCall({
     sessionId,

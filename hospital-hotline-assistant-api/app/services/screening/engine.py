@@ -25,7 +25,6 @@ from .vitals import normalize_vitals
 logger = logging.getLogger(__name__)
 
 _MARKER_LINE = re.compile(r"^\[[A-Z_]+:[^\]]*\]\s*$", re.MULTILINE)
-_CONTACT_PHASE = "[PHASE: contact_preference]"
 
 _LEVEL_TO_SEVERITY: dict[int, str] = {
     1: "emergency",
@@ -120,7 +119,6 @@ class ScreeningTriageEngine:
             "type": "done",
             "reply": result["reply"],
             "classification": result["classification"],
-            "contact": result["contact"],
             "input_mode": input_mode,
             "model_name": result.get("model_name"),
         }
@@ -172,10 +170,8 @@ class ScreeningTriageEngine:
         )
 
     @staticmethod
-    def _parse_content(content: str) -> tuple[bool, str]:
-        contact_turn = _CONTACT_PHASE in content
-        cleaned = _MARKER_LINE.sub("", content).strip()
-        return contact_turn, cleaned
+    def _parse_content(content: str) -> str:
+        return _MARKER_LINE.sub("", content).strip()
 
     async def _execute(
         self,
@@ -186,7 +182,7 @@ class ScreeningTriageEngine:
         content: str,
         turn_context: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
-        contact_turn, user_text = self._parse_content(content)
+        user_text = self._parse_content(content)
         state = await self._store.load(session_id)
         if state is None:
             state = self._new_state(session_id, language, input_mode)
@@ -203,7 +199,6 @@ class ScreeningTriageEngine:
             "s": state,
             "criteria": criteria,
             "user_text": user_text,
-            "contact_turn": contact_turn,
             "audit": [],
         })
         state = result["s"]
@@ -223,7 +218,6 @@ class ScreeningTriageEngine:
         return {
             "reply": output.reply,
             "classification": output.classification or {},
-            "contact": output.contact or {},
             "input_mode": input_mode,
             "model_name": self._model_label,
             "escalated": output.escalated,

@@ -10,7 +10,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
-Phase = Literal["intake", "history", "disposed", "contact", "done", "escalated_to_nurse"]
+Phase = Literal["intake", "history", "disposed", "done", "escalated_to_nurse"]
 
 OLDCARTS_SLOTS = (
     "onset", "location", "duration", "character",
@@ -29,7 +29,6 @@ class TurnOutput(BaseModel):
 
     reply: str = ""
     classification: dict[str, Any] = Field(default_factory=dict)
-    contact: dict[str, Any] = Field(default_factory=dict)
     escalated: bool = False
 
 
@@ -55,7 +54,6 @@ class ScreeningState(BaseModel):
 
     disposition: dict[str, Any] | None = None    # serialized DispositionResult
     classification: dict[str, Any] = Field(default_factory=dict)
-    contact: dict[str, Any] = Field(default_factory=dict)
 
     criteria_version_id: str | None = None
     prompt_version: str = "v1"

@@ -3,7 +3,7 @@
 import pytest
 
 from app.services.screening.engine import ScreeningTriageEngine
-from app.services.screening.extraction import ContactAnswer, ExtractionResult, FindingUpdate
+from app.services.screening.extraction import ExtractionResult, FindingUpdate
 from app.services.screening.persistence import InMemoryStateStore
 
 from .fakes import FakeChatModel
@@ -149,63 +149,6 @@ async def test_thai_tinnitus_meets_ent_criteria(criteria):
     assert "ระดับ" not in r_final["reply"]
 
 
-async def test_contact_flow_yes_then_phone(criteria):
-    model = FakeChatModel()
-    engine = make_engine(criteria, model)
-    session = "s4"
-
-    # dispose first
-    model.extractions.append(ext(
-        chief_complaint="chest pain", complaint_category="chest_pain",
-        findings={"chest_pain": "present", "diaphoresis": "present"},
-    ))
-    await engine.run_turn(
-        session_id=session, language="en", input_mode="text", content="chest pain sweating",
-    )
-
-    # contact turn 1: yes -> ask phone
-    model.contact_answers.append(ContactAnswer(requested=True))
-    r = await engine.run_turn(
-        session_id=session, language="en", input_mode="text",
-        content="[PHASE: contact_preference]\n[CONTACT_FLOW: awaiting_consent]\nyes please",
-    )
-    assert r["contact"]["requested"] is True
-    assert r["contact"]["needs_followup"] is True
-    assert "phone" in r["reply"].lower()
-
-    # contact turn 2: phone number -> confirmed, done
-    model.contact_answers.append(ContactAnswer(requested=True, phone_number="0812345678"))
-    r = await engine.run_turn(
-        session_id=session, language="en", input_mode="text",
-        content="[PHASE: contact_preference]\n[CONTACT_FLOW: awaiting_phone]\n0812345678",
-    )
-    assert r["contact"]["needs_followup"] is False
-    assert r["contact"]["phone_number"] == "0812345678"
-    assert "contact you" in r["reply"]
-
-
-async def test_contact_decline_thai(criteria):
-    model = FakeChatModel()
-    engine = make_engine(criteria, model)
-    session = "s5"
-    model.extractions.append(ext(
-        chief_complaint="ปวดหัว", complaint_category="headache",
-        findings={"headache": "present", "headache_sudden_severe": "present"},
-    ))
-    await engine.run_turn(
-        session_id=session, language="th", input_mode="text",
-        content="ปวดหัวรุนแรงมากฉับพลัน",
-    )
-    model.contact_answers.append(ContactAnswer(requested=False))
-    r = await engine.run_turn(
-        session_id=session, language="th", input_mode="text",
-        content="[PHASE: contact_preference]\nไม่ต้องค่ะ",
-    )
-    assert r["contact"]["requested"] is False
-    assert r["contact"]["needs_followup"] is False
-    assert any("฀" <= ch <= "๿" for ch in r["reply"])
-
-
 async def test_extraction_failure_escalates_to_nurse(criteria):
     model = FakeChatModel()  # empty queues -> every extraction raises
     engine = make_engine(criteria, model)
@@ -255,11 +198,6 @@ async def test_repeat_guidance_after_done(criteria):
         findings={"chest_pain": "present", "diaphoresis": "present"},
     ))
     await engine.run_turn(session_id=session, language="en", input_mode="text", content="hi")
-    model.contact_answers.append(ContactAnswer(requested=False))
-    await engine.run_turn(
-        session_id=session, language="en", input_mode="text",
-        content="[PHASE: contact_preference]\nno",
-    )
     # a later plain turn repeats guidance instead of restarting the interview
     r = await engine.run_turn(
         session_id=session, language="en", input_mode="text", content="so where do I go?",

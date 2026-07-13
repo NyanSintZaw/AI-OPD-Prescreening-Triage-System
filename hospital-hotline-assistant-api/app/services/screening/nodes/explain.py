@@ -1,8 +1,8 @@
 """Explain node: verbalize the validated routing (never the level).
 
 LLM writes a warm explanation; the validator gates it; failures fall back to
-the deterministic bilingual template. Ends with the contact question, which
-hands the flow to TriageService's contact state machine.
+the deterministic bilingual template. Ends at the department guidance — the
+booth flow has no post-assessment contact step.
 """
 
 from __future__ import annotations
@@ -32,7 +32,7 @@ _EXPLAIN_PROMPT = {
         "Send the patient to: {department}\n"
         "{urgency_line}"
         "{reference}"
-        "End with exactly this question: \"{contact_question}\""
+        "Close warmly (e.g. wish them well); do NOT ask any follow-up question."
     ),
     "th": (
         "คุณเป็นผู้ช่วยคัดกรองของโรงพยาบาล พูดภาษาไทยอย่างอบอุ่นและใจเย็น "
@@ -43,7 +43,7 @@ _EXPLAIN_PROMPT = {
         "ให้ผู้ป่วยไปที่: {department}\n"
         "{urgency_line}"
         "{reference}"
-        "จบด้วยคำถามนี้เท่านั้น: \"{contact_question}\""
+        "ปิดท้ายอย่างอบอุ่น (เช่น อวยพรให้หายไว ๆ) ห้ามถามคำถามใด ๆ เพิ่มเติม"
     ),
 }
 
@@ -69,7 +69,7 @@ def fallback_explanation(state, deps: GraphDeps) -> str:
         body = templates.EMERGENCY_EXPLAIN[language]
     else:
         body = templates.OPD_EXPLAIN[language].format(department=department)
-    return body + templates.CONTACT_QUESTION[language]
+    return body
 
 
 def make_explain_node(deps: GraphDeps):
@@ -105,7 +105,6 @@ def make_explain_node(deps: GraphDeps):
                 department=department,
                 urgency_line=_URGENCY_LINE[language] if is_emergency else "",
                 reference=reference,
-                contact_question=templates.CONTACT_QUESTION[language],
             )
             started = perf_counter()
             ok = False

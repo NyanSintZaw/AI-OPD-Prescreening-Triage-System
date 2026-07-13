@@ -67,21 +67,6 @@ class ExtractionResult(BaseModel):
     )
 
 
-class ContactAnswer(BaseModel):
-    """Structured reading of a post-assessment contact-preference reply."""
-
-    requested: bool | None = Field(
-        default=None,
-        description="True if the patient wants the hospital to contact them, False if "
-        "they decline, null when unclear",
-    )
-    phone_number: str | None = Field(default=None, description="Phone number when given")
-    preferred_time: str | None = Field(default=None, description="Preferred contact time")
-    relation: str | None = Field(
-        default=None, description="Relationship when they ask us to call someone else"
-    )
-
-
 def _catalog_lines(criteria: ScreeningCriteria, state: ScreeningState) -> list[str]:
     """Bounded finding vocabulary for the prompt: the active template's
     red-flag/associated targets plus every finding referenced by rules that
@@ -156,17 +141,4 @@ Rules:
 - wants_human=true only when they explicitly ask for a person/nurse/staff.
 
 Patient message:
-{user_text}"""
-
-
-CONTACT_PROMPT = """You are reading ONE short patient reply about whether the hospital should
-contact them after their screening (Thai or English). Extract the answer.
-
-Examples: "yes please" -> requested=true; "no I'll go myself" / "ไม่ต้องค่ะ" ->
-requested=false; "call me tomorrow" -> requested=true, preferred_time="tomorrow";
-"0812345678" -> requested=true, phone_number="0812345678"; "call my daughter" ->
-requested=true, relation="daughter"; unclear ("maybe", "I don't know") ->
-requested=null.
-
-Patient reply:
 {user_text}"""

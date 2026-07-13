@@ -3,8 +3,7 @@
 One bounded invocation per chat turn. All routing decisions are pure
 functions over state + criteria (the LLM never chooses the path):
 
-    entry ─┬─ contact_turn ────────────► contact ─► END
-           ├─ phase escalated ─────────► escalate ─► END
+    entry ─┬─ phase escalated ─────────► escalate ─► END
            ├─ phase disposed/done ─────► repeat ─► END
            └─ else ─► ingest ─┬─ escalated ─► escalate ─► END
                               ├─ complete (incl. red-flag L1/L2) ─► dispose ─► explain ─► END
@@ -16,7 +15,6 @@ from __future__ import annotations
 from langgraph.graph import END, StateGraph
 
 from .nodes.base import GraphDeps, GraphState
-from .nodes.contact import make_contact_node
 from .nodes.dispose import make_dispose_node
 from .nodes.explain import make_explain_node
 from .nodes.ingest import make_ingest_node
@@ -32,13 +30,10 @@ def build_screening_graph(deps: GraphDeps):
     graph.add_node("question", make_question_node(deps))
     graph.add_node("dispose", make_dispose_node(deps))
     graph.add_node("explain", make_explain_node(deps))
-    graph.add_node("contact", make_contact_node(deps))
     graph.add_node("repeat", make_repeat_node(deps))
     graph.add_node("escalate", make_escalate_node(deps))
 
     def route_entry(gs: GraphState) -> str:
-        if gs.get("contact_turn"):
-            return "contact"
         phase = gs["s"].phase
         if phase == "escalated_to_nurse":
             return "escalate"
@@ -48,7 +43,7 @@ def build_screening_graph(deps: GraphDeps):
 
     graph.set_conditional_entry_point(
         route_entry,
-        {"contact": "contact", "escalate": "escalate", "repeat": "repeat", "ingest": "ingest"},
+        {"escalate": "escalate", "repeat": "repeat", "ingest": "ingest"},
     )
 
     def route_after_ingest(gs: GraphState) -> str:
@@ -79,7 +74,7 @@ def build_screening_graph(deps: GraphDeps):
         {"escalate": "escalate", "dispose": "dispose", "question": "question"},
     )
     graph.add_edge("dispose", "explain")
-    for terminal in ("question", "explain", "contact", "repeat", "escalate"):
+    for terminal in ("question", "explain", "repeat", "escalate"):
         graph.add_edge(terminal, END)
 
     return graph.compile()

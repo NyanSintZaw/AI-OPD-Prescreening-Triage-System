@@ -1,7 +1,7 @@
 """Golden end-to-end transcripts (SRS acceptance scenarios).
 
 Each test walks one complete patient journey through the engine — interview,
-disposition, contact flow, post-completion guidance — and runs the output
+disposition, post-completion guidance — and runs the output
 validator over EVERY patient-facing reply, proving no turn in either language
 can leak the triage level/color, a diagnosis, or a prescription.
 """
@@ -10,7 +10,7 @@ import pytest
 
 from app.services.screening import templates
 from app.services.screening.engine import ScreeningTriageEngine
-from app.services.screening.extraction import ContactAnswer, ExtractionResult, FindingUpdate
+from app.services.screening.extraction import ExtractionResult, FindingUpdate
 from app.services.screening.persistence import InMemoryStateStore
 from app.services.screening.validator import validate_reply
 
@@ -70,13 +70,10 @@ class Journey:
         self,
         text: str,
         extraction: ExtractionResult | None = None,
-        contact: ContactAnswer | None = None,
         **safety,
     ) -> dict:
         if extraction is not None:
             self.model.extractions.append(extraction)
-        if contact is not None:
-            self.model.contact_answers.append(contact)
         result = await self.engine.run_turn(
             session_id=self.session_id,
             language=self.language,
@@ -89,8 +86,8 @@ class Journey:
 
 
 async def test_golden_en_cough_full_journey(criteria):
-    """EN: cough → structured interview → opd_general → contact yes+phone →
-    repeat guidance. Every reply validator-clean."""
+    """EN: cough → structured interview → opd_general → repeat guidance.
+    Every reply validator-clean (no contact/phone step — booth-only)."""
 
     j = Journey(criteria, "en", "g1")
 
@@ -117,31 +114,18 @@ async def test_golden_en_cough_full_journey(criteria):
     assert classification["disposition_reasons"], "nurse reasoning must be present"
     assert_reply_safe(r["reply"], "en", department_code="opd_general")
 
-    # contact: yes → phone → done
-    r = await j.turn(
-        "[PHASE: contact_preference]\n[CONTACT_FLOW: awaiting_consent]\nyes please",
-        contact=ContactAnswer(requested=True),
-    )
-    assert r["contact"]["needs_followup"] is True
-    r = await j.turn(
-        "[PHASE: contact_preference]\n[CONTACT_FLOW: awaiting_phone]\n0812345678",
-        contact=ContactAnswer(requested=True, phone_number="0812345678"),
-    )
-    assert r["contact"]["needs_followup"] is False
-    assert r["contact"]["phone_number"] == "0812345678"
-
     # post-completion turn repeats guidance, never restarts the interview
     r = await j.turn("where do I go again?")
     assert "OPD General" in r["reply"]
     assert r["classification"] == {}
 
-    # engine asked at most the question budget before disposing
-    assert len(j.replies) == 12
+    # 9 interview/dispose turns + 1 repeat = 10 (no contact turns)
+    assert len(j.replies) == 10
 
 
 async def test_golden_th_chest_pain_emergency_journey(criteria):
     """TH: chest pain + sweating → emergency on turn 1, no interview loop →
-    contact decline → repeat guidance. Thai replies throughout."""
+    repeat guidance. Thai replies throughout."""
 
     j = Journey(criteria, "th", "g2")
 
@@ -162,12 +146,7 @@ async def test_golden_th_chest_pain_emergency_journey(criteria):
     # emergency decided on the very first turn — no interview questions
     assert len(j.replies) == 1
 
-    r = await j.turn(
-        "[PHASE: contact_preference]\nไม่ต้องค่ะ",
-        contact=ContactAnswer(requested=False),
-    )
-    assert r["contact"]["requested"] is False
-
+    # post-completion turn repeats guidance, never restarts the interview
     r = await j.turn("แล้วต้องไปไหนนะคะ")
     assert "ฉุกเฉิน" in r["reply"]
     assert r["classification"] == {}

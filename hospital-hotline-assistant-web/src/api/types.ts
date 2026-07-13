@@ -294,11 +294,6 @@ export type ChatStreamEvent =
   | { type: 'reset' }
   | { type: 'classified'; classification: Record<string, unknown> }
   | {
-      type: 'turn_complete';
-      assistant_message: MessageOut;
-      awaiting_contact?: boolean;
-    }
-  | {
       type: 'complete';
       result: ChatResponsePayload;
       assistant_message: MessageOut;

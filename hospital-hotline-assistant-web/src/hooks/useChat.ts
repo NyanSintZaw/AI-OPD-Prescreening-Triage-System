@@ -307,40 +307,6 @@ export function useChat(sessionId: string | null, language: AppLanguage) {
               prev ? { ...prev, assistantText: '' } : prev,
             );
             callbacks.onReset?.();
-          } else if (event.type === 'turn_complete') {
-            setMessages((prev) => {
-              if (prev.some((m) => m.id === event.assistant_message.id)) {
-                return prev;
-              }
-              return [...prev, event.assistant_message];
-            });
-            setStreamingTurn(null);
-            callbacks.onComplete?.(
-              {
-                reply: event.assistant_message.content,
-                severity: { level: 'unknown' },
-                department: null,
-                emergency: null,
-                symptoms: null,
-                follow_up_question: null,
-                follow_up_reason: null,
-                model_name: event.assistant_message.model_name ?? null,
-                latency_ms: event.assistant_message.response_latency_ms ?? null,
-                alert_sent: false,
-                assistant_message_id: event.assistant_message.id,
-              },
-              {
-                followUpQuestion: event.awaiting_contact
-                  ? event.assistant_message.content
-                  : undefined,
-                assistantMessageId: event.assistant_message.id,
-              },
-            );
-            return {
-              response: null,
-              assessment: null,
-              userMessageId: serverUserMessageId,
-            };
           } else if (event.type === 'complete') {
             const response = event.result;
             if (departmentsRef.current.size === 0) {

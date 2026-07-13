@@ -7,31 +7,6 @@ failure can always degrade to nurse-approved text.
 
 from __future__ import annotations
 
-CONTACT_QUESTION = {
-    "en": "Would you like the hospital to contact you afterwards? (yes/no)",
-    "th": "หลังจากนี้ต้องการให้โรงพยาบาลติดต่อกลับไหมคะ (ต้องการ/ไม่ต้องการ)",
-}
-
-CONTACT_ASK_PHONE = {
-    "en": "Certainly. What phone number should we call?",
-    "th": "ได้ค่ะ ขอทราบเบอร์โทรศัพท์ที่สะดวกให้ติดต่อกลับได้ไหมคะ",
-}
-
-CONTACT_CLARIFY = {
-    "en": "Just to confirm — would you like the hospital to contact you? (yes/no)",
-    "th": "ขอยืนยันอีกครั้งนะคะ ต้องการให้โรงพยาบาลติดต่อกลับไหมคะ (ต้องการ/ไม่ต้องการ)",
-}
-
-CONTACT_CONFIRM_YES = {
-    "en": "Thank you. The hospital will contact you. Your screening result and patient ID will be shown now. Take care.",
-    "th": "ขอบคุณค่ะ ทางโรงพยาบาลจะติดต่อกลับนะคะ ระบบจะแสดงผลการคัดกรองและรหัสผู้ป่วยให้ตอนนี้ค่ะ ดูแลสุขภาพนะคะ",
-}
-
-CONTACT_CONFIRM_NO = {
-    "en": "Understood — we won't contact you. Your screening result and patient ID will be shown now. Take care.",
-    "th": "รับทราบค่ะ จะไม่มีการติดต่อกลับนะคะ ระบบจะแสดงผลการคัดกรองและรหัสผู้ป่วยให้ตอนนี้ค่ะ ดูแลสุขภาพนะคะ",
-}
-
 ESCALATION = {
     "en": "I'd like a nurse to help you directly. Please wait a moment — our staff have been notified and will assist you shortly.",
     "th": "ขอให้พยาบาลดูแลคุณโดยตรงนะคะ กรุณารอสักครู่ เจ้าหน้าที่ได้รับแจ้งแล้วและจะมาช่วยเหลือคุณเร็ว ๆ นี้ค่ะ",

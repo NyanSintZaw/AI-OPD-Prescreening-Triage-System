@@ -15,7 +15,6 @@ class GraphState(TypedDict, total=False):
     s: ScreeningState
     criteria: ScreeningCriteria
     user_text: str
-    contact_turn: bool
     output: TurnOutput
     # per-turn audit records appended by nodes: {call_site, latency_ms, ok, ...}
     audit: list[dict[str, Any]]

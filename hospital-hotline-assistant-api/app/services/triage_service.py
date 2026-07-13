@@ -573,21 +573,10 @@ class TriageService:
 
         alert_sent = False
 
-        # Persist the merged triage state on every turn so the next call to
-        # ``process_chat`` can rebuild ``classification`` even if ADK didn't
-        # emit a tool output this turn.
+        # Persist the merged triage state on every turn so the next call can
+        # rebuild ``classification`` even if this turn produced no tool output.
         existing_metadata = dict(prior_metadata)
         existing_metadata["triage_classification"] = classification
-        if "requested" in contact:
-            existing_metadata["patient_contact_requested"] = contact.get("requested")
-            existing_metadata["patient_contact_phone"] = contact.get("phone")
-            existing_metadata["patient_contact_preferred_time"] = contact.get(
-                "preferred_time"
-            )
-            existing_metadata["patient_contact_relation"] = contact.get("relation")
-            existing_metadata["patient_contact_updated_at"] = datetime.now(
-                timezone.utc
-            ).isoformat()
         if severity_level == "emergency":
             existing_metadata["escalation_reason"] = (
                 severity_explanation or "Emergency triage match"
@@ -754,20 +743,9 @@ class TriageService:
         yield {"type": "user_message", "message": dict(ctx["msg_user"])}
 
         prior_metadata = dict(ctx["prior_metadata"])
-        contact_flow = str(prior_metadata.get("contact_flow") or "idle")
-        is_contact_turn = contact_flow in {"awaiting_consent", "awaiting_phone"}
-        agent_content = content
-        if is_contact_turn:
-            agent_content = (
-                "[PHASE: contact_preference]\n"
-                f"[CONTACT_FLOW: {contact_flow}]\n"
-                f"{content}"
-            )
 
-        # Consume the ADK stream. We accumulate the reply locally as
-        # we go so that the final ``adk_result`` we feed into
-        # ``_finalize_chat_turn`` has the same shape the non-streaming
-        # path expects, even though the text arrived in deltas.
+        # Consume the engine stream, accumulating into the same result shape
+        # the non-streaming path builds so both feed ``_finalize_chat_turn``.
         adk_result: dict[str, Any] = {
             "reply": "",
             "classification": {},
@@ -779,7 +757,7 @@ class TriageService:
                 session_id=session_id,
                 language=language,
                 input_mode=input_mode,
-                content=agent_content,
+                content=content,
                 schedule_context=ctx.get("schedule_context"),
                 turn_context=_turn_context(prior_metadata),
             ):
@@ -787,92 +765,18 @@ class TriageService:
                 if event_type == "delta":
                     yield {"type": "delta", "text": event["text"]}
                 elif event_type == "reset":
-                    # Inner LLM call ended in a tool dispatch — its
-                    # deltas were reasoning, not the actual reply.
-                    # Forward so the frontend wipes the bubble and
-                    # the TTS queue can drop already-queued chunks.
                     yield {"type": "reset"}
                 elif event_type == "classified":
                     adk_result["classification"] = event["classification"]
                     yield event
                 elif event_type == "done":
                     adk_result["reply"] = event.get("reply", "")
-                    # Refresh classification in case the agent
-                    # tool fired only inside the aggregated final event
-                    # (which we explicitly forward through ``done``).
                     adk_result["classification"] = (
                         event.get("classification")
                         or adk_result["classification"]
                     )
-                    adk_result["contact"] = event.get("contact") or adk_result["contact"]
         except Exception as exc:
             yield {"type": "error", "message": f"agent_stream_failed: {exc}"}
-            return
-
-        contact = adk_result.get("contact") or {}
-        if is_contact_turn:
-            requested = contact.get("requested")
-            needs_followup = contact.get("needs_followup") is True
-            next_flow = contact_flow
-            if needs_followup:
-                next_flow = "awaiting_phone" if requested is True else "awaiting_consent"
-            else:
-                next_flow = "done"
-            prior_metadata.update(
-                {
-                    "contact_flow": next_flow,
-                    "patient_contact_requested": requested,
-                    "patient_contact_phone": contact.get("phone_number"),
-                    "patient_contact_preferred_time": contact.get("preferred_time"),
-                    "patient_contact_relation": contact.get("relation"),
-                    "patient_contact_updated_at": datetime.now(timezone.utc).isoformat(),
-                }
-            )
-            await connection.execute(
-                "UPDATE sessions SET metadata = $2::jsonb WHERE id = $1",
-                session_id,
-                prior_metadata,
-            )
-
-            if needs_followup:
-                assistant_message = await self._persist_assistant_message(
-                    connection=connection,
-                    session_id=session_id,
-                    reply=adk_result["reply"],
-                    start=start,
-                    model_name=adk_result.get("model_name"),
-                )
-                yield {
-                    "type": "turn_complete",
-                    "assistant_message": assistant_message,
-                    "awaiting_contact": True,
-                }
-                return
-
-            adk_result["classification"] = prior_metadata.get("triage_classification") or {}
-            content = str(prior_metadata.get("triage_content") or content)
-
-        elif adk_result.get("classification", {}).get("classified") is True:
-            prior_metadata["triage_classification"] = adk_result["classification"]
-            prior_metadata["triage_content"] = content
-            prior_metadata["contact_flow"] = "awaiting_consent"
-            await connection.execute(
-                "UPDATE sessions SET metadata = $2::jsonb WHERE id = $1",
-                session_id,
-                prior_metadata,
-            )
-            assistant_message = await self._persist_assistant_message(
-                connection=connection,
-                session_id=session_id,
-                reply=adk_result["reply"],
-                start=start,
-                model_name=adk_result.get("model_name"),
-            )
-            yield {
-                "type": "turn_complete",
-                "assistant_message": assistant_message,
-                "awaiting_contact": True,
-            }
             return
 
         try:
