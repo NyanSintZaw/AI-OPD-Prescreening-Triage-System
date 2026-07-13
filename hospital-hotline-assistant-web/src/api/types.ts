@@ -221,6 +221,9 @@ export interface ChatResponsePayload {
   };
   /** Screening engine v2: patients never see the level; gate UI on this. */
   assessment_status?: 'complete' | 'in_progress' | null;
+  /** Set to a vital key (e.g. 'temp') when the engine asks the booth to take
+   *  a reading mid-interview; the UI pops a numeric input for it. */
+  awaiting_measurement?: string | null;
   department?: {
     department_id?: string;
     reason?: string;

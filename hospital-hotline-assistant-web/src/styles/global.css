@@ -3963,7 +3963,8 @@ a:hover {
 
 /* ── Location Prompt Card ─────────────────────────────────────────────────── */
 
-.location-prompt-card {
+.location-prompt-card,
+.measurement-prompt-card {
   background: color-mix(in srgb, var(--mch-cyan) 8%, var(--color-bg-card));
   border: 1px solid color-mix(in srgb, var(--mch-cyan) 40%, transparent);
   border-radius: 12px;
@@ -3971,14 +3972,16 @@ a:hover {
   margin: 0.5rem 0;
 }
 
-.location-prompt-title {
+.location-prompt-title,
+.measurement-prompt-title {
   font-weight: 600;
   margin: 0 0 0.2rem;
   font-size: 0.95rem;
   color: var(--color-text-heading);
 }
 
-.location-prompt-subtitle {
+.location-prompt-subtitle,
+.measurement-prompt-subtitle {
   font-size: 0.82rem;
   margin: 0 0 0.75rem;
 }
@@ -5292,6 +5295,67 @@ a:hover {
 
 @media (max-width: 480px) {
   .vitals-extra-grid { grid-template-columns: 1fr; }
+}
+
+/* ── Required vitals booth form ──────────────────────────────────────────── */
+
+.vitals-form {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 1.1rem;
+  margin: 0.75rem 0 1rem;
+  text-align: left;
+}
+
+.vitals-form-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.vitals-form-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.vitals-form-section-title {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--color-muted, #64748b);
+}
+
+.vitals-measure-link {
+  background: none;
+  border: 1px solid var(--mch-cyan, #00a3b4);
+  color: var(--mch-cyan-dark, #007681);
+  border-radius: 999px;
+  padding: 0.3rem 0.8rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.vitals-measure-link:hover {
+  background: var(--mch-cyan, #00a3b4);
+  color: #fff;
+}
+
+.vitals-form-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.6rem;
+}
+
+.vitals-form-grid.cols-2 {
+  grid-template-columns: repeat(2, 1fr);
+}
+
+@media (max-width: 480px) {
+  .vitals-form-grid,
+  .vitals-form-grid.cols-2 { grid-template-columns: 1fr; }
 }
 
 /* ── Nurse slip-code lookup ──────────────────────────────────────────────── */

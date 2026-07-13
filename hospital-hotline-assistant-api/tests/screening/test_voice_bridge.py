@@ -141,7 +141,7 @@ class Harness:
                 raise AssertionError("condition not reached in time")
             await asyncio.sleep(0.01)
 
-    async def speak_turn(self, n_loud_chunks: int = 10) -> None:
+    async def speak_turn(self, n_loud_chunks: int = 15) -> None:
         """Feed audio and end the turn explicitly (Send button path).
 
         Mirrors the real client: waits for the previous turn to finish and
@@ -308,8 +308,29 @@ async def test_complete_assessment_auto_ends(harness):
     assert payload["auto_end"] is True
     assert payload["assessment_status"] == "complete"
     assert ("agent", "Take care.") in harness.transcripts
-    assert not harness.service.should_keep_pipeline_open(SESSION_ID)
-    await harness.wait_until(lambda: harness._task.done())
+    # After disposition the socket stays OPEN (disposed, not ended): the client
+    # finishes the spoken reply, reveals the slip, then hangs up (end_call).
+    # Closing here would cut the audio and race the slip reveal.
+    assert harness.service._sessions[SESSION_ID]["disposed"] is True
+    assert harness.service.should_keep_pipeline_open(SESSION_ID)
+
+
+async def test_disposed_ignores_further_audio(harness):
+    # Once disposed, extra captured audio must not start another triage turn.
+    harness.stt.transcripts.append("no thanks")
+    harness.triage.turns.append(final_turn("Take care."))
+    await harness.wait_until(lambda: harness.chunks)
+    await harness.speak_turn()
+    await harness.wait_until(lambda: harness.assessments)
+
+    turns_before = len(harness.triage.contents)
+    await harness.speak_turn()  # patient says something after disposition
+    # Give the pipeline a moment; it must ignore the post-disposition audio.
+    await harness.wait_until(
+        lambda: not harness.service._sessions[SESSION_ID]["processing"]
+    )
+    assert len(harness.triage.contents) == turns_before
+    assert harness.service.should_keep_pipeline_open(SESSION_ID)
 
 
 async def test_interview_turn_keeps_call_open(harness):
@@ -326,8 +347,15 @@ async def test_interview_turn_keeps_call_open(harness):
 
 
 async def test_empty_transcript_speaks_didnt_hear(harness):
+    # First empty turn stays silent (the patient is still gathering their
+    # thoughts); only a second consecutive empty prompts "couldn't hear you".
+    harness.stt.transcripts.append("")
     harness.stt.transcripts.append("")
     await harness.wait_until(lambda: harness.chunks)
+
+    await harness.speak_turn()
+    await harness.wait_until(lambda: len(harness.stt.calls) >= 1)
+    assert ("agent", templates.VOICE_DIDNT_HEAR["en"]) not in harness.transcripts
 
     await harness.speak_turn()
     await harness.wait_until(

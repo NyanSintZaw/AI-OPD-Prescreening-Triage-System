@@ -630,6 +630,7 @@ class TriageService:
             distress_type=distress_type,
             red_flags=red_flags,
             contact=contact,
+            awaiting_measurement=adk_result.get("awaiting_measurement"),
         )
         return result, dict(msg_assistant)
 
@@ -775,6 +776,7 @@ class TriageService:
                         event.get("classification")
                         or adk_result["classification"]
                     )
+                    adk_result["awaiting_measurement"] = event.get("awaiting_measurement")
         except Exception as exc:
             yield {"type": "error", "message": f"agent_stream_failed: {exc}"}
             return

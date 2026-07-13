@@ -35,20 +35,23 @@ logger = logging.getLogger(__name__)
 TranscriptCallback = Callable[[str, str], Awaitable[None]]
 EmergencyCallback = Callable[[dict], Awaitable[None]]
 AssessmentCallback = Callable[[dict], Awaitable[None]]
+MeasurementCallback = Callable[[dict], Awaitable[None]]
 
 INPUT_SAMPLE_RATE = 16_000   # browser worklet sends 16 kHz mono Int16
 OUTPUT_SAMPLE_RATE = 24_000  # frontend playback scheduler expects 24 kHz
 _BYTES_PER_MS = INPUT_SAMPLE_RATE * 2 // 1000
 
-# Mean absolute Int16 amplitude above which a chunk counts as speech. The
-# worklet sends unprocessed mic audio, so room noise sits well below this.
-SPEECH_AMPLITUDE_THRESHOLD = 250
-# Trailing silence after speech that ends the caller's turn when the client
-# never sends an explicit end_of_turn (the Send button remains the reliable
-# path — Thai endpointing quality varies with mic/room).
-SILENCE_HANG_MS = 1200
-# Ignore turns shorter than this (breath, button click bleed).
-MIN_TURN_AUDIO_MS = 300
+# Endpointing thresholds are env-tunable (app.config) so the booth can be
+# balanced on-site without a code change — restart to apply. Defaults:
+#   amplitude 600  : mic level counted as speech (higher ignores room noise)
+#   silence   2500 : ms of silence after speech that ends the caller's turn
+#                    (higher = fewer mid-thought cut-offs but slower)
+#   min_turn  500  : ms; drop blips shorter than this
+from app.config import settings as _settings
+
+SPEECH_AMPLITUDE_THRESHOLD = getattr(_settings, "voice_speech_amplitude_threshold", 600)
+SILENCE_HANG_MS = getattr(_settings, "voice_silence_hang_ms", 2500)
+MIN_TURN_AUDIO_MS = getattr(_settings, "voice_min_turn_audio_ms", 500)
 # Hard cap so a stuck-open mic cannot buffer unbounded audio (~60 s).
 MAX_TURN_BUFFER_BYTES = 60 * INPUT_SAMPLE_RATE * 2
 # One outbound WS frame ≈ 200 ms of 24 kHz Int16 audio.
@@ -120,6 +123,7 @@ class TurnVoiceService:
         transcript_callback: TranscriptCallback | None = None,
         emergency_callback: EmergencyCallback | None = None,
         assessment_callback: AssessmentCallback | None = None,
+        measurement_callback: MeasurementCallback | None = None,
     ) -> None:
         row = await db_connection.fetchrow(
             "SELECT id FROM sessions WHERE id = $1", session_id
@@ -134,6 +138,7 @@ class TurnVoiceService:
             "transcript_cb": transcript_callback,
             "emergency_cb": emergency_callback,
             "assessment_cb": assessment_callback,
+            "measurement_cb": measurement_callback,
             "buffer": bytearray(),
             "turn_event": asyncio.Event(),
             # Client-driven mic gate (mute / unmute / end_of_turn — the
@@ -147,9 +152,13 @@ class TurnVoiceService:
             "trailing_silence_ms": 0.0,
             "greeted": False,
             "ended": False,
+            "disposed": False,
             "pipeline_failed": False,
             "emergency_announced": False,
             "consecutive_errors": 0,
+            # Consecutive empty/inaudible turns; used to suppress the
+            # "sorry, I couldn't hear you" line on the first miss.
+            "empty_turns": 0,
         }
         logger.info(
             "Turn voice session connected: %s language=%s", session_id, language
@@ -217,6 +226,18 @@ class TurnVoiceService:
         session["muted"] = True
         session["turn_event"].set()
 
+    def inject_text_turn(self, session_id: str, content: str) -> None:
+        """Queue a text turn to run as if the patient had spoken it. Used by
+        the temperature-on-demand popup: the client submits the reading and we
+        drive a turn (whose turn_context now carries the measured value) so the
+        engine proceeds without waiting for the patient to speak again."""
+        session = self._sessions.get(session_id)
+        if session is None:
+            raise ValueError("Session not found")
+        session["injected_text"] = content
+        session["muted"] = True
+        session["turn_event"].set()
+
     # ------------------------------------------------------------------
     # Outbound pipeline (turn loop → browser)
     # ------------------------------------------------------------------
@@ -237,12 +258,29 @@ class TurnVoiceService:
             session["turn_event"].clear()
             if session["ended"]:
                 return
+            # After disposition the interview is over — the socket stays open
+            # only so the client can play the final reply, show the slip, and
+            # hang up. Ignore any further captured audio.
+            if session.get("disposed"):
+                session["buffer"].clear()
+                session["speech_seen"] = False
+                session["trailing_silence_ms"] = 0.0
+                continue
 
             session["processing"] = True
+            injected = session.pop("injected_text", None)
             pcm = bytes(session["buffer"])
             try:
-                async for chunk in self._process_turn(session_id, session, pcm):
-                    yield chunk
+                if injected:
+                    # A client-submitted reading (e.g. temperature): run it as
+                    # a text turn, bypassing STT and the audio buffer.
+                    async for chunk in self._process_transcript(
+                        session_id, session, injected
+                    ):
+                        yield chunk
+                else:
+                    async for chunk in self._process_turn(session_id, session, pcm):
+                        yield chunk
             finally:
                 session["processing"] = False
                 session["buffer"].clear()
@@ -275,12 +313,31 @@ class TurnVoiceService:
                 yield chunk
             return
         if not transcript:
-            async for chunk in self._speak_line(
-                session_id, session, templates.VOICE_DIDNT_HEAR[language]
-            ):
-                yield chunk
+            # A patient still gathering their thoughts produces an empty
+            # turn. Stay silent on the first miss and just keep listening;
+            # only prompt "sorry, I couldn't hear you" after two in a row.
+            session["empty_turns"] = session.get("empty_turns", 0) + 1
+            if session["empty_turns"] >= 2:
+                session["empty_turns"] = 0
+                async for chunk in self._speak_line(
+                    session_id, session, templates.VOICE_DIDNT_HEAR[language]
+                ):
+                    yield chunk
             return
+        session["empty_turns"] = 0
 
+        async for chunk in self._process_transcript(session_id, session, transcript):
+            yield chunk
+
+    async def _process_transcript(
+        self, session_id: str, session: dict[str, Any], transcript: str
+    ) -> AsyncIterator[bytes]:
+        """Run one turn from an already-decoded utterance: persist it, drive
+        the triage pipeline, speak the reply, and fire measurement/assessment
+        callbacks. Shared by the audio path and injected text turns (e.g. a
+        temperature entered into the client's numeric popup)."""
+
+        language = session["language"]
         await self._push_transcript(session, "user", transcript)
 
         try:
@@ -302,8 +359,24 @@ class TurnVoiceService:
             async for chunk in self._speak_line(session_id, session, reply):
                 yield chunk
 
+        # The engine asked the booth to take a reading (e.g. temperature).
+        # Pop the numeric input on the client once the spoken prompt is out.
+        awaiting = session.pop("awaiting_measurement", None)
+        if awaiting:
+            measurement_cb: MeasurementCallback | None = session.get("measurement_cb")
+            if measurement_cb is not None:
+                try:
+                    await measurement_cb({"vital": awaiting})
+                except Exception:
+                    logger.exception("measurement_cb failed for %s", session_id)
+
         if final_payload is not None:
-            session["ended"] = True
+            # Interview is done, but DON'T close the socket yet: keep it open so
+            # the client can finish speaking the disposition, reveal the slip
+            # once its audio drains, then hang up gracefully (end_call). Closing
+            # here would cut the audio and race the slip reveal. Further audio
+            # turns are ignored while disposed.
+            session["disposed"] = True
             assessment_cb: AssessmentCallback | None = session.get("assessment_cb")
             if assessment_cb is not None:
                 payload = dict(final_payload)
@@ -366,6 +439,7 @@ class TurnVoiceService:
                 )
                 if result.get("assessment_status") == "complete":
                     final_payload = result
+                session["awaiting_measurement"] = result.get("awaiting_measurement")
             elif event_type == "error":
                 raise RuntimeError(str(event.get("message")))
         return reply, final_payload

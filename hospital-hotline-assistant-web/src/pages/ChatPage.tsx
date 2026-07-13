@@ -20,6 +20,8 @@ export function ChatPage() {
   const [input, setInput] = useState('');
   const [locationInput, setLocationInput] = useState('');
   const [locationDismissed, setLocationDismissed] = useState(false);
+  const [tempInput, setTempInput] = useState('');
+  const [tempSaving, setTempSaving] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const {
@@ -126,6 +128,27 @@ export function ChatPage() {
         synthesis.flushStream();
       },
     });
+  };
+
+  // The engine asks the booth to take a temperature reading mid-interview
+  // (fever rule). Store it on the session, then send a continue turn whose
+  // turn_context carries the reading so the measurement resolves.
+  const awaitingTemp =
+    assessment?.awaitingMeasurement === 'temp' && !assessmentComplete;
+
+  const submitTemperature = async () => {
+    const value = Number.parseFloat(tempInput);
+    if (!sessionId || !Number.isFinite(value) || value < 30 || value > 45) return;
+    setTempSaving(true);
+    try {
+      await api.updateSessionMeasurement(sessionId, { vital: 'temp', value });
+    } catch {
+      // Non-fatal: the continue turn's extraction can still pick up the value.
+    } finally {
+      setTempSaving(false);
+      setTempInput('');
+    }
+    await handleSend(`${value}°C`, 'text');
   };
 
   const handleToggleCall = () => {
@@ -409,6 +432,38 @@ export function ChatPage() {
 
         {speech.isListening && (
           <p className="listening-label">{t('listening')}</p>
+        )}
+
+        {awaitingTemp && (
+          <div className="measurement-prompt-card">
+            <p className="measurement-prompt-title">{t('measureTempTitle')}</p>
+            <p className="measurement-prompt-subtitle muted">{t('measureTempHint')}</p>
+            <div className="location-prompt-row">
+              <input
+                type="number"
+                inputMode="decimal"
+                className="location-prompt-input"
+                placeholder="37.0"
+                min={30}
+                max={45}
+                step={0.1}
+                value={tempInput}
+                onChange={(e) => setTempInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') void submitTemperature();
+                }}
+                autoFocus
+              />
+              <button
+                type="button"
+                className="primary-btn location-prompt-confirm"
+                onClick={() => void submitTemperature()}
+                disabled={tempSaving || !tempInput.trim()}
+              >
+                {tempSaving ? t('loading') : t('measureTempConfirm')}
+              </button>
+            </div>
+          </div>
         )}
 
         <div className={`chat-input-row ${assessmentComplete ? 'assessment-complete' : ''}`}>

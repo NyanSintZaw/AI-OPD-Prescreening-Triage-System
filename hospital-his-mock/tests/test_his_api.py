@@ -146,6 +146,47 @@ async def test_routing_without_prescreen_conflicts(client):
     assert resp.status_code == 409
 
 
+async def test_reset_single_visit_back_to_registered(client):
+    # Drive the visit all the way to routed, then reset just it.
+    await client.post(f"/api/visits/{VISIT}/prescreen", headers=HEADERS, json=REFERRAL)
+    await client.put(
+        f"/api/visits/{VISIT}/routing",
+        headers=HEADERS,
+        json={"department": "แผนก OPD GP (ทั่วไป ชั้น1)", "confirmed_by": "n"},
+    )
+    resp = await client.post(
+        "/api/admin/reset", headers=HEADERS, json={"visit_ids": [VISIT]}
+    )
+    assert resp.status_code == 200
+    assert resp.json()["visit_ids"] == [VISIT]
+
+    visit = (await client.get(f"/api/visits/{VISIT}", headers=HEADERS)).json()
+    assert visit["screening_status"] == "registered"
+    assert visit["vitals"]["pressure"] is None
+    assert visit["vitals"]["weight"] is None
+    assert visit["first_location"]["department"] is None
+    assert visit["second_location"]["department"] is None
+    assert visit["nurse_chief_complaint"] is None
+    # pre-registration fields survive the reset
+    assert visit["birthdate"] and visit["hnx"]
+    # the held prescreen result is gone
+    assert (await client.get(f"/api/visits/{VISIT}/prescreen", headers=HEADERS)).status_code == 404
+
+
+async def test_reset_all_visits(client):
+    await client.post(f"/api/visits/{VISIT}/prescreen", headers=HEADERS, json=REFERRAL)
+    resp = await client.post("/api/admin/reset", headers=HEADERS, json={})
+    assert resp.status_code == 200
+    assert resp.json()["reset"] >= 6
+    visits = (await client.get("/api/visits", headers=HEADERS)).json()["visits"]
+    assert all(v["screening_status"] == "registered" for v in visits)
+
+
+async def test_reset_requires_api_key(client):
+    resp = await client.post("/api/admin/reset", json={})
+    assert resp.status_code == 401
+
+
 async def test_list_visits_reports_status(client):
     resp = await client.get("/api/visits", headers=HEADERS)
     assert resp.status_code == 200

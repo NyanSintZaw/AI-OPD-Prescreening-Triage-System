@@ -71,10 +71,17 @@ export function CallPage() {
     useState<ChatAssessment | null>(null);
   const [displayAssessment, setDisplayAssessment] = useState<ChatAssessment | null>(null);
   const [callFinished, setCallFinished] = useState(false);
+  const [tempRequested, setTempRequested] = useState(false);
+  const [tempInput, setTempInput] = useState('');
+  const [tempSaving, setTempSaving] = useState(false);
 
   const voiceCall = useVoiceCall({
     sessionId,
     language,
+    onMeasurementRequest: () => {
+      setTempInput('');
+      setTempRequested(true);
+    },
     onAssessmentComplete: (payload) => {
       void (async () => {
         try {
@@ -96,6 +103,22 @@ export function CallPage() {
       })();
     },
   });
+
+  const submitTemperature = async () => {
+    const value = Number.parseFloat(tempInput);
+    if (!sessionId || !Number.isFinite(value) || value < 30 || value > 45) return;
+    setTempSaving(true);
+    try {
+      await api.updateSessionMeasurement(sessionId, { vital: 'temp', value });
+    } catch {
+      // Non-fatal: the continuation turn's extraction can still read it.
+    } finally {
+      setTempSaving(false);
+      setTempRequested(false);
+      setTempInput('');
+    }
+    voiceCall.submitMeasurement(`${value}°C`);
+  };
 
   const callActive = voiceCall.state !== 'idle' && voiceCall.state !== 'error';
   const assessmentReceived = Boolean(
@@ -279,6 +302,38 @@ export function CallPage() {
                       <p>{voiceCall.lastReply}</p>
                     </div>
                   )}
+                </div>
+              )}
+
+              {tempRequested && !assessmentReady && (
+                <div className="measurement-prompt-card">
+                  <p className="measurement-prompt-title">{t('measureTempTitle')}</p>
+                  <p className="measurement-prompt-subtitle muted">{t('measureTempHint')}</p>
+                  <div className="location-prompt-row">
+                    <input
+                      type="number"
+                      inputMode="decimal"
+                      className="location-prompt-input"
+                      placeholder="37.0"
+                      min={30}
+                      max={45}
+                      step={0.1}
+                      value={tempInput}
+                      onChange={(e) => setTempInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') void submitTemperature();
+                      }}
+                      autoFocus
+                    />
+                    <button
+                      type="button"
+                      className="primary-btn location-prompt-confirm"
+                      onClick={() => void submitTemperature()}
+                      disabled={tempSaving || !tempInput.trim()}
+                    >
+                      {tempSaving ? t('loading') : t('measureTempConfirm')}
+                    </button>
+                  </div>
                 </div>
               )}
             </>

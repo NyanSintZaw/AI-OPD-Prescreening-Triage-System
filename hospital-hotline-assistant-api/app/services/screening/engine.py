@@ -50,14 +50,18 @@ class ScreeningTriageEngine:
         model_label: str = "screening:unknown",
         department_names: dict[str, dict[str, str]] | None = None,
         rag_search=None,
+        model_timeout_s: float = 30.0,
     ) -> None:
         self._store = store or InMemoryStateStore()
         self._prompt_version = prompt_version
         self._model_label = model_label
+        self._model = model
+        self._model_timeout_s = model_timeout_s
         names = department_names or _default_department_names()
         deps = GraphDeps(
             model=model,
             question_budget=question_budget,
+            model_timeout_s=model_timeout_s,
             department_names=names,
             validator_department_names={
                 code: [n for n in lang_names.values() if n]
@@ -66,6 +70,25 @@ class ScreeningTriageEngine:
             rag_search=rag_search,
         )
         self._graph = build_screening_graph(deps)
+
+    async def prewarm(self) -> None:
+        """Warm the LLM client (ADC token, HTTP connection pool) with a tiny
+        throwaway call so the first patient turn — especially the first voice
+        turn — doesn't pay the cold-start latency. Best-effort and bounded."""
+        if self._model is None:
+            return
+        import asyncio
+
+        from langchain_core.messages import HumanMessage
+
+        try:
+            await asyncio.wait_for(
+                self._model.ainvoke([HumanMessage(content="ok")]),
+                timeout=self._model_timeout_s,
+            )
+            logger.info("Screening model prewarmed")
+        except Exception:
+            logger.debug("model prewarm failed (non-fatal)")
 
     # -- TriageEngine protocol -------------------------------------------------
 
@@ -121,6 +144,7 @@ class ScreeningTriageEngine:
             "classification": result["classification"],
             "input_mode": input_mode,
             "model_name": result.get("model_name"),
+            "awaiting_measurement": result.get("awaiting_measurement"),
         }
 
     def decision_from_classification(self, classification: dict[str, Any]) -> TriageDecision:
@@ -221,6 +245,7 @@ class ScreeningTriageEngine:
             "input_mode": input_mode,
             "model_name": self._model_label,
             "escalated": output.escalated,
+            "awaiting_measurement": output.awaiting_measurement,
             "audit": result.get("audit") or [],
         }
 
@@ -254,4 +279,5 @@ def make_triage_engine(settings, pool=None):
             f"{settings.screening_model_name}"
         ),
         rag_search=rag_search,
+        model_timeout_s=getattr(settings, "screening_model_timeout_s", 30.0),
     )

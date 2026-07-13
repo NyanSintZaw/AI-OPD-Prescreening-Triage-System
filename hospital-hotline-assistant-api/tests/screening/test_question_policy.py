@@ -15,6 +15,7 @@ def inputs(
     answered_slots=(),
     asked=(),
     age_known=True,
+    measured_vitals=(),
     questions_asked=0,
     budget=8,
 ):
@@ -24,6 +25,7 @@ def inputs(
         answered_slots=frozenset(answered_slots),
         asked_question_ids=frozenset(asked),
         age_known=age_known,
+        measured_vitals=frozenset(measured_vitals),
         questions_asked=questions_asked,
         question_budget=budget,
     )
@@ -127,6 +129,79 @@ def test_min_slots_satisfied_completes(criteria):
     ivs = inputs(findings=findings, answered_slots={"onset", "duration", "character"})
     # chest_pain min_slots_by_level[4] == 3
     assert is_interview_complete(criteria, ivs, provisional_level=4)
+
+
+def test_intake_asked_first_when_no_complaint(criteria):
+    # No chief complaint yet (vague / STT garble) -> ask what brought them in,
+    # before any age or red-flag question.
+    q = next_question(criteria, inputs(category=None, age_known=False))
+    assert q is not None and q.id == "uq_intake"
+
+
+def test_intake_resolved_once_complaint_known(criteria):
+    # With a complaint category set, intake is resolved; age/red-flags proceed.
+    q = next_question(criteria, inputs(category="chest_pain", age_known=False))
+    assert q.id == "uq_age"
+
+
+def test_breathing_scale_skipped_when_dyspnea_absent(criteria):
+    findings = {"dyspnea": "absent", "severe_respiratory_distress": "absent"}
+    ivs = inputs(
+        category="dyspnea_cough",
+        findings=findings,
+        answered_slots={"onset", "duration"},
+    )
+    # dc_distress_scale must never surface without breathing trouble present.
+    seen = set()
+    cur = ivs
+    for _ in range(20):
+        q = next_question(criteria, cur)
+        if q is None:
+            break
+        assert q.id != "dc_distress_scale"
+        seen.add(q.id)
+        cur = inputs(
+            category="dyspnea_cough", findings=findings,
+            answered_slots=cur.answered_slots, asked=seen,
+        )
+
+
+def test_breathing_scale_fires_when_dyspnea_present(criteria):
+    findings = {
+        "dyspnea": "present", "severe_respiratory_distress": "absent",
+        "blue_lips": "absent", "hemoptysis": "absent", "chest_pain": "absent",
+        "fever": "absent", "high_fever": "absent",
+    }
+    q = next_question(criteria, inputs(category="dyspnea_cough", findings=findings))
+    assert q is not None and q.id == "dc_distress_scale"
+
+
+def test_temp_measurement_fires_only_when_fever_present(criteria):
+    # No fever -> temperature never requested.
+    no_fever = {"fever": "absent"}
+    seen = set()
+    for _ in range(20):
+        q = next_question(criteria, inputs(
+            category="fever", findings=no_fever, asked=seen,
+        ))
+        if q is None:
+            break
+        assert q.id != "fv_temp"
+        seen.add(q.id)
+
+    # Fever present + temp not yet measured -> the measurement is requested.
+    febrile = {"fever": "present", "confusion": "absent", "dyspnea": "absent",
+               "severe_respiratory_distress": "absent",
+               "stiff_neck": "absent", "recent_chemotherapy": "absent",
+               "rash_vesicles": "absent", "palm_sole_rash": "absent"}
+    q = next_question(criteria, inputs(category="fever", findings=febrile))
+    assert q is not None and q.id == "fv_temp" and q.vital == "temp"
+
+    # Once temp is measured, the measurement resolves and drops out.
+    q2 = next_question(criteria, inputs(
+        category="fever", findings=febrile, measured_vitals={"temp"},
+    ))
+    assert q2 is None or q2.id != "fv_temp"
 
 
 def test_bilingual_texts_on_every_question(criteria):

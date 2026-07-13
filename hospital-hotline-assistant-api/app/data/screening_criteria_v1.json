@@ -246,6 +246,7 @@
     {"complaint_category": "generic", "department_code": "opd_general", "citation": "อาการทั่วไป → OPD ทั่วไป"}
   ],
   "universal_questions": [
+    {"id": "uq_intake", "kind": "intake", "text_en": "What symptoms brought you in today?", "text_th": "วันนี้มีอาการอะไรถึงมาพบเราคะ", "priority": 0},
     {"id": "uq_age", "kind": "age", "text_en": "May I ask how old you are (or the patient's age)?", "text_th": "ขออนุญาตสอบถามอายุของคุณ (หรือผู้ป่วย) ได้ไหมคะ", "priority": 1},
     {"id": "uq_breathing", "kind": "red_flag", "finding_ids": ["dyspnea", "severe_respiratory_distress"], "text_en": "Right now, are you having any trouble breathing?", "text_th": "ตอนนี้คุณหายใจลำบากหรือหายใจเหนื่อยไหมคะ", "priority": 2}
   ],
@@ -294,11 +295,12 @@
       "min_slots_by_level": {"3": 3, "4": 3, "5": 3},
       "associated_finding_ids": ["fever", "chest_pain", "orthopnea", "edema", "copd_history", "home_oxygen"],
       "questions": [
-        {"id": "dc_severe_distress", "kind": "red_flag", "finding_ids": ["severe_respiratory_distress", "blue_lips"], "text_en": "Can you speak in full sentences, or is it hard to talk? Any blueness of the lips?", "text_th": "พูดเป็นประโยคยาว ๆ ได้ไหมคะ หรือเหนื่อยจนพูดลำบาก ริมฝีปากเขียวคล้ำไหมคะ", "priority": 1},
+        {"id": "dc_severe_distress", "kind": "red_flag", "finding_ids": ["severe_respiratory_distress", "blue_lips"], "text_en": "Are you able to talk in full sentences right now, or does it feel like a struggle to breathe? Have your lips or fingertips looked bluish?", "text_th": "ตอนนี้พูดเป็นประโยคยาว ๆ ได้ไหมคะ หรือรู้สึกเหนื่อยจนหายใจลำบาก และริมฝีปากหรือปลายนิ้วดูเขียวคล้ำไหมคะ", "priority": 1},
         {"id": "dc_hemoptysis", "kind": "red_flag", "finding_ids": ["hemoptysis"], "text_en": "Have you coughed up any blood?", "text_th": "ไอมีเลือดปนออกมาไหมคะ", "priority": 2},
         {"id": "dc_chest_pain", "kind": "red_flag", "finding_ids": ["chest_pain"], "text_en": "Do you have chest pain or tightness with it?", "text_th": "มีเจ็บหรือแน่นหน้าอกร่วมด้วยไหมคะ", "priority": 3},
         {"id": "dc_fever", "kind": "red_flag", "finding_ids": ["fever", "high_fever"], "text_en": "Do you have a fever?", "text_th": "มีไข้ไหมคะ", "priority": 4},
-        {"id": "dc_distress_scale", "kind": "scale", "slot": "severity", "text_en": "On a scale of 0 to 10, how hard is it to breathe right now?", "text_th": "ถ้าให้คะแนน 0 ถึง 10 ตอนนี้หายใจลำบากประมาณเท่าไหร่คะ", "priority": 5},
+        {"id": "dc_distress_scale", "kind": "scale", "slot": "severity", "finding_ids": ["dyspnea", "severe_respiratory_distress"], "text_en": "On a scale of 0 to 10, how hard is it to breathe right now?", "text_th": "ถ้าให้คะแนน 0 ถึง 10 ตอนนี้หายใจลำบากประมาณเท่าไหร่คะ", "priority": 5},
+        {"id": "dc_temp", "kind": "measurement", "vital": "temp", "finding_ids": ["fever"], "text_en": "Please measure your temperature at the booth and enter it in °C.", "text_th": "กรุณาวัดอุณหภูมิที่จุดคัดกรองแล้วกรอกค่าเป็นองศาเซลเซียสค่ะ", "priority": 6},
         {"id": "dc_onset", "kind": "slot", "slot": "onset", "text_en": "When did the cough or breathlessness start?", "text_th": "เริ่มไอหรือเหนื่อยตั้งแต่เมื่อไหร่คะ", "priority": 10},
         {"id": "dc_duration", "kind": "slot", "slot": "duration", "text_en": "How many days has it lasted? More than 2 weeks?", "text_th": "เป็นมากี่วันแล้วคะ เกิน 2 สัปดาห์หรือยัง", "priority": 20},
         {"id": "dc_orthopnea", "kind": "associated", "finding_ids": ["orthopnea", "edema"], "text_en": "Can you lie flat at night, and are your legs swollen?", "text_th": "นอนราบได้ไหมคะ แล้วขาบวมไหม", "priority": 30},
@@ -355,6 +357,7 @@
         {"id": "fv_danger", "kind": "red_flag", "finding_ids": ["confusion", "dyspnea", "stiff_neck"], "text_en": "Any confusion, trouble breathing, or stiff neck with the fever?", "text_th": "มีซึมสับสน หายใจเหนื่อย หรือคอแข็งร่วมกับไข้ไหมคะ", "priority": 1},
         {"id": "fv_chemo", "kind": "red_flag", "finding_ids": ["recent_chemotherapy"], "text_en": "Are you currently receiving chemotherapy?", "text_th": "ตอนนี้กำลังได้รับยาเคมีบำบัดอยู่ไหมคะ", "priority": 2},
         {"id": "fv_rash", "kind": "red_flag", "finding_ids": ["rash_vesicles", "palm_sole_rash"], "text_en": "Do you have any rash or blisters, especially on palms, soles, or around the mouth?", "text_th": "มีผื่นหรือตุ่มน้ำตามตัว โดยเฉพาะฝ่ามือ ฝ่าเท้า หรือรอบปากไหมคะ", "priority": 3},
+        {"id": "fv_temp", "kind": "measurement", "vital": "temp", "finding_ids": ["fever"], "text_en": "Please measure your temperature at the booth and enter it in °C.", "text_th": "กรุณาวัดอุณหภูมิที่จุดคัดกรองแล้วกรอกค่าเป็นองศาเซลเซียสค่ะ", "priority": 5},
         {"id": "fv_onset", "kind": "slot", "slot": "onset", "text_en": "When did the fever start?", "text_th": "เริ่มมีไข้ตั้งแต่เมื่อไหร่คะ", "priority": 10},
         {"id": "fv_duration", "kind": "slot", "slot": "duration", "text_en": "How many days have you had it?", "text_th": "มีไข้มากี่วันแล้วคะ", "priority": 20},
         {"id": "fv_associated", "kind": "associated", "finding_ids": ["cough", "sore_throat", "runny_nose", "diarrhea", "dysuria"], "text_en": "Any cough, sore throat, runny nose, diarrhea, or burning urination?", "text_th": "มีไอ เจ็บคอ น้ำมูก ถ่ายเหลว หรือปัสสาวะแสบขัดไหมคะ", "priority": 30}
@@ -383,7 +386,7 @@
       "label_th": "อาการทางจมูกและคอ",
       "keywords_en": ["sore throat", "blocked nose", "sinus", "nosebleed", "hoarse", "snoring", "neck lump"],
       "keywords_th": ["เจ็บคอ", "คัดจมูก", "ไซนัส", "เลือดกำเดา", "เสียงแหบ", "นอนกรน", "ก้อนที่คอ"],
-      "min_slots_by_level": {"3": 3, "4": 3, "5": 2},
+      "min_slots_by_level": {"3": 3, "4": 2, "5": 1},
       "associated_finding_ids": ["fever", "neck_mass", "hoarseness_over_2w", "allergy_symptoms", "anosmia"],
       "questions": [
         {"id": "nt_airway", "kind": "red_flag", "finding_ids": ["neck_swelling_dysphagia"], "text_en": "Is your neck swollen, or is it hard to swallow or breathe?", "text_th": "คอบวมโต กลืนลำบาก หรือหายใจลำบากไหมคะ", "priority": 1},

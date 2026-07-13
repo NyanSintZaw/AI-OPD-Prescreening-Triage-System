@@ -30,6 +30,9 @@ class TurnOutput(BaseModel):
     reply: str = ""
     classification: dict[str, Any] = Field(default_factory=dict)
     escalated: bool = False
+    # canonical vital key the engine is asking the booth to measure now
+    # (e.g. "temp"); the transport layer pops a numeric input for it.
+    awaiting_measurement: str | None = None
 
 
 class ScreeningState(BaseModel):
@@ -50,6 +53,7 @@ class ScreeningState(BaseModel):
     asked_question_ids: list[str] = Field(default_factory=list)
     questions_asked: int = 0
     pending_question_id: str | None = None
+    awaiting_measurement: str | None = None  # vital the booth must measure next
     extraction_failures: int = 0
 
     disposition: dict[str, Any] | None = None    # serialized DispositionResult

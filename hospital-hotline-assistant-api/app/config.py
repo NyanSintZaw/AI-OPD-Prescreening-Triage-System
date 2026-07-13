@@ -41,6 +41,19 @@ class Settings(BaseSettings):
     screening_openai_api_key: str | None = None
     screening_prompt_version: str = "v1"
     screening_question_budget: int = 8
+    # Voice turn endpointing — tunable without a code change (restart to apply).
+    # silence_hang: ms of silence after speech that ends the caller's turn.
+    #   Higher = fewer mid-thought cut-offs but slower; lower = snappier but
+    #   more truncated answers. amplitude_threshold: mic level counted as
+    #   speech (higher ignores room noise). min_turn_audio: drop blips shorter
+    #   than this.
+    voice_silence_hang_ms: int = 2500
+    voice_speech_amplitude_threshold: int = 600
+    voice_min_turn_audio_ms: int = 500
+    # hard wall-clock cap per LLM call (seconds). Vertex/Gemini gRPC has no
+    # client deadline by default, so a stalled response would hang the turn
+    # (and any voice call) forever; this bounds it and the node falls back.
+    screening_model_timeout_s: float = 30.0
     # HIS integration. "mock" logs referrals and accepts every visit;
     # "http" talks to the hospital HIS API (or the hospital-his-mock service).
     his_mode: str = "mock"

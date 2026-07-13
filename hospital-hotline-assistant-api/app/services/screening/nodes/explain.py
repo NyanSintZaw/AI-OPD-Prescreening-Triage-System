@@ -16,7 +16,7 @@ from langchain_core.messages import HumanMessage
 from .. import templates
 from ..state import TurnOutput
 from ..validator import validate_reply
-from .base import GraphDeps, GraphState
+from .base import GraphDeps, GraphState, ainvoke_with_timeout
 
 logger = logging.getLogger(__name__)
 
@@ -112,7 +112,9 @@ def make_explain_node(deps: GraphDeps):
             messages = [HumanMessage(content=prompt)]
             for _attempt in (1, 2):
                 try:
-                    response = await deps.model.ainvoke(messages)
+                    response = await ainvoke_with_timeout(
+                        deps.model, messages, deps.model_timeout_s
+                    )
                     candidate = response.content.strip() if isinstance(response.content, str) else ""
                     violations = validate_reply(
                         candidate,

@@ -44,6 +44,9 @@ export interface UseVoiceCallOptions {
   onTranscript?: (transcript: string) => Promise<string | null | undefined>;
   /** Fired when the backend finalizes triage and pushes assessment_complete. */
   onAssessmentComplete?: (payload: ChatResponsePayload) => void;
+  /** Fired when the engine asks the booth to take a reading mid-call
+   *  (``measurement_request`` frame, e.g. temperature). */
+  onMeasurementRequest?: (vital: string) => void;
 }
 
 export interface VoiceEmergencyPayload {
@@ -78,6 +81,10 @@ export interface UseVoiceCallApi {
   start: () => Promise<void>;
   end: () => Promise<void>;
   sendTurn: () => void;
+  /** Tell the server to run a continuation turn after the caller PUT a
+   *  requested reading (temperature popup). ``content`` is spoken/logged as
+   *  the patient's utterance (e.g. "38.5°C"). */
+  submitMeasurement: (content: string) => void;
   toggleMute: () => void;
   setMuted: (muted: boolean) => void;
   toggleSpeaker: () => void;
@@ -283,10 +290,33 @@ export function useVoiceCall(options: UseVoiceCallOptions): UseVoiceCallApi {
   const pendingAutoEndRef = useRef(false);
   const autoEndTimerRef = useRef<number | null>(null);
   const endRef = useRef<(() => Promise<void>) | null>(null);
+  // The assessment slip is revealed only once the final spoken reply's audio
+  // has drained (onIdle), not the instant the ``assessment_complete`` frame
+  // arrives — otherwise the slip pops up while the AI is still talking. The
+  // payload is stashed here and committed on drain (or via a fallback when
+  // the speaker is off / nothing is queued).
+  const pendingAssessmentRef = useRef<ChatResponsePayload | null>(null);
+  const assessmentCommittedRef = useRef(false);
+  const onMeasurementRef = useRef(options.onMeasurementRequest);
 
   languageRef.current = language;
   sessionIdRef.current = sessionId;
   onAssessmentCompleteRef.current = onAssessmentComplete;
+  onMeasurementRef.current = options.onMeasurementRequest;
+
+  const commitAssessment = useCallback(() => {
+    if (assessmentCommittedRef.current) return;
+    const payload = pendingAssessmentRef.current;
+    if (!payload) return;
+    assessmentCommittedRef.current = true;
+    setCompletedAssessment(payload);
+    if (payload.reply) setLastReply(payload.reply);
+    try {
+      onAssessmentCompleteRef.current?.(payload);
+    } catch {
+      // best-effort
+    }
+  }, []);
 
   const wsRef = useRef<WebSocket | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -406,6 +436,8 @@ export function useVoiceCall(options: UseVoiceCallOptions): UseVoiceCallApi {
             }
           }
           speakingTimerRef.current = null;
+          // The final reply's audio has drained — safe to reveal the slip.
+          commitAssessment();
           if (pendingAutoEndRef.current) {
             tryScheduleAutoEnd();
           }
@@ -414,7 +446,7 @@ export function useVoiceCall(options: UseVoiceCallOptions): UseVoiceCallApi {
     };
     playbackRef.current = queue;
     return queue;
-  }, [updateState, tryScheduleAutoEnd]);
+  }, [updateState, tryScheduleAutoEnd, commitAssessment]);
 
   const schedulePlaybackChunk = useCallback(
     (data: ArrayBuffer) => {
@@ -704,28 +736,35 @@ export function useVoiceCall(options: UseVoiceCallOptions): UseVoiceCallApi {
               alert_sent: payload.alert_sent ?? false,
               assistant_message_id: payload.assistant_message_id ?? null,
             };
-            setCompletedAssessment(assessmentPayload);
-            if (assessmentPayload.reply) {
-              setLastReply(assessmentPayload.reply);
-            }
-            try {
-              onAssessmentCompleteRef.current?.(assessmentPayload);
-            } catch {
-              // best-effort
+            // Stash the payload and reveal it only once the final reply's
+            // audio drains (onIdle → commitAssessment), so the slip never
+            // pops up mid-sentence.
+            pendingAssessmentRef.current = assessmentPayload;
+            assessmentCommittedRef.current = false;
+            const queue = playbackRef.current;
+            const noAudio =
+              !speakerEnabledRef.current || !queue || queue.scheduledCount === 0;
+            if (noAudio) {
+              // Nothing will drain — reveal now.
+              commitAssessment();
             }
             if (payload.auto_end !== false) {
               pendingAutoEndRef.current = true;
               setAutoEnding(true);
               // If the speaker is off or no audio is queued, onIdle may
               // never fire — schedule auto-end directly as a fallback.
-              const queue = playbackRef.current;
-              if (
-                !speakerEnabledRef.current ||
-                !queue ||
-                queue.scheduledCount === 0
-              ) {
+              if (noAudio) {
                 tryScheduleAutoEnd();
               }
+            }
+            return;
+          }
+          case 'measurement_request': {
+            const vital = (message as { vital?: string }).vital ?? 'temp';
+            try {
+              onMeasurementRef.current?.(vital);
+            } catch {
+              // best-effort
             }
             return;
           }
@@ -742,12 +781,16 @@ export function useVoiceCall(options: UseVoiceCallOptions): UseVoiceCallApi {
         void data.arrayBuffer().then((buf) => schedulePlaybackChunk(buf));
       }
     },
-    [schedulePlaybackChunk, tryScheduleAutoEnd],
+    [schedulePlaybackChunk, tryScheduleAutoEnd, commitAssessment],
   );
 
   // ----- Lifecycle: start / end ----------------------------------------
 
   const cleanup = useCallback(() => {
+    // Safety net: if the call tears down before the final reply's audio
+    // drained (e.g. the server closed the socket, or autoplay was blocked),
+    // still reveal the slip. Idempotent with the onIdle commit.
+    commitAssessment();
     activeRef.current = false;
     pendingAutoEndRef.current = false;
     setAutoEnding(false);
@@ -778,7 +821,7 @@ export function useVoiceCall(options: UseVoiceCallOptions): UseVoiceCallApi {
     teardownPlayback();
     mutedRef.current = false;
     setMutedState(false);
-  }, [teardownInputGraph, teardownPlayback]);
+  }, [teardownInputGraph, teardownPlayback, commitAssessment]);
 
   const start = useCallback(async () => {
     if (!supported) {
@@ -796,6 +839,8 @@ export function useVoiceCall(options: UseVoiceCallOptions): UseVoiceCallApi {
     setCompletedAssessment(null);
     setAutoEnding(false);
     pendingAutoEndRef.current = false;
+    pendingAssessmentRef.current = null;
+    assessmentCommittedRef.current = false;
     if (autoEndTimerRef.current !== null) {
       window.clearTimeout(autoEndTimerRef.current);
       autoEndTimerRef.current = null;
@@ -951,6 +996,20 @@ export function useVoiceCall(options: UseVoiceCallOptions): UseVoiceCallApi {
     }
   }, [updateState]);
 
+  // The temperature-on-demand popup: the reading is already PUT onto the
+  // session by the caller; tell the server to run a continuation turn whose
+  // turn_context now carries the value so the engine proceeds.
+  const submitMeasurement = useCallback((content: string) => {
+    const ws = wsRef.current;
+    if (!ws || ws.readyState !== WebSocket.OPEN) return;
+    try {
+      ws.send(JSON.stringify({ type: 'submit_measurement', content }));
+      if (activeRef.current) updateState('thinking');
+    } catch {
+      // The next patient utterance will still carry the reading via context.
+    }
+  }, [updateState]);
+
   // ----- Mute toggle ---------------------------------------------------
 
   const setMuted = useCallback(
@@ -1030,6 +1089,7 @@ export function useVoiceCall(options: UseVoiceCallOptions): UseVoiceCallApi {
     start,
     end,
     sendTurn,
+    submitMeasurement,
     toggleMute,
     setMuted,
     toggleSpeaker,

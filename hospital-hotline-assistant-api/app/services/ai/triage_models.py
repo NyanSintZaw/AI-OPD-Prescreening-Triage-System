@@ -30,6 +30,9 @@ class TriageResult:
     distress_type: str | None
     red_flags: list[str]
     contact: dict[str, Any]
+    # canonical vital key (e.g. "temp") the engine is asking the booth to
+    # measure now; the transport pops a numeric input for it. None otherwise.
+    awaiting_measurement: str | None = None
 
 
 

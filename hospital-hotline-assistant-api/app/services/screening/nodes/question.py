@@ -10,7 +10,7 @@ from langchain_core.messages import HumanMessage
 from ..rules.question_policy import InterviewInputs, next_question
 from ..state import TurnOutput
 from ..validator import validate_reply
-from .base import GraphDeps, GraphState
+from .base import GraphDeps, GraphState, ainvoke_with_timeout
 
 logger = logging.getLogger(__name__)
 
@@ -43,6 +43,7 @@ def interview_inputs(state, deps: GraphDeps) -> InterviewInputs:
         answered_slots=state.answered_slots(),
         asked_question_ids=frozenset(state.asked_question_ids),
         age_known=state.age_years is not None,
+        measured_vitals=frozenset(state.vitals),
         questions_asked=state.questions_asked,
         question_budget=deps.question_budget,
     )
@@ -71,7 +72,9 @@ def make_question_node(deps: GraphDeps):
             started = perf_counter()
             ok = False
             try:
-                response = await deps.model.ainvoke([HumanMessage(content=prompt)])
+                response = await ainvoke_with_timeout(
+                    deps.model, [HumanMessage(content=prompt)], deps.model_timeout_s
+                )
                 candidate = (response.content or "").strip() if isinstance(response.content, str) else ""
                 if candidate and not validate_reply(candidate, language=state.language):
                     reply = candidate
@@ -88,11 +91,14 @@ def make_question_node(deps: GraphDeps):
         state.asked_question_ids.append(selected.id)
         state.questions_asked += 1
         state.pending_question_id = selected.id
+        # A measurement question asks the booth to take a reading (e.g.
+        # temperature); the transport layer pops a numeric input for it.
+        state.awaiting_measurement = selected.vital if selected.kind == "measurement" else None
         state.phase = "history"
         return {
             "s": state,
             "audit": audit,
-            "output": TurnOutput(reply=reply),
+            "output": TurnOutput(reply=reply, awaiting_measurement=state.awaiting_measurement),
         }
 
     return question

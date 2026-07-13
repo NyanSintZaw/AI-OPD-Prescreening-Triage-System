@@ -52,6 +52,15 @@ class SessionVitalsUpdate(BaseModel):
     reading_id: UUID | None = None
 
 
+class SessionMeasurementUpdate(BaseModel):
+    """A single vital captured mid-interview when the engine requests it
+    (e.g. temperature, once a fever is reported). Merges into the session's
+    stored vitals without disturbing the booth's blood-pressure reading."""
+
+    vital: Literal["temp"]
+    value: float = Field(..., ge=25, le=45)
+
+
 class LinkVisitRequest(BaseModel):
     visit_id: str = Field(..., min_length=1, max_length=64)
 

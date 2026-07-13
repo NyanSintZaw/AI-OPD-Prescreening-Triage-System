@@ -23,6 +23,7 @@ class InterviewInputs:
     answered_slots: frozenset[str]       # OLDCARTS slots already filled
     asked_question_ids: frozenset[str]
     age_known: bool
+    measured_vitals: frozenset[str]      # canonical vital keys present (sbp, temp, …)
     questions_asked: int
     question_budget: int
 
@@ -33,16 +34,39 @@ def get_template(criteria: ScreeningCriteria, category: str | None) -> Complaint
     return by_category.get(wanted) or by_category[GENERIC_CATEGORY]
 
 
+def _any_finding_present(question: QuestionTemplate, inputs: InterviewInputs) -> bool:
+    return any(inputs.findings.get(fid) == "present" for fid in question.finding_ids)
+
+
+def _all_findings_present(question: QuestionTemplate, inputs: InterviewInputs) -> bool:
+    return all(inputs.findings.get(fid) == "present" for fid in question.finding_ids)
+
+
 def _is_resolved(question: QuestionTemplate, inputs: InterviewInputs) -> bool:
     """A question is resolved when asking it would gain no new information."""
 
     if question.id in inputs.asked_question_ids:
         return True
+    if question.kind == "intake":
+        # Ask "what brings you in?" only until a chief complaint is established.
+        return inputs.complaint_category is not None
     if question.kind == "age":
         return inputs.age_known
+    if question.kind == "measurement":
+        if question.vital in inputs.measured_vitals:
+            return True  # already measured
+        # Only request the reading when its gating findings are present
+        # (e.g. temperature only once fever is reported).
+        if question.finding_ids and not _all_findings_present(question, inputs):
+            return True
+        return False
     if question.kind == "slot":
         return question.slot in inputs.answered_slots
     if question.kind == "scale":
+        # Skip a symptom-specific scale when its finding isn't present
+        # (e.g. don't ask "how hard is it to breathe?" without dyspnea).
+        if question.finding_ids and not _any_finding_present(question, inputs):
+            return True
         return "severity" in inputs.answered_slots
     # red_flag / associated: unresolved only if at least one target is unknown
     return all(fid in inputs.findings for fid in question.finding_ids)

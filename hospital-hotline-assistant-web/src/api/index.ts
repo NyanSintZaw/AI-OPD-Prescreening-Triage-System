@@ -371,6 +371,17 @@ export const api = {
       { method: 'PUT', body: JSON.stringify(payload) },
     ),
 
+  /** Record a single vital the engine requested mid-interview (e.g. the
+   *  temperature-on-demand popup). Merges into the session's stored vitals. */
+  updateSessionMeasurement: (
+    sessionId: string,
+    payload: { vital: 'temp'; value: number },
+  ) =>
+    request<{ session_id: string; vitals: Record<string, unknown> }>(
+      `/sessions/${sessionId}/measurement`,
+      { method: 'POST', body: JSON.stringify(payload) },
+    ),
+
   getBpDeviceStatus: () => request<BpDeviceStatusOut>('/admin/bp-device'),
 
   scanBpDevices: () =>

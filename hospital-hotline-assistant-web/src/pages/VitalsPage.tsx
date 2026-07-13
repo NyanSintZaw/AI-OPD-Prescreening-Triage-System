@@ -7,7 +7,7 @@ import { Layout } from '../components/Layout';
 import { useLanguage, useSessionStorage } from '../hooks/useSession';
 import { prewarmVoiceCall } from '../hooks/voicePrewarm';
 
-type VitalsStep = 'ask' | 'measure' | 'watching' | 'result' | 'error';
+type VitalsStep = 'form' | 'watching' | 'error';
 type WatchStage = 'press-start' | 'measuring' | 'reading';
 
 /** How long the "press START now" prompt stays before switching copy. */
@@ -38,12 +38,18 @@ function HeartIcon() {
   );
 }
 
+const parseNum = (v: string): number | undefined => {
+  const n = Number.parseFloat(v);
+  return Number.isFinite(n) ? n : undefined;
+};
+
 /**
- * Pre-conversation blood-pressure gate. Reached from the landing page
- * with ?mode=call|chat after the session is created. The patient either
- * confirms they know their blood pressure (and continues straight to
- * the conversation), or measures on the Omron cuff next to the kiosk
- * and lets the backend pull the reading over Bluetooth (omblepy).
+ * Pre-conversation vitals gate. Reached from the landing page with
+ * ?mode=call|chat after the session is created. Every booth patient must
+ * supply blood pressure (typed manually OR measured on the Omron cuff next
+ * to the kiosk), pulse, weight, and height before continuing — there is no
+ * skip. Temperature is NOT collected here; the screening engine requests it
+ * on-demand mid-interview only when a fever rule needs it.
  */
 export function VitalsPage() {
   const { t } = useTranslation();
@@ -51,15 +57,22 @@ export function VitalsPage() {
   const [searchParams] = useSearchParams();
   const { language, setLanguage } = useLanguage();
   const { sessionId } = useSessionStorage();
-  const [step, setStep] = useState<VitalsStep>('ask');
+  const [step, setStep] = useState<VitalsStep>('form');
   const [watchStage, setWatchStage] = useState<WatchStage>('press-start');
-  const [reading, setReading] = useState<BloodPressureFetchResponse | null>(null);
   const [errorKey, setErrorKey] = useState<string>('vitalsErrGeneric');
   const [saving, setSaving] = useState(false);
-  // Patient-typed vitals captured at the booth alongside the cuff reading.
+  const [showRequired, setShowRequired] = useState(false);
+
+  // Required booth vitals (all typed strings; BP may be filled by the cuff).
+  const [systolic, setSystolic] = useState('');
+  const [diastolic, setDiastolic] = useState('');
+  const [pulse, setPulse] = useState('');
   const [weightKg, setWeightKg] = useState('');
   const [heightCm, setHeightCm] = useState('');
-  const [temperatureC, setTemperatureC] = useState('');
+  // The cuff reading that populated BP, if any — lets us tag the write-back
+  // as a device measurement (with its id/timestamp) unless the patient has
+  // since edited the numbers.
+  const [reading, setReading] = useState<BloodPressureFetchResponse | null>(null);
 
   // Invalidates any in-flight watch loop when the user navigates away,
   // cancels, or restarts: each loop captures the token at start and
@@ -84,6 +97,14 @@ export function VitalsPage() {
   // Freshness anchor of the current measurement attempt. Retries reuse it
   // so a measurement that finished during a detection hiccup still counts.
   const anchorRef = useRef(0);
+
+  const applyReading = (result: BloodPressureFetchResponse) => {
+    setReading(result);
+    if (result.systolic != null) setSystolic(String(result.systolic));
+    if (result.diastolic != null) setDiastolic(String(result.diastolic));
+    if (result.pulse_bpm != null) setPulse(String(result.pulse_bpm));
+    setStep('form');
+  };
 
   /**
    * Hands-free measurement flow: prompt the patient to press START, then
@@ -112,8 +133,7 @@ export function VitalsPage() {
         if (result.status === 'ok' && result.measured_at) {
           const measuredMs = new Date(result.measured_at).getTime();
           if (measuredMs >= anchor - CLOCK_SKEW_MS) {
-            setReading(result);
-            setStep('result');
+            applyReading(result);
             return;
           }
         }
@@ -141,8 +161,7 @@ export function VitalsPage() {
         if (result.status === 'ok' && result.measured_at) {
           const measuredMs = new Date(result.measured_at).getTime();
           if (measuredMs >= anchor - CLOCK_SKEW_MS) {
-            setReading(result);
-            setStep('result');
+            applyReading(result);
             return;
           }
           // Stale record from before this measurement — keep waiting.
@@ -160,28 +179,41 @@ export function VitalsPage() {
     }
   };
 
+  const sys = parseNum(systolic);
+  const dia = parseNum(diastolic);
+  const pul = parseNum(pulse);
+  const wgt = parseNum(weightKg);
+  const hgt = parseNum(heightCm);
+  const formComplete =
+    sys !== undefined &&
+    dia !== undefined &&
+    pul !== undefined &&
+    wgt !== undefined &&
+    hgt !== undefined;
+
   const saveAndContinue = async () => {
-    if (!reading || reading.systolic == null || reading.diastolic == null) {
-      proceed();
+    if (!formComplete || sys === undefined || dia === undefined) {
+      setShowRequired(true);
       return;
     }
     setSaving(true);
     try {
       if (sessionId) {
-        const parseNum = (v: string) => {
-          const n = Number.parseFloat(v);
-          return Number.isFinite(n) ? n : undefined;
-        };
+        // Tag as a device reading only if the cuff filled BP and the patient
+        // hasn't edited it since; otherwise it's a manual booth entry.
+        const fromDevice =
+          reading != null &&
+          reading.systolic === sys &&
+          reading.diastolic === dia;
         await api.updateSessionVitals(sessionId, {
-          systolic: reading.systolic,
-          diastolic: reading.diastolic,
-          pulse_bpm: reading.pulse_bpm,
-          weight_kg: parseNum(weightKg),
-          height_cm: parseNum(heightCm),
-          temperature_c: parseNum(temperatureC),
-          measured_at: reading.measured_at,
-          source: 'device',
-          reading_id: reading.reading_id,
+          systolic: sys,
+          diastolic: dia,
+          pulse_bpm: pul,
+          weight_kg: wgt,
+          height_cm: hgt,
+          measured_at: fromDevice ? reading?.measured_at : undefined,
+          source: fromDevice ? 'device' : 'manual',
+          reading_id: fromDevice ? reading?.reading_id : undefined,
         });
       }
     } catch {
@@ -192,63 +224,112 @@ export function VitalsPage() {
     }
   };
 
-  const measuredTime = reading?.measured_at
-    ? new Date(reading.measured_at).toLocaleTimeString(language === 'th' ? 'th-TH' : 'en-US', {
-        hour: '2-digit',
-        minute: '2-digit',
-      })
-    : null;
-
   return (
     <Layout language={language} onLanguageChange={setLanguage}>
       <section className="landing">
         <div className="landing-card vitals-card">
           <span className="landing-badge">{t('vitalsKicker')}</span>
 
-          {step === 'ask' && (
+          {step === 'form' && (
             <>
               <span className="vitals-icon">
                 <HeartIcon />
               </span>
-              <h1>{t('vitalsAskQuestion')}</h1>
-              <p className="landing-tagline">{t('vitalsAskHint')}</p>
+              <h1>{t('vitalsFormTitle')}</h1>
+              <p className="landing-tagline">{t('vitalsFormHint')}</p>
+
+              <div className="vitals-form">
+                <div className="vitals-form-section">
+                  <div className="vitals-form-section-head">
+                    <span className="vitals-form-section-title">{t('vitalsBpSection')}</span>
+                    <button
+                      type="button"
+                      className="vitals-measure-link"
+                      onClick={() => void startWatching()}
+                    >
+                      {t('vitalsMeasureCuff')}
+                    </button>
+                  </div>
+                  <div className="vitals-form-grid">
+                    <label className="vitals-extra-field">
+                      <span>{t('vitalsSystolic')} ({t('vitalsUnitMmhg')})</span>
+                      <input
+                        type="number"
+                        inputMode="numeric"
+                        min={40}
+                        max={300}
+                        value={systolic}
+                        onChange={(e) => setSystolic(e.target.value)}
+                      />
+                    </label>
+                    <label className="vitals-extra-field">
+                      <span>{t('vitalsDiastolic')} ({t('vitalsUnitMmhg')})</span>
+                      <input
+                        type="number"
+                        inputMode="numeric"
+                        min={20}
+                        max={200}
+                        value={diastolic}
+                        onChange={(e) => setDiastolic(e.target.value)}
+                      />
+                    </label>
+                    <label className="vitals-extra-field">
+                      <span>{t('vitalsPulse')} ({t('vitalsUnitBpm')})</span>
+                      <input
+                        type="number"
+                        inputMode="numeric"
+                        min={20}
+                        max={250}
+                        value={pulse}
+                        onChange={(e) => setPulse(e.target.value)}
+                      />
+                    </label>
+                  </div>
+                </div>
+
+                <div className="vitals-form-section">
+                  <span className="vitals-form-section-title">{t('vitalsBodySection')}</span>
+                  <div className="vitals-form-grid cols-2">
+                    <label className="vitals-extra-field">
+                      <span>{t('vitalsWeight')}</span>
+                      <input
+                        type="number"
+                        inputMode="decimal"
+                        min={1}
+                        max={400}
+                        value={weightKg}
+                        onChange={(e) => setWeightKg(e.target.value)}
+                      />
+                    </label>
+                    <label className="vitals-extra-field">
+                      <span>{t('vitalsHeight')}</span>
+                      <input
+                        type="number"
+                        inputMode="decimal"
+                        min={1}
+                        max={272}
+                        value={heightCm}
+                        onChange={(e) => setHeightCm(e.target.value)}
+                      />
+                    </label>
+                  </div>
+                </div>
+              </div>
+
+              {showRequired && !formComplete && (
+                <p className="error-text">{t('vitalsRequiredError')}</p>
+              )}
+
               <div className="vitals-actions">
-                <button type="button" className="primary-btn" onClick={proceed}>
-                  {t('vitalsKnowYes')}
-                </button>
                 <button
                   type="button"
-                  className="secondary-btn"
-                  onClick={() => setStep('measure')}
+                  className="primary-btn"
+                  onClick={() => void saveAndContinue()}
+                  disabled={saving || !formComplete}
                 >
-                  {t('vitalsKnowNo')}
+                  {saving ? t('loading') : t('vitalsContinue')}
                 </button>
               </div>
-              <button type="button" className="vitals-skip" onClick={proceed}>
-                {t('vitalsSkip')}
-              </button>
-            </>
-          )}
-
-          {step === 'measure' && (
-            <>
-              <h1>{t('vitalsMeasureTitle')}</h1>
-              <ol className="vitals-steps">
-                <li>{t('vitalsStep1')}</li>
-                <li>{t('vitalsStep2')}</li>
-                <li>{t('vitalsStep3')}</li>
-              </ol>
-              <div className="vitals-actions">
-                <button type="button" className="primary-btn" onClick={() => void startWatching()}>
-                  {t('vitalsReadyButton')}
-                </button>
-                <button type="button" className="secondary-btn" onClick={() => setStep('ask')}>
-                  {t('vitalsBack')}
-                </button>
-              </div>
-              <button type="button" className="vitals-skip" onClick={proceed}>
-                {t('vitalsSkip')}
-              </button>
             </>
           )}
 
@@ -275,102 +356,16 @@ export function VitalsPage() {
               <div className="vitals-progress">
                 <div className="vitals-progress-bar" />
               </div>
-              <button type="button" className="vitals-skip" onClick={proceed}>
-                {t('vitalsSkip')}
+              <button
+                type="button"
+                className="vitals-skip"
+                onClick={() => {
+                  watchTokenRef.current += 1;
+                  setStep('form');
+                }}
+              >
+                {t('vitalsEnterManually')}
               </button>
-            </>
-          )}
-
-          {step === 'result' && reading && (
-            <>
-              <h1>{t('vitalsResultTitle')}</h1>
-              <div className="vitals-readings">
-                <div className="vitals-reading">
-                  <span className="vitals-value">{reading.systolic}</span>
-                  <span className="vitals-label">{t('vitalsSystolic')}</span>
-                  <span className="vitals-unit">{t('vitalsUnitMmhg')}</span>
-                </div>
-                <div className="vitals-reading">
-                  <span className="vitals-value">{reading.diastolic}</span>
-                  <span className="vitals-label">{t('vitalsDiastolic')}</span>
-                  <span className="vitals-unit">{t('vitalsUnitMmhg')}</span>
-                </div>
-                <div className="vitals-reading">
-                  <span className="vitals-value">{reading.pulse_bpm}</span>
-                  <span className="vitals-label">{t('vitalsPulse')}</span>
-                  <span className="vitals-unit">{t('vitalsUnitBpm')}</span>
-                </div>
-              </div>
-              {measuredTime && (
-                <p className="muted vitals-measured-at">
-                  {t('vitalsMeasuredAt', { time: measuredTime })}
-                </p>
-              )}
-              {reading.is_recent === false && (
-                <p className="vitals-warning">{t('vitalsStaleWarning')}</p>
-              )}
-              {reading.irregular_heartbeat && (
-                <p className="vitals-warning">{t('vitalsIrregular')}</p>
-              )}
-
-              <div className="vitals-extra">
-                <span className="vitals-extra-label">{t('vitalsExtraTitle')}</span>
-                <div className="vitals-extra-grid">
-                  <label className="vitals-extra-field">
-                    <span>{t('vitalsWeight')}</span>
-                    <input
-                      type="number"
-                      inputMode="decimal"
-                      min={1}
-                      max={400}
-                      value={weightKg}
-                      onChange={(e) => setWeightKg(e.target.value)}
-                    />
-                  </label>
-                  <label className="vitals-extra-field">
-                    <span>{t('vitalsHeight')}</span>
-                    <input
-                      type="number"
-                      inputMode="decimal"
-                      min={1}
-                      max={272}
-                      value={heightCm}
-                      onChange={(e) => setHeightCm(e.target.value)}
-                    />
-                  </label>
-                  <label className="vitals-extra-field">
-                    <span>{t('vitalsTemperature')}</span>
-                    <input
-                      type="number"
-                      inputMode="decimal"
-                      min={30}
-                      max={45}
-                      step={0.1}
-                      value={temperatureC}
-                      onChange={(e) => setTemperatureC(e.target.value)}
-                    />
-                  </label>
-                </div>
-              </div>
-
-              <div className="vitals-actions">
-                <button
-                  type="button"
-                  className="primary-btn"
-                  onClick={() => void saveAndContinue()}
-                  disabled={saving}
-                >
-                  {saving ? t('loading') : t('vitalsContinue')}
-                </button>
-                <button
-                  type="button"
-                  className="secondary-btn"
-                  onClick={() => setStep('measure')}
-                  disabled={saving}
-                >
-                  {t('vitalsMeasureAgain')}
-                </button>
-              </div>
             </>
           )}
 
@@ -386,13 +381,17 @@ export function VitalsPage() {
                 >
                   {t('vitalsRetry')}
                 </button>
-                <button type="button" className="secondary-btn" onClick={proceed}>
-                  {t('vitalsSkip')}
+                <button
+                  type="button"
+                  className="secondary-btn"
+                  onClick={() => {
+                    watchTokenRef.current += 1;
+                    setStep('form');
+                  }}
+                >
+                  {t('vitalsEnterManually')}
                 </button>
               </div>
-              <button type="button" className="vitals-skip" onClick={() => setStep('measure')}>
-                {t('vitalsBack')}
-              </button>
             </>
           )}
         </div>

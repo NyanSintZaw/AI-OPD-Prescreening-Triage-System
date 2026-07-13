@@ -54,6 +54,24 @@ class RoutingIn(BaseModel):
     rerouted: bool = False
 
 
+class ResetIn(BaseModel):
+    # When empty/omitted, every visit is reset to its pre-registration state.
+    visit_ids: list[str] = Field(default_factory=list)
+
+
+# Every screening column our system writes back; a reset NULLs these, leaving
+# only the pre-registration fields (visit_id / hnx / birthdate / appointment)
+# so the visit returns to the "registered" state the demo starts from.
+_RESET_COLUMNS = (
+    "measure_spid", "measure_name", "measure_department", "modify_time",
+    "weight", "height", "bmi", "waist_width", "pressure", "temperature", "pulse",
+    "nurse_chief_complaint", "nurse_patient_illness",
+    "first_location_id", "first_location_name", "first_location_department",
+    "second_location_id", "second_location_name", "second_location_department",
+)
+_RESET_SET_CLAUSE = ", ".join(f"{col} = NULL" for col in _RESET_COLUMNS)
+
+
 def _vitals_to_columns(vitals: dict[str, Any] | None) -> dict[str, Any]:
     """Map our referral vitals dict to the export's visit columns.
 
@@ -371,6 +389,41 @@ def build_app(db_path: str | Path | None = None) -> FastAPI:
         if row is None:
             raise HTTPException(status_code=404, detail="No prescreen result")
         return prescreen_payload(row)
+
+    @app.post("/api/admin/reset", dependencies=[Depends(require_api_key)])
+    def reset_visits(
+        payload: ResetIn | None = None,
+        db: sqlite3.Connection = Depends(get_db),
+    ):
+        """Testing convenience: return visits to their pre-registration
+        ("registered") state so a demo can be re-run against the same visit
+        IDs. Clears the held prescreen results and NULLs every screening
+        column our system writes back (booth measurements, first/second
+        location, nurse narrative). Pre-registration fields
+        (visit_id / hnx / birthdate / appointment) are untouched.
+
+        With ``visit_ids`` it resets only those; otherwise it resets every
+        visit. Note: against a completed real export (``HIS_MOCK_DATA_PATH``)
+        this also clears the export's screening fields — it is a demo/test tool.
+        """
+        visit_ids = list(payload.visit_ids) if payload else []
+        if visit_ids:
+            placeholders = ",".join("?" for _ in visit_ids)
+            db.execute(
+                f"DELETE FROM prescreen_results WHERE visit_id IN ({placeholders})",
+                visit_ids,
+            )
+            db.execute(
+                f"UPDATE visits SET {_RESET_SET_CLAUSE} WHERE visit_id IN ({placeholders})",
+                visit_ids,
+            )
+            affected = visit_ids
+        else:
+            db.execute("DELETE FROM prescreen_results")
+            db.execute(f"UPDATE visits SET {_RESET_SET_CLAUSE}")
+            affected = [r["visit_id"] for r in db.execute("SELECT visit_id FROM visits")]
+        db.commit()
+        return {"reset": len(affected), "visit_ids": affected}
 
     @app.get("/api/departments", dependencies=[Depends(require_api_key)])
     def list_departments(db: sqlite3.Connection = Depends(get_db)):

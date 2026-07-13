@@ -45,6 +45,8 @@ export interface ChatAssessment {
   contact?: Record<string, unknown> | null;
   /** 'complete' once the rules engine has produced a routing decision. */
   assessmentStatus?: 'complete' | 'in_progress';
+  /** Vital key (e.g. 'temp') the engine is asking the booth to measure now. */
+  awaitingMeasurement?: string | null;
 }
 
 export function toAssessment(
@@ -96,6 +98,7 @@ export function toAssessment(
     assistantMessageId: payload.assistant_message_id ?? undefined,
     contact: payload.contact ?? undefined,
     assessmentStatus: payload.assessment_status ?? undefined,
+    awaitingMeasurement: payload.awaiting_measurement ?? undefined,
   };
 }
 

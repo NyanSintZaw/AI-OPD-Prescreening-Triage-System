@@ -83,6 +83,7 @@ from app.schemas import (
     SessionLocationUpdate,
     SessionOut,
     SessionUpdate,
+    SessionMeasurementUpdate,
     SessionVitalsUpdate,
     SeverityAssessmentCreate,
     RoutingFeedbackOut,
@@ -128,14 +129,18 @@ async def lifespan(app: FastAPI):
         from app.services.ai.rag_query import start_rag_query_engine_prewarm
 
         app.state.rag_prewarm_task = start_rag_query_engine_prewarm()
+    # Warm the screening LLM client (auth token + connection) so the first
+    # patient turn isn't slow. Best-effort background task.
+    app.state.model_prewarm_task = asyncio.create_task(triage_engine.prewarm())
     # Kiosk-side Omron cuff reader (omblepy subprocess wrapper).
     app.state.bp_service = BloodPressureService()
     try:
         yield
     finally:
-        prewarm_task = getattr(app.state, "rag_prewarm_task", None)
-        if prewarm_task is not None and not prewarm_task.done():
-            prewarm_task.cancel()
+        for attr in ("rag_prewarm_task", "model_prewarm_task"):
+            prewarm_task = getattr(app.state, attr, None)
+            if prewarm_task is not None and not prewarm_task.done():
+                prewarm_task.cancel()
         await app.state.db_pool.close()
 
 app = FastAPI(title=settings.app_name, lifespan=lifespan)
@@ -560,6 +565,41 @@ async def update_session_vitals(
             measured_at=payload.measured_at,
             source=payload.source,
         )
+    return {"session_id": str(session_id), "vitals": vitals}
+
+
+# Canonical rules-engine vital -> the raw metadata key normalize_vitals reads.
+_MEASUREMENT_METADATA_KEY = {"temp": "temperature"}
+
+
+@app.post("/sessions/{session_id}/measurement")
+async def update_session_measurement(
+    session_id: UUID,
+    payload: SessionMeasurementUpdate,
+    connection: asyncpg.Connection = Depends(get_connection),
+):
+    """Record a single vital the screening engine asked for mid-interview
+    (temperature-on-demand). Merges into the session's stored vitals so the
+    next turn's ``turn_context`` carries it — without requiring the booth to
+    re-send the blood-pressure reading.
+    """
+    session_row = await connection.fetchrow(
+        "SELECT metadata FROM sessions WHERE id = $1", session_id
+    )
+    if session_row is None:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    metadata = dict(session_row["metadata"] or {})
+    vitals = dict(metadata.get("vitals") or {})
+    key = _MEASUREMENT_METADATA_KEY.get(payload.vital, payload.vital)
+    vitals[key] = payload.value
+    vitals["recorded_at"] = datetime.now(timezone.utc).isoformat()
+    metadata["vitals"] = vitals
+    await connection.execute(
+        "UPDATE sessions SET metadata = $2::jsonb WHERE id = $1",
+        session_id,
+        metadata,
+    )
     return {"session_id": str(session_id), "vitals": vitals}
 
 
@@ -1568,6 +1608,15 @@ async def voice_call(websocket: WebSocket, session_id: str):
                 session_id,
             )
 
+    async def push_measurement(payload: dict) -> None:
+        try:
+            await websocket.send_json({"type": "measurement_request", **payload})
+        except Exception:
+            logger.debug(
+                "Failed to push measurement request to %s (likely client closed)",
+                session_id,
+            )
+
     async with pool.acquire() as conn:
         try:
             await live_voice_service.connect(
@@ -1578,6 +1627,7 @@ async def voice_call(websocket: WebSocket, session_id: str):
                 transcript_callback=push_transcript,
                 emergency_callback=push_emergency,
                 assessment_callback=push_assessment,
+                measurement_callback=push_measurement,
             )
         except ValueError as exc:
             await websocket.close(code=1008, reason=str(exc))
@@ -1659,6 +1709,18 @@ async def voice_call(websocket: WebSocket, session_id: str):
                     await websocket.send_json({"type": "status", "muted": False})
                 elif msg_type == "end_of_turn":
                     live_voice_service.end_user_turn(session_id)
+                    continue
+                elif msg_type == "submit_measurement":
+                    # The temperature-on-demand popup: the client already
+                    # PUT the reading onto the session; drive a text turn so
+                    # its turn_context carries the value and the engine
+                    # continues without waiting for the patient to speak.
+                    content = str(payload.get("content") or "").strip()
+                    if content:
+                        try:
+                            live_voice_service.inject_text_turn(session_id, content)
+                        except ValueError:
+                            return
                     continue
                 elif msg_type == "end_call":
                     return

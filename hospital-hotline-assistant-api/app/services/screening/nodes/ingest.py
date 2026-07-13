@@ -8,7 +8,7 @@ from time import perf_counter
 from ..extraction import ExtractionResult, build_extraction_prompt
 from ..rules.question_policy import get_template
 from ..state import OLDCARTS_SLOTS, Finding
-from .base import GraphDeps, GraphState
+from .base import GraphDeps, GraphState, ainvoke_with_timeout
 
 logger = logging.getLogger(__name__)
 
@@ -64,6 +64,11 @@ def make_ingest_node(deps: GraphDeps):
         user_text = graph_state["user_text"]
         audit = graph_state.get("audit") or []
 
+        # Clear any prior measurement request; the question node re-sets it
+        # if it asks for another reading this turn. (turn_context has already
+        # merged a supplied reading into state.vitals before the graph ran.)
+        state.awaiting_measurement = None
+
         if deps.model is None:
             # No model configured — cannot extract; escalate to a nurse.
             state.extraction_failures = MAX_EXTRACTION_FAILURES
@@ -78,7 +83,7 @@ def make_ingest_node(deps: GraphDeps):
         result: ExtractionResult | None = None
         for attempt in (1, 2):
             try:
-                result = await structured.ainvoke(prompt)
+                result = await ainvoke_with_timeout(structured, prompt, deps.model_timeout_s)
                 break
             except Exception:
                 logger.exception("extraction attempt %d failed", attempt)

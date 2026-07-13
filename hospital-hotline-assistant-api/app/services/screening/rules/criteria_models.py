@@ -137,7 +137,9 @@ class RoutingEntry(BaseModel):
     citation: str = ""
 
 
-QuestionKind = Literal["red_flag", "slot", "associated", "scale", "age"]
+QuestionKind = Literal[
+    "intake", "red_flag", "slot", "associated", "scale", "age", "measurement"
+]
 
 OldcartsSlot = Literal[
     "onset", "location", "duration", "character",
@@ -155,7 +157,8 @@ class QuestionTemplate(BaseModel):
     id: str
     kind: QuestionKind
     slot: OldcartsSlot | None = None
-    finding_ids: list[str] = Field(default_factory=list)  # findings this question resolves
+    vital: VitalName | None = None  # for kind="measurement": the vital to collect
+    finding_ids: list[str] = Field(default_factory=list)  # findings this question resolves / gates on
     text_en: str
     text_th: str
     priority: int = 100  # lower asks earlier within its kind
@@ -166,6 +169,8 @@ class QuestionTemplate(BaseModel):
             raise ValueError(f"slot question {self.id!r} requires slot")
         if self.kind in ("red_flag", "associated") and not self.finding_ids:
             raise ValueError(f"{self.kind} question {self.id!r} requires finding_ids")
+        if self.kind == "measurement" and self.vital is None:
+            raise ValueError(f"measurement question {self.id!r} requires vital")
         return self
 
 
