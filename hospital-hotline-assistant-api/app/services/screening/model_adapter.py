@@ -76,17 +76,31 @@ def build_chat_model(settings: Any) -> BaseChatModel:
         # ``vertexai=True`` is the supported replacement for the deprecated
         # ``langchain_google_vertexai.ChatVertexAI``. Same Vertex backend and
         # ADC auth (project + location, no api_key), just the unified client.
+        # location="global" (the default) routes across regions for quota.
         from langchain_google_genai import ChatGoogleGenerativeAI
 
         _silence_schema_warning()
+        # Thinking is the dominant latency cost for these short prompts.
+        # Gemini 3+ takes thinking_level (and 400s if thinking_budget is also
+        # sent); older 2.x models only understand thinking_budget=0.
+        extra_kwargs: dict[str, Any] = {}
+        level = getattr(settings, "screening_thinking_level", "minimal")
+        if model_name.startswith("gemini-2"):
+            extra_kwargs["thinking_budget"] = 0
+            extra_kwargs["temperature"] = 0.1
+        elif level:
+            # Gemini 3 guidance: keep temperature at its 1.0 default — low
+            # temperatures degrade thinking models. Determinism comes from
+            # structured output + the rules engine, not sampling temperature.
+            extra_kwargs["thinking_level"] = level
         return ChatGoogleGenerativeAI(
             model=model_name,
             project=settings.google_cloud_project,
             location=settings.google_cloud_location,
             vertexai=True,
-            temperature=0.1,
             timeout=timeout_s,
             max_retries=1,
+            **extra_kwargs,
         )
 
     raise ValueError(f"Unknown screening_model_provider: {provider!r}")

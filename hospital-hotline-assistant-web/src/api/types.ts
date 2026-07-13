@@ -175,6 +175,24 @@ export interface AssessmentReviewOut {
     citation?: string;
   }> | null;
   notes: string | null;
+  /** Booth context: linked HIS visit + measurements taken at the kiosk. */
+  visit_id?: string | null;
+  vitals?: {
+    systolic?: number | null;
+    diastolic?: number | null;
+    pulse_bpm?: number | null;
+    weight_kg?: number | null;
+    height_cm?: number | null;
+    temperature?: number | null;
+    source?: string | null;
+  } | null;
+  /** AI narrative (read-only originals the nurse can edit before publishing). */
+  ai_chief_complaint?: string | null;
+  ai_illness_note?: string | null;
+  /** Nurse-signed narrative, set on confirm. */
+  chief_complaint?: string | null;
+  illness_note?: string | null;
+  his_routing_status?: string | null;
   reviewed_at: string | null;
   created_at: string;
   updated_at: string;
@@ -183,12 +201,16 @@ export interface AssessmentReviewOut {
 export interface AssessmentReviewApproveRequest {
   notes?: string | null;
   ai_assessment_score?: number | null;
+  chief_complaint?: string | null;
+  illness_note?: string | null;
 }
 
 export interface AssessmentReviewCorrectRequest {
   confirmed_department_id: string;
   reason?: string | null;
   ai_assessment_score?: number | null;
+  chief_complaint?: string | null;
+  illness_note?: string | null;
 }
 
 export interface RoutingFeedbackOut {

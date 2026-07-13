@@ -11,6 +11,8 @@ import { slipCode, slipSearchKey } from '../utils/slipCode';
 import type { AssessmentReviewOut, DepartmentOut, RoutingFeedbackOut } from '../api/types';
 
 type NurseTab = 'reviews' | 'schedules';
+type ReviewModalTab = 'assessment' | 'conversation';
+type ReviewFilter = 'all' | 'pending' | 'reviewed';
 
 function truncateId(id: string): string {
   return `${id.slice(0, 8)}…`;
@@ -21,35 +23,45 @@ function formatDateAbsolute(value: string | null): string {
   return new Date(value).toLocaleString();
 }
 
+function formatBmi(weightKg?: number | null, heightCm?: number | null): string {
+  if (!weightKg || !heightCm) return '—';
+  const meters = heightCm / 100;
+  return (weightKg / (meters * meters)).toFixed(1);
+}
+
+function formatNumber(value?: number | null, digits = 0): string {
+  if (value === null || value === undefined) return '—';
+  return digits > 0 ? value.toFixed(digits) : String(value);
+}
+
 export function NursePage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { language, setLanguage } = useLanguage();
   const [activeTab, setActiveTab] = useState<NurseTab>('reviews');
-  const reviewFilter = 'pending';
+  const [reviewFilter, setReviewFilter] = useState<ReviewFilter>('all');
   const [reviews, setReviews] = useState<AssessmentReviewOut[]>([]);
   const [feedbackRows, setFeedbackRows] = useState<RoutingFeedbackOut[]>([]);
   const [departments, setDepartments] = useState<DepartmentOut[]>([]);
   const [authError, setAuthError] = useState<string | null>(null);
   const [reviewActionLoading, setReviewActionLoading] = useState<string | null>(null);
-  const [correctDepartmentByAssessment, setCorrectDepartmentByAssessment] = useState<
-    Record<string, string>
-  >({});
-  const [correctReasonByAssessment, setCorrectReasonByAssessment] = useState<Record<string, string>>(
-    {},
-  );
-  const [scoreByAssessment, setScoreByAssessment] = useState<Record<string, string>>({});
-  const [contactRequestedOnly, setContactRequestedOnly] = useState(false);
   const [slipQuery, setSlipQuery] = useState('');
   const [reviewDataLoading, setReviewDataLoading] = useState(true);
 
   const [selectedReview, setSelectedReview] = useState<AssessmentReviewOut | null>(null);
   const [sessionMessages, setSessionMessages] = useState<MessageOut[]>([]);
   const [sessionMessagesLoading, setSessionMessagesLoading] = useState(false);
+  // One review is edited at a time, so a single set of draft fields is enough.
+  const [modalTab, setModalTab] = useState<ReviewModalTab>('assessment');
+  const [editComplaint, setEditComplaint] = useState('');
+  const [editNote, setEditNote] = useState('');
+  const [editDeptId, setEditDeptId] = useState('');
+  const [editReason, setEditReason] = useState('');
+  const [editScore, setEditScore] = useState('');
 
   const staffEmail = getAdminEmail() ?? t('loginNurseTab');
 
-  const loadReviewData = async (status: 'all' | 'pending' | 'approved' | 'corrected') => {
+  const loadReviewData = async (status: ReviewFilter) => {
     if (!getAdminToken()) return;
     setReviewDataLoading(true);
     setAuthError(null);
@@ -106,34 +118,26 @@ export function NursePage() {
     navigate('/login/nurse', { replace: true });
   };
 
-  const handleApprove = async (review: AssessmentReviewOut) => {
+  // One button: an unchanged department confirms/approves; a changed one is
+  // recorded as a correction + HIS reroute. Complaint/note edits go either way.
+  const handleConfirm = async (review: AssessmentReviewOut) => {
     setReviewActionLoading(review.assessment_id);
-    const score = scoreByAssessment[review.assessment_id];
+    const narrative = {
+      ai_assessment_score: editScore ? Number(editScore) : null,
+      chief_complaint: editComplaint.trim() || null,
+      illness_note: editNote.trim() || null,
+    };
+    const rerouted = Boolean(editDeptId) && editDeptId !== review.proposed_department_id;
     try {
-      await api.approveAssessmentReview(review.assessment_id, {
-        ai_assessment_score: score ? Number(score) : null,
-      });
-      await loadReviewData(reviewFilter);
-      setSelectedReview(null);
-      setSessionMessages([]);
-    } catch (err) {
-      setAuthError(err instanceof Error ? err.message : t('error'));
-    } finally {
-      setReviewActionLoading(null);
-    }
-  };
-
-  const handleCorrect = async (review: AssessmentReviewOut) => {
-    const selectedDepartment = correctDepartmentByAssessment[review.assessment_id];
-    if (!selectedDepartment) return;
-    setReviewActionLoading(review.assessment_id);
-    const score = scoreByAssessment[review.assessment_id];
-    try {
-      await api.correctAssessmentReview(review.assessment_id, {
-        confirmed_department_id: selectedDepartment,
-        reason: correctReasonByAssessment[review.assessment_id] || null,
-        ai_assessment_score: score ? Number(score) : null,
-      });
+      if (rerouted) {
+        await api.correctAssessmentReview(review.assessment_id, {
+          confirmed_department_id: editDeptId,
+          reason: editReason.trim() || null,
+          ...narrative,
+        });
+      } else {
+        await api.approveAssessmentReview(review.assessment_id, narrative);
+      }
       await loadReviewData(reviewFilter);
       setSelectedReview(null);
       setSessionMessages([]);
@@ -146,6 +150,12 @@ export function NursePage() {
 
   const handleOpenReview = async (review: AssessmentReviewOut) => {
     setSelectedReview(review);
+    setModalTab('assessment');
+    setEditComplaint(review.chief_complaint ?? review.ai_chief_complaint ?? '');
+    setEditNote(review.illness_note ?? review.ai_illness_note ?? '');
+    setEditDeptId(review.proposed_department_id ?? '');
+    setEditReason('');
+    setEditScore(review.ai_assessment_score ? String(review.ai_assessment_score) : '');
     setSessionMessages([]);
     setSessionMessagesLoading(true);
     try {
@@ -173,29 +183,16 @@ export function NursePage() {
       ? review.confirmed_department_name_th ?? review.confirmed_department_name_en ?? null
       : review.confirmed_department_name_en ?? null;
 
-  const contactLabel = (review: AssessmentReviewOut) => {
-    if (review.patient_contact_requested === true) return t('patientContactYes');
-    if (review.patient_contact_requested === false) return t('patientContactNo');
-    return t('patientContactUnknown');
-  };
-
   const filteredReviews = useMemo(() => {
-    let rows = contactRequestedOnly
-      ? reviews.filter((review) => review.patient_contact_requested === true)
-      : reviews;
     const key = slipSearchKey(slipQuery);
-    if (key) {
-      rows = rows.filter((review) =>
-        slipSearchKey(slipCode(review.session_id)).includes(key),
-      );
-    }
-    return rows;
-  }, [contactRequestedOnly, reviews, slipQuery]);
+    if (!key) return reviews;
+    return reviews.filter((review) =>
+      slipSearchKey(slipCode(review.session_id)).includes(key),
+    );
+  }, [reviews, slipQuery]);
 
-  const contactRequestedCount = useMemo(
-    () => reviews.filter((review) => review.patient_contact_requested === true).length,
-    [reviews],
-  );
+  const complaintPreview = (review: AssessmentReviewOut) =>
+    review.chief_complaint ?? review.ai_chief_complaint ?? '—';
 
   return (
     <Layout
@@ -265,22 +262,21 @@ export function NursePage() {
             onChange={(e) => setSlipQuery(e.target.value)}
             aria-label={t('nurseSlipSearchPlaceholder')}
           />
-          <div className="chip-group" role="group" aria-label={t('nurseContactFilterLabel')}>
-            <span className="chip-group-label">{t('nurseContactFilterLabel')}</span>
-            <button
-              type="button"
-              className={`filter-chip tone-neutral ${!contactRequestedOnly ? 'active' : ''}`}
-              onClick={() => setContactRequestedOnly(false)}
-            >
-              {t('filterAll')}
-            </button>
-            <button
-              type="button"
-              className={`filter-chip tone-urgent ${contactRequestedOnly ? 'active' : ''}`}
-              onClick={() => setContactRequestedOnly(true)}
-            >
-              {t('nurseContactRequestedOnly')} ({contactRequestedCount})
-            </button>
+          <div className="chip-group" role="group" aria-label={t('nurseFilterLabel')}>
+            {(['all', 'pending', 'reviewed'] as const).map((filter) => (
+              <button
+                key={filter}
+                type="button"
+                className={`filter-chip tone-neutral ${reviewFilter === filter ? 'active' : ''}`}
+                onClick={() => setReviewFilter(filter)}
+              >
+                {filter === 'all'
+                  ? t('filterAll')
+                  : filter === 'pending'
+                    ? t('review_pending')
+                    : t('nurseFilterReviewed')}
+              </button>
+            ))}
           </div>
         </div>}
 
@@ -288,9 +284,7 @@ export function NursePage() {
         {activeTab === 'reviews' && (reviewDataLoading ? (
           <p className="muted">{t('loading')}</p>
         ) : filteredReviews.length === 0 ? (
-          <p className="muted">
-            {contactRequestedOnly ? t('nurseNoContactRequestedReviews') : t('adminNoReviews')}
-          </p>
+          <p className="muted">{t('adminNoReviews')}</p>
         ) : (
           <div className="nurse-review-list">
             {filteredReviews.map((review) => {
@@ -328,29 +322,23 @@ export function NursePage() {
                         {review.status === 'corrected' && confirmed ? ` -> ${confirmed}` : ''}
                       </span>
                     </div>
-                    <div className="nurse-card-meta-item">
-                      <span className="nurse-card-dept-label">{t('patientContactPreference')}</span>
-                      <span className="nurse-card-dept-value">{contactLabel(review)}</span>
+                    <div className="nurse-card-meta-item nurse-card-complaint">
+                      <span className="nurse-card-dept-label">{t('nurseChiefComplaint')}</span>
+                      <span className="nurse-card-dept-value">{complaintPreview(review)}</span>
                     </div>
                     <div className="nurse-card-meta-item">
-                      <span className="nurse-card-dept-label">{t('patientContactPhone')}</span>
+                      <span className="nurse-card-dept-label">{t('nurseVisitLabel')}</span>
                       <span className="nurse-card-dept-value">
-                        {review.patient_contact_phone || '—'}
+                        {review.visit_id ? <code>{review.visit_id}</code> : t('nurseVisitNotLinked')}
                       </span>
                     </div>
-                    {review.patient_contact_preferred_time ? (
+                    {review.his_routing_status ? (
                       <div className="nurse-card-meta-item">
-                        <span className="nurse-card-dept-label">{t('patientContactPreferredTime')}</span>
+                        <span className="nurse-card-dept-label">HIS</span>
                         <span className="nurse-card-dept-value">
-                          {review.patient_contact_preferred_time}
-                        </span>
-                      </div>
-                    ) : null}
-                    {review.patient_contact_relation ? (
-                      <div className="nurse-card-meta-item">
-                        <span className="nurse-card-dept-label">{t('patientContactRelation')}</span>
-                        <span className="nurse-card-dept-value">
-                          {review.patient_contact_relation}
+                          {review.his_routing_status === 'pushed'
+                            ? t('nurseHisPublished')
+                            : t('nurseHisPushFailed')}
                         </span>
                       </div>
                     ) : null}
@@ -413,150 +401,244 @@ export function NursePage() {
                 </button>
               </div>
 
-              <div className="nurse-review-modal-body">
-                <aside className="nurse-review-decision-panel">
-                  <div className="nurse-review-facts">
-                    <div>
-                      <span className="nurse-card-dept-label">{t('department')}</span>
-                      <strong>{reviewDeptLabel(selectedReview)}</strong>
-                    </div>
-                    <div>
-                      <span className="nurse-card-dept-label">{t('patientContactPreference')}</span>
-                      <strong>{contactLabel(selectedReview)}</strong>
-                    </div>
-                    <div>
-                      <span className="nurse-card-dept-label">{t('patientContactPhone')}</span>
-                      <strong>{selectedReview.patient_contact_phone || '—'}</strong>
-                    </div>
-                    {selectedReview.patient_contact_preferred_time ? (
-                      <div>
-                        <span className="nurse-card-dept-label">{t('patientContactPreferredTime')}</span>
-                        <strong>{selectedReview.patient_contact_preferred_time}</strong>
-                      </div>
-                    ) : null}
-                    {selectedReview.patient_contact_relation ? (
-                      <div>
-                        <span className="nurse-card-dept-label">{t('patientContactRelation')}</span>
-                        <strong>{selectedReview.patient_contact_relation}</strong>
-                      </div>
-                    ) : null}
-                  </div>
+              <div className="nurse-modal-tab-bar" role="tablist">
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={modalTab === 'assessment'}
+                  className={`nurse-tab-btn ${modalTab === 'assessment' ? 'active' : ''}`}
+                  onClick={() => setModalTab('assessment')}
+                >
+                  {t('nurseAssessmentTab')}
+                </button>
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={modalTab === 'conversation'}
+                  className={`nurse-tab-btn ${modalTab === 'conversation' ? 'active' : ''}`}
+                  onClick={() => setModalTab('conversation')}
+                >
+                  {t('nurseConversationTitle')}
+                  <span className="nurse-conv-panel-count">
+                    {sessionMessagesLoading ? '…' : ` ${sessionMessages.length}`}
+                  </span>
+                </button>
+              </div>
 
-                  {selectedReview.status === 'pending' ? (
-                    <>
-                      <label className="nurse-score-field nurse-modal-field">
-                        <span>{t('aiAssessmentScore')}</span>
-                        <select
-                          className="nurse-score-select"
-                          value={scoreByAssessment[selectedReview.assessment_id] ?? ''}
-                          onChange={(e) =>
-                            setScoreByAssessment((prev) => ({
-                              ...prev,
-                              [selectedReview.assessment_id]: e.target.value,
-                            }))
-                          }
-                        >
-                          <option value="">{t('aiAssessmentScorePlaceholder')}</option>
-                          {Array.from({ length: 10 }, (_, index) => index + 1).map((score) => (
-                            <option key={score} value={score}>
-                              {score}/10
-                            </option>
-                          ))}
-                        </select>
-                      </label>
-
-                      <div className="nurse-modal-correction">
-                        <p className="nurse-review-section-title">{t('nurseDepartmentDecision')}</p>
-                        <select
-                          className="nurse-dept-select"
-                          value={correctDepartmentByAssessment[selectedReview.assessment_id] ?? ''}
-                          onChange={(e) =>
-                            setCorrectDepartmentByAssessment((prev) => ({
-                              ...prev,
-                              [selectedReview.assessment_id]: e.target.value,
-                            }))
-                          }
-                        >
-                          <option value="">{t('adminSelectDepartment')}</option>
-                          {departments
-                            .filter((dept) => dept.kind === 'opd')
-                            .map((dept) => (
-                              <option key={dept.id} value={dept.id}>
-                                {language === 'th' ? dept.name_th ?? dept.name_en : dept.name_en}
-                              </option>
-                            ))}
-                        </select>
-                        <input
-                          type="text"
-                          className="nurse-reason-input"
-                          placeholder={t('adminCorrectionReasonPlaceholder')}
-                          value={correctReasonByAssessment[selectedReview.assessment_id] ?? ''}
-                          onChange={(e) =>
-                            setCorrectReasonByAssessment((prev) => ({
-                              ...prev,
-                              [selectedReview.assessment_id]: e.target.value,
-                            }))
-                          }
-                        />
-                      </div>
-
-                      <div className="nurse-review-modal-actions">
-                        <button
-                          type="button"
-                          className="nurse-approve-btn"
-                          disabled={reviewActionLoading === selectedReview.assessment_id}
-                          onClick={() => void handleApprove(selectedReview)}
-                        >
-                          <span aria-hidden="true">{'\u2713'}</span>
-                          {t('nurseApproveAssessment')}
-                        </button>
-                        <button
-                          type="button"
-                          className="nurse-correct-btn"
-                          disabled={
-                            reviewActionLoading === selectedReview.assessment_id ||
-                            !(correctDepartmentByAssessment[selectedReview.assessment_id] ?? '')
-                          }
-                          onClick={() => void handleCorrect(selectedReview)}
-                        >
-                          {t('adminCorrectRoute')}
-                        </button>
-                      </div>
-                    </>
-                  ) : selectedReview.ai_assessment_score ? (
-                    <div className="nurse-review-facts">
-                      <div>
-                        <span className="nurse-card-dept-label">{t('aiAssessmentScore')}</span>
+              <div className="nurse-review-modal-body nurse-review-modal-tabbed">
+                {modalTab === 'assessment' && (
+                  <section className="nurse-assessment-panel">
+                    <p className="nurse-review-section-title">{t('nurseMeasuredAtBooth')}</p>
+                    <div className="nurse-vitals-grid">
+                      <div className="nurse-vital-item">
+                        <span className="nurse-card-dept-label">{t('nurseVitalBp')}</span>
                         <strong>
-                          {selectedReview.ai_assessment_score}/{selectedReview.ai_assessment_scale}
+                          {selectedReview.vitals?.systolic && selectedReview.vitals?.diastolic
+                            ? `${selectedReview.vitals.systolic}/${selectedReview.vitals.diastolic}`
+                            : '—'}
+                        </strong>
+                      </div>
+                      <div className="nurse-vital-item">
+                        <span className="nurse-card-dept-label">{t('nurseVitalPulse')}</span>
+                        <strong>{formatNumber(selectedReview.vitals?.pulse_bpm)}</strong>
+                      </div>
+                      <div className="nurse-vital-item">
+                        <span className="nurse-card-dept-label">{t('nurseVitalWeight')}</span>
+                        <strong>{formatNumber(selectedReview.vitals?.weight_kg)}</strong>
+                      </div>
+                      <div className="nurse-vital-item">
+                        <span className="nurse-card-dept-label">{t('nurseVitalHeight')}</span>
+                        <strong>{formatNumber(selectedReview.vitals?.height_cm)}</strong>
+                      </div>
+                      <div className="nurse-vital-item">
+                        <span className="nurse-card-dept-label">BMI</span>
+                        <strong>
+                          {formatBmi(selectedReview.vitals?.weight_kg, selectedReview.vitals?.height_cm)}
+                        </strong>
+                      </div>
+                      <div className="nurse-vital-item">
+                        <span className="nurse-card-dept-label">{t('nurseVitalTemp')}</span>
+                        <strong>{formatNumber(selectedReview.vitals?.temperature, 1)}</strong>
+                      </div>
+                      <div className="nurse-vital-item">
+                        <span className="nurse-card-dept-label">{t('nurseVisitLabel')}</span>
+                        <strong>
+                          {selectedReview.visit_id ? (
+                            <code>{selectedReview.visit_id}</code>
+                          ) : (
+                            t('nurseVisitNotLinked')
+                          )}
                         </strong>
                       </div>
                     </div>
-                  ) : null}
-                </aside>
 
-                <section className="nurse-review-transcript-panel">
-                  <div className="nurse-conv-panel-header">
-                    <span className="nurse-conv-panel-title">{t('nurseConversationTitle')}</span>
-                    <span className="nurse-conv-panel-count">
-                      {sessionMessagesLoading ? '…' : `${sessionMessages.length} ${t('messages').toLowerCase()}`}
-                    </span>
-                  </div>
-                  {sessionMessagesLoading ? (
-                    <div className="nurse-conv-loading">
-                      <span className="nurse-conv-spinner" aria-hidden="true" />
-                      <span>{t('loading')}</span>
-                    </div>
-                  ) : sessionMessages.length === 0 ? (
-                    <p className="muted nurse-conv-empty">{t('noMessages')}</p>
-                  ) : (
-                    <div className="nurse-conv-messages nurse-modal-messages">
-                      {sessionMessages.map((message) => (
-                        <MessageBubble key={message.id} message={message} />
-                      ))}
-                    </div>
-                  )}
-                </section>
+                    <p className="nurse-review-section-title">{t('nurseAssessmentSection')}</p>
+                    {selectedReview.status === 'pending' ? (
+                      <>
+                        <p className="muted nurse-narrative-hint">{t('nurseNarrativeHint')}</p>
+                        <label className="nurse-modal-field">
+                          <span>{t('nurseChiefComplaint')}</span>
+                          <textarea
+                            className="nurse-narrative-input"
+                            rows={2}
+                            value={editComplaint}
+                            onChange={(e) => setEditComplaint(e.target.value)}
+                          />
+                        </label>
+                        <label className="nurse-modal-field">
+                          <span>{t('nurseIllnessNote')}</span>
+                          <textarea
+                            className="nurse-narrative-input"
+                            rows={2}
+                            value={editNote}
+                            onChange={(e) => setEditNote(e.target.value)}
+                          />
+                        </label>
+                        <label className="nurse-modal-field">
+                          <span>{t('department')}</span>
+                          <select
+                            className="nurse-dept-select"
+                            value={editDeptId}
+                            onChange={(e) => setEditDeptId(e.target.value)}
+                          >
+                            {!selectedReview.proposed_department_id && (
+                              <option value="">{t('adminSelectDepartment')}</option>
+                            )}
+                            {departments
+                              .filter(
+                                (dept) =>
+                                  dept.kind === 'opd' ||
+                                  dept.id === selectedReview.proposed_department_id,
+                              )
+                              // AI-assessed department first; it is also the
+                              // pre-selected value, so the dropdown opens on it.
+                              .sort((a, b) =>
+                                (a.id === selectedReview.proposed_department_id ? 0 : 1) -
+                                (b.id === selectedReview.proposed_department_id ? 0 : 1))
+                              .map((dept) => (
+                                <option key={dept.id} value={dept.id}>
+                                  {language === 'th' ? dept.name_th ?? dept.name_en : dept.name_en}
+                                </option>
+                              ))}
+                          </select>
+                        </label>
+                        {editDeptId && editDeptId !== selectedReview.proposed_department_id ? (
+                          <input
+                            type="text"
+                            className="nurse-reason-input"
+                            placeholder={t('adminCorrectionReasonPlaceholder')}
+                            value={editReason}
+                            onChange={(e) => setEditReason(e.target.value)}
+                          />
+                        ) : null}
+
+                        {(selectedReview.disposition_reasons?.length ?? 0) > 0 && (
+                          <details className="nurse-ai-reasoning">
+                            <summary>{t('aiReasoningTitle')}</summary>
+                            <ul>
+                              {selectedReview.disposition_reasons!.map((reason) => (
+                                <li key={reason.rule_id}>
+                                  {language === 'th' ? reason.text_th : reason.text_en}
+                                  {reason.citation ? (
+                                    <span className="muted"> — {reason.citation}</span>
+                                  ) : null}
+                                </li>
+                              ))}
+                            </ul>
+                          </details>
+                        )}
+
+                        <label className="nurse-score-field nurse-modal-field">
+                          <span>{t('aiAssessmentScore')}</span>
+                          <select
+                            className="nurse-score-select"
+                            value={editScore}
+                            onChange={(e) => setEditScore(e.target.value)}
+                          >
+                            <option value="">{t('aiAssessmentScorePlaceholder')}</option>
+                            {Array.from({ length: 10 }, (_, index) => index + 1).map((score) => (
+                              <option key={score} value={score}>
+                                {score}/10
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+
+                        <div className="nurse-review-modal-actions">
+                          <button
+                            type="button"
+                            className="nurse-approve-btn"
+                            disabled={reviewActionLoading === selectedReview.assessment_id}
+                            onClick={() => void handleConfirm(selectedReview)}
+                          >
+                            <span aria-hidden="true">{'✓'}</span>
+                            {editDeptId && editDeptId !== selectedReview.proposed_department_id
+                              ? t('nurseConfirmReroute')
+                              : t('nurseConfirmPublish')}
+                          </button>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="nurse-review-facts">
+                        <div>
+                          <span className="nurse-card-dept-label">{t('nurseChiefComplaint')}</span>
+                          <strong>
+                            {selectedReview.chief_complaint ?? selectedReview.ai_chief_complaint ?? '—'}
+                          </strong>
+                        </div>
+                        <div>
+                          <span className="nurse-card-dept-label">{t('nurseIllnessNote')}</span>
+                          <strong>
+                            {selectedReview.illness_note ?? selectedReview.ai_illness_note ?? '—'}
+                          </strong>
+                        </div>
+                        <div>
+                          <span className="nurse-card-dept-label">{t('department')}</span>
+                          <strong>
+                            {confirmedDeptLabel(selectedReview) ?? reviewDeptLabel(selectedReview)}
+                          </strong>
+                        </div>
+                        {selectedReview.his_routing_status ? (
+                          <div>
+                            <span className="nurse-card-dept-label">HIS</span>
+                            <strong>
+                              {selectedReview.his_routing_status === 'pushed'
+                                ? t('nurseHisPublished')
+                                : t('nurseHisPushFailed')}
+                            </strong>
+                          </div>
+                        ) : null}
+                        {selectedReview.ai_assessment_score ? (
+                          <div>
+                            <span className="nurse-card-dept-label">{t('aiAssessmentScore')}</span>
+                            <strong>
+                              {selectedReview.ai_assessment_score}/{selectedReview.ai_assessment_scale}
+                            </strong>
+                          </div>
+                        ) : null}
+                      </div>
+                    )}
+                  </section>
+                )}
+
+                {modalTab === 'conversation' && (
+                  <section className="nurse-review-transcript-panel">
+                    {sessionMessagesLoading ? (
+                      <div className="nurse-conv-loading">
+                        <span className="nurse-conv-spinner" aria-hidden="true" />
+                        <span>{t('loading')}</span>
+                      </div>
+                    ) : sessionMessages.length === 0 ? (
+                      <p className="muted nurse-conv-empty">{t('noMessages')}</p>
+                    ) : (
+                      <div className="nurse-conv-messages nurse-modal-messages">
+                        {sessionMessages.map((message) => (
+                          <MessageBubble key={message.id} message={message} />
+                        ))}
+                      </div>
+                    )}
+                  </section>
+                )}
               </div>
             </div>
           </div>

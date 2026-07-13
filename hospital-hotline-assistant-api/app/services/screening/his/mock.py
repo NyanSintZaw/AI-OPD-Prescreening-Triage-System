@@ -38,14 +38,17 @@ class MockHisAdapter:
         *,
         department: str,
         complaint: str | None = None,
+        note: str | None = None,
         confirmed_by: str,
         rerouted: bool = False,
     ) -> bool:
         logger.info(
-            "[MockHIS] stage-2 routing %s visit=%s dept=%s by=%s",
+            "[MockHIS] stage-2 routing %s visit=%s dept=%s by=%s complaint=%s note=%s",
             "reroute" if rerouted else "confirm",
             visit_id,
             department,
             confirmed_by,
+            complaint,
+            note,
         )
         return True

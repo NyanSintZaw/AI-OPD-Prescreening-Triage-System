@@ -46,8 +46,12 @@ class HisAdapter(Protocol):
         *,
         department: str,
         complaint: str | None = None,
+        note: str | None = None,
         confirmed_by: str,
         rerouted: bool = False,
     ) -> bool:
         """Stage 2: record the nurse's confirmation or reroute at the
-        destination department (updates the visit's second location)."""
+        destination department (updates the visit's second location).
+
+        ``complaint``/``note`` are the nurse-signed chief complaint and
+        illness note; None keeps the values held from Stage 1."""

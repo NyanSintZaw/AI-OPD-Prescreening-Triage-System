@@ -285,8 +285,9 @@ export const api = {
   getConversationSummary: () =>
     request<ConversationSummaryOut[]>('/conversation-summary'),
 
-  listAssessmentReviews: (status: 'all' | 'pending' | 'approved' | 'corrected' = 'pending') =>
-    request<AssessmentReviewOut[]>(`/admin/reviews?status=${status}`),
+  listAssessmentReviews: (
+    status: 'all' | 'pending' | 'reviewed' | 'approved' | 'corrected' = 'pending',
+  ) => request<AssessmentReviewOut[]>(`/admin/reviews?status=${status}`),
 
   approveAssessmentReview: (
     assessmentId: string,

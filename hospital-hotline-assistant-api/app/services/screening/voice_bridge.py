@@ -21,6 +21,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import struct
+import time
 from array import array
 from typing import Any, AsyncIterator, Awaitable, Callable
 
@@ -295,6 +296,7 @@ class TurnVoiceService:
             return
 
         transcript: str | None
+        stt_started = time.monotonic()
         try:
             stt = await self.stt_client.transcribe(
                 audio_bytes=pcm16_to_wav(pcm, INPUT_SAMPLE_RATE),
@@ -305,6 +307,7 @@ class TurnVoiceService:
         except Exception:
             logger.exception("STT failed for %s", session_id)
             transcript = None
+        session["last_stt_ms"] = int((time.monotonic() - stt_started) * 1000)
 
         if transcript is None:
             async for chunk in self._speak_line(
@@ -340,6 +343,7 @@ class TurnVoiceService:
         language = session["language"]
         await self._push_transcript(session, "user", transcript)
 
+        turn_started = time.monotonic()
         try:
             reply, final_payload = await self._run_turn(session_id, session, transcript)
         except Exception:
@@ -354,10 +358,22 @@ class TurnVoiceService:
                 yield chunk
             return
         session["consecutive_errors"] = 0
+        pipeline_ms = int((time.monotonic() - turn_started) * 1000)
 
+        tts_started = time.monotonic()
         if reply:
             async for chunk in self._speak_line(session_id, session, reply):
                 yield chunk
+        tts_ms = int((time.monotonic() - tts_started) * 1000)
+        # Per-stage turn timing: the answer to "why did the reply take so
+        # long?" — pipeline is STT->reply latency the caller actually feels.
+        logger.info(
+            "voice turn timing %s: stt=%sms pipeline=%sms tts+stream=%sms",
+            session_id,
+            session.pop("last_stt_ms", None),
+            pipeline_ms,
+            tts_ms,
+        )
 
         # The engine asked the booth to take a reading (e.g. temperature).
         # Pop the numeric input on the client once the spoken prompt is out.

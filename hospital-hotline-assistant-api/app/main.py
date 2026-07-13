@@ -171,7 +171,12 @@ async def _serialize_review(
             NULLIF(s.metadata->>'patient_contact_phone', '') AS patient_contact_phone,
             NULLIF(s.metadata->>'patient_contact_preferred_time', '') AS patient_contact_preferred_time,
             NULLIF(s.metadata->>'patient_contact_relation', '') AS patient_contact_relation,
-            s.metadata->'triage_classification'->'disposition_reasons' AS disposition_reasons
+            s.metadata->'triage_classification'->'disposition_reasons' AS disposition_reasons,
+            s.metadata->'visit'->>'visit_id' AS visit_id,
+            s.metadata->'vitals' AS vitals,
+            s.metadata->'triage_classification'->>'symptoms_summary' AS ai_chief_complaint,
+            s.metadata->'triage_classification'->>'key_reason' AS ai_illness_note,
+            s.metadata->'his_routing'->>'status' AS his_routing_status
         FROM assessment_reviews ar
         JOIN sessions s ON s.id = ar.session_id
         LEFT JOIN admin_users reviewer ON reviewer.id = ar.reviewer_id
@@ -1252,13 +1257,22 @@ async def list_assessment_reviews(
             NULLIF(s.metadata->>'patient_contact_phone', '') AS patient_contact_phone,
             NULLIF(s.metadata->>'patient_contact_preferred_time', '') AS patient_contact_preferred_time,
             NULLIF(s.metadata->>'patient_contact_relation', '') AS patient_contact_relation,
-            s.metadata->'triage_classification'->'disposition_reasons' AS disposition_reasons
+            s.metadata->'triage_classification'->'disposition_reasons' AS disposition_reasons,
+            s.metadata->'visit'->>'visit_id' AS visit_id,
+            s.metadata->'vitals' AS vitals,
+            s.metadata->'triage_classification'->>'symptoms_summary' AS ai_chief_complaint,
+            s.metadata->'triage_classification'->>'key_reason' AS ai_illness_note,
+            s.metadata->'his_routing'->>'status' AS his_routing_status
         FROM assessment_reviews ar
         JOIN sessions s ON s.id = ar.session_id
         LEFT JOIN admin_users reviewer ON reviewer.id = ar.reviewer_id
         LEFT JOIN departments pd ON pd.id = ar.proposed_department_id
         LEFT JOIN departments cd ON cd.id = ar.confirmed_department_id
-        WHERE ($1 = 'all' OR ar.status::text = $1)
+        WHERE (
+            $1 = 'all'
+            OR ($1 = 'reviewed' AND ar.status::text IN ('approved', 'corrected'))
+            OR ar.status::text = $1
+        )
         ORDER BY ar.created_at DESC
         LIMIT 200
         """,
@@ -1275,9 +1289,13 @@ async def _push_his_routing(
     department_id,
     confirmed_by: str,
     rerouted: bool,
+    chief_complaint: str | None = None,
+    illness_note: str | None = None,
 ) -> None:
     """Stage-2 HIS write-back: record the nurse's confirmation/reroute of a
-    routing against the linked visit. Best-effort; status stored on the
+    routing against the linked visit, publishing the nurse-signed narrative
+    (edited chief complaint / illness note when provided; the HIS falls back
+    to the held Stage-1 values otherwise). Best-effort; status stored on the
     session metadata for transparency, never raises into the endpoint."""
     if not department_id:
         return
@@ -1305,7 +1323,8 @@ async def _push_his_routing(
         ok = await adapter.confirm_routing(
             visit_id,
             department=his_dept,
-            complaint=None,
+            complaint=chief_complaint,
+            note=illness_note,
             confirmed_by=confirmed_by,
             rerouted=rerouted,
         )
@@ -1386,6 +1405,8 @@ async def approve_assessment_review(
             confirmed_department_id = COALESCE(confirmed_department_id, proposed_department_id),
             notes = $3,
             ai_assessment_score = $4,
+            chief_complaint = $5,
+            illness_note = $6,
             ai_assessment_scale = 10,
             reviewed_at = NOW(),
             updated_at = NOW()
@@ -1396,6 +1417,8 @@ async def approve_assessment_review(
         admin_user["id"],
         payload.notes,
         payload.ai_assessment_score,
+        payload.chief_complaint,
+        payload.illness_note,
     )
     if row is None:
         raise HTTPException(status_code=404, detail="Assessment review not found")
@@ -1422,6 +1445,8 @@ async def approve_assessment_review(
         department_id=row["confirmed_department_id"],
         confirmed_by=str(admin_user.get("email") or admin_user["id"]),
         rerouted=False,
+        chief_complaint=payload.chief_complaint,
+        illness_note=payload.illness_note,
     )
 
     return await _serialize_review(connection, assessment_id)
@@ -1454,6 +1479,8 @@ async def correct_assessment_review(
             confirmed_department_id = $3,
             notes = $4,
             ai_assessment_score = $5,
+            chief_complaint = $6,
+            illness_note = $7,
             ai_assessment_scale = 10,
             reviewed_at = NOW(),
             updated_at = NOW()
@@ -1464,6 +1491,8 @@ async def correct_assessment_review(
         payload.confirmed_department_id,
         payload.reason,
         payload.ai_assessment_score,
+        payload.chief_complaint,
+        payload.illness_note,
     )
 
     await connection.execute(
@@ -1513,6 +1542,8 @@ async def correct_assessment_review(
         department_id=payload.confirmed_department_id,
         confirmed_by=str(admin_user.get("email") or admin_user["id"]),
         rerouted=True,
+        chief_complaint=payload.chief_complaint,
+        illness_note=payload.illness_note,
     )
 
     return await _serialize_review(connection, assessment_id)

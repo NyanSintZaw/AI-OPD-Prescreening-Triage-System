@@ -534,7 +534,13 @@ class TriageService:
                 department_reason,
             )
 
-        if assessment_id:
+        # A nurse review exists only for turns a nurse can act on: a terminal
+        # disposition (severity decided, department proposed) or an escalation.
+        # Interview turns (severity 'unknown') used to enqueue a pending
+        # review per turn, leaving the session "reviewable" forever even
+        # after the real assessment was confirmed.
+        needs_review = severity_level != "unknown" or bool(adk_result.get("escalated"))
+        if assessment_id and needs_review:
             await connection.execute(
                 """
                 INSERT INTO assessment_reviews (

@@ -75,6 +75,7 @@ def _fake_his_handler():
             state["prescreens"]["V1"] = body
             return httpx.Response(201, json={"status": "pending"})
         if request.method == "PUT" and path == "/api/visits/V1/routing":
+            state["routing"] = json.loads(request.content)
             return httpx.Response(200, json={"status": "confirmed"})
         if request.method == "GET" and path == "/api/departments":
             return httpx.Response(200, json={"departments": ["แผนก ER (อุบัติเหตุและฉุกเฉิน)"]})
@@ -118,6 +119,14 @@ async def test_http_push_and_confirm():
     assert await adapter.confirm_routing(
         "V1", department="d", confirmed_by="nurse", rerouted=False
     ) is True
+    # Nurse-edited narrative is forwarded on the Stage-2 confirm.
+    assert await adapter.confirm_routing(
+        "V1", department="d", complaint="edited complaint",
+        note="edited illness note", confirmed_by="nurse", rerouted=True,
+    ) is True
+    assert state["routing"]["complaint"] == "edited complaint"
+    assert state["routing"]["illness_note"] == "edited illness note"
+    assert state["routing"]["rerouted"] is True
 
 
 async def test_http_push_without_visit_id_is_false():

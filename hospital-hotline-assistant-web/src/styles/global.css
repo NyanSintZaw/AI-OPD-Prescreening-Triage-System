@@ -3583,6 +3583,77 @@ a:hover {
   overscroll-behavior: contain;
 }
 
+/* ── Tabbed review modal (assessment / conversation) ─────────────────────── */
+.nurse-modal-tab-bar {
+  display: flex;
+  gap: 0;
+  border-bottom: 2px solid var(--color-border);
+  padding: 0 1rem;
+  flex: 0 0 auto;
+}
+
+.nurse-review-modal-tabbed {
+  display: block;
+  overflow-y: auto;
+}
+
+.nurse-assessment-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  padding: 0.25rem 0.15rem 0.5rem;
+}
+
+.nurse-review-modal-tabbed .nurse-review-transcript-panel {
+  height: 100%;
+  min-height: 320px;
+  border: 0;
+  padding: 0.25rem 0.15rem;
+}
+
+.nurse-vitals-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 0.6rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  padding: 0.85rem;
+}
+
+.nurse-vital-item {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.nurse-vital-item strong {
+  color: var(--color-text);
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.nurse-narrative-input {
+  width: 100%;
+  resize: vertical;
+  min-height: 2.6rem;
+  font: inherit;
+  color: var(--color-text);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: 0.55rem 0.7rem;
+}
+
+.nurse-narrative-input:focus {
+  outline: 2px solid var(--mch-cyan);
+  outline-offset: 1px;
+}
+
+.nurse-narrative-hint {
+  margin: -0.35rem 0 0;
+  font-size: 0.85rem;
+}
+
 @media (max-width: 860px) {
   .nurse-review-modal {
     padding: 0.75rem;

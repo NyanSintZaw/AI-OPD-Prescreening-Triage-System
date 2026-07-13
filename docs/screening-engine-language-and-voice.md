@@ -119,7 +119,7 @@ a code change**:
 
 | `screening_model_provider` | Backend | When |
 |---|---|---|
-| `vertexai` **(default)** | Gemini on Vertex AI (`screening_model_name`, default `gemini-2.5-flash`), same ADC auth as the rest of the app | **Now / demo** |
+| `vertexai` **(default)** | Gemini on Vertex AI (`screening_model_name`, default `gemini-3.1-flash-lite`, `thinking_level=minimal`, global endpoint), same ADC auth as the rest of the app | **Now / demo** |
 | `openai_compatible` | Any OpenAI-compatible endpoint — vLLM or Ollama serving a local model (Typhoon/Qwen) via `screening_openai_base_url` | On-prem, later |
 
 The LLM's role is deliberately narrow (decision separation): it only

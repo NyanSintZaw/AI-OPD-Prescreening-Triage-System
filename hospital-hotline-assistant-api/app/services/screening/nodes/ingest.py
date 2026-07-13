@@ -25,6 +25,25 @@ def _pending_question_text(state, criteria) -> str | None:
     return None
 
 
+def _closest_category(raw: str, known: set[str]) -> str | None:
+    """Deterministically map a near-miss category id to a known one.
+
+    Models sometimes merge ids (gemini-3.1-flash-lite reliably returns
+    'ear_nose_throat' for a sore-throat+cough message). Score known ids by
+    token overlap and accept only a unique best match — an ambiguous or
+    zero-overlap id stays unmapped, so the intake question fires instead.
+    """
+    tokens = set(raw.lower().replace("-", "_").split("_"))
+    scores = sorted(
+        ((len(tokens & set(k.split("_"))), k) for k in known), reverse=True
+    )
+    if not scores or scores[0][0] == 0:
+        return None
+    if len(scores) > 1 and scores[1][0] == scores[0][0]:
+        return None  # tie — don't guess
+    return scores[0][1]
+
+
 def _apply(state, criteria, result: ExtractionResult) -> None:
     turn = state.turn_count
     if result.chief_complaint and not state.chief_complaint:
@@ -33,8 +52,13 @@ def _apply(state, criteria, result: ExtractionResult) -> None:
         known = {t.category for t in criteria.complaint_templates}
         # routing-only categories (no bespoke template) are also legal
         known |= {e.complaint_category for e in criteria.routing_table}
-        if result.complaint_category in known and not state.complaint_category:
-            state.complaint_category = result.complaint_category
+        category = (
+            result.complaint_category
+            if result.complaint_category in known
+            else _closest_category(result.complaint_category, known)
+        )
+        if category and not state.complaint_category:
+            state.complaint_category = category
 
     for update in result.finding_updates:
         if update.id in criteria.finding_catalog:

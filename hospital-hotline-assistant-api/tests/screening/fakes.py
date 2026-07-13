@@ -27,7 +27,8 @@ class FakeChatModel:
     async def ainvoke(self, messages):
         self.prompts.append(str(messages))
         content = self.text_replies.popleft() if self.text_replies else ""
-        return SimpleNamespace(content=content)
+        # Real messages expose .text (flattens content blocks); mirror it.
+        return SimpleNamespace(content=content, text=content)
 
 
 class _Structured:

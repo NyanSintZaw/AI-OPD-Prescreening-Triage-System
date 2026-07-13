@@ -75,7 +75,9 @@ def make_question_node(deps: GraphDeps):
                 response = await ainvoke_with_timeout(
                     deps.model, [HumanMessage(content=prompt)], deps.model_timeout_s
                 )
-                candidate = (response.content or "").strip() if isinstance(response.content, str) else ""
+                # .text flattens both plain-string and content-block replies
+                # (Gemini 3 returns a list of blocks, not a bare string).
+                candidate = (response.text or "").strip()
                 if candidate and not validate_reply(candidate, language=state.language):
                     reply = candidate
                     ok = True

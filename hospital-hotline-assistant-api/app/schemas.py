@@ -371,12 +371,18 @@ class AdminLoginResponse(BaseModel):
 class AssessmentReviewApproveRequest(BaseModel):
     notes: str | None = None
     ai_assessment_score: int | None = Field(default=None, ge=1, le=10)
+    # Nurse-confirmed clinical narrative (edited or accepted as-is); published
+    # to the HIS at Stage 2. None keeps the AI's values.
+    chief_complaint: str | None = None
+    illness_note: str | None = None
 
 
 class AssessmentReviewCorrectRequest(BaseModel):
     confirmed_department_id: UUID
     reason: str | None = None
     ai_assessment_score: int | None = Field(default=None, ge=1, le=10)
+    chief_complaint: str | None = None
+    illness_note: str | None = None
 
 
 class AssessmentReviewOut(BaseModel):
@@ -401,6 +407,16 @@ class AssessmentReviewOut(BaseModel):
     # AI reasoning trace: fired rule ids + manual citations (screening engine v2)
     disposition_reasons: list[dict[str, Any]] | None = None
     notes: str | None = None
+    # Booth context for the review screen: measurements taken at the kiosk,
+    # the linked HIS visit, and the AI narrative the nurse can edit before it
+    # is published to the HIS at Stage 2.
+    visit_id: str | None = None
+    vitals: dict[str, Any] | None = None
+    ai_chief_complaint: str | None = None
+    ai_illness_note: str | None = None
+    chief_complaint: str | None = None
+    illness_note: str | None = None
+    his_routing_status: str | None = None
     reviewed_at: datetime | None = None
     created_at: datetime
     updated_at: datetime

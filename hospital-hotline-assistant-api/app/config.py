@@ -17,9 +17,12 @@ class Settings(BaseSettings):
     alert_severity_threshold: str = "emergency"
     alert_cooldown_seconds: int = 300
     google_cloud_project: str | None = None
-    google_cloud_location: str = "us-central1"
+    # "global" routes Gemini calls across Google's region fleet — separate
+    # (larger) quota pool, fewer 429 RESOURCE_EXHAUSTED. Regional values still
+    # work but pin quota to one region. (Gemini preview models are global-only.)
+    google_cloud_location: str = "global"
     # General Gemini model for non-triage features (e.g. surveillance extraction).
-    google_model_name: str = "gemini-2.5-flash"
+    google_model_name: str = "gemini-3.5-flash"
     google_application_credentials: str | None = None
     google_ai_enabled: bool = True
     google_genai_use_vertexai: bool = True
@@ -36,7 +39,14 @@ class Settings(BaseSettings):
     rag_query_prewarm_on_startup: bool = True
     # Deterministic screening engine (LangGraph) — the only triage/voice engine.
     screening_model_provider: str = "vertexai"
-    screening_model_name: str = "gemini-2.5-flash"
+    # gemini-3.1-flash-lite (GA): fastest structured-output Gemini as of Jul
+    # 2026 — benchmarked ~1.6s extraction / ~0.9s paraphrase vs 4.7s on
+    # gemini-2.5-flash with default thinking (and 2.5 retires 2026-10-16).
+    screening_model_name: str = "gemini-3.1-flash-lite"
+    # Gemini 3+ reasoning depth: minimal|low|medium|high. "minimal" is the
+    # latency floor (equivalent of thinking_budget=0 on 2.5 models). Ignored
+    # for non-Gemini-3 models (they get thinking_budget=0 instead).
+    screening_thinking_level: str | None = "minimal"
     screening_openai_base_url: str | None = None
     screening_openai_api_key: str | None = None
     screening_prompt_version: str = "v1"

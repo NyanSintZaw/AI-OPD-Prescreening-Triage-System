@@ -112,6 +112,7 @@ class HttpHisAdapter:
         *,
         department: str,
         complaint: str | None = None,
+        note: str | None = None,
         confirmed_by: str,
         rerouted: bool = False,
     ) -> bool:
@@ -121,6 +122,7 @@ class HttpHisAdapter:
             json={
                 "department": department,
                 "complaint": complaint,
+                "illness_note": note,
                 "confirmed_by": confirmed_by,
                 "rerouted": rerouted,
             },

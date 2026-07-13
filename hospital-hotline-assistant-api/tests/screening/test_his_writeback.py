@@ -27,7 +27,7 @@ class RecordingAdapter:
         return self.ok
 
     async def confirm_routing(self, visit_id, *, department, complaint=None,
-                              confirmed_by, rerouted=False):
+                              note=None, confirmed_by, rerouted=False):
         self.confirmed.append((visit_id, department, rerouted))
         return self.ok
 

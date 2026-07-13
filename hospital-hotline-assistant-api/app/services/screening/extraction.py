@@ -128,7 +128,7 @@ or slot/score updates).
 Context:
 {context}
 
-Allowed complaint categories: {categories}
+Allowed complaint categories (copy ONE id verbatim — never invent or combine ids): {categories}
 
 Finding catalog (use ONLY these ids):
 {catalog}
@@ -137,7 +137,10 @@ Rules:
 - A denial ("no", "ไม่มีค่ะ") of the pending question's findings -> those finding ids with state "absent".
 - Numbers 0-10 answering a pain/breathing question -> pain_score or distress_score.
 - Ages like "6 เดือน" -> age_years 0.5.
-- Set complaint_category only when the main problem clearly matches a category.
+- complaint_category: whenever the patient states any symptom, pick the SINGLE
+  closest category from the allowed list. If more than one could fit (e.g.
+  sore throat + cough), pick the one matching the symptom they said first.
+  Use null only when no category fits at all (e.g. a greeting or a question).
 - wants_human=true only when they explicitly ask for a person/nurse/staff.
 
 Patient message:

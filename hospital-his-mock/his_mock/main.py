@@ -49,7 +49,10 @@ class PrescreenIn(BaseModel):
 
 class RoutingIn(BaseModel):
     department: str
-    complaint: str | None = None
+    # Nurse-signed narrative. Either overrides the value held from Stage 1;
+    # None publishes the held value unchanged.
+    complaint: str | None = None          # chief complaint override
+    illness_note: str | None = None       # patient-illness note override
     confirmed_by: str
     rerouted: bool = False
 
@@ -350,10 +353,10 @@ def build_app(db_path: str | Path | None = None) -> FastAPI:
                 visit_id,
             ),
         )
-        # Publish the held clinical narrative. On reroute, the nurse's note
-        # (payload.complaint) overrides the AI reason for the illness field.
-        chief_complaint = existing["complaint"]
-        illness = payload.complaint or existing["reason"]
+        # Publish the clinical narrative: the nurse's edited values when
+        # provided, else the values held from Stage 1.
+        chief_complaint = payload.complaint or existing["complaint"]
+        illness = payload.illness_note or existing["reason"]
         db.execute(
             """
             UPDATE visits SET

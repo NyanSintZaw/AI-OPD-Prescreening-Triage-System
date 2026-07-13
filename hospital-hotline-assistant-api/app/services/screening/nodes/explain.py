@@ -115,7 +115,9 @@ def make_explain_node(deps: GraphDeps):
                     response = await ainvoke_with_timeout(
                         deps.model, messages, deps.model_timeout_s
                     )
-                    candidate = response.content.strip() if isinstance(response.content, str) else ""
+                    # .text flattens plain-string and content-block replies
+                    # (Gemini 3 returns a list of blocks, not a bare string).
+                    candidate = (response.text or "").strip()
                     violations = validate_reply(
                         candidate,
                         language=language,

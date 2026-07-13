@@ -119,14 +119,15 @@ async def test_stage2_publishes_narrative_and_department(client):
     assert visit["vitals"]["waist_width"] is None
 
 
-async def test_reroute_uses_nurse_note_for_illness(client):
+async def test_reroute_publishes_nurse_edited_narrative(client):
     await client.post(f"/api/visits/{VISIT}/prescreen", headers=HEADERS, json=REFERRAL)
     resp = await client.put(
         f"/api/visits/{VISIT}/routing",
         headers=HEADERS,
         json={
             "department": "แผนก OPD MED (อายุรกรรม)",
-            "complaint": "nurse: needs internal medicine review",
+            "complaint": "nurse: chest tightness on exertion, 3 days",
+            "illness_note": "nurse: needs internal medicine review",
             "confirmed_by": "nurse.a",
             "rerouted": True,
         },
@@ -134,7 +135,21 @@ async def test_reroute_uses_nurse_note_for_illness(client):
     assert resp.json()["status"] == "rerouted"
     visit = (await client.get(f"/api/visits/{VISIT}", headers=HEADERS)).json()
     assert visit["second_location"]["department"] == "แผนก OPD MED (อายุรกรรม)"
+    assert visit["nurse_chief_complaint"] == "nurse: chest tightness on exertion, 3 days"
     assert visit["nurse_patient_illness"] == "nurse: needs internal medicine review"
+
+
+async def test_confirm_without_edits_publishes_held_stage1_values(client):
+    await client.post(f"/api/visits/{VISIT}/prescreen", headers=HEADERS, json=REFERRAL)
+    resp = await client.put(
+        f"/api/visits/{VISIT}/routing",
+        headers=HEADERS,
+        json={"department": REFERRAL["recommended_department"], "confirmed_by": "nurse.a"},
+    )
+    assert resp.json()["status"] == "confirmed"
+    visit = (await client.get(f"/api/visits/{VISIT}", headers=HEADERS)).json()
+    assert visit["nurse_chief_complaint"] == REFERRAL["complaint"]
+    assert visit["nurse_patient_illness"] == REFERRAL["reason"]
 
 
 async def test_routing_without_prescreen_conflicts(client):

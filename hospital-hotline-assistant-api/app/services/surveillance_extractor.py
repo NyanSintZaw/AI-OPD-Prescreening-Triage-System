@@ -95,11 +95,21 @@ async def _call_gemini_extract(messages_text: str) -> list[str]:
         client = google_genai.Client()
         prompt = _EXTRACTION_PROMPT.format(messages=messages_text)
 
+        # thinking_level "minimal": thoughts count toward max_output_tokens,
+        # so a thinking model can burn the whole budget and truncate the JSON
+        # ("Unterminated string" parse failures). Keyword extraction needs no
+        # reasoning depth anyway.
+        config: dict[str, object] = {"max_output_tokens": 512}
+        if settings.google_model_name.startswith("gemini-2"):
+            config["temperature"] = 0.0
+            config["thinking_config"] = {"thinking_budget": 0}
+        else:
+            config["thinking_config"] = {"thinking_level": "MINIMAL"}
         response = await asyncio.to_thread(
             client.models.generate_content,
             model=settings.google_model_name,
             contents=prompt,
-            config={"temperature": 0.0, "max_output_tokens": 256},
+            config=config,
         )
         raw = (response.text or "").strip()
 

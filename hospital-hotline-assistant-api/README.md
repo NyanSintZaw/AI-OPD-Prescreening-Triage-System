@@ -22,7 +22,7 @@ Set these variables in `.env` for production-like frontdesk triage:
 
 - `GOOGLE_AI_ENABLED=true`
 - `GOOGLE_CLOUD_PROJECT=<your-project>`
-- `GOOGLE_CLOUD_LOCATION=us-central1`
+- `GOOGLE_CLOUD_LOCATION=global` (routes Gemini across regions — larger quota pool, fewer 429s)
 - `GOOGLE_MODEL_NAME=gemini-2.0-flash`
 - `GOOGLE_APPLICATION_CREDENTIALS=<path-to-service-account-json>`
 - `SLACK_WEBHOOK_URL=<incoming-webhook-url>`
