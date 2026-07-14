@@ -36,6 +36,7 @@ import type {
   HisVisitDetailResponse,
   LinkVisitRequest,
   LinkVisitResponse,
+  KioskStats,
   RoutingRuleOut,
   RoutingFeedbackOut,
   SessionCreate,
@@ -116,6 +117,9 @@ export const api = {
   adminLogout: () => {
     setAdminSession(null);
   },
+
+  /** Public kiosk home-screen counters (visitors / navigated / sessions today). */
+  getKioskStats: () => request<KioskStats>('/kiosk/stats'),
 
   createSession: (payload: SessionCreate) =>
     request<SessionOut>('/sessions', {
@@ -495,4 +499,4 @@ export const api = {
   },
 };
 
-export type { MessageOut, SessionOut, ConversationSummaryOut, DepartmentOut, DoctorOut, DoctorWithSchedulesOut, DoctorScheduleOut, SurveillanceSummaryOut, TriageManualUploadOut, AiMetricsOut, CriteriaDiffOut, CriteriaVersionDetail, CriteriaVersionSummary, LinkVisitResponse, HisVisitSummary, HisVisitDetail };
+export type { MessageOut, SessionOut, ConversationSummaryOut, DepartmentOut, DoctorOut, DoctorWithSchedulesOut, DoctorScheduleOut, SurveillanceSummaryOut, TriageManualUploadOut, AiMetricsOut, CriteriaDiffOut, CriteriaVersionDetail, CriteriaVersionSummary, LinkVisitResponse, HisVisitSummary, HisVisitDetail, KioskStats };

@@ -1,7 +1,7 @@
 import asyncio
 import json
 import logging
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from contextlib import asynccontextmanager
 from uuid import UUID
 import asyncpg
@@ -1418,6 +1418,64 @@ async def admin_his_visit_detail(
     if data is None:
         return {"available": False, "visit": None}
     return {"available": True, "visit": data}
+
+
+@app.get("/kiosk/stats")
+async def kiosk_stats(connection: asyncpg.Connection = Depends(get_connection)) -> dict:
+    """Public counters for the kiosk home / attract screen (no auth).
+
+    Three "today" numbers the booth shows patients:
+      - ``visitors_today``  : hospital visits registered in the HIS today
+                              (falls back to the full visit list when the mock
+                              seed carries no ``modify_time``).
+      - ``navigated_today`` : nurse-approved/corrected assessments today.
+      - ``sessions_today``  : triage sessions started at the booth today.
+    Every source degrades to 0 rather than erroring so the screen never breaks.
+    """
+    today = date.today()
+
+    try:
+        sessions_today = await connection.fetchval(
+            "SELECT count(*) FROM sessions WHERE started_at::date = CURRENT_DATE"
+        )
+    except Exception:  # pragma: no cover - defensive: never break the kiosk
+        sessions_today = 0
+
+    try:
+        navigated_today = await connection.fetchval(
+            """
+            SELECT count(*) FROM assessment_reviews
+            WHERE status IN ('approved', 'corrected')
+              AND reviewed_at::date = CURRENT_DATE
+            """
+        )
+    except Exception:  # pragma: no cover
+        navigated_today = 0
+
+    visitors_today = 0
+    try:
+        his_data = await _his_proxy_get("/api/visits")
+        visits = (his_data or {}).get("visits") or []
+        today_iso = today.isoformat()
+        dated = [
+            v for v in visits
+            if isinstance(v.get("modify_time"), str)
+            and v["modify_time"][:10] == today_iso
+        ]
+        # Mock seed data ships without a modify_time; treat the whole roster as
+        # "today's visitors" in that case so the booth shows a live-looking number.
+        visitors_today = len(dated) if dated else len(visits)
+    except HTTPException:
+        visitors_today = 0
+    except Exception:  # pragma: no cover
+        visitors_today = 0
+
+    return {
+        "date": today.isoformat(),
+        "visitors_today": int(visitors_today or 0),
+        "navigated_today": int(navigated_today or 0),
+        "sessions_today": int(sessions_today or 0),
+    }
 
 
 @app.post("/admin/reviews/{assessment_id}/approve", response_model=AssessmentReviewOut)

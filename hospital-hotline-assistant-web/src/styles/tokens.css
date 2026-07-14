@@ -40,9 +40,10 @@
   --color-user-bubble: #e8f4fa;
   --color-assistant-bubble: var(--color-bg-alt);
 
-  /* Typography */
-  --font-body: 'Athiti', 'Noto Sans Thai', system-ui, sans-serif;
-  --font-heading: 'Pridi', 'Noto Sans Thai', Georgia, serif;
+  /* Typography — Anuphan is self-hosted (@fontsource-variable/anuphan),
+     so the app renders identically offline (kiosk requirement). */
+  --font-body: 'Anuphan Variable', 'Anuphan', 'Noto Sans Thai', system-ui, sans-serif;
+  --font-heading: 'Anuphan Variable', 'Anuphan', 'Noto Sans Thai', system-ui, sans-serif;
 
   /* Shape & elevation */
   --radius-sm: 5px;

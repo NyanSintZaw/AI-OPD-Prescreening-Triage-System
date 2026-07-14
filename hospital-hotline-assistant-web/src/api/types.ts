@@ -498,6 +498,19 @@ export interface LinkVisitResponse {
   has_his_vitals?: boolean;
 }
 
+// ── Kiosk home / attract-screen stats ─────────────────────────────────────────
+
+export interface KioskStats {
+  /** ISO date the counts are for (server local date). */
+  date: string;
+  /** Hospital visits registered in the HIS today. */
+  visitors_today: number;
+  /** Nurse-approved/corrected assessments today. */
+  navigated_today: number;
+  /** Triage sessions started at the booth today. */
+  sessions_today: number;
+}
+
 export interface BpDeviceStatusOut {
   device_name: string;
   device_mac: string | null;

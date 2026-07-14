@@ -1,8 +1,7 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { AdminPage } from './pages/AdminPage';
-import { CallPage } from './pages/CallPage';
-import { ChatPage } from './pages/ChatPage';
-import { LandingPage } from './pages/LandingPage';
+import { KioskHome } from './pages/KioskHome';
+import { KioskSession } from './pages/KioskSession';
 import { LoginPage } from './pages/LoginPage';
 import { NursePage } from './pages/NursePage';
 import { SlipPage } from './pages/SlipPage';
@@ -12,12 +11,16 @@ export function App() {
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/" element={<Navigate to="/login" replace />} />
+        <Route path="/" element={<Navigate to="/kiosk" replace />} />
+        {/* Kiosk booth — the only patient-facing experience. */}
+        <Route path="/kiosk" element={<KioskHome />} />
+        <Route path="/kiosk/session" element={<KioskSession />} />
+        {/* Legacy web patient routes now point at the kiosk. */}
+        <Route path="/patient" element={<Navigate to="/kiosk" replace />} />
+        <Route path="/chat" element={<Navigate to="/kiosk" replace />} />
+        <Route path="/call" element={<Navigate to="/kiosk" replace />} />
         <Route path="/login" element={<Navigate to="/login/nurse" replace />} />
         <Route path="/login/:portal" element={<LoginPage />} />
-        <Route path="/patient" element={<LandingPage />} />
-        <Route path="/call" element={<CallPage />} />
-        <Route path="/chat" element={<ChatPage />} />
         <Route path="/slip/:sessionId" element={<SlipPage />} />
         <Route
           path="/nurse"
@@ -35,7 +38,7 @@ export function App() {
             </ProtectedRoute>
           }
         />
-        <Route path="*" element={<Navigate to="/login" replace />} />
+        <Route path="*" element={<Navigate to="/kiosk" replace />} />
       </Routes>
     </BrowserRouter>
   );
