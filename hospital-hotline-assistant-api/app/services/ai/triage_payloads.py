@@ -4,7 +4,32 @@ from __future__ import annotations
 
 from typing import Any
 
+from app.config import settings
 from app.services.ai.triage_models import TriageResult
+
+
+def should_redact_patient_severity() -> bool:
+    """Patients never see the triage level — they only get the department
+    destination (nurse requirement / SRS scope boundary). Nurse/admin surfaces
+    read the DB rows and are unaffected."""
+
+    return True
+
+
+def severity_payload(result: TriageResult, *, redact: bool | None = None) -> dict[str, Any]:
+    if redact is None:
+        redact = should_redact_patient_severity()
+    if redact:
+        return {"level": "unknown", "explanation": None, "confidence": None}
+    return {
+        "level": result.severity_level,
+        "explanation": result.severity_explanation,
+        "confidence": result.severity_confidence,
+    }
+
+
+def assessment_status(result: TriageResult) -> str:
+    return "complete" if result.severity_level != "unknown" else "in_progress"
 
 
 def _triage_result_to_payload(result: TriageResult) -> dict[str, Any]:
@@ -18,11 +43,8 @@ def _triage_result_to_payload(result: TriageResult) -> dict[str, Any]:
 
     return {
         "reply": result.reply,
-        "severity": {
-            "level": result.severity_level,
-            "explanation": result.severity_explanation,
-            "confidence": result.severity_confidence,
-        },
+        "severity": severity_payload(result),
+        "assessment_status": assessment_status(result),
         "department": (
             {
                 "department_id": result.department_id,
@@ -57,4 +79,7 @@ def _triage_result_to_payload(result: TriageResult) -> dict[str, Any]:
         "model_name": result.model_name,
         "latency_ms": result.latency_ms,
         "contact": result.contact or None,
+        "awaiting_measurement": result.awaiting_measurement,
+        "reply_options": result.reply_options or [],
+        "flow_complete": bool(result.flow_complete),
     }

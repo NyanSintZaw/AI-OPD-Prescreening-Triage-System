@@ -1,0 +1,28 @@
+version: '3.8'
+
+# Mock hospital HIS — the "hospital-side" visit database for the demo.
+# Start it exactly like the Postgres DB:
+#   cd hospital-his-mock && docker compose up -d   → API on http://localhost:8001
+#
+# A fresh container auto-seeds the synthetic pre-registration sample (visits
+# start blank; our system fills them in). To reset to that clean state:
+#   docker compose down && docker compose up -d --build
+
+services:
+  his-mock:
+    build: .
+    container_name: hospital_his_mock
+    restart: unless-stopped
+    ports:
+      - "8001:8001"
+    environment:
+      # Must match the triage backend's HIS_API_KEY (default demo-his-key).
+      HIS_MOCK_API_KEY: ${HIS_MOCK_API_KEY:-demo-his-key}
+
+    # ── Optional: load a REAL hospital export instead of the synthetic sample.
+    # Uncomment, point the mount at your CSV, and set the data path:
+    # volumes:
+    #   - /path/to/Prescreen_7Day.csv:/data/export.csv:ro
+    # environment:
+    #   HIS_MOCK_API_KEY: ${HIS_MOCK_API_KEY:-demo-his-key}
+    #   HIS_MOCK_DATA_PATH: /data/export.csv

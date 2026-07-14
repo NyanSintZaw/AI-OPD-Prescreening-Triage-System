@@ -2,12 +2,12 @@ from datetime import date, datetime, time
 from typing import Any, Literal
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 LanguageCode = Literal["th", "en"]
 SessionStatus = Literal["active", "completed", "reset", "escalated"]
 MessageRole = Literal["user", "assistant", "system"]
-InputMode = Literal["voice", "text"]
+InputMode = Literal["voice", "text", "button"]
 SeverityLevel = Literal["emergency", "urgent", "general", "unknown"]
 DepartmentKind = Literal["emergency", "opd"]
 ReviewStatus = Literal["pending", "approved", "corrected"]
@@ -43,9 +43,47 @@ class SessionVitalsUpdate(BaseModel):
     systolic: int = Field(..., ge=40, le=300)
     diastolic: int = Field(..., ge=20, le=200)
     pulse_bpm: int | None = Field(default=None, ge=20, le=250)
+    # Patient-typed vitals captured at the booth alongside the cuff reading.
+    weight_kg: float | None = Field(default=None, gt=0, le=400)
+    height_cm: float | None = Field(default=None, gt=0, le=272)
+    temperature_c: float | None = Field(default=None, ge=30, le=45)
     measured_at: datetime | None = None
     source: Literal["device", "manual"] = "device"
     reading_id: UUID | None = None
+
+
+class SessionMeasurementUpdate(BaseModel):
+    """A single vital captured mid-interview when the engine requests it
+    (temperature once a fever is reported; weight/height near the end of the
+    interview). Merges into the session's stored vitals without disturbing
+    the blood-pressure reading (BP has its own PUT with provenance)."""
+
+    vital: Literal["temp", "weight", "height"]
+    value: float
+
+    @model_validator(mode="after")
+    def _check_range(self) -> "SessionMeasurementUpdate":
+        low, high = {
+            "temp": (25.0, 45.0),      # °C
+            "weight": (1.0, 400.0),    # kg
+            "height": (30.0, 272.0),   # cm
+        }[self.vital]
+        if not (low <= self.value <= high):
+            raise ValueError(f"{self.vital} must be between {low} and {high}")
+        return self
+
+
+class LinkVisitRequest(BaseModel):
+    visit_id: str = Field(..., min_length=1, max_length=64)
+
+
+class LinkVisitResponse(BaseModel):
+    linked: bool
+    visit_id: str
+    patient_name: str | None = None
+    age_years: int | None = None
+    appointment: bool = False
+    has_his_vitals: bool = False
 
 
 class BpFetchRequest(BaseModel):
@@ -297,6 +335,7 @@ class ChatSymptomsOut(BaseModel):
 class ChatResponse(BaseModel):
     reply: str
     severity: ChatSeverityOut
+    assessment_status: str | None = None  # "complete" | "in_progress"
     department: ChatDepartmentOut | None = None
     emergency: ChatEmergencyOut | None = None
     symptoms: ChatSymptomsOut | None = None
@@ -307,6 +346,9 @@ class ChatResponse(BaseModel):
     latency_ms: int | None = None
     alert_sent: bool = False
     assistant_message_id: UUID | None = None
+    awaiting_measurement: str | None = None
+    reply_options: list[dict[str, str]] = Field(default_factory=list)
+    flow_complete: bool = False
 
 
 class ConversationSummaryOut(BaseModel):
@@ -345,12 +387,18 @@ class AdminLoginResponse(BaseModel):
 class AssessmentReviewApproveRequest(BaseModel):
     notes: str | None = None
     ai_assessment_score: int | None = Field(default=None, ge=1, le=10)
+    # Nurse-confirmed clinical narrative (edited or accepted as-is); published
+    # to the HIS at Stage 2. None keeps the AI's values.
+    chief_complaint: str | None = None
+    illness_note: str | None = None
 
 
 class AssessmentReviewCorrectRequest(BaseModel):
     confirmed_department_id: UUID
     reason: str | None = None
     ai_assessment_score: int | None = Field(default=None, ge=1, le=10)
+    chief_complaint: str | None = None
+    illness_note: str | None = None
 
 
 class AssessmentReviewOut(BaseModel):
@@ -372,7 +420,21 @@ class AssessmentReviewOut(BaseModel):
     patient_contact_phone: str | None = None
     patient_contact_preferred_time: str | None = None
     patient_contact_relation: str | None = None
+    # AI reasoning trace: fired rule ids + manual citations (screening engine v2)
+    disposition_reasons: list[dict[str, Any]] | None = None
     notes: str | None = None
+    # Booth context for the review screen: measurements taken at the kiosk,
+    # the linked HIS visit, and the AI narrative the nurse can edit before it
+    # is published to the HIS at Stage 2.
+    visit_id: str | None = None
+    patient_name: str | None = None
+    vitals: dict[str, Any] | None = None
+    ai_chief_complaint: str | None = None
+    ai_illness_note: str | None = None
+    patient_follow_up: str | None = None
+    chief_complaint: str | None = None
+    illness_note: str | None = None
+    his_routing_status: str | None = None
     reviewed_at: datetime | None = None
     created_at: datetime
     updated_at: datetime

@@ -92,7 +92,6 @@ export function DoctorScheduleManager({ departments }: Props) {
   const [editingSlot, setEditingSlot] = useState<DoctorScheduleOut | null>(null);
   const [slotForm, setSlotForm] = useState<SlotFormState>(EMPTY_SLOT);
   const [slotSaving, setSlotSaving] = useState(false);
-  const [addAnother, setAddAnother] = useState(false);
 
   // ── data loaders ────────────────────────────────────────────────────────
 

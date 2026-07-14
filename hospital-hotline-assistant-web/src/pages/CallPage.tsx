@@ -3,11 +3,12 @@ import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { api } from '../api';
 import { Layout } from '../components/Layout';
-import { PatientIdPassPopup } from '../components/PatientIdPass';
+import { MeasurementCard } from '../components/MeasurementCard';
 import { RecommendationCard } from '../components/RecommendationCard';
 import { useChat, toAssessment, type ChatAssessment } from '../hooks/useChat';
 import { useLanguage, useSessionStorage } from '../hooks/useSession';
 import { useVoiceCall } from '../hooks/useVoiceCall';
+import { openPatientSlip } from '../utils/openSlip';
 
 function PhoneIcon() {
   return (
@@ -71,10 +72,21 @@ export function CallPage() {
     useState<ChatAssessment | null>(null);
   const [displayAssessment, setDisplayAssessment] = useState<ChatAssessment | null>(null);
   const [callFinished, setCallFinished] = useState(false);
+  const [measurementVital, setMeasurementVital] = useState<string | null>(null);
+  const [replyOptions, setReplyOptions] = useState<Array<{ id: string; label: string }>>([]);
+  const [mapAutoOpen, setMapAutoOpen] = useState(false);
+  const slipOpenedRef = useRef(false);
 
   const voiceCall = useVoiceCall({
     sessionId,
     language,
+    onMeasurementRequest: (vital) => {
+      setMeasurementVital(vital);
+      setReplyOptions([]);
+    },
+    onQuestionOptions: (options) => {
+      setReplyOptions(options);
+    },
     onAssessmentComplete: (payload) => {
       void (async () => {
         try {
@@ -96,6 +108,17 @@ export function CallPage() {
       })();
     },
   });
+
+  const handleMeasurementSubmit = (continuationText: string) => {
+    setMeasurementVital(null);
+    setReplyOptions([]);
+    voiceCall.submitMeasurement(continuationText);
+  };
+
+  const handleTapReply = (label: string) => {
+    setReplyOptions([]);
+    voiceCall.tapReply(label);
+  };
 
   const callActive = voiceCall.state !== 'idle' && voiceCall.state !== 'error';
   const assessmentReceived = Boolean(
@@ -131,8 +154,6 @@ export function CallPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const [mapAutoOpen, setMapAutoOpen] = useState(false);
-
   // When the call auto-ends after assessment, mark the session complete.
   useEffect(() => {
     if (!sessionId || callFinished) return;
@@ -146,6 +167,13 @@ export function CallPage() {
     setDisplayAssessment(pendingDisplayAssessment);
     setAssessment(pendingDisplayAssessment);
   }, [callFinished, pendingDisplayAssessment, displayAssessment, setAssessment]);
+
+  useEffect(() => {
+    if (!assessmentReady || !sessionId || slipOpenedRef.current) return;
+    slipOpenedRef.current = true;
+    openPatientSlip(sessionId);
+    setMapAutoOpen(true);
+  }, [assessmentReady, sessionId]);
 
   const statusLabel = useMemo(() => {
     if (assessmentReceived) {
@@ -281,6 +309,29 @@ export function CallPage() {
                   )}
                 </div>
               )}
+
+              {measurementVital && !assessmentReady && (
+                <MeasurementCard
+                  vital={measurementVital}
+                  language={language}
+                  onSubmit={handleMeasurementSubmit}
+                />
+              )}
+
+              {replyOptions.length > 0 && !measurementVital && !assessmentReady && (
+                <div className="quick-reply-row" role="group" aria-label={t('quickReplyLabel')}>
+                  {replyOptions.map((opt) => (
+                    <button
+                      key={opt.id}
+                      type="button"
+                      className="quick-reply-btn"
+                      onClick={() => handleTapReply(opt.label)}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              )}
             </>
           )}
 
@@ -295,14 +346,15 @@ export function CallPage() {
                 </p>
               )}
               {displayAssessment && (
-                <PatientIdPassPopup
-                  sessionId={sessionId}
-                  language={language}
-                  assessment={displayAssessment}
-                  autoOpenKey={`${sessionId}-${displayAssessment.assistantMessageId ?? displayAssessment.severity?.level ?? 'assessment'}`}
-                  onClose={() => setMapAutoOpen(true)}
-                  triggerVariant="primary"
-                />
+                <button
+                  type="button"
+                  className="primary-btn"
+                  onClick={() => {
+                    if (sessionId) openPatientSlip(sessionId);
+                  }}
+                >
+                  {t('viewSlip')}
+                </button>
               )}
               {callFinished && (
                 <button

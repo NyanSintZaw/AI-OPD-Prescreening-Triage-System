@@ -1,7 +1,7 @@
 export type LanguageCode = 'th' | 'en';
 export type SessionStatus = 'active' | 'completed' | 'reset' | 'escalated';
 export type MessageRole = 'user' | 'assistant' | 'system';
-export type InputMode = 'voice' | 'text';
+export type InputMode = 'voice' | 'text' | 'button';
 export type SeverityLevel = 'emergency' | 'urgent' | 'general' | 'unknown';
 export type DepartmentKind = 'emergency' | 'opd';
 export type ReviewStatus = 'pending' | 'approved' | 'corrected';
@@ -167,7 +167,35 @@ export interface AssessmentReviewOut {
   patient_contact_phone: string | null;
   patient_contact_preferred_time: string | null;
   patient_contact_relation: string | null;
+  /** Screening engine v2: fired rule ids + manual citations behind the routing. */
+  disposition_reasons?: Array<{
+    rule_id: string;
+    text_en: string;
+    text_th: string;
+    citation?: string;
+  }> | null;
   notes: string | null;
+  /** Booth context: linked HIS visit + measurements taken at the kiosk. */
+  visit_id?: string | null;
+  patient_name?: string | null;
+  vitals?: {
+    systolic?: number | null;
+    diastolic?: number | null;
+    pulse_bpm?: number | null;
+    weight_kg?: number | null;
+    height_cm?: number | null;
+    temperature?: number | null;
+    source?: string | null;
+  } | null;
+  /** AI narrative (read-only originals the nurse can edit before publishing). */
+  ai_chief_complaint?: string | null;
+  ai_illness_note?: string | null;
+  /** Patient note captured after disposition for the doctor. */
+  patient_follow_up?: string | null;
+  /** Nurse-signed narrative, set on confirm. */
+  chief_complaint?: string | null;
+  illness_note?: string | null;
+  his_routing_status?: string | null;
   reviewed_at: string | null;
   created_at: string;
   updated_at: string;
@@ -176,12 +204,16 @@ export interface AssessmentReviewOut {
 export interface AssessmentReviewApproveRequest {
   notes?: string | null;
   ai_assessment_score?: number | null;
+  chief_complaint?: string | null;
+  illness_note?: string | null;
 }
 
 export interface AssessmentReviewCorrectRequest {
   confirmed_department_id: string;
   reason?: string | null;
   ai_assessment_score?: number | null;
+  chief_complaint?: string | null;
+  illness_note?: string | null;
 }
 
 export interface RoutingFeedbackOut {
@@ -212,6 +244,15 @@ export interface ChatResponsePayload {
     explanation?: string;
     confidence?: number;
   };
+  /** Screening engine v2: patients never see the level; gate UI on this. */
+  assessment_status?: 'complete' | 'in_progress' | null;
+  /** Set to a vital key (e.g. 'temp') when the engine asks the booth to take
+   *  a reading mid-interview; the UI pops a numeric input for it. */
+  awaiting_measurement?: string | null;
+  /** Localized quick-reply chips under the assistant bubble. */
+  reply_options?: Array<{ id: string; label: string }>;
+  /** True when the patient-facing flow (incl. follow-up) is finished. */
+  flow_complete?: boolean;
   department?: {
     department_id?: string;
     reason?: string;
@@ -284,11 +325,6 @@ export type ChatStreamEvent =
   | { type: 'delta'; text: string }
   | { type: 'reset' }
   | { type: 'classified'; classification: Record<string, unknown> }
-  | {
-      type: 'turn_complete';
-      assistant_message: MessageOut;
-      awaiting_contact?: boolean;
-    }
   | {
       type: 'complete';
       result: ChatResponsePayload;
@@ -391,9 +427,88 @@ export interface SessionVitalsUpdate {
   systolic: number;
   diastolic: number;
   pulse_bpm?: number | null;
+  weight_kg?: number | null;
+  height_cm?: number | null;
+  temperature_c?: number | null;
   measured_at?: string | null;
   source?: 'device' | 'manual';
   reading_id?: string | null;
+}
+
+export interface LinkVisitRequest {
+  visit_id: string;
+}
+
+export type HisScreeningStatus = 'registered' | 'screened' | 'routed';
+
+export interface HisVisitSummary {
+  visit_id: string;
+  hnx: string | null;
+  patient_name?: string | null;
+  appointment: boolean;
+  birthdate: string | null;
+  screening_status: HisScreeningStatus;
+  modify_time: string | null;
+}
+
+export interface HisVisitDetail {
+  visit_id: string;
+  hnx: string | null;
+  patient_name?: string | null;
+  appointment: boolean;
+  birthdate: string | null;
+  screening_status: HisScreeningStatus;
+  vitals: {
+    weight: number | null;
+    height: number | null;
+    bmi: number | null;
+    waist_width: number | null;
+    pressure: string | null;
+    systolic: number | null;
+    diastolic: number | null;
+    temperature: number | null;
+    pulse: number | null;
+  };
+  measure: { spid: string | null; name: string | null; department: string | null };
+  nurse_chief_complaint: string | null;
+  nurse_patient_illness: string | null;
+  /** Patient note captured at the booth after disposition (Stage 1). */
+  follow_up?: string | null;
+  first_location: { id: string | null; name: string | null; department: string | null };
+  second_location: { id: string | null; name: string | null; department: string | null };
+  modify_time: string | null;
+}
+
+export interface HisVisitsResponse {
+  available: boolean;
+  visits: HisVisitSummary[];
+}
+
+export interface HisVisitDetailResponse {
+  available: boolean;
+  visit: HisVisitDetail | null;
+}
+
+export interface LinkVisitResponse {
+  linked: boolean;
+  visit_id: string;
+  patient_name?: string | null;
+  age_years?: number | null;
+  appointment?: boolean;
+  has_his_vitals?: boolean;
+}
+
+// ── Kiosk home / attract-screen stats ─────────────────────────────────────────
+
+export interface KioskStats {
+  /** ISO date the counts are for (server local date). */
+  date: string;
+  /** Hospital visits registered in the HIS today. */
+  visitors_today: number;
+  /** Nurse-approved/corrected assessments today. */
+  navigated_today: number;
+  /** Triage sessions started at the booth today. */
+  sessions_today: number;
 }
 
 export interface BpDeviceStatusOut {
@@ -499,4 +614,87 @@ export interface TriageManualUploadOut {
   completed_at: string | null;
   /** Only present immediately after upload (202 response) */
   message?: string;
+}
+
+// ── Screening criteria governance (engine v2) ─────────────────────────────────
+
+export type CriteriaVersionStatus =
+  | 'draft'
+  | 'pending_review'
+  | 'approved'
+  | 'active'
+  | 'retired';
+
+export interface CriteriaVersionSummary {
+  id: string;
+  version_no: number;
+  status: CriteriaVersionStatus;
+  change_summary: string;
+  /** true while background rule extraction is still running */
+  processing: boolean;
+  uploaded_by: string | null;
+  reviewed_by: string | null;
+  created_at: string | null;
+  reviewed_at: string | null;
+  activated_at: string | null;
+}
+
+export interface CriteriaVersionDetail extends CriteriaVersionSummary {
+  criteria: Record<string, unknown>;
+  validation_errors: string[];
+}
+
+export interface CriteriaUploadResponse {
+  id: string;
+  version_no: number;
+  status: CriteriaVersionStatus;
+  processing: boolean;
+  created_at: string;
+  message: string;
+}
+
+export interface CriteriaSectionDiff {
+  added: string[];
+  removed: string[];
+  changed: string[];
+}
+
+export interface CriteriaDiffOut {
+  version_id: string;
+  against: string;
+  diff: Record<string, CriteriaSectionDiff>;
+}
+
+export interface CriteriaEditResponse {
+  id: string;
+  saved: boolean;
+  validation_errors: string[];
+}
+
+export interface AiMetricsCallSite {
+  call_site: string;
+  calls: number;
+  ok_calls: number;
+  ok_rate: number | null;
+  avg_latency_ms: number | null;
+}
+
+export interface AiMetricsDisposition {
+  level: number | null;
+  department_code: string | null;
+  count: number;
+}
+
+export interface AiMetricsOut {
+  from: string | null;
+  to: string | null;
+  totals: {
+    sessions?: number;
+    escalations?: number;
+    extraction_failures?: number;
+    dispositions?: number;
+  };
+  call_sites: AiMetricsCallSite[];
+  dispositions: AiMetricsDisposition[];
+  validator_violations: Array<{ violation: string; count: number }>;
 }

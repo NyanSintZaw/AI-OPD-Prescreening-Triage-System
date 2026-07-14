@@ -23,6 +23,31 @@ _LANGUAGE_CODE_BY_APP_LANGUAGE = {
     "th": "th-TH",
 }
 
+# Speech-adaptation phrase hints: bias recognition toward the vocabulary a
+# triage answer actually uses (symptoms, yes/no, numbers 0–10, time spans) so
+# clipped/accented speech isn't misheard as unrelated words (e.g. "cough" ->
+# "mouth call"). Boosted per Google's SpeechContext.
+_PHRASE_HINTS: dict[str, list[str]] = {
+    "en-US": [
+        "cough", "sore throat", "fever", "chest pain", "shortness of breath",
+        "trouble breathing", "hard to breathe", "headache", "dizzy", "nausea",
+        "vomiting", "diarrhea", "rash", "runny nose", "stuffy nose", "phlegm",
+        "stomach pain", "abdominal pain", "bleeding", "swelling", "numbness",
+        "yes", "no", "not sure", "a little", "a lot", "mild", "moderate", "severe",
+        "zero", "one", "two", "three", "four", "five", "six", "seven", "eight",
+        "nine", "ten", "days", "day", "weeks", "week", "hours", "since yesterday",
+    ],
+    "th-TH": [
+        "ไอ", "เจ็บคอ", "มีไข้", "ตัวร้อน", "เจ็บหน้าอก", "แน่นหน้าอก",
+        "หายใจลำบาก", "หายใจเหนื่อย", "ปวดหัว", "เวียนหัว", "คลื่นไส้",
+        "อาเจียน", "ท้องเสีย", "ผื่น", "น้ำมูก", "คัดจมูก", "เสมหะ",
+        "ปวดท้อง", "เลือดออก", "บวม", "ชา",
+        "ใช่", "ไม่", "ไม่แน่ใจ", "นิดหน่อย", "เยอะ", "เล็กน้อย", "รุนแรง",
+        "หนึ่ง", "สอง", "สาม", "สี่", "ห้า", "หก", "เจ็ด", "แปด", "เก้า", "สิบ",
+        "วัน", "สัปดาห์", "ชั่วโมง", "เมื่อวาน",
+    ],
+}
+
 
 @dataclass
 class SttResult:
@@ -122,6 +147,13 @@ class GoogleSttClient:
             speech.RecognitionConfig.AudioEncoding.OGG_OPUS,
         ):
             config_kwargs["sample_rate_hertz"] = 48000
+
+        # Bias recognition toward the triage vocabulary for this language.
+        hints = _PHRASE_HINTS.get(language_code)
+        if hints:
+            config_kwargs["speech_contexts"] = [
+                speech.SpeechContext(phrases=hints, boost=15.0)
+            ]
 
         config = speech.RecognitionConfig(**config_kwargs)
         audio = speech.RecognitionAudio(content=audio_bytes)

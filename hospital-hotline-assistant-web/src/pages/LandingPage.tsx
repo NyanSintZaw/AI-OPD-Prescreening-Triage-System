@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { api } from '../api';
 import { Layout } from '../components/Layout';
 import { HospitalMapViewer } from '../components/HospitalMapViewer';
-import { useLanguage, useSessionStorage } from '../hooks/useSession';
+import { useLanguage, useSessionStorage, setStoredPatientName } from '../hooks/useSession';
 import { prewarmVoiceCall } from '../hooks/voicePrewarm';
 
 function PhoneIcon() {
@@ -40,6 +40,7 @@ export function LandingPage() {
   const [startingMode, setStartingMode] = useState<'call' | 'chat' | null>(null);
   const [showMap, setShowMap] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [visitId, setVisitId] = useState('');
 
   const startSession = async (mode: 'call' | 'chat') => {
     setStartingMode(mode);
@@ -65,9 +66,22 @@ export function LandingPage() {
         user_agent: navigator.userAgent,
       });
       setSessionId(session.id);
-      // Route through the blood-pressure gate before the conversation
-      // starts; it forwards to /call or /chat when the patient is done.
-      navigate(`/vitals?mode=${mode}`);
+      setStoredPatientName(null);
+      // Link the hospital visit if the patient typed/scanned a visit ID at
+      // the booth. Best-effort: an unknown or failed link never blocks the
+      // patient — they continue anonymously.
+      const trimmedVisit = visitId.trim();
+      if (trimmedVisit) {
+        try {
+          const linked = await api.linkVisit(session.id, trimmedVisit);
+          if (linked.patient_name) {
+            setStoredPatientName(linked.patient_name);
+          }
+        } catch {
+          /* continue anonymously */
+        }
+      }
+      navigate(mode === 'call' ? '/call' : '/chat');
     } catch (err) {
       setError(err instanceof Error ? err.message : t('error'));
       setStartingMode(null);
@@ -82,6 +96,24 @@ export function LandingPage() {
           <h1>{t('landingChooseTitle')}</h1>
           <p className="landing-tagline">{t('landingChooseTagline')}</p>
           {error && <p className="error-text">{error}</p>}
+
+          <div className="visit-id-field">
+            <label htmlFor="visit-id-input" className="visit-id-label">
+              {t('visitIdLabel')}
+            </label>
+            <input
+              id="visit-id-input"
+              type="text"
+              inputMode="numeric"
+              autoComplete="off"
+              className="visit-id-input"
+              placeholder={t('visitIdPlaceholder')}
+              value={visitId}
+              onChange={(e) => setVisitId(e.target.value)}
+              disabled={startingMode !== null}
+            />
+            <span className="visit-id-hint">{t('visitIdHint')}</span>
+          </div>
 
           <div className="mode-grid">
             <button

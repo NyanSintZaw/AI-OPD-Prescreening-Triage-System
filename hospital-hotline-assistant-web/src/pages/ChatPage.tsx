@@ -2,15 +2,17 @@ import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { api } from '../api';
+import type { InputMode } from '../api/types';
 import { Layout } from '../components/Layout';
+import { MeasurementCard } from '../components/MeasurementCard';
 import { MessageBubble, TypingIndicator } from '../components/MessageBubble';
-import { PatientIdPassPopup } from '../components/PatientIdPass';
 import { RecommendationCard } from '../components/RecommendationCard';
 import { VoiceControls } from '../components/VoiceControls';
 import { useChat } from '../hooks/useChat';
 import { useLanguage, useSessionStorage } from '../hooks/useSession';
 import { useSpeechRecognition, useSpeechSynthesis } from '../hooks/useSpeech';
 import { useVoiceCall } from '../hooks/useVoiceCall';
+import { openPatientSlip } from '../utils/openSlip';
 
 export function ChatPage() {
   const { t } = useTranslation();
@@ -35,21 +37,20 @@ export function ChatPage() {
   } = useChat(sessionId, language);
 
   const [mapAutoOpen, setMapAutoOpen] = useState(false);
+  const slipOpenedRef = useRef(false);
   const speech = useSpeechRecognition(language);
   const synthesis = useSpeechSynthesis(language);
   const frontdeskMode = (import.meta.env.VITE_FRONTDESK_MODE ?? 'false') === 'true';
-  const assessmentComplete = Boolean(
-    assessment?.severity?.level && 
-    assessment.severity.level !== 'unknown' && 
-    assessment.contact?.contact_preference_recorded && 
-    !assessment.contact?.needs_followup
-  );
+  // End-of-flow is keyed on flowComplete (covers follow-up capture), not
+  // assessment_status alone — disposition may still leave follow-up open.
+  const flowComplete = Boolean(assessment?.flowComplete);
+  const assessmentComplete = flowComplete;
 
   const voiceCall = useVoiceCall({
     sessionId,
     language,
     onTranscript: async (transcript) => {
-      if (assessmentComplete) return null;
+      if (flowComplete) return null;
       // The voice-call legacy path still uses non-streaming chat —
       // streaming only makes sense for the typed/text input. Voice
       // input goes through Gemini Live's own audio response instead.
@@ -58,7 +59,7 @@ export function ChatPage() {
     },
   });
   const callActive = voiceCall.state !== 'idle' && voiceCall.state !== 'error';
-  const composerDisabled = isSending || callActive || assessmentComplete;
+  const composerDisabled = isSending || callActive || flowComplete;
 
   useEffect(() => {
     if (frontdeskMode && synthesis.supported) {
@@ -85,9 +86,16 @@ export function ChatPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isSending, streamingTurn?.assistantText, streamingTurn?.done]);
 
-  const handleSend = async (overrideText?: string, inputMode: 'voice' | 'text' = 'text') => {
+  useEffect(() => {
+    if (!flowComplete || !sessionId || slipOpenedRef.current) return;
+    slipOpenedRef.current = true;
+    openPatientSlip(sessionId);
+    setMapAutoOpen(true);
+  }, [flowComplete, sessionId]);
+
+  const handleSend = async (overrideText?: string, inputMode: InputMode = 'text') => {
     const text = (overrideText ?? input).trim();
-    if (!text || assessmentComplete) return;
+    if (!text || flowComplete) return;
 
     if (!overrideText) {
       setInput('');
@@ -127,6 +135,17 @@ export function ChatPage() {
       },
     });
   };
+
+  // The engine asks the booth to take a reading mid-interview (temperature
+  // on a fever rule, blood pressure, or weight/height near the end of the
+  // interview). The reading is stored on the session, then a continue turn
+  // is sent whose turn_context carries it so the measurement resolves.
+  const awaitingMeasurement =
+    !flowComplete ? assessment?.awaitingMeasurement ?? null : null;
+  const replyOptions =
+    !flowComplete && !awaitingMeasurement && !isSending
+      ? assessment?.replyOptions ?? []
+      : [];
 
   const handleToggleCall = () => {
     if (callActive) {
@@ -168,7 +187,7 @@ export function ChatPage() {
   }, [speech.transcript, speech.isListening]);
 
   const handleMicClick = () => {
-    if (assessmentComplete) return;
+    if (flowComplete) return;
     if (speech.isListening) {
       speech.stopListening();
     } else {
@@ -275,12 +294,13 @@ export function ChatPage() {
           </div>
         ) : null}
 
-        {assessmentComplete && assessment?.severity && assessment.severity.level !== 'unknown' && (
-          <div className={`triage-panel severity-${assessment.severity.level}`}>
+        {assessmentComplete && (
+          <div className="triage-panel triage-panel-neutral">
             <div>
-              <strong>{t('triageStatus')}:</strong>{' '}
-              {t(`severity_${assessment.severity.level}`)}
-              {assessment.severity.explanation ? ` - ${assessment.severity.explanation}` : ''}
+              <strong>{t('assessmentCompleteNotice')}</strong>
+              {assessment?.department?.name
+                ? ` ${t('proceedToGuidance', { department: assessment.department.name })}`
+                : ''}
             </div>
           </div>
         )}
@@ -292,14 +312,15 @@ export function ChatPage() {
               {t('sessionId')}: <code>{sessionId}</code>
             </p>
             <div style={{ marginTop: '16px' }}>
-              <PatientIdPassPopup
-                sessionId={sessionId}
-                language={language}
-                assessment={assessment}
-                autoOpenKey={`${sessionId}-${assessment.assistantMessageId ?? assessment.severity?.level ?? 'assessment'}`}
-                onClose={() => setMapAutoOpen(true)}
-                triggerVariant="primary"
-              />
+              <button
+                type="button"
+                className="primary-btn"
+                onClick={() => {
+                  if (sessionId) openPatientSlip(sessionId);
+                }}
+              >
+                {t('viewSlip')}
+              </button>
             </div>
           </div>
         )}
@@ -347,29 +368,21 @@ export function ChatPage() {
           </div>
         )}
 
-        <div className="quick-prompts">
-          <button
-            type="button"
-            className="quick-prompt-btn"
-            onClick={() => setInput(t('quickPromptChestPain'))}
-          >
-            {t('quickPromptChestPain')}
-          </button>
-          <button
-            type="button"
-            className="quick-prompt-btn"
-            onClick={() => setInput(t('quickPromptBreathing'))}
-          >
-            {t('quickPromptBreathing')}
-          </button>
-          <button
-            type="button"
-            className="quick-prompt-btn"
-            onClick={() => setInput(t('quickPromptBleeding'))}
-          >
-            {t('quickPromptBleeding')}
-          </button>
-        </div>
+        {replyOptions.length > 0 && (
+          <div className="quick-reply-row" role="group" aria-label={t('quickReplyLabel')}>
+            {replyOptions.map((opt) => (
+              <button
+                key={opt.id}
+                type="button"
+                className="quick-reply-btn"
+                disabled={composerDisabled}
+                onClick={() => void handleSend(opt.label, 'button')}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+        )}
 
         <div className="chat-messages">
           {isLoading && <p className="muted">{t('loading')}</p>}
@@ -408,6 +421,15 @@ export function ChatPage() {
 
         {speech.isListening && (
           <p className="listening-label">{t('listening')}</p>
+        )}
+
+        {awaitingMeasurement && (
+          <MeasurementCard
+            vital={awaitingMeasurement}
+            language={language}
+            disabled={isSending}
+            onSubmit={(continuationText) => handleSend(continuationText, 'text')}
+          />
         )}
 
         <div className={`chat-input-row ${assessmentComplete ? 'assessment-complete' : ''}`}>

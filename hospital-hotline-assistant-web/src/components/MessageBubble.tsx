@@ -13,13 +13,23 @@ export function MessageBubble({ message }: MessageBubbleProps) {
       : message.role === 'assistant'
         ? t('assistant')
         : t('system');
+  const modeLabel =
+    message.input_mode === 'voice'
+      ? t('inputModeVoice')
+      : message.input_mode === 'button'
+        ? t('inputModeButton')
+        : message.input_mode === 'text'
+          ? t('inputModeText')
+          : null;
 
   return (
     <div className={`message-bubble ${message.role}`}>
       <div className="message-meta">
         <span className="message-role">{roleLabel}</span>
-        {message.input_mode && (
-          <span className="message-mode">{message.input_mode}</span>
+        {modeLabel && (
+          <span className={`message-mode message-mode-${message.input_mode}`}>
+            {modeLabel}
+          </span>
         )}
       </div>
       <p className="message-content">{message.content}</p>

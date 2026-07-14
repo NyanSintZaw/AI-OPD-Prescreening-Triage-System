@@ -30,6 +30,15 @@ class TriageResult:
     distress_type: str | None
     red_flags: list[str]
     contact: dict[str, Any]
+    # canonical vital key (e.g. "temp") the engine is asking the booth to
+    # measure now; the transport pops a numeric input for it. None otherwise.
+    awaiting_measurement: str | None = None
+    # Localized quick-reply chips [{id, label}].
+    reply_options: list[dict[str, str]] | None = None
+    # True when the patient-facing flow (incl. follow-up) is finished.
+    flow_complete: bool = False
+    # True for post-disposition turns (follow-up capture / closing).
+    post_disposition: bool = False
 
 
 
@@ -54,8 +63,14 @@ class TriageEngine(Protocol):
         language: str,
         input_mode: str,
         content: str,
+        schedule_context: str | None = None,
+        turn_context: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
-        """Return the model turn result with reply/classification/contact."""
+        """Return the model turn result with reply/classification/contact.
+
+        ``turn_context`` carries objective, non-LLM inputs (age, measured
+        vitals) the deterministic engine merges into state before deciding.
+        """
 
     async def run_turn_stream(
         self,
@@ -64,6 +79,8 @@ class TriageEngine(Protocol):
         language: str,
         input_mode: str,
         content: str,
+        schedule_context: str | None = None,
+        turn_context: dict[str, Any] | None = None,
     ) -> AsyncIterator[dict[str, Any]]:
         """Stream model events for a turn."""
 

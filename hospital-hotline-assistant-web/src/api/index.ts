@@ -30,6 +30,13 @@ import type {
   LanguageCode,
   MessageCreate,
   MessageOut,
+  HisVisitSummary,
+  HisVisitDetail,
+  HisVisitsResponse,
+  HisVisitDetailResponse,
+  LinkVisitRequest,
+  LinkVisitResponse,
+  KioskStats,
   RoutingRuleOut,
   RoutingFeedbackOut,
   SessionCreate,
@@ -42,6 +49,12 @@ import type {
   SurveillanceSummaryOut,
   SymptomEntryCreate,
   TriageManualUploadOut,
+  AiMetricsOut,
+  CriteriaDiffOut,
+  CriteriaEditResponse,
+  CriteriaUploadResponse,
+  CriteriaVersionDetail,
+  CriteriaVersionSummary,
 } from './types';
 
 async function detailFromResponse(response: Response): Promise<string> {
@@ -105,6 +118,9 @@ export const api = {
     setAdminSession(null);
   },
 
+  /** Public kiosk home-screen counters (visitors / navigated / sessions today). */
+  getKioskStats: () => request<KioskStats>('/kiosk/stats'),
+
   createSession: (payload: SessionCreate) =>
     request<SessionOut>('/sessions', {
       method: 'POST',
@@ -112,6 +128,12 @@ export const api = {
     }),
 
   getSession: (sessionId: string) => request<SessionOut>(`/sessions/${sessionId}`),
+
+  linkVisit: (sessionId: string, visitId: string) =>
+    request<LinkVisitResponse>(`/sessions/${sessionId}/link-visit`, {
+      method: 'POST',
+      body: JSON.stringify({ visit_id: visitId } satisfies LinkVisitRequest),
+    }),
 
   updateSession: (sessionId: string, payload: SessionUpdate) =>
     request<SessionOut>(`/sessions/${sessionId}`, {
@@ -267,8 +289,9 @@ export const api = {
   getConversationSummary: () =>
     request<ConversationSummaryOut[]>('/conversation-summary'),
 
-  listAssessmentReviews: (status: 'all' | 'pending' | 'approved' | 'corrected' = 'pending') =>
-    request<AssessmentReviewOut[]>(`/admin/reviews?status=${status}`),
+  listAssessmentReviews: (
+    status: 'all' | 'pending' | 'reviewed' | 'approved' | 'corrected' = 'pending',
+  ) => request<AssessmentReviewOut[]>(`/admin/reviews?status=${status}`),
 
   approveAssessmentReview: (
     assessmentId: string,
@@ -353,6 +376,18 @@ export const api = {
       { method: 'PUT', body: JSON.stringify(payload) },
     ),
 
+  /** Record a single vital the engine requested mid-interview (e.g. the
+   *  temperature-on-demand popup, or weight/height near the end of the
+   *  interview). Merges into the session's stored vitals. */
+  updateSessionMeasurement: (
+    sessionId: string,
+    payload: { vital: 'temp' | 'weight' | 'height'; value: number },
+  ) =>
+    request<{ session_id: string; vitals: Record<string, unknown> }>(
+      `/sessions/${sessionId}/measurement`,
+      { method: 'POST', body: JSON.stringify(payload) },
+    ),
+
   getBpDeviceStatus: () => request<BpDeviceStatusOut>('/admin/bp-device'),
 
   scanBpDevices: () =>
@@ -373,6 +408,12 @@ export const api = {
 
   getSurveillanceSummary: (days = 7) =>
     request<SurveillanceSummaryOut>(`/admin/surveillance?days=${days}`),
+
+  // ── Hospital DB (mock HIS) read-only view ──────────────────────────────────
+  getHisVisits: () => request<HisVisitsResponse>('/admin/his/visits'),
+
+  getHisVisit: (visitId: string) =>
+    request<HisVisitDetailResponse>(`/admin/his/visits/${visitId}`),
 
   // ── Triage manual PDF upload ───────────────────────────────────────────────
   uploadTriageManual: async (file: File): Promise<TriageManualUploadOut> => {
@@ -397,6 +438,65 @@ export const api = {
 
   getTriageManualStatus: () =>
     request<TriageManualUploadOut | null>('/admin/triage-manual/status'),
+
+  // ── Screening criteria governance (engine v2) ─────────────────────────────
+  uploadScreeningCriteria: async (file: File): Promise<CriteriaUploadResponse> => {
+    const token = (await import('./client')).getAdminToken();
+    const form = new FormData();
+    form.append('file', file);
+    const response = await fetch(`${baseUrl}/admin/criteria/upload`, {
+      method: 'POST',
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: form,
+    });
+    if (!response.ok) {
+      throw new Error(await detailFromResponse(response));
+    }
+    return response.json() as Promise<CriteriaUploadResponse>;
+  },
+
+  listCriteriaVersions: () =>
+    request<CriteriaVersionSummary[]>('/admin/criteria/versions'),
+
+  getCriteriaVersion: (versionId: string) =>
+    request<CriteriaVersionDetail>(`/admin/criteria/versions/${versionId}`),
+
+  getCriteriaDiff: (versionId: string, against?: string) =>
+    request<CriteriaDiffOut>(
+      `/admin/criteria/versions/${versionId}/diff${against ? `?against=${against}` : ''}`,
+    ),
+
+  updateCriteriaVersion: (versionId: string, criteria: Record<string, unknown>) =>
+    request<CriteriaEditResponse>(`/admin/criteria/versions/${versionId}`, {
+      method: 'PUT',
+      body: JSON.stringify(criteria),
+    }),
+
+  submitCriteriaVersion: (versionId: string) =>
+    request<{ id: string; status: string }>(
+      `/admin/criteria/versions/${versionId}/submit`,
+      { method: 'POST' },
+    ),
+
+  approveCriteriaVersion: (versionId: string) =>
+    request<{ id: string; status: string }>(
+      `/admin/criteria/versions/${versionId}/approve`,
+      { method: 'POST' },
+    ),
+
+  activateCriteriaVersion: (versionId: string) =>
+    request<{ id: string; status: string }>(
+      `/admin/criteria/versions/${versionId}/activate`,
+      { method: 'POST' },
+    ),
+
+  getAiMetrics: (params: { from?: string; to?: string } = {}) => {
+    const query = new URLSearchParams();
+    if (params.from) query.set('from', params.from);
+    if (params.to) query.set('to', params.to);
+    const suffix = query.toString();
+    return request<AiMetricsOut>(`/admin/ai-metrics${suffix ? `?${suffix}` : ''}`);
+  },
 };
 
-export type { MessageOut, SessionOut, ConversationSummaryOut, DepartmentOut, DoctorOut, DoctorWithSchedulesOut, DoctorScheduleOut, SurveillanceSummaryOut, TriageManualUploadOut };
+export type { MessageOut, SessionOut, ConversationSummaryOut, DepartmentOut, DoctorOut, DoctorWithSchedulesOut, DoctorScheduleOut, SurveillanceSummaryOut, TriageManualUploadOut, AiMetricsOut, CriteriaDiffOut, CriteriaVersionDetail, CriteriaVersionSummary, LinkVisitResponse, HisVisitSummary, HisVisitDetail, KioskStats };

@@ -1,0 +1,10 @@
+# Local SQLite databases (seeded at runtime — never commit hospital data)
+*.db
+*.db-journal
+
+# Real hospital CSV exports must stay out of git; only sample_visits.csv is committed
+Prescreen*.csv
+*_real*.csv
+
+.venv/
+__pycache__/

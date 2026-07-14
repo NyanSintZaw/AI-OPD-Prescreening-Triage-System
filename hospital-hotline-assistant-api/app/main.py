@@ -1,17 +1,20 @@
 import asyncio
 import json
 import logging
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from contextlib import asynccontextmanager
 from uuid import UUID
 import asyncpg
+import httpx
 from pydantic import BaseModel
 from fastapi import (
+    Body,
     Depends,
     FastAPI,
     File,
     Form,
     HTTPException,
+    Query,
     Request,
     UploadFile,
     WebSocket,
@@ -36,8 +39,8 @@ from app.services.blood_pressure import (
 )
 from app.services.google_stt import GoogleSttClient
 from app.services.google_tts import GoogleTtsClient
-from app.services.live_voice_service import LiveVoiceService
 from app.services.notification_service import MockNotificationService
+from app.services.slip_code import slip_code_for
 
 logger = logging.getLogger(__name__)
 from app.schemas import (
@@ -64,6 +67,8 @@ from app.schemas import (
     FollowUpQuestionAnswerUpdate,
     FollowUpQuestionCreate,
     FollowUpQuestionOut,
+    LinkVisitRequest,
+    LinkVisitResponse,
     BloodPressureFetchResponse,
     BpDeviceStatusOut,
     BpFetchRequest,
@@ -78,6 +83,7 @@ from app.schemas import (
     SessionLocationUpdate,
     SessionOut,
     SessionUpdate,
+    SessionMeasurementUpdate,
     SessionVitalsUpdate,
     SeverityAssessmentCreate,
     RoutingFeedbackOut,
@@ -92,20 +98,49 @@ async def lifespan(app: FastAPI):
     app.state.db_pool = await create_pool()
     app.state.admin_tokens = {}
     notifier = MockNotificationService()
-    app.state.triage_service = TriageService(notifier=notifier)
+    # The deterministic screening engine (LangGraph) is the only engine.
+    from app.services.screening.engine import make_triage_engine
+
+    triage_engine = make_triage_engine(settings, pool=app.state.db_pool)
+    # HIS adapter: his_mode="http" talks to the hospital HIS (or the
+    # standalone hospital-his-mock service); otherwise a logging mock.
+    from app.services.screening.his import build_his_adapter
+
+    app.state.his_adapter = build_his_adapter(settings)
+    app.state.triage_service = TriageService(
+        notifier=notifier,
+        triage_engine=triage_engine,
+        his_adapter=app.state.his_adapter,
+    )
     app.state.tts_client = GoogleTtsClient()
     app.state.stt_client = GoogleSttClient()
-    # Gemini Live API bridge — owns the per-call WebSocket state for
-    # voice mode. Reuses the same TriageService so live and text produce
-    # the same triage assessment payloads.
-    app.state.live_voice_service = LiveVoiceService(
-        triage_service=app.state.triage_service
+    # Voice runs turn-by-turn through the same screening pipeline as text
+    # chat (STT → process_chat_stream → TTS), so the deterministic engine
+    # controls voice too. Owns the per-call WebSocket state for /ws/voice.
+    from app.services.screening.voice_bridge import TurnVoiceService
+
+    app.state.live_voice_service = TurnVoiceService(
+        triage_service=app.state.triage_service,
+        stt_client=app.state.stt_client,
+        tts_client=app.state.tts_client,
     )
+    app.state.rag_prewarm_task = None
+    if settings.rag_query_prewarm_on_startup:
+        from app.services.ai.rag_query import start_rag_query_engine_prewarm
+
+        app.state.rag_prewarm_task = start_rag_query_engine_prewarm()
+    # Warm the screening LLM client (auth token + connection) so the first
+    # patient turn isn't slow. Best-effort background task.
+    app.state.model_prewarm_task = asyncio.create_task(triage_engine.prewarm())
     # Kiosk-side Omron cuff reader (omblepy subprocess wrapper).
     app.state.bp_service = BloodPressureService()
     try:
         yield
     finally:
+        for attr in ("rag_prewarm_task", "model_prewarm_task"):
+            prewarm_task = getattr(app.state, attr, None)
+            if prewarm_task is not None and not prewarm_task.done():
+                prewarm_task.cancel()
         await app.state.db_pool.close()
 
 app = FastAPI(title=settings.app_name, lifespan=lifespan)
@@ -135,7 +170,15 @@ async def _serialize_review(
             (s.metadata->>'patient_contact_requested')::boolean AS patient_contact_requested,
             NULLIF(s.metadata->>'patient_contact_phone', '') AS patient_contact_phone,
             NULLIF(s.metadata->>'patient_contact_preferred_time', '') AS patient_contact_preferred_time,
-            NULLIF(s.metadata->>'patient_contact_relation', '') AS patient_contact_relation
+            NULLIF(s.metadata->>'patient_contact_relation', '') AS patient_contact_relation,
+            s.metadata->'triage_classification'->'disposition_reasons' AS disposition_reasons,
+            s.metadata->'visit'->>'visit_id' AS visit_id,
+            NULLIF(s.metadata->'visit'->>'patient_name', '') AS patient_name,
+            s.metadata->'vitals' AS vitals,
+            s.metadata->'triage_classification'->>'symptoms_summary' AS ai_chief_complaint,
+            s.metadata->'triage_classification'->>'key_reason' AS ai_illness_note,
+            NULLIF(s.metadata->>'patient_follow_up', '') AS patient_follow_up,
+            s.metadata->'his_routing'->>'status' AS his_routing_status
         FROM assessment_reviews ar
         JOIN sessions s ON s.id = ar.session_id
         LEFT JOIN admin_users reviewer ON reviewer.id = ar.reviewer_id
@@ -270,7 +313,93 @@ async def create_session(payload: SessionCreate, connection: asyncpg.Connection 
         payload.ip_hash,
         payload.metadata,
     )
+    # Stamp the slip code (shown on the patient slip, searched by nurses at
+    # the destination) so every session — anonymous or visit-linked — has one.
+    metadata = dict(record["metadata"] or {})
+    metadata["slip_code"] = slip_code_for(str(record["id"]))
+    record = await connection.fetchrow(
+        "UPDATE sessions SET metadata = $2::jsonb WHERE id = $1 RETURNING *",
+        record["id"],
+        metadata,
+    )
     return record_to_dict(record)
+
+
+@app.post("/sessions/{session_id}/link-visit", response_model=LinkVisitResponse)
+async def link_visit(
+    session_id: UUID,
+    payload: LinkVisitRequest,
+    request: Request,
+    connection: asyncpg.Connection = Depends(get_connection),
+):
+    """Link a hospital visit to this session.
+
+    The patient types (or scans) the visit ID issued at the registration
+    booth; we validate it against the HIS and pull demographics (birthdate →
+    age) and any HIS-recorded vitals into session metadata so the screening
+    engine can pre-fill them. Unknown visit → ``linked=false`` and the
+    patient continues anonymously.
+    """
+    from app.services.screening import templates as screening_templates
+
+    session_row = await connection.fetchrow(
+        "SELECT metadata, language FROM sessions WHERE id = $1", session_id
+    )
+    if session_row is None:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    adapter = request.app.state.his_adapter
+    info = await adapter.validate_visit(payload.visit_id)
+    if info is None or not info.is_active:
+        return LinkVisitResponse(linked=False, visit_id=payload.visit_id)
+
+    metadata = dict(session_row["metadata"] or {})
+    metadata["visit"] = {
+        "visit_id": info.visit_id,
+        "hn": info.patient_id,
+        "patient_name": info.patient_name,
+        "birthdate": info.birthdate,
+        "age_years": info.age_years,
+        "appointment": info.appointment,
+        "linked_at": datetime.now(timezone.utc).isoformat(),
+    }
+    # Seed session vitals with anything the HIS already holds; a later cuff
+    # reading or manual entry overrides these.
+    his_vitals = {k: v for k, v in (info.vitals or {}).items() if v is not None}
+    if his_vitals:
+        merged = dict(metadata.get("vitals") or {})
+        merged.update(his_vitals)
+        merged.setdefault("source", "his")
+        metadata["vitals"] = merged
+    await connection.execute(
+        "UPDATE sessions SET metadata = $2::jsonb WHERE id = $1",
+        session_id,
+        metadata,
+    )
+    # Open the conversation with a persisted greeting (personalized when the
+    # HIS gave us a name) so chat shows it on load and the nurse transcript
+    # keeps it; voice speaks the same line from the bridge.
+    has_messages = await connection.fetchval(
+        "SELECT EXISTS (SELECT 1 FROM messages WHERE session_id = $1)", session_id
+    )
+    if not has_messages:
+        language = session_row["language"] or "th"
+        await connection.execute(
+            """
+            INSERT INTO messages (session_id, role, input_mode, content)
+            VALUES ($1, 'assistant', 'text', $2)
+            """,
+            session_id,
+            screening_templates.greeting_line(info.patient_name, language),
+        )
+    return LinkVisitResponse(
+        linked=True,
+        visit_id=info.visit_id,
+        patient_name=info.patient_name,
+        age_years=info.age_years,
+        appointment=info.appointment,
+        has_his_vitals=bool(his_vitals),
+    )
 
 @app.get("/sessions/{session_id}", response_model=SessionOut)
 async def get_session(session_id: UUID, connection: asyncpg.Connection = Depends(get_connection)):
@@ -420,7 +549,10 @@ async def update_session_vitals(
         raise HTTPException(status_code=404, detail="Session not found")
 
     metadata = dict(session_row["metadata"] or {})
+    # Preserve any patient-typed vitals from a prior call on this session.
+    existing_vitals = dict(metadata.get("vitals") or {})
     vitals = {
+        **existing_vitals,
         "systolic": payload.systolic,
         "diastolic": payload.diastolic,
         "pulse_bpm": payload.pulse_bpm,
@@ -428,6 +560,12 @@ async def update_session_vitals(
         "source": payload.source,
         "recorded_at": datetime.now(timezone.utc).isoformat(),
     }
+    if payload.weight_kg is not None:
+        vitals["weight_kg"] = payload.weight_kg
+    if payload.height_cm is not None:
+        vitals["height_cm"] = payload.height_cm
+    if payload.temperature_c is not None:
+        vitals["temperature"] = payload.temperature_c
     metadata["vitals"] = vitals
     await connection.execute(
         "UPDATE sessions SET metadata = $2::jsonb WHERE id = $1",
@@ -454,6 +592,45 @@ async def update_session_vitals(
             measured_at=payload.measured_at,
             source=payload.source,
         )
+    return {"session_id": str(session_id), "vitals": vitals}
+
+
+# Canonical rules-engine vital -> the raw metadata key normalize_vitals reads.
+_MEASUREMENT_METADATA_KEY = {
+    "temp": "temperature",
+    "weight": "weight_kg",
+    "height": "height_cm",
+}
+
+
+@app.post("/sessions/{session_id}/measurement")
+async def update_session_measurement(
+    session_id: UUID,
+    payload: SessionMeasurementUpdate,
+    connection: asyncpg.Connection = Depends(get_connection),
+):
+    """Record a single vital the screening engine asked for mid-interview
+    (temperature-on-demand). Merges into the session's stored vitals so the
+    next turn's ``turn_context`` carries it — without requiring the booth to
+    re-send the blood-pressure reading.
+    """
+    session_row = await connection.fetchrow(
+        "SELECT metadata FROM sessions WHERE id = $1", session_id
+    )
+    if session_row is None:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    metadata = dict(session_row["metadata"] or {})
+    vitals = dict(metadata.get("vitals") or {})
+    key = _MEASUREMENT_METADATA_KEY.get(payload.vital, payload.vital)
+    vitals[key] = payload.value
+    vitals["recorded_at"] = datetime.now(timezone.utc).isoformat()
+    metadata["vitals"] = vitals
+    await connection.execute(
+        "UPDATE sessions SET metadata = $2::jsonb WHERE id = $1",
+        session_id,
+        metadata,
+    )
     return {"session_id": str(session_id), "vitals": vitals}
 
 
@@ -666,13 +843,12 @@ async def chat(
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
+    from app.services.ai.triage_payloads import assessment_status, severity_payload
+
     return ChatResponse(
         reply=result.reply,
-        severity={
-            "level": result.severity_level,
-            "explanation": result.severity_explanation,
-            "confidence": result.severity_confidence,
-        },
+        severity=severity_payload(result),
+        assessment_status=assessment_status(result),
         department={
             "department_id": result.department_id,
             "reason": result.department_reason,
@@ -704,6 +880,9 @@ async def chat(
         latency_ms=result.latency_ms,
         alert_sent=result.alert_sent,
         assistant_message_id=assistant_message.get("id"),
+        awaiting_measurement=result.awaiting_measurement,
+        reply_options=result.reply_options or [],
+        flow_complete=bool(result.flow_complete),
     )
 
 @app.post("/sessions/{session_id}/chat/stream")
@@ -1033,6 +1212,61 @@ async def conversation_summary(
     return records_to_dicts(records)
 
 
+@app.get("/admin/sessions/{session_id}/trace")
+async def get_session_trace(
+    session_id: UUID,
+    _admin_user: dict = Depends(require_roles("admin", "super_admin", "viewer")),
+    connection: asyncpg.Connection = Depends(get_connection),
+):
+    """Full AI decision trace for one session (SRS Explainability / F40).
+
+    Returns the screening engine state (findings, slots, disposition with
+    fired rules + manual citations) and the per-call ai_inference_audit
+    timeline. Only available for sessions run by the screening engine v2.
+    """
+
+    state_row = await connection.fetchrow(
+        """
+        SELECT state, criteria_version_id, prompt_version, updated_at
+        FROM screening_sessions WHERE session_id = $1
+        """,
+        session_id,
+    )
+    audit_rows = await connection.fetch(
+        """
+        SELECT turn_no, call_site, model_name, prompt_version, criteria_version_id,
+               rules_trace, validator_result, ok, latency_ms, created_at
+        FROM ai_inference_audit
+        WHERE session_id = $1
+        ORDER BY created_at ASC
+        """,
+        session_id,
+    )
+    if state_row is None and not audit_rows:
+        raise HTTPException(
+            status_code=404,
+            detail="No screening-engine trace for this session",
+        )
+
+    engine_state = state_row["state"] if state_row else None
+    if isinstance(engine_state, str):
+        import json as _json
+
+        engine_state = _json.loads(engine_state)
+    return {
+        "session_id": str(session_id),
+        "criteria_version_id": (
+            str(state_row["criteria_version_id"])
+            if state_row and state_row["criteria_version_id"]
+            else None
+        ),
+        "prompt_version": state_row["prompt_version"] if state_row else None,
+        "updated_at": state_row["updated_at"] if state_row else None,
+        "engine_state": engine_state,
+        "audit": records_to_dicts(audit_rows),
+    }
+
+
 @app.get("/admin/reviews", response_model=list[AssessmentReviewOut])
 async def list_assessment_reviews(
     status: str = "pending",
@@ -1051,13 +1285,25 @@ async def list_assessment_reviews(
             (s.metadata->>'patient_contact_requested')::boolean AS patient_contact_requested,
             NULLIF(s.metadata->>'patient_contact_phone', '') AS patient_contact_phone,
             NULLIF(s.metadata->>'patient_contact_preferred_time', '') AS patient_contact_preferred_time,
-            NULLIF(s.metadata->>'patient_contact_relation', '') AS patient_contact_relation
+            NULLIF(s.metadata->>'patient_contact_relation', '') AS patient_contact_relation,
+            s.metadata->'triage_classification'->'disposition_reasons' AS disposition_reasons,
+            s.metadata->'visit'->>'visit_id' AS visit_id,
+            NULLIF(s.metadata->'visit'->>'patient_name', '') AS patient_name,
+            s.metadata->'vitals' AS vitals,
+            s.metadata->'triage_classification'->>'symptoms_summary' AS ai_chief_complaint,
+            s.metadata->'triage_classification'->>'key_reason' AS ai_illness_note,
+            NULLIF(s.metadata->>'patient_follow_up', '') AS patient_follow_up,
+            s.metadata->'his_routing'->>'status' AS his_routing_status
         FROM assessment_reviews ar
         JOIN sessions s ON s.id = ar.session_id
         LEFT JOIN admin_users reviewer ON reviewer.id = ar.reviewer_id
         LEFT JOIN departments pd ON pd.id = ar.proposed_department_id
         LEFT JOIN departments cd ON cd.id = ar.confirmed_department_id
-        WHERE ($1 = 'all' OR ar.status::text = $1)
+        WHERE (
+            $1 = 'all'
+            OR ($1 = 'reviewed' AND ar.status::text IN ('approved', 'corrected'))
+            OR ar.status::text = $1
+        )
         ORDER BY ar.created_at DESC
         LIMIT 200
         """,
@@ -1066,10 +1312,177 @@ async def list_assessment_reviews(
     return records_to_dicts(rows)
 
 
+async def _push_his_routing(
+    request: Request,
+    connection: asyncpg.Connection,
+    *,
+    session_id,
+    department_id,
+    confirmed_by: str,
+    rerouted: bool,
+    chief_complaint: str | None = None,
+    illness_note: str | None = None,
+) -> None:
+    """Stage-2 HIS write-back: record the nurse's confirmation/reroute of a
+    routing against the linked visit, publishing the nurse-signed narrative
+    (edited chief complaint / illness note when provided; the HIS falls back
+    to the held Stage-1 values otherwise). Best-effort; status stored on the
+    session metadata for transparency, never raises into the endpoint."""
+    if not department_id:
+        return
+    session_row = await connection.fetchrow(
+        "SELECT metadata FROM sessions WHERE id = $1", session_id
+    )
+    if session_row is None:
+        return
+    metadata = dict(session_row["metadata"] or {})
+    visit = metadata.get("visit") or {}
+    visit_id = visit.get("visit_id")
+    if not visit_id:
+        return  # anonymous session — nothing to write back
+    dept = await connection.fetchrow(
+        "SELECT code, name_th FROM departments WHERE id = $1", department_id
+    )
+    if dept is None:
+        return
+    from app.services.screening.his import his_department_name
+
+    his_dept = his_department_name(dept["code"]) or dept["name_th"] or dept["code"]
+    adapter = request.app.state.his_adapter
+    ok = False
+    try:
+        ok = await adapter.confirm_routing(
+            visit_id,
+            department=his_dept,
+            complaint=chief_complaint,
+            note=illness_note,
+            confirmed_by=confirmed_by,
+            rerouted=rerouted,
+        )
+    except Exception:  # pragma: no cover - defensive
+        logger.exception("[session=%s] HIS stage-2 routing raised", session_id)
+    metadata["his_routing"] = {
+        "status": "pushed" if ok else "failed",
+        "department": his_dept,
+        "rerouted": rerouted,
+        "confirmed_by": confirmed_by,
+        "at": datetime.now(timezone.utc).isoformat(),
+    }
+    await connection.execute(
+        "UPDATE sessions SET metadata = $2::jsonb WHERE id = $1",
+        session_id,
+        metadata,
+    )
+
+
+# ── Hospital DB (mock HIS) read-only proxy for the admin dashboard ──────────
+# Lets the demo show the visit record go blank → screened → routed inside our
+# app, framed as "the admin also oversees the hospital DB". Only meaningful in
+# HIS_MODE=http; degrades to an empty/unavailable response otherwise.
+
+async def _his_proxy_get(path: str) -> dict | None:
+    if settings.his_mode != "http" or not settings.his_base_url:
+        return None
+    headers = {"X-API-Key": settings.his_api_key} if settings.his_api_key else {}
+    url = f"{settings.his_base_url.rstrip('/')}{path}"
+    try:
+        async with httpx.AsyncClient(timeout=settings.his_timeout_seconds) as client:
+            resp = await client.get(url, headers=headers)
+        if resp.status_code == 200:
+            return resp.json()
+        if resp.status_code == 404:
+            raise HTTPException(status_code=404, detail="Visit not found in HIS")
+    except HTTPException:
+        raise
+    except httpx.HTTPError as exc:
+        logger.warning("HIS proxy GET %s failed: %s", path, exc)
+    return None
+
+
+@app.get("/admin/his/visits")
+async def admin_his_visits(
+    _admin_user: dict = Depends(require_roles("super_admin", "admin", "viewer")),
+):
+    data = await _his_proxy_get("/api/visits")
+    if data is None:
+        return {"available": False, "visits": []}
+    return {"available": True, **data}
+
+
+@app.get("/admin/his/visits/{visit_id}")
+async def admin_his_visit_detail(
+    visit_id: str,
+    _admin_user: dict = Depends(require_roles("super_admin", "admin", "viewer")),
+):
+    data = await _his_proxy_get(f"/api/visits/{visit_id}")
+    if data is None:
+        return {"available": False, "visit": None}
+    return {"available": True, "visit": data}
+
+
+@app.get("/kiosk/stats")
+async def kiosk_stats(connection: asyncpg.Connection = Depends(get_connection)) -> dict:
+    """Public counters for the kiosk home / attract screen (no auth).
+
+    Three "today" numbers the booth shows patients:
+      - ``visitors_today``  : hospital visits registered in the HIS today
+                              (falls back to the full visit list when the mock
+                              seed carries no ``modify_time``).
+      - ``navigated_today`` : nurse-approved/corrected assessments today.
+      - ``sessions_today``  : triage sessions started at the booth today.
+    Every source degrades to 0 rather than erroring so the screen never breaks.
+    """
+    today = date.today()
+
+    try:
+        sessions_today = await connection.fetchval(
+            "SELECT count(*) FROM sessions WHERE started_at::date = CURRENT_DATE"
+        )
+    except Exception:  # pragma: no cover - defensive: never break the kiosk
+        sessions_today = 0
+
+    try:
+        navigated_today = await connection.fetchval(
+            """
+            SELECT count(*) FROM assessment_reviews
+            WHERE status IN ('approved', 'corrected')
+              AND reviewed_at::date = CURRENT_DATE
+            """
+        )
+    except Exception:  # pragma: no cover
+        navigated_today = 0
+
+    visitors_today = 0
+    try:
+        his_data = await _his_proxy_get("/api/visits")
+        visits = (his_data or {}).get("visits") or []
+        today_iso = today.isoformat()
+        dated = [
+            v for v in visits
+            if isinstance(v.get("modify_time"), str)
+            and v["modify_time"][:10] == today_iso
+        ]
+        # Mock seed data ships without a modify_time; treat the whole roster as
+        # "today's visitors" in that case so the booth shows a live-looking number.
+        visitors_today = len(dated) if dated else len(visits)
+    except HTTPException:
+        visitors_today = 0
+    except Exception:  # pragma: no cover
+        visitors_today = 0
+
+    return {
+        "date": today.isoformat(),
+        "visitors_today": int(visitors_today or 0),
+        "navigated_today": int(navigated_today or 0),
+        "sessions_today": int(sessions_today or 0),
+    }
+
+
 @app.post("/admin/reviews/{assessment_id}/approve", response_model=AssessmentReviewOut)
 async def approve_assessment_review(
     assessment_id: UUID,
     payload: AssessmentReviewApproveRequest,
+    request: Request,
     admin_user: dict = Depends(require_roles("admin", "super_admin")),
     connection: asyncpg.Connection = Depends(get_connection),
 ):
@@ -1081,6 +1494,8 @@ async def approve_assessment_review(
             confirmed_department_id = COALESCE(confirmed_department_id, proposed_department_id),
             notes = $3,
             ai_assessment_score = $4,
+            chief_complaint = $5,
+            illness_note = $6,
             ai_assessment_scale = 10,
             reviewed_at = NOW(),
             updated_at = NOW()
@@ -1091,6 +1506,8 @@ async def approve_assessment_review(
         admin_user["id"],
         payload.notes,
         payload.ai_assessment_score,
+        payload.chief_complaint,
+        payload.illness_note,
     )
     if row is None:
         raise HTTPException(status_code=404, detail="Assessment review not found")
@@ -1110,6 +1527,17 @@ async def approve_assessment_review(
             "Approved by OPD nurse review",
         )
 
+    await _push_his_routing(
+        request,
+        connection,
+        session_id=row["session_id"],
+        department_id=row["confirmed_department_id"],
+        confirmed_by=str(admin_user.get("email") or admin_user["id"]),
+        rerouted=False,
+        chief_complaint=payload.chief_complaint,
+        illness_note=payload.illness_note,
+    )
+
     return await _serialize_review(connection, assessment_id)
 
 
@@ -1117,6 +1545,7 @@ async def approve_assessment_review(
 async def correct_assessment_review(
     assessment_id: UUID,
     payload: AssessmentReviewCorrectRequest,
+    request: Request,
     admin_user: dict = Depends(require_roles("admin", "super_admin")),
     connection: asyncpg.Connection = Depends(get_connection),
 ):
@@ -1139,6 +1568,8 @@ async def correct_assessment_review(
             confirmed_department_id = $3,
             notes = $4,
             ai_assessment_score = $5,
+            chief_complaint = $6,
+            illness_note = $7,
             ai_assessment_scale = 10,
             reviewed_at = NOW(),
             updated_at = NOW()
@@ -1149,6 +1580,8 @@ async def correct_assessment_review(
         payload.confirmed_department_id,
         payload.reason,
         payload.ai_assessment_score,
+        payload.chief_complaint,
+        payload.illness_note,
     )
 
     await connection.execute(
@@ -1189,6 +1622,17 @@ async def correct_assessment_review(
         None,
         payload.reason,
         payload.reason,
+    )
+
+    await _push_his_routing(
+        request,
+        connection,
+        session_id=review_before["session_id"],
+        department_id=payload.confirmed_department_id,
+        confirmed_by=str(admin_user.get("email") or admin_user["id"]),
+        rerouted=True,
+        chief_complaint=payload.chief_complaint,
+        illness_note=payload.illness_note,
     )
 
     return await _serialize_review(connection, assessment_id)
@@ -1247,14 +1691,14 @@ async def list_routing_feedback(
 async def voice_call(websocket: WebSocket, session_id: str):
     await websocket.accept()
     pool: asyncpg.Pool = websocket.app.state.db_pool
-    live_voice_service: LiveVoiceService = websocket.app.state.live_voice_service
+    live_voice_service = websocket.app.state.live_voice_service  # TurnVoiceService
     requested_language = websocket.query_params.get("language", "en")
     language = requested_language if requested_language in {"en", "th"} else "en"
 
-    # Callbacks forward live transcripts + emergency banner triggers from
-    # the ADK event loop to the frontend over the WS. ``send_*`` may
-    # raise if the client closed the socket mid-send; swallow those so a
-    # disconnect race doesn't crash the pipeline.
+    # Callbacks forward turn transcripts + emergency banner triggers to the
+    # frontend over the WS. ``send_*`` may raise if the client closed the
+    # socket mid-send; swallow those so a disconnect race doesn't crash the
+    # pipeline.
     async def push_transcript(role: str, text: str) -> None:
         try:
             await websocket.send_json(
@@ -1284,6 +1728,24 @@ async def voice_call(websocket: WebSocket, session_id: str):
                 session_id,
             )
 
+    async def push_measurement(payload: dict) -> None:
+        try:
+            await websocket.send_json({"type": "measurement_request", **payload})
+        except Exception:
+            logger.debug(
+                "Failed to push measurement request to %s (likely client closed)",
+                session_id,
+            )
+
+    async def push_options(payload: dict) -> None:
+        try:
+            await websocket.send_json({"type": "question_options", **payload})
+        except Exception:
+            logger.debug(
+                "Failed to push question options to %s (likely client closed)",
+                session_id,
+            )
+
     async with pool.acquire() as conn:
         try:
             await live_voice_service.connect(
@@ -1294,6 +1756,8 @@ async def voice_call(websocket: WebSocket, session_id: str):
                 transcript_callback=push_transcript,
                 emergency_callback=push_emergency,
                 assessment_callback=push_assessment,
+                measurement_callback=push_measurement,
+                options_callback=push_options,
             )
         except ValueError as exc:
             await websocket.close(code=1008, reason=str(exc))
@@ -1375,6 +1839,31 @@ async def voice_call(websocket: WebSocket, session_id: str):
                     await websocket.send_json({"type": "status", "muted": False})
                 elif msg_type == "end_of_turn":
                     live_voice_service.end_user_turn(session_id)
+                    continue
+                elif msg_type == "submit_measurement":
+                    # The temperature-on-demand popup: the client already
+                    # PUT the reading onto the session; drive a text turn so
+                    # its turn_context carries the value and the engine
+                    # continues without waiting for the patient to speak.
+                    content = str(payload.get("content") or "").strip()
+                    if content:
+                        try:
+                            live_voice_service.inject_text_turn(session_id, content)
+                        except ValueError:
+                            return
+                    continue
+                elif msg_type == "tap_reply":
+                    # Quick-reply chip tap — same as submit_measurement: wins
+                    # over whatever the mic is capturing. Tagged "button" so
+                    # the nurse transcript shows how the answer was given.
+                    content = str(payload.get("content") or "").strip()
+                    if content:
+                        try:
+                            live_voice_service.inject_text_turn(
+                                session_id, content, input_mode="button"
+                            )
+                        except ValueError:
+                            return
                     continue
                 elif msg_type == "end_call":
                     return
@@ -1841,47 +2330,6 @@ async def get_surveillance_summary(
     )
 
 
-# ── Hybrid RAG triage endpoint ────────────────────────────────────────────────
-
-class _RagTriageRequest(BaseModel):
-    """Request body for the hybrid RAG triage endpoint."""
-    content: str
-    language: str = "th"
-    session_id: str | None = None
-
-
-@app.post("/triage/rag")
-async def rag_triage(
-    payload: _RagTriageRequest,
-    connection: asyncpg.Connection = Depends(get_connection),
-) -> JSONResponse:
-    """Run the hybrid Rule Engine + RAG triage pipeline.
-
-    Layer 1 evaluates hard rules (no LLM).  Layer 2 queries the official
-    triage manual via pgvector and produces a structured decision.
-    ``requires_nurse_review`` is always ``true``.
-    """
-    from app.services.triage_engine import run_triage
-
-    triggers_rows = await connection.fetch(
-        "SELECT * FROM emergency_triggers WHERE is_active = TRUE ORDER BY priority ASC"
-    )
-    rules_rows = await connection.fetch(
-        "SELECT * FROM routing_rules WHERE is_active = TRUE ORDER BY priority ASC"
-    )
-    patient_input = {
-        "content": payload.content,
-        "language": payload.language,
-        "session_id": payload.session_id or "anonymous",
-    }
-    result = await run_triage(
-        patient_input=patient_input,
-        emergency_triggers=[dict(r) for r in triggers_rows],
-        routing_rules=[dict(r) for r in rules_rows],
-    )
-    return JSONResponse(content=result)
-
-
 # ── Triage manual PDF upload ──────────────────────────────────────────────────
 
 async def _run_ingest_task(
@@ -2020,3 +2468,501 @@ async def get_triage_manual_status(
         "uploaded_at": row["uploaded_at"].isoformat() if row["uploaded_at"] else None,
         "completed_at": row["completed_at"].isoformat() if row["completed_at"] else None,
     })
+
+
+# ── Screening criteria governance (SRS F31-F35) ───────────────────────────────
+#
+# Lifecycle: upload → draft (LLM extraction merges into the active payload in
+# the background) → head-nurse edit (PUT) → submit → approve → activate.
+# Activating retires the current active version in the same transaction;
+# activating a retired version is the rollback path. Sessions pin the version
+# they started with, so activation never changes an in-flight conversation.
+
+CRITERIA_UPLOAD_DIR = "app/data/uploads/criteria"
+CRITERIA_UPLOAD_SUFFIXES = {".pdf", ".txt", ".md", ".csv", ".docx"}
+_CRITERIA_PROCESSING_PREFIX = "Extracting"
+
+
+def _jsonb(value):
+    """asyncpg returns JSONB as str unless a codec is registered."""
+    return json.loads(value) if isinstance(value, str) else value
+
+
+def _criteria_version_summary(row) -> dict:
+    change_summary = row["change_summary"] or ""
+    return {
+        "id": str(row["id"]),
+        "version_no": row["version_no"],
+        "status": row["status"],
+        "change_summary": change_summary,
+        "processing": change_summary.startswith(_CRITERIA_PROCESSING_PREFIX),
+        "uploaded_by": row["uploaded_by"],
+        "reviewed_by": row["reviewed_by"],
+        "created_at": row["created_at"].isoformat() if row["created_at"] else None,
+        "reviewed_at": row["reviewed_at"].isoformat() if row["reviewed_at"] else None,
+        "activated_at": row["activated_at"].isoformat() if row["activated_at"] else None,
+    }
+
+
+async def _active_criteria_payload(conn: asyncpg.Connection) -> dict:
+    """Raw payload of the active version, or the bundled seed on a fresh DB."""
+    row = await conn.fetchrow(
+        "SELECT criteria FROM screening_criteria_versions WHERE status = 'active'"
+    )
+    if row is not None:
+        return _jsonb(row["criteria"])
+    from app.services.screening.rules.criteria_store import SEED_CRITERIA_PATH
+
+    return json.loads(SEED_CRITERIA_PATH.read_text(encoding="utf-8"))
+
+
+async def _run_criteria_extract_task(
+    *,
+    pool: asyncpg.Pool,
+    version_id: str,
+    file_path: str,
+    filename: str,
+) -> None:
+    """Background task: extract rules from the uploaded document into the draft."""
+    from app.services.screening.criteria_upload import extract_criteria_draft
+    from app.services.screening.model_adapter import build_chat_model
+
+    try:
+        async with pool.acquire() as conn:
+            base = await _active_criteria_payload(conn)
+        model = build_chat_model(settings)
+        draft, warnings = await extract_criteria_draft(
+            file_path=file_path,
+            filename=filename,
+            model=model,
+            base_payload=base,
+        )
+        summary = f"Extracted from {filename}"
+        if warnings:
+            summary += f" — {len(warnings)} warning(s): " + "; ".join(warnings[:10])
+        async with pool.acquire() as conn:
+            await conn.execute(
+                """UPDATE screening_criteria_versions
+                      SET criteria = $1::jsonb, change_summary = $2
+                    WHERE id = $3""",
+                json.dumps(draft, ensure_ascii=False),
+                summary[:4000],
+                UUID(version_id),
+            )
+        logger.info("Criteria extraction complete for version %s", version_id)
+    except Exception as exc:
+        logger.exception("Criteria extraction failed for version %s", version_id)
+        try:
+            async with pool.acquire() as conn:
+                await conn.execute(
+                    """UPDATE screening_criteria_versions
+                          SET change_summary = $1 WHERE id = $2""",
+                    f"Extraction failed ({filename}): {exc}"[:2000],
+                    UUID(version_id),
+                )
+        except Exception:
+            logger.exception("Could not record extraction failure for %s", version_id)
+
+
+@app.post("/admin/criteria/upload")
+async def upload_screening_criteria(
+    request: Request,
+    file: UploadFile = File(..., description="Screening criteria document (PDF/TXT/MD/CSV/DOCX)"),
+    connection: asyncpg.Connection = Depends(get_connection),
+    admin_user: dict = Depends(require_roles("super_admin", "admin")),
+) -> JSONResponse:
+    """Upload a screening-criteria document and create a draft version.
+
+    The draft starts as a copy of the currently active criteria; a background
+    LLM extraction merges rules found in the document into it. The draft is
+    then reviewed/edited before submit → approve → activate.
+    """
+    import os
+    from pathlib import Path as _Path
+    from uuid import uuid4
+
+    suffix = _Path(file.filename or "").suffix.lower()
+    if suffix not in CRITERIA_UPLOAD_SUFFIXES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unsupported file type {suffix or '(none)'}; "
+                   f"accepted: {', '.join(sorted(CRITERIA_UPLOAD_SUFFIXES))}",
+        )
+
+    content = await file.read()
+    if not content:
+        raise HTTPException(status_code=400, detail="Uploaded file is empty.")
+    if len(content) > 50 * 1024 * 1024:
+        raise HTTPException(status_code=413, detail="File too large (max 50 MB).")
+
+    os.makedirs(CRITERIA_UPLOAD_DIR, exist_ok=True)
+    save_path = os.path.join(CRITERIA_UPLOAD_DIR, f"{uuid4()}{suffix}")
+    with open(save_path, "wb") as fh:
+        fh.write(content)
+
+    base = await _active_criteria_payload(connection)
+    uploader = admin_user.get("email") or admin_user.get("id") or "unknown"
+    row = await connection.fetchrow(
+        """
+        INSERT INTO screening_criteria_versions
+            (version_no, status, criteria, change_summary, uploaded_by)
+        VALUES (
+            (SELECT COALESCE(MAX(version_no), 0) + 1 FROM screening_criteria_versions),
+            'draft', $1::jsonb, $2, $3
+        )
+        RETURNING id, version_no, created_at
+        """,
+        json.dumps(base, ensure_ascii=False),
+        f"{_CRITERIA_PROCESSING_PREFIX} rules from {file.filename}…",
+        str(uploader),
+    )
+    version_id = str(row["id"])
+
+    pool: asyncpg.Pool = request.app.state.db_pool
+    asyncio.create_task(
+        _run_criteria_extract_task(
+            pool=pool,
+            version_id=version_id,
+            file_path=save_path,
+            filename=file.filename or f"upload{suffix}",
+        )
+    )
+
+    return JSONResponse(
+        status_code=202,
+        content={
+            "id": version_id,
+            "version_no": row["version_no"],
+            "status": "draft",
+            "processing": True,
+            "created_at": row["created_at"].isoformat(),
+            "message": "Upload received. Rule extraction is running in the background.",
+        },
+    )
+
+
+@app.get("/admin/criteria/versions")
+async def list_criteria_versions(
+    _admin_user: dict = Depends(require_roles("super_admin", "admin", "viewer")),
+    connection: asyncpg.Connection = Depends(get_connection),
+):
+    rows = await connection.fetch(
+        """
+        SELECT id, version_no, status, change_summary, uploaded_by, reviewed_by,
+               created_at, reviewed_at, activated_at
+        FROM screening_criteria_versions
+        ORDER BY version_no DESC
+        """
+    )
+    return [_criteria_version_summary(row) for row in rows]
+
+
+@app.get("/admin/criteria/versions/{version_id}")
+async def get_criteria_version_detail(
+    version_id: UUID,
+    _admin_user: dict = Depends(require_roles("super_admin", "admin", "viewer")),
+    connection: asyncpg.Connection = Depends(get_connection),
+):
+    from app.services.screening.criteria_upload import validation_errors
+
+    row = await connection.fetchrow(
+        "SELECT * FROM screening_criteria_versions WHERE id = $1", version_id
+    )
+    if row is None:
+        raise HTTPException(status_code=404, detail="Criteria version not found")
+    payload = _jsonb(row["criteria"])
+    result = _criteria_version_summary(row)
+    result["criteria"] = payload
+    result["validation_errors"] = validation_errors(payload)
+    return result
+
+
+@app.get("/admin/criteria/versions/{version_id}/diff")
+async def diff_criteria_version(
+    version_id: UUID,
+    against: UUID | None = Query(
+        None, description="Version to compare against (default: the active version)"
+    ),
+    _admin_user: dict = Depends(require_roles("super_admin", "admin", "viewer")),
+    connection: asyncpg.Connection = Depends(get_connection),
+):
+    """Section-level diff (added/removed/changed rule ids) vs another version."""
+    from app.services.screening.criteria_upload import diff_criteria
+
+    row = await connection.fetchrow(
+        "SELECT criteria FROM screening_criteria_versions WHERE id = $1", version_id
+    )
+    if row is None:
+        raise HTTPException(status_code=404, detail="Criteria version not found")
+
+    if against is not None:
+        base_row = await connection.fetchrow(
+            "SELECT id, criteria FROM screening_criteria_versions WHERE id = $1",
+            against,
+        )
+        if base_row is None:
+            raise HTTPException(status_code=404, detail="Comparison version not found")
+        base_payload = _jsonb(base_row["criteria"])
+        base_id = str(base_row["id"])
+    else:
+        base_payload = await _active_criteria_payload(connection)
+        base_id = "active"
+
+    return {
+        "version_id": str(version_id),
+        "against": base_id,
+        "diff": diff_criteria(base_payload, _jsonb(row["criteria"])),
+    }
+
+
+@app.put("/admin/criteria/versions/{version_id}")
+async def edit_criteria_version(
+    version_id: UUID,
+    criteria: dict = Body(..., description="Full criteria JSON document"),
+    _admin_user: dict = Depends(require_roles("super_admin", "admin")),
+    connection: asyncpg.Connection = Depends(get_connection),
+):
+    """Replace a draft's criteria JSON (the pressure valve for imperfect extraction).
+
+    Saves even when the document has validation errors — they are returned so
+    the editor can fix them iteratively — but submit/activate require a clean
+    document.
+    """
+    from app.services.screening.criteria_upload import validation_errors
+
+    row = await connection.fetchrow(
+        "SELECT status FROM screening_criteria_versions WHERE id = $1", version_id
+    )
+    if row is None:
+        raise HTTPException(status_code=404, detail="Criteria version not found")
+    if row["status"] not in ("draft", "pending_review"):
+        raise HTTPException(
+            status_code=409,
+            detail=f"Only draft/pending_review versions are editable (status: {row['status']})",
+        )
+
+    await connection.execute(
+        "UPDATE screening_criteria_versions SET criteria = $1::jsonb WHERE id = $2",
+        json.dumps(criteria, ensure_ascii=False),
+        version_id,
+    )
+    errors = validation_errors(criteria)
+    return {"id": str(version_id), "saved": True, "validation_errors": errors}
+
+
+async def _criteria_status_transition(
+    connection: asyncpg.Connection,
+    version_id: UUID,
+    *,
+    from_statuses: tuple[str, ...],
+    to_status: str,
+    reviewer: str | None = None,
+) -> dict:
+    row = await connection.fetchrow(
+        "SELECT status, criteria FROM screening_criteria_versions WHERE id = $1",
+        version_id,
+    )
+    if row is None:
+        raise HTTPException(status_code=404, detail="Criteria version not found")
+    if row["status"] not in from_statuses:
+        raise HTTPException(
+            status_code=409,
+            detail=f"Cannot move {row['status']} → {to_status}; "
+                   f"requires status in {list(from_statuses)}",
+        )
+
+    from app.services.screening.criteria_upload import validation_errors
+
+    errors = validation_errors(_jsonb(row["criteria"]))
+    if errors:
+        raise HTTPException(
+            status_code=422,
+            detail={"message": "Criteria document is invalid", "errors": errors[:20]},
+        )
+
+    if to_status == "active":
+        async with connection.transaction():
+            await connection.execute(
+                """UPDATE screening_criteria_versions
+                      SET status = 'retired' WHERE status = 'active'"""
+            )
+            await connection.execute(
+                """UPDATE screening_criteria_versions
+                      SET status = 'active', activated_at = NOW() WHERE id = $1""",
+                version_id,
+            )
+    elif reviewer is not None:
+        await connection.execute(
+            """UPDATE screening_criteria_versions
+                  SET status = $1, reviewed_by = $2, reviewed_at = NOW()
+                WHERE id = $3""",
+            to_status,
+            reviewer,
+            version_id,
+        )
+    else:
+        await connection.execute(
+            "UPDATE screening_criteria_versions SET status = $1 WHERE id = $2",
+            to_status,
+            version_id,
+        )
+    return {"id": str(version_id), "status": to_status}
+
+
+@app.post("/admin/criteria/versions/{version_id}/submit")
+async def submit_criteria_version(
+    version_id: UUID,
+    _admin_user: dict = Depends(require_roles("super_admin", "admin")),
+    connection: asyncpg.Connection = Depends(get_connection),
+):
+    return await _criteria_status_transition(
+        connection, version_id, from_statuses=("draft",), to_status="pending_review"
+    )
+
+
+@app.post("/admin/criteria/versions/{version_id}/approve")
+async def approve_criteria_version(
+    version_id: UUID,
+    admin_user: dict = Depends(require_roles("super_admin", "admin")),
+    connection: asyncpg.Connection = Depends(get_connection),
+):
+    reviewer = str(admin_user.get("email") or admin_user.get("id") or "unknown")
+    return await _criteria_status_transition(
+        connection,
+        version_id,
+        from_statuses=("pending_review",),
+        to_status="approved",
+        reviewer=reviewer,
+    )
+
+
+@app.post("/admin/criteria/versions/{version_id}/activate")
+async def activate_criteria_version(
+    version_id: UUID,
+    _admin_user: dict = Depends(require_roles("super_admin", "admin")),
+    connection: asyncpg.Connection = Depends(get_connection),
+):
+    """Activate an approved version. Activating a retired version = rollback."""
+    return await _criteria_status_transition(
+        connection,
+        version_id,
+        from_statuses=("approved", "retired"),
+        to_status="active",
+    )
+
+
+@app.get("/admin/ai-metrics")
+async def get_ai_metrics(
+    date_from: str | None = Query(None, alias="from", description="ISO date/datetime lower bound"),
+    date_to: str | None = Query(None, alias="to", description="ISO date/datetime upper bound"),
+    _admin_user: dict = Depends(require_roles("super_admin", "admin", "viewer")),
+    connection: asyncpg.Connection = Depends(get_connection),
+):
+    """Aggregate AI transparency metrics over ai_inference_audit (SRS F40).
+
+    Feeds the head-nurse governance panel: call volumes/ok-rates/latency per
+    LLM call site, dispositions by level and department, validator violation
+    counts, and escalation totals.
+    """
+
+    def _parse_bound(raw: str | None, name: str):
+        if raw is None:
+            return None
+        try:
+            parsed = datetime.fromisoformat(raw)
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=400, detail=f"Invalid {name} datetime: {raw}"
+            ) from exc
+        if parsed.tzinfo is None:
+            parsed = parsed.replace(tzinfo=timezone.utc)
+        return parsed
+
+    bounds = []
+    clauses = []
+    lower = _parse_bound(date_from, "from")
+    if lower is not None:
+        bounds.append(lower)
+        clauses.append(f"created_at >= ${len(bounds)}")
+    upper = _parse_bound(date_to, "to")
+    if upper is not None:
+        bounds.append(upper)
+        clauses.append(f"created_at <= ${len(bounds)}")
+    where = ("WHERE " + " AND ".join(clauses)) if clauses else ""
+
+    call_sites = await connection.fetch(
+        f"""
+        SELECT call_site,
+               COUNT(*) AS calls,
+               COUNT(*) FILTER (WHERE ok) AS ok_calls,
+               ROUND(AVG(latency_ms) FILTER (WHERE latency_ms IS NOT NULL)) AS avg_latency_ms
+        FROM ai_inference_audit
+        {where}
+        GROUP BY call_site
+        ORDER BY call_site
+        """,
+        *bounds,
+    )
+    dispositions = await connection.fetch(
+        f"""
+        SELECT rules_trace->>'level' AS level,
+               rules_trace->>'department_code' AS department_code,
+               COUNT(*) AS count
+        FROM ai_inference_audit
+        {where + (' AND ' if where else 'WHERE ')} call_site = 'disposition'
+        GROUP BY 1, 2
+        ORDER BY 1, 2
+        """,
+        *bounds,
+    )
+    violations = await connection.fetch(
+        f"""
+        SELECT violation, COUNT(*) AS count
+        FROM ai_inference_audit,
+             LATERAL jsonb_array_elements_text(validator_result) AS violation
+        {where + (' AND ' if where else 'WHERE ')}
+            jsonb_typeof(validator_result) = 'array'
+        GROUP BY violation
+        ORDER BY count DESC
+        """,
+        *bounds,
+    )
+    totals_row = await connection.fetchrow(
+        f"""
+        SELECT
+            COUNT(DISTINCT session_id) AS sessions,
+            COUNT(*) FILTER (WHERE call_site = 'escalation') AS escalations,
+            COUNT(*) FILTER (WHERE call_site = 'extraction' AND NOT ok) AS extraction_failures,
+            COUNT(*) FILTER (WHERE call_site = 'disposition') AS dispositions
+        FROM ai_inference_audit
+        {where}
+        """,
+        *bounds,
+    )
+
+    return {
+        "from": lower.isoformat() if lower else None,
+        "to": upper.isoformat() if upper else None,
+        "totals": dict(totals_row) if totals_row else {},
+        "call_sites": [
+            {
+                "call_site": r["call_site"],
+                "calls": r["calls"],
+                "ok_calls": r["ok_calls"],
+                "ok_rate": round(r["ok_calls"] / r["calls"], 4) if r["calls"] else None,
+                "avg_latency_ms": int(r["avg_latency_ms"]) if r["avg_latency_ms"] is not None else None,
+            }
+            for r in call_sites
+        ],
+        "dispositions": [
+            {
+                "level": int(r["level"]) if r["level"] is not None else None,
+                "department_code": r["department_code"],
+                "count": r["count"],
+            }
+            for r in dispositions
+        ],
+        "validator_violations": [
+            {"violation": r["violation"], "count": r["count"]} for r in violations
+        ],
+    }

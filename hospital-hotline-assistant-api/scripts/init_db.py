@@ -2,8 +2,9 @@
 
 Run with: ``uv run python scripts/init_db.py``.
 
-What it does, in order:
+Readies BOTH databases the demo needs, in one command:
 
+**Postgres** (our database):
 1. Connects to the cluster pointed at by ``DATABASE_URL`` (defaults to
    ``postgresql://postgres:postgres@localhost:5432/hospital_hotline``).
 2. If the target database does not exist, creates it via the ``postgres``
@@ -13,17 +14,26 @@ What it does, in order:
 4. Applies every ``migrations/NNN_*.sql`` file in lexicographic order
    inside a single transaction per file, then records it in
    ``schema_migrations``.  Already-recorded files are skipped.
-5. Prints a summary of tables, plus the row counts for the seed tables
-   (``departments``, ``emergency_triggers``, ``routing_rules``) so the
-   operator can verify before running the demo.
+5. Seeds screening-criteria v1 (idempotent — same as
+   ``seed_screening_criteria.py``) so the criteria-governance UI shows an
+   active version. The engine also falls back to the bundled JSON, so this
+   is a convenience, not a hard requirement.
+6. Prints a summary of tables + seed-table row counts.
+
+**Mock hospital DB (HIS, SQLite)**: a separate service that auto-seeds its
+own SQLite on startup, so there is nothing to create here — this script just
+health-checks it (``HIS_BASE_URL``, default ``http://localhost:8001``) and
+reports whether it is up and seeded, so one run confirms both databases.
 """
 
 from __future__ import annotations
 
 import asyncio
+import json
 import os
 import pathlib
 import sys
+import urllib.request
 
 import asyncpg
 
@@ -142,6 +152,37 @@ async def count_rows(conn: asyncpg.Connection, table: str) -> int | None:
         return None
 
 
+async def seed_criteria() -> None:
+    """Seed screening-criteria v1 (reuses seed_screening_criteria.main).
+
+    Runs after migrations so the screening_criteria_versions table exists.
+    Non-fatal: the engine falls back to the bundled JSON if this fails."""
+    try:
+        sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+        import seed_screening_criteria  # scripts/ is on sys.path[0]
+
+        await seed_screening_criteria.main()
+    except Exception as exc:  # noqa: BLE001 - best-effort convenience step
+        print(f"  WARNING: criteria seed skipped ({exc})")
+
+
+def check_his_mock() -> None:
+    """Health-check the mock hospital HIS (separate SQLite service).
+
+    It auto-seeds itself, so we only confirm it's reachable + seeded."""
+    base = os.getenv("HIS_BASE_URL", "http://localhost:8001").rstrip("/")
+    key = os.getenv("HIS_API_KEY", "demo-his-key")
+    req = urllib.request.Request(f"{base}/api/visits", headers={"X-API-Key": key})
+    try:
+        with urllib.request.urlopen(req, timeout=3) as resp:  # noqa: S310 - local demo URL
+            data = json.load(resp)
+        count = len(data.get("visits", []))
+        print(f"  reachable at {base}: {count} visit(s) seeded")
+    except Exception as exc:  # noqa: BLE001
+        print(f"  NOT reachable at {base} ({exc}).")
+        print("  Start the databases with:  docker compose up -d")
+
+
 async def main() -> int:
     if not await ensure_database():
         return 1
@@ -179,7 +220,13 @@ async def main() -> int:
     finally:
         await conn.close()
 
-    print("\nDB is ready. Start the API with: uv run uvicorn app.main:app --reload")
+    print("\nSeeding screening criteria v1 (Postgres):")
+    await seed_criteria()
+
+    print("\nMock hospital DB (HIS, SQLite):")
+    check_his_mock()
+
+    print("\nPostgres is ready. Start the API with: uv run uvicorn app.main:app --reload")
     return 0
 
 

@@ -376,9 +376,12 @@ export function PatientIdPass({
   const [statusText, setStatusText] = useState<string | null>(null);
 
   const visitId = useMemo(() => shortVisitId(sessionId), [sessionId]);
-  const severityText = assessment?.severity
-    ? t(`severity_${assessment.severity.level}`)
-    : undefined;
+  // Never surface the triage level to patients — the pass shows the
+  // destination department only (level 'unknown' = redacted by the backend).
+  const severityText =
+    assessment?.severity && assessment.severity.level !== 'unknown'
+      ? t(`severity_${assessment.severity.level}`)
+      : undefined;
   const departmentText = assessment?.department?.name ?? null;
 
   const actionLabel = isPhone ? t('patientIdSaveGallery') : t('patientIdDownload');

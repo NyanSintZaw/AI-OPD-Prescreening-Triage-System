@@ -1,0 +1,81 @@
+{
+  "departments": [
+    {
+      "code": "emergency",
+      "name": "Emergency Department",
+      "name_th": "แผนก ER (อุบัติเหตุและฉุกเฉิน)",
+      "kind": "emergency",
+      "symptoms": ["chest pain", "difficulty breathing", "unconscious", "severe bleeding", "stroke"]
+    },
+    {
+      "code": "opd_general",
+      "name": "OPD General Practice",
+      "name_th": "แผนก OPD GP (ทั่วไป ชั้น1)",
+      "kind": "opd",
+      "symptoms": ["fever", "cold", "cough", "fatigue", "general checkup"]
+    },
+    {
+      "code": "opd_internal_medicine",
+      "name": "OPD Internal Medicine",
+      "name_th": "แผนก OPD MED (อายุรกรรม)",
+      "kind": "opd",
+      "symptoms": ["dizziness", "headache", "high blood pressure", "diabetes follow-up", "abdominal discomfort"]
+    },
+    {
+      "code": "opd_pediatrics",
+      "name": "OPD Pediatrics",
+      "name_th": "แผนก OPD PEDIATRIC (กุมารเวชกรรม)",
+      "kind": "opd",
+      "symptoms": ["child fever", "child vomiting", "infant care", "growth concerns"]
+    },
+    {
+      "code": "opd_cardiology",
+      "name": "OPD Cardiology",
+      "name_th": "แผนก OPD HEART (หน่วยตรวจหัวใจและหลอดเลือด)",
+      "kind": "opd",
+      "symptoms": ["heart palpitations", "chest tightness", "hypertension", "irregular heartbeat"]
+    },
+    {
+      "code": "opd_orthopedics",
+      "name": "OPD Orthopedics",
+      "name_th": "แผนก OPD ORTHOPEDIC (โรคกระดูกและข้อ)",
+      "kind": "opd",
+      "symptoms": ["joint pain", "broken bone", "back pain", "muscle injury", "swelling"]
+    },
+    {
+      "code": "opd_ent",
+      "name": "OPD ENT (Ear, Nose, Throat)",
+      "name_th": "แผนก OPD E.N.T (หู คอ จมูก)",
+      "kind": "opd",
+      "symptoms": ["ear pain", "sore throat", "sinus", "hearing loss", "nosebleed"]
+    },
+    {
+      "code": "opd_surgery",
+      "name": "OPD Surgery",
+      "name_th": "แผนก OPD SURGICAL (ศัลยศาสตร์)",
+      "kind": "opd",
+      "symptoms": ["breast lump", "abdominal mass", "hemorrhoids", "chronic wound", "keloid scar", "varicose veins"]
+    },
+    {
+      "code": "opd_ophthalmology",
+      "name": "OPD Ophthalmology",
+      "name_th": "แผนก OPD EYE (ตา)",
+      "kind": "opd",
+      "symptoms": ["blurred vision", "red eye", "eye pain", "eye injury"]
+    },
+    {
+      "code": "opd_psychiatry",
+      "name": "OPD Psychiatry",
+      "name_th": "แผนก จิตเวช",
+      "kind": "opd",
+      "symptoms": ["depression", "anxiety", "hearing voices", "severe stress", "insomnia"]
+    },
+    {
+      "code": "opd_obgyn",
+      "name": "OPD Obstetrics & Gynecology",
+      "name_th": "แผนก OPD OB-GYN (สูติ-นรีเวชกรรม)",
+      "kind": "opd",
+      "symptoms": ["pregnancy", "vaginal bleeding", "pelvic pain", "irregular period"]
+    }
+  ]
+}

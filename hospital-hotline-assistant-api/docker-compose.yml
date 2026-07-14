@@ -2,7 +2,9 @@ version: '3.8'
 
 services:
   postgres:
-    image: postgres:16-alpine
+    # pgvector image (Postgres 16 + the `vector` extension) — required by the
+    # RAG index for the triage-manual embeddings. Plain postgres:16 lacks it.
+    image: pgvector/pgvector:pg16
     container_name: hospital_hotline_db
     restart: unless-stopped
     environment:

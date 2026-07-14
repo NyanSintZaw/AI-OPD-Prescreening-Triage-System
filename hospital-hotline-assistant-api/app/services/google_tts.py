@@ -39,6 +39,22 @@ def _ensure_credentials_env() -> None:
         os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = cred_path
 
 
+def strip_wav_header(audio: bytes) -> bytes:
+    """Return the raw PCM frames of a WAV payload.
+
+    Cloud TTS LINEAR16 responses arrive as a full WAV file; the voice
+    WebSocket protocol streams headerless PCM, so the container must go.
+    """
+
+    if not audio.startswith(b"RIFF"):
+        return audio
+    data_index = audio.find(b"data")
+    if data_index == -1:
+        return audio
+    # "data" chunk = 4-byte id + 4-byte size, then the PCM frames.
+    return audio[data_index + 8:]
+
+
 class GoogleTtsClient:
     """Thin wrapper around Cloud Text-to-Speech."""
 
@@ -53,8 +69,20 @@ class GoogleTtsClient:
             self._client = tts.TextToSpeechClient()
         return self._client
 
-    async def synthesize(self, *, text: str, language: str) -> bytes:
-        """Synthesize speech. Returns raw MP3 bytes.
+    async def synthesize(
+        self,
+        *,
+        text: str,
+        language: str,
+        audio_encoding: str = "mp3",
+        sample_rate_hertz: int | None = None,
+    ) -> bytes:
+        """Synthesize speech.
+
+        ``audio_encoding="mp3"`` (default) returns MP3 bytes for the REST
+        ``/tts`` playback path. ``audio_encoding="linear16"`` returns raw
+        headerless PCM frames at ``sample_rate_hertz`` for the turn-based
+        voice bridge, which streams PCM over the voice WebSocket.
 
         Raises RuntimeError on configuration / API failure.
         """
@@ -64,9 +92,17 @@ class GoogleTtsClient:
 
         voice_cfg = _VOICE_BY_LANGUAGE.get(language) or _VOICE_BY_LANGUAGE["en"]
 
-        return await asyncio.to_thread(self._synthesize_sync, text, voice_cfg)
+        return await asyncio.to_thread(
+            self._synthesize_sync, text, voice_cfg, audio_encoding, sample_rate_hertz
+        )
 
-    def _synthesize_sync(self, text: str, voice_cfg: dict[str, str]) -> bytes:
+    def _synthesize_sync(
+        self,
+        text: str,
+        voice_cfg: dict[str, str],
+        audio_encoding: str = "mp3",
+        sample_rate_hertz: int | None = None,
+    ) -> bytes:
         try:
             from google.cloud import texttospeech_v1 as tts
         except ImportError as exc:
@@ -82,11 +118,18 @@ class GoogleTtsClient:
             language_code=voice_cfg["language_code"],
             name=voice_cfg["name"],
         )
-        audio_config = tts.AudioConfig(
-            audio_encoding=tts.AudioEncoding.MP3,
-            speaking_rate=1.0,
-            pitch=0.0,
-        )
+        config_kwargs: dict[str, object] = {
+            "audio_encoding": (
+                tts.AudioEncoding.LINEAR16
+                if audio_encoding == "linear16"
+                else tts.AudioEncoding.MP3
+            ),
+            "speaking_rate": 1.0,
+            "pitch": 0.0,
+        }
+        if sample_rate_hertz is not None:
+            config_kwargs["sample_rate_hertz"] = sample_rate_hertz
+        audio_config = tts.AudioConfig(**config_kwargs)
 
         try:
             response = client.synthesize_speech(
@@ -98,4 +141,7 @@ class GoogleTtsClient:
             logger.exception("Cloud TTS synthesize_speech failed")
             raise RuntimeError(f"Cloud TTS error: {exc}") from exc
 
-        return bytes(response.audio_content)
+        audio = bytes(response.audio_content)
+        if audio_encoding == "linear16":
+            audio = strip_wav_header(audio)
+        return audio
