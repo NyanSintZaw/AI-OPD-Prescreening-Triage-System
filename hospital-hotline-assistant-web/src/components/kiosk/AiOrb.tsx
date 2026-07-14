@@ -1,5 +1,5 @@
 import { motion, useReducedMotion } from 'framer-motion';
-import { Mic, Sparkles } from 'lucide-react';
+import { Microphone, Sparkle } from '@phosphor-icons/react';
 import type { VoiceCallState } from '../../hooks/useVoiceCall';
 
 export type OrbState = VoiceCallState | 'idle';
@@ -84,9 +84,9 @@ export function AiOrb({ state, size = 132 }: AiOrbProps) {
             ))}
           </div>
         ) : listening ? (
-          <Mic size={iconSize} strokeWidth={2.2} aria-hidden="true" />
+          <Microphone size={iconSize} weight="duotone" aria-hidden="true" />
         ) : (
-          <Sparkles size={iconSize} strokeWidth={2} aria-hidden="true" />
+          <Sparkle size={iconSize} weight="duotone" aria-hidden="true" />
         )}
       </motion.div>
     </div>

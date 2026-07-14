@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { Languages, X } from 'lucide-react';
+import { Translate, X } from '@phosphor-icons/react';
 import type { AppLanguage } from '../../i18n/resources';
 
 interface LanguageSelectProps {
@@ -25,7 +25,7 @@ export function LanguageSelect({ onSelect, busy, onExit }: LanguageSelectProps) 
         style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14 }}
       >
         <span className="k-status-chip">
-          <Languages size={18} aria-hidden="true" />
+          <Translate size={18} weight="duotone" aria-hidden="true" />
           ภาษา · Language
         </span>
         <h2 className="k-langselect-title">
@@ -76,7 +76,7 @@ export function LanguageSelect({ onSelect, busy, onExit }: LanguageSelectProps) 
           transition={{ duration: 0.4, delay: 0.24, ease: 'easeOut' }}
           whileTap={{ scale: 0.97 }}
         >
-          <X size={22} aria-hidden="true" />
+          <X size={22} weight="bold" aria-hidden="true" />
           ออก · Exit
         </motion.button>
       )}

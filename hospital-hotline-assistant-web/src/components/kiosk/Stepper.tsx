@@ -1,6 +1,6 @@
 import { Fragment } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Check } from 'lucide-react';
+import { Check } from '@phosphor-icons/react';
 
 export type KioskStep = 0 | 1 | 2;
 
@@ -21,7 +21,7 @@ export function Stepper({ current }: { current: KioskStep }) {
             {i > 0 && <span className="k-step-line" aria-hidden="true" />}
             <span className={`k-step ${state}`}>
               <span className="k-step-dot" aria-hidden="true">
-                {i < current ? <Check size={18} strokeWidth={3} /> : i + 1}
+                {i < current ? <Check size={18} weight="bold" /> : i + 1}
               </span>
               <span className="k-step-label">{label}</span>
             </span>

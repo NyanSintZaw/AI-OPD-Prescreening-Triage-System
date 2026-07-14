@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { AnimatePresence, motion } from 'framer-motion';
-import { ArrowRight, Camera, Delete, Keyboard, Mic, ScanLine } from 'lucide-react';
+import { ArrowRight, Backspace, Camera, Keyboard, Microphone, Scan } from '@phosphor-icons/react';
 import type { AppLanguage } from '../../i18n/resources';
 import { useVoiceVisitId } from '../../hooks/useVoiceVisitId';
 import { QrScanner } from './QrScanner';
@@ -112,7 +112,7 @@ export function VisitIdCapture({
               setCameraOn(false);
             }}
           >
-            <Keyboard size={22} aria-hidden="true" /> {t('kioskVisitTabType')}
+            <Keyboard size={22} weight="duotone" aria-hidden="true" /> {t('kioskVisitTabType')}
           </button>
           <button
             type="button"
@@ -121,7 +121,7 @@ export function VisitIdCapture({
             className={tab === 'scan' ? 'active' : ''}
             onClick={() => setTab('scan')}
           >
-            <ScanLine size={22} aria-hidden="true" /> {t('kioskVisitTabScan')}
+            <Scan size={22} weight="duotone" aria-hidden="true" /> {t('kioskVisitTabScan')}
           </button>
           <button
             type="button"
@@ -133,7 +133,7 @@ export function VisitIdCapture({
               setCameraOn(false);
             }}
           >
-            <Mic size={22} aria-hidden="true" /> {t('kioskVisitTabVoice')}
+            <Microphone size={22} weight="duotone" aria-hidden="true" /> {t('kioskVisitTabVoice')}
           </button>
         </div>
 
@@ -200,7 +200,7 @@ export function VisitIdCapture({
                   onClick={backspace}
                   aria-label={t('kioskVisitKeypadBackspace')}
                 >
-                  <Delete size={24} aria-hidden="true" />
+                  <Backspace size={24} weight="bold" aria-hidden="true" />
                 </button>
               </motion.div>
             )}
@@ -229,7 +229,7 @@ export function VisitIdCapture({
                   </>
                 ) : (
                   <>
-                    <ScanLine size={54} strokeWidth={1.6} color="var(--k-primary)" aria-hidden="true" />
+                    <Scan size={54} weight="duotone" color="var(--k-primary)" aria-hidden="true" />
                     <p className="k-method-hint">{t('kioskVisitScanHint')}</p>
                     <button
                       type="button"
@@ -239,7 +239,7 @@ export function VisitIdCapture({
                         setCameraOn(true);
                       }}
                     >
-                      <Camera size={22} aria-hidden="true" /> {t('kioskVisitScanCamera')}
+                      <Camera size={22} weight="bold" aria-hidden="true" /> {t('kioskVisitScanCamera')}
                     </button>
                     {cameraError && <p className="k-error">{t('kioskCameraDenied')}</p>}
                   </>
@@ -266,7 +266,7 @@ export function VisitIdCapture({
                   disabled={voice.state === 'processing'}
                   aria-label={t('kioskVisitTabVoice')}
                 >
-                  <Mic size={46} strokeWidth={2.2} aria-hidden="true" />
+                  <Microphone size={46} weight="duotone" aria-hidden="true" />
                 </button>
                 <p className="k-method-hint">
                   {voice.state === 'recording'
@@ -297,7 +297,7 @@ export function VisitIdCapture({
               />
             ) : (
               <>
-                {t('kioskVisitConfirm')} <ArrowRight size={26} aria-hidden="true" />
+                {t('kioskVisitConfirm')} <ArrowRight size={26} weight="bold" aria-hidden="true" />
               </>
             )}
           </button>

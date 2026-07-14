@@ -5,21 +5,21 @@ import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import {
   ArrowRight,
   Brain,
-  ClipboardList,
-  Clock3,
-  HeartPulse,
+  ChatsCircle,
+  ClipboardText,
+  Heartbeat,
   Hospital,
-  Languages,
-  Map as MapIcon,
-  MessagesSquare,
-  Mic,
-  Navigation,
+  MapTrifold,
+  Microphone,
+  NavigationArrow,
   Printer,
   Stethoscope,
   Thermometer,
-  Users,
+  Timer,
+  Translate,
+  UsersThree,
   X,
-} from 'lucide-react';
+} from '@phosphor-icons/react';
 import { KioskFrame } from '../components/kiosk/KioskFrame';
 import { StatCounter } from '../components/kiosk/StatCounter';
 import { HospitalMapViewer } from '../components/HospitalMapViewer';
@@ -62,36 +62,39 @@ export function KioskHome() {
   };
 
   const howSteps = [
-    { icon: <Mic size={28} strokeWidth={2.2} />, name: t('kioskHow1'), sub: t('kioskHow1Sub') },
-    { icon: <Brain size={28} strokeWidth={2.2} />, name: t('kioskHow2'), sub: t('kioskHow2Sub') },
-    { icon: <Hospital size={28} strokeWidth={2.2} />, name: t('kioskHow3'), sub: t('kioskHow3Sub') },
+    { icon: <Microphone size={28} weight="duotone" />, name: t('kioskHow1'), sub: t('kioskHow1Sub') },
+    { icon: <Brain size={28} weight="duotone" />, name: t('kioskHow2'), sub: t('kioskHow2Sub') },
+    { icon: <Hospital size={28} weight="duotone" />, name: t('kioskHow3'), sub: t('kioskHow3Sub') },
   ];
 
   const featChips = [
-    { icon: <Mic size={18} />, label: t('kioskFeatVoice') },
-    { icon: <Languages size={18} />, label: t('kioskFeatLang') },
-    { icon: <Clock3 size={18} />, label: t('kioskFeatTime') },
-    { icon: <Printer size={18} />, label: t('kioskFeatSlip') },
+    { icon: <Microphone size={18} weight="duotone" />, label: t('kioskFeatVoice') },
+    { icon: <Translate size={18} weight="duotone" />, label: t('kioskFeatLang') },
+    { icon: <Timer size={18} weight="duotone" />, label: t('kioskFeatTime') },
+    { icon: <Printer size={18} weight="duotone" />, label: t('kioskFeatSlip') },
   ];
 
   return (
     <KioskFrame language={language} onLanguageChange={setLanguage}>
       {/* Ambient floating icons on the canvas edges (decorative only). */}
       <div className="k-floats" aria-hidden="true">
-        <Stethoscope className="k-float-ico" size={64} style={{ top: '12%', left: '4%' }} />
-        <HeartPulse
+        <Stethoscope className="k-float-ico" size={64} weight="duotone" style={{ top: '12%', left: '4%' }} />
+        <Heartbeat
           className="k-float-ico"
           size={56}
+          weight="duotone"
           style={{ top: '64%', left: '9%', animationDelay: '1.6s' }}
         />
         <Thermometer
           className="k-float-ico"
           size={52}
+          weight="duotone"
           style={{ top: '18%', right: '6%', animationDelay: '0.9s' }}
         />
-        <ClipboardList
+        <ClipboardText
           className="k-float-ico"
           size={60}
+          weight="duotone"
           style={{ top: '70%', right: '4%', animationDelay: '2.4s' }}
         />
       </div>
@@ -155,12 +158,12 @@ export function KioskHome() {
                   animate={reduce ? undefined : { x: [0, 7, 0] }}
                   transition={{ duration: 1.6, repeat: Infinity, ease: 'easeInOut' }}
                 >
-                  <ArrowRight size={30} strokeWidth={2.4} />
+                  <ArrowRight size={30} weight="bold" />
                 </motion.span>
               </motion.button>
 
               <button type="button" className="k-btn secondary" onClick={() => setShowMap(true)}>
-                <MapIcon size={24} strokeWidth={2.2} aria-hidden="true" />
+                <MapTrifold size={24} weight="duotone" aria-hidden="true" />
                 {t('kioskViewMap')}
               </button>
             </div>
@@ -193,19 +196,19 @@ export function KioskHome() {
               <StatCounter
                 value={stats.visitors_today}
                 label={t('kioskStatVisitors')}
-                icon={<Users size={24} strokeWidth={2.2} />}
+                icon={<UsersThree size={26} weight="duotone" />}
                 accent="blue"
               />
               <StatCounter
                 value={stats.navigated_today}
                 label={t('kioskStatNavigated')}
-                icon={<Navigation size={24} strokeWidth={2.2} />}
+                icon={<NavigationArrow size={24} weight="duotone" />}
                 accent="green"
               />
               <StatCounter
                 value={stats.sessions_today}
                 label={t('kioskStatSessions')}
-                icon={<MessagesSquare size={24} strokeWidth={2.2} />}
+                icon={<ChatsCircle size={26} weight="duotone" />}
                 accent="amber"
               />
             </div>
@@ -219,7 +222,7 @@ export function KioskHome() {
           <div className="k-overlay-head">
             <span className="k-overlay-title">{t('kioskViewMap')}</span>
             <button type="button" className="k-exit" onClick={() => setShowMap(false)}>
-              <X size={20} aria-hidden="true" />
+              <X size={20} weight="bold" aria-hidden="true" />
               {t('kioskClose')}
             </button>
           </div>

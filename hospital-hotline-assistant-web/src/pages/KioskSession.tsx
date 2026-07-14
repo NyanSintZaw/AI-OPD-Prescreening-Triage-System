@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { AnimatePresence, motion } from 'framer-motion';
-import { CheckCircle2, HeartHandshake, Home, Printer } from 'lucide-react';
+import { CheckCircle, HandHeart, HouseLine, Printer } from '@phosphor-icons/react';
 import { api } from '../api';
 import { KioskFrame } from '../components/kiosk/KioskFrame';
 import { Stepper, type KioskStep } from '../components/kiosk/Stepper';
@@ -240,7 +240,7 @@ export function KioskSession() {
               animate={{ scale: 1, opacity: 1 }}
               transition={{ type: 'spring', stiffness: 280, damping: 18, delay: 0.1 }}
             >
-              <HeartHandshake size={52} strokeWidth={1.8} aria-hidden="true" />
+              <HandHeart size={52} weight="duotone" aria-hidden="true" />
             </motion.span>
             <h2 className="k-hello-name">
               {patientName
@@ -277,7 +277,7 @@ export function KioskSession() {
               <div className="k-hello" style={{ height: '100%', justifyContent: 'center' }}>
                 <p className="k-hello-lead">{t('callNotSupported')}</p>
                 <button type="button" className="k-btn primary" onClick={resetToHome}>
-                  <Home size={22} aria-hidden="true" /> {t('kioskResultFinish')}
+                  <HouseLine size={22} weight="bold" aria-hidden="true" /> {t('kioskResultFinish')}
                 </button>
               </div>
             )}
@@ -293,7 +293,7 @@ export function KioskSession() {
                 transition={{ type: 'spring', stiffness: 300, damping: 18 }}
                 style={{ display: 'grid', placeItems: 'center' }}
               >
-                <CheckCircle2 size={46} strokeWidth={2} aria-hidden="true" />
+                <CheckCircle size={46} weight="duotone" aria-hidden="true" />
               </motion.span>
               <div>
                 <h2>{t('kioskResultTitle')}</h2>
@@ -313,10 +313,10 @@ export function KioskSession() {
                 className="k-btn secondary"
                 onClick={() => sessionId && openPatientSlip(sessionId)}
               >
-                <Printer size={22} aria-hidden="true" /> {t('kioskResultPrint')}
+                <Printer size={22} weight="duotone" aria-hidden="true" /> {t('kioskResultPrint')}
               </button>
               <button type="button" className="k-btn primary xl" onClick={resetToHome}>
-                <Home size={24} aria-hidden="true" /> {t('kioskResultFinish')}
+                <HouseLine size={24} weight="bold" aria-hidden="true" /> {t('kioskResultFinish')}
               </button>
             </div>
           </motion.div>

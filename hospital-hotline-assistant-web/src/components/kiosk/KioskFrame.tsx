@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { X } from 'lucide-react';
+import { X } from '@phosphor-icons/react';
 import type { AppLanguage } from '../../i18n/resources';
 import mfuMonogram from '../../assets/mfu-monogram.png';
 
@@ -68,7 +68,7 @@ export function KioskFrame({
           </div>
           {onExit && (
             <button type="button" className="k-exit" onClick={onExit}>
-              <X size={20} aria-hidden="true" />
+              <X size={20} weight="bold" aria-hidden="true" />
               {t('kioskExit')}
             </button>
           )}

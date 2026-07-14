@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Check, PhoneOff, Sparkles } from 'lucide-react';
+import { Check, PhoneSlash, Sparkle } from '@phosphor-icons/react';
 import type { AppLanguage } from '../../i18n/resources';
 import type { VoiceCallState } from '../../hooks/useVoiceCall';
 import { AiOrb } from './AiOrb';
@@ -114,7 +114,7 @@ export function ConversationStage({
         {/* Assistant speech card */}
         <div className="k-speech">
           <div className="k-speech-label">
-            <Sparkles size={16} aria-hidden="true" />
+            <Sparkle size={16} weight="duotone" aria-hidden="true" />
             {t('kioskAssistantLabel')}
           </div>
           <AnimatePresence mode="wait">
@@ -202,12 +202,12 @@ export function ConversationStage({
               }
               transition={isListening ? { duration: 1.8, repeat: Infinity } : {}}
             >
-              <Check size={28} strokeWidth={2.6} aria-hidden="true" />
+              <Check size={28} weight="bold" aria-hidden="true" />
               {doneLabel}
             </motion.button>
 
             <button type="button" className="k-btn danger-ghost" onClick={onEnd}>
-              <PhoneOff size={22} aria-hidden="true" />
+              <PhoneSlash size={22} weight="bold" aria-hidden="true" />
               {t('kioskEndConversation')}
             </button>
           </div>
