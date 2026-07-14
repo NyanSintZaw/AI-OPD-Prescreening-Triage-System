@@ -32,7 +32,8 @@ _EXPLAIN_PROMPT = {
         "Send the patient to: {department}\n"
         "{urgency_line}"
         "{reference}"
-        "Close warmly (e.g. wish them well); do NOT ask any follow-up question."
+        "Close warmly (e.g. wish them well). Do NOT ask any medical follow-up; "
+        "a separate system step will offer to note a message for the doctor."
     ),
     "th": (
         "คุณเป็นผู้ช่วยคัดกรองของโรงพยาบาล พูดภาษาไทยอย่างอบอุ่นและใจเย็น "
@@ -43,7 +44,8 @@ _EXPLAIN_PROMPT = {
         "ให้ผู้ป่วยไปที่: {department}\n"
         "{urgency_line}"
         "{reference}"
-        "ปิดท้ายอย่างอบอุ่น (เช่น อวยพรให้หายไว ๆ) ห้ามถามคำถามใด ๆ เพิ่มเติม"
+        "ปิดท้ายอย่างอบอุ่น ห้ามถามคำถามทางการแพทย์เพิ่ม "
+        "ระบบจะถามเองว่าต้องการฝากข้อความถึงคุณหมอหรือไม่"
     ),
 }
 
@@ -146,10 +148,31 @@ def make_explain_node(deps: GraphDeps):
                 "violations": violations_seen,
             })
 
+        # Non-emergency: append the follow-up offer and stay open for one more
+        # turn. Emergency (level ≤ 2) skips follow-up — flow is complete now.
+        reply_options: list[dict[str, str]] = []
+        flow_complete = True
+        if is_emergency:
+            state.phase = "disposed"
+        else:
+            offer = templates.FOLLOW_UP_OFFER[language]
+            reply = f"{reply.rstrip()} {offer}".strip()
+            state.phase = "follow_up"
+            flow_complete = False
+            reply_options = list(
+                templates.YES_NO_OPTIONS.get(language, templates.YES_NO_OPTIONS["en"])
+            )
+
         return {
             "s": state,
             "audit": audit,
-            "output": TurnOutput(reply=reply, classification=classification),
+            "output": TurnOutput(
+                reply=reply,
+                classification=classification,
+                reply_options=reply_options,
+                flow_complete=flow_complete,
+                post_disposition=False,
+            ),
         }
 
     return explain

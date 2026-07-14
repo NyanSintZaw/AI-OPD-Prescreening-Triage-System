@@ -76,6 +76,7 @@ class HttpHisAdapter:
         return VisitInfo(
             visit_id=data.get("visit_id", visit_id),
             patient_id=data.get("hn"),
+            patient_name=data.get("patient_name"),
             is_active=True,
             birthdate=birthdate,
             age_years=_age_from_birthdate(birthdate),
@@ -100,6 +101,21 @@ class HttpHisAdapter:
         if resp is None or resp.status_code not in (200, 201):
             logger.warning(
                 "[HIS] push_referral visit=%s → %s",
+                visit_id,
+                None if resp is None else resp.status_code,
+            )
+            return False
+        return True
+
+    async def push_follow_up(self, visit_id: str, follow_up: str) -> bool:
+        resp = await self._request(
+            "PUT",
+            f"/api/visits/{visit_id}/follow-up",
+            json={"follow_up": follow_up},
+        )
+        if resp is None or resp.status_code != 200:
+            logger.warning(
+                "[HIS] push_follow_up visit=%s → %s",
                 visit_id,
                 None if resp is None else resp.status_code,
             )

@@ -44,6 +44,72 @@ VOICE_GREETING = {
     "th": "สวัสดีค่ะ ระบบผู้ช่วยคัดกรองของโรงพยาบาลค่ะ วันนี้มีอาการอะไรให้ช่วยดูแลคะ",
 }
 
+# Personalized variant once the visit link gives us the patient's name; used
+# as the persisted first chat message AND the spoken call greeting.
+GREETING_NAMED = {
+    "en": (
+        "Hello {name}, welcome — I'm the hospital screening assistant. "
+        "What symptoms bring you in today?"
+    ),
+    "th": (
+        "สวัสดีค่ะ คุณ{name} ยินดีต้อนรับค่ะ "
+        "ดิฉันเป็นผู้ช่วยคัดกรองของโรงพยาบาลค่ะ วันนี้มีอาการอะไรให้ช่วยดูแลคะ"
+    ),
+}
+
+
+def greeting_line(name: str | None, language: str) -> str:
+    """Greeting + intake ask; personalized when the HIS gave us a name."""
+    clean = (name or "").strip()
+    if clean:
+        return GREETING_NAMED.get(language, GREETING_NAMED["en"]).format(name=clean)
+    return VOICE_GREETING.get(language, VOICE_GREETING["en"])
+
+
+FOLLOW_UP_OFFER = {
+    "en": (
+        "Before you go — is there anything you'd like to ask or tell the doctor? "
+        "I'll note it for them."
+    ),
+    "th": (
+        "ก่อนไปนะคะ มีอะไรอยากถามหรืออยากบอกคุณหมอไหมคะ "
+        "ดิฉันจะจดไว้ให้ค่ะ"
+    ),
+}
+
+FOLLOW_UP_PROMPT = {
+    "en": "What would you like the doctor to know?",
+    "th": "อยากบอกคุณหมอว่าอะไรคะ?",
+}
+
+FOLLOW_UP_ACK = {
+    "en": "Got it — I've noted that for the doctor. Please proceed to {department}.",
+    "th": "รับทราบค่ะ ดิฉันจดไว้ให้คุณหมอแล้ว กรุณาไปที่{department}นะคะ",
+}
+
+FOLLOW_UP_CLOSE = {
+    "en": "Alright — please proceed to {department}. Take care.",
+    "th": "ได้ค่ะ กรุณาไปที่{department}นะคะ ดูแลตัวเองด้วยนะคะ",
+}
+
+# Closing chip on per-finding red-flag choices; the extractor maps it to
+# "all of the pending question's findings absent".
+NONE_OF_THESE = {
+    "en": "None of these",
+    "th": "ไม่มีอาการเหล่านี้",
+}
+
+YES_NO_OPTIONS = {
+    "en": [
+        {"id": "yes", "label": "Yes"},
+        {"id": "no", "label": "No"},
+    ],
+    "th": [
+        {"id": "yes", "label": "ใช่"},
+        {"id": "no", "label": "ไม่"},
+    ],
+}
+
 VOICE_DIDNT_HEAR = {
     "en": "Sorry, I didn't catch that. Could you say it again?",
     "th": "ขอโทษค่ะ ไม่ได้ยินชัดเจน ช่วยพูดอีกครั้งได้ไหมคะ",

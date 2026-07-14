@@ -19,6 +19,7 @@ latency instead of full-duplex; acceptable for the demo workstation.
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import struct
 import time
@@ -37,6 +38,7 @@ TranscriptCallback = Callable[[str, str], Awaitable[None]]
 EmergencyCallback = Callable[[dict], Awaitable[None]]
 AssessmentCallback = Callable[[dict], Awaitable[None]]
 MeasurementCallback = Callable[[dict], Awaitable[None]]
+OptionsCallback = Callable[[dict], Awaitable[None]]
 
 INPUT_SAMPLE_RATE = 16_000   # browser worklet sends 16 kHz mono Int16
 OUTPUT_SAMPLE_RATE = 24_000  # frontend playback scheduler expects 24 kHz
@@ -44,15 +46,28 @@ _BYTES_PER_MS = INPUT_SAMPLE_RATE * 2 // 1000
 
 # Endpointing thresholds are env-tunable (app.config) so the booth can be
 # balanced on-site without a code change — restart to apply. Defaults:
-#   amplitude 600  : mic level counted as speech (higher ignores room noise)
+#   amplitude 250  : MINIMUM mic level counted as speech; the effective gate
+#                    is max(this, noise_gate_factor × rolling noise floor).
+#                    Browser auto-gain starts low and ramps over the first
+#                    seconds of a call, so a high fixed gate silently drops
+#                    the caller's first utterance (observed live: "my voice
+#                    only registered after a while"). A missed-quiet-speech
+#                    turn is dead air; a false trigger is just an empty STT
+#                    turn we already discard — keep the minimum low.
 #   silence   2500 : ms of silence after speech that ends the caller's turn
 #                    (higher = fewer mid-thought cut-offs but slower)
 #   min_turn  500  : ms; drop blips shorter than this
 from app.config import settings as _settings
 
-SPEECH_AMPLITUDE_THRESHOLD = getattr(_settings, "voice_speech_amplitude_threshold", 600)
+SPEECH_AMPLITUDE_THRESHOLD = getattr(_settings, "voice_speech_amplitude_threshold", 250)
+NOISE_GATE_FACTOR = getattr(_settings, "voice_noise_gate_factor", 3.5)
 SILENCE_HANG_MS = getattr(_settings, "voice_silence_hang_ms", 2500)
 MIN_TURN_AUDIO_MS = getattr(_settings, "voice_min_turn_audio_ms", 500)
+# Rolling noise-floor EMA: starting estimate and smoothing per 40 ms chunk.
+# Start LOW so the cold-start gate sits near the minimum — the greeting gives
+# the EMA ~5 s of room audio to adapt upward before the caller first speaks.
+NOISE_FLOOR_INITIAL = 100.0
+NOISE_FLOOR_ALPHA = 0.05
 # Hard cap so a stuck-open mic cannot buffer unbounded audio (~60 s).
 MAX_TURN_BUFFER_BYTES = 60 * INPUT_SAMPLE_RATE * 2
 # One outbound WS frame ≈ 200 ms of 24 kHz Int16 audio.
@@ -125,21 +140,29 @@ class TurnVoiceService:
         emergency_callback: EmergencyCallback | None = None,
         assessment_callback: AssessmentCallback | None = None,
         measurement_callback: MeasurementCallback | None = None,
+        options_callback: OptionsCallback | None = None,
     ) -> None:
         row = await db_connection.fetchrow(
-            "SELECT id FROM sessions WHERE id = $1", session_id
+            "SELECT id, metadata FROM sessions WHERE id = $1", session_id
         )
         if row is None:
             raise ValueError("Session not found")
+        metadata = row["metadata"] or {}
+        if isinstance(metadata, str):
+            metadata = json.loads(metadata)
+        patient_name = (metadata.get("visit") or {}).get("patient_name")
 
         self._sessions[session_id] = {
             "language": language,
+            # From the linked HIS visit; personalizes the spoken greeting.
+            "patient_name": patient_name,
             "db_connection": db_connection,
             "db_pool": db_pool,
             "transcript_cb": transcript_callback,
             "emergency_cb": emergency_callback,
             "assessment_cb": assessment_callback,
             "measurement_cb": measurement_callback,
+            "options_cb": options_callback,
             "buffer": bytearray(),
             "turn_event": asyncio.Event(),
             # Client-driven mic gate (mute / unmute / end_of_turn — the
@@ -151,6 +174,8 @@ class TurnVoiceService:
             "processing": False,
             "speech_seen": False,
             "trailing_silence_ms": 0.0,
+            # Rolling room-noise estimate feeding the adaptive speech gate.
+            "noise_floor": NOISE_FLOOR_INITIAL,
             "greeted": False,
             "ended": False,
             "disposed": False,
@@ -199,14 +224,24 @@ class TurnVoiceService:
 
         session["buffer"].extend(audio_chunk)
 
-        if mean_abs_amplitude(audio_chunk) >= SPEECH_AMPLITUDE_THRESHOLD:
+        # Adaptive speech gate: a quiet booth lowers it toward the configured
+        # minimum so AGC-quiet first utterances still register; a noisy booth
+        # raises it so room noise doesn't count as speech.
+        amplitude = mean_abs_amplitude(audio_chunk)
+        floor = session.get("noise_floor", NOISE_FLOOR_INITIAL)
+        gate = max(SPEECH_AMPLITUDE_THRESHOLD, floor * NOISE_GATE_FACTOR)
+        if amplitude >= gate:
             session["speech_seen"] = True
             session["trailing_silence_ms"] = 0.0
-        elif session["speech_seen"]:
-            session["trailing_silence_ms"] += len(audio_chunk) / _BYTES_PER_MS
-            if session["trailing_silence_ms"] >= SILENCE_HANG_MS:
-                session["turn_event"].set()
-                return
+        else:
+            session["noise_floor"] = (
+                floor * (1 - NOISE_FLOOR_ALPHA) + amplitude * NOISE_FLOOR_ALPHA
+            )
+            if session["speech_seen"]:
+                session["trailing_silence_ms"] += len(audio_chunk) / _BYTES_PER_MS
+                if session["trailing_silence_ms"] >= SILENCE_HANG_MS:
+                    session["turn_event"].set()
+                    return
 
         if len(session["buffer"]) >= MAX_TURN_BUFFER_BYTES:
             session["turn_event"].set()
@@ -227,15 +262,17 @@ class TurnVoiceService:
         session["muted"] = True
         session["turn_event"].set()
 
-    def inject_text_turn(self, session_id: str, content: str) -> None:
+    def inject_text_turn(
+        self, session_id: str, content: str, input_mode: str = "text"
+    ) -> None:
         """Queue a text turn to run as if the patient had spoken it. Used by
-        the temperature-on-demand popup: the client submits the reading and we
-        drive a turn (whose turn_context now carries the measured value) so the
-        engine proceeds without waiting for the patient to speak again."""
+        the measurement popups (input_mode "text") and quick-reply taps
+        (input_mode "button"); the mode is persisted on the message so the
+        nurse transcript shows how the answer was given."""
         session = self._sessions.get(session_id)
         if session is None:
             raise ValueError("Session not found")
-        session["injected_text"] = content
+        session["injected_text"] = (content, input_mode)
         session["muted"] = True
         session["turn_event"].set()
 
@@ -250,7 +287,9 @@ class TurnVoiceService:
 
         if not session["greeted"]:
             session["greeted"] = True
-            greeting = templates.VOICE_GREETING[session["language"]]
+            greeting = templates.greeting_line(
+                session.get("patient_name"), session["language"]
+            )
             async for chunk in self._speak_line(session_id, session, greeting):
                 yield chunk
 
@@ -273,10 +312,11 @@ class TurnVoiceService:
             pcm = bytes(session["buffer"])
             try:
                 if injected:
-                    # A client-submitted reading (e.g. temperature): run it as
-                    # a text turn, bypassing STT and the audio buffer.
+                    # A client-submitted reading or tapped quick reply: run it
+                    # as a text/button turn, bypassing STT and the audio buffer.
+                    injected_text, injected_mode = injected
                     async for chunk in self._process_transcript(
-                        session_id, session, injected
+                        session_id, session, injected_text, input_mode=injected_mode
                     ):
                         yield chunk
                 else:
@@ -333,19 +373,25 @@ class TurnVoiceService:
             yield chunk
 
     async def _process_transcript(
-        self, session_id: str, session: dict[str, Any], transcript: str
+        self,
+        session_id: str,
+        session: dict[str, Any],
+        transcript: str,
+        input_mode: str = "voice",
     ) -> AsyncIterator[bytes]:
         """Run one turn from an already-decoded utterance: persist it, drive
         the triage pipeline, speak the reply, and fire measurement/assessment
-        callbacks. Shared by the audio path and injected text turns (e.g. a
-        temperature entered into the client's numeric popup)."""
+        callbacks. Shared by the audio path (input_mode "voice") and injected
+        turns (measurement popup "text", quick-reply tap "button")."""
 
         language = session["language"]
         await self._push_transcript(session, "user", transcript)
 
         turn_started = time.monotonic()
         try:
-            reply, final_payload = await self._run_turn(session_id, session, transcript)
+            reply, final_payload = await self._run_turn(
+                session_id, session, transcript, input_mode
+            )
         except Exception:
             logger.exception("Voice turn pipeline failed for %s", session_id)
             session["consecutive_errors"] += 1
@@ -386,12 +432,20 @@ class TurnVoiceService:
                 except Exception:
                     logger.exception("measurement_cb failed for %s", session_id)
 
+        # Tappable quick-replies for the spoken question (after TTS).
+        reply_options = session.pop("reply_options", None) or []
+        if reply_options:
+            options_cb: OptionsCallback | None = session.get("options_cb")
+            if options_cb is not None:
+                try:
+                    await options_cb({"options": reply_options})
+                except Exception:
+                    logger.exception("options_cb failed for %s", session_id)
+
         if final_payload is not None:
-            # Interview is done, but DON'T close the socket yet: keep it open so
-            # the client can finish speaking the disposition, reveal the slip
-            # once its audio drains, then hang up gracefully (end_call). Closing
-            # here would cut the audio and race the slip reveal. Further audio
-            # turns are ignored while disposed.
+            # Flow is complete (incl. follow-up). Keep the socket open so the
+            # client can finish speaking, reveal the slip, then hang up.
+            # Further audio turns are ignored while disposed.
             session["disposed"] = True
             assessment_cb: AssessmentCallback | None = session.get("assessment_cb")
             if assessment_cb is not None:
@@ -404,7 +458,11 @@ class TurnVoiceService:
             logger.info("Turn voice assessment complete for %s", session_id)
 
     async def _run_turn(
-        self, session_id: str, session: dict[str, Any], content: str
+        self,
+        session_id: str,
+        session: dict[str, Any],
+        content: str,
+        input_mode: str = "voice",
     ) -> tuple[str, dict[str, Any] | None]:
         """One triage turn. Returns (reply_text, final_payload_or_None).
 
@@ -417,10 +475,10 @@ class TurnVoiceService:
         if db_pool is not None:
             async with db_pool.acquire() as connection:
                 return await self._consume_turn_events(
-                    connection, session_id, session, content
+                    connection, session_id, session, content, input_mode
                 )
         return await self._consume_turn_events(
-            session["db_connection"], session_id, session, content
+            session["db_connection"], session_id, session, content, input_mode
         )
 
     async def _consume_turn_events(
@@ -429,6 +487,7 @@ class TurnVoiceService:
         session_id: str,
         session: dict[str, Any],
         content: str,
+        input_mode: str = "voice",
     ) -> tuple[str, dict[str, Any] | None]:
         reply = ""
         final_payload: dict[str, Any] | None = None
@@ -436,7 +495,7 @@ class TurnVoiceService:
             connection=connection,
             session_id=session_id,
             language=session["language"],
-            input_mode="voice",
+            input_mode=input_mode,
             content=content,
         ):
             event_type = event.get("type")
@@ -453,9 +512,10 @@ class TurnVoiceService:
                     or result.get("reply")
                     or ""
                 )
-                if result.get("assessment_status") == "complete":
+                if result.get("flow_complete"):
                     final_payload = result
                 session["awaiting_measurement"] = result.get("awaiting_measurement")
+                session["reply_options"] = result.get("reply_options") or []
             elif event_type == "error":
                 raise RuntimeError(str(event.get("message")))
         return reply, final_payload

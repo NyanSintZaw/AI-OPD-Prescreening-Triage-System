@@ -1,9 +1,9 @@
-visit_id,hnx,appointment,measure_spid,measure_name,measure_department,modify_time,weight,height,birthdate,bmi,waist_width,pressure,temperature,pulse,nurse_chief_complaint,nurse_patient_illness,first_location_id,first_location_name,first_location_department,second_location_id,second_location_name,second_location_department
-990000000000000001,09900001,0,,,,,,,1985-03-12,,,,,,,,,,,,,
-990000000000000002,09900002,0,,,,,,,1958-07-01,,,,,,,,,,,,,
-990000000000000003,09900003,0,,,,,,,2018-05-20,,,,,,,,,,,,,
-990000000000000004,09900004,0,,,,,,,1992-11-30,,,,,,,,,,,,,
-990000000000000005,09900005,0,,,,,,,1948-02-14,,,,,,,,,,,,,
-990000000000000006,09900006,0,,,,,,,2001-09-09,,,,,,,,,,,,,
-990000000000000007,09900007,1,,,,,,,1975-06-18,,,,,,,,,,,,,
-990000000000000008,09900008,0,,,,,,,2020-01-05,,,,,,,,,,,,,
+visit_id,hnx,patient_name,appointment,measure_spid,measure_name,measure_department,modify_time,weight,height,birthdate,bmi,waist_width,pressure,temperature,pulse,nurse_chief_complaint,nurse_patient_illness,follow_up,first_location_id,first_location_name,first_location_department,second_location_id,second_location_name,second_location_department
+990000000000000001,09900001,สมชาย ใจดี,0,,,,,,,1985-03-12,,,,,,,,,,,,,,
+990000000000000002,09900002,สมหญิง รักษาดี,0,,,,,,,1958-07-01,,,,,,,,,,,,,,
+990000000000000003,09900003,น้ำใส ใจเย็น,0,,,,,,,2018-05-20,,,,,,,,,,,,,,
+990000000000000004,09900004,Waraporn Srisuk,0,,,,,,,1992-11-30,,,,,,,,,,,,,,
+990000000000000005,09900005,ประเสริฐ สุขสม,0,,,,,,,1948-02-14,,,,,,,,,,,,,,
+990000000000000006,09900006,Anucha Thongdee,0,,,,,,,2001-09-09,,,,,,,,,,,,,,
+990000000000000007,09900007,มาลี วงศ์สว่าง,1,,,,,,,1975-06-18,,,,,,,,,,,,,,
+990000000000000008,09900008,ภูมิ รักเรียน,0,,,,,,,2020-01-05,,,,,,,,,,,,,,

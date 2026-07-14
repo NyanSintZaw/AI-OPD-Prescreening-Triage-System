@@ -10,7 +10,10 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
-Phase = Literal["intake", "history", "disposed", "done", "escalated_to_nurse"]
+Phase = Literal[
+    "intake", "history", "disposed", "follow_up", "done", "escalated_to_nurse"
+]
+
 
 OLDCARTS_SLOTS = (
     "onset", "location", "duration", "character",
@@ -33,6 +36,12 @@ class TurnOutput(BaseModel):
     # canonical vital key the engine is asking the booth to measure now
     # (e.g. "temp"); the transport layer pops a numeric input for it.
     awaiting_measurement: str | None = None
+    # Localized quick-reply chips [{id, label}] under the assistant bubble.
+    reply_options: list[dict[str, str]] = Field(default_factory=list)
+    # True when the patient-facing flow is finished (incl. follow-up capture).
+    flow_complete: bool = False
+    # True for turns after disposition (follow-up capture / closing).
+    post_disposition: bool = False
 
 
 class ScreeningState(BaseModel):
@@ -58,6 +67,9 @@ class ScreeningState(BaseModel):
 
     disposition: dict[str, Any] | None = None    # serialized DispositionResult
     classification: dict[str, Any] = Field(default_factory=dict)
+
+    # Verbatim patient note captured in the post-disposition follow-up phase.
+    patient_follow_up: str | None = None
 
     criteria_version_id: str | None = None
     prompt_version: str = "v1"

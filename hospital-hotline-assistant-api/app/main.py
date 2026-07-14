@@ -173,9 +173,11 @@ async def _serialize_review(
             NULLIF(s.metadata->>'patient_contact_relation', '') AS patient_contact_relation,
             s.metadata->'triage_classification'->'disposition_reasons' AS disposition_reasons,
             s.metadata->'visit'->>'visit_id' AS visit_id,
+            NULLIF(s.metadata->'visit'->>'patient_name', '') AS patient_name,
             s.metadata->'vitals' AS vitals,
             s.metadata->'triage_classification'->>'symptoms_summary' AS ai_chief_complaint,
             s.metadata->'triage_classification'->>'key_reason' AS ai_illness_note,
+            NULLIF(s.metadata->>'patient_follow_up', '') AS patient_follow_up,
             s.metadata->'his_routing'->>'status' AS his_routing_status
         FROM assessment_reviews ar
         JOIN sessions s ON s.id = ar.session_id
@@ -338,8 +340,10 @@ async def link_visit(
     engine can pre-fill them. Unknown visit → ``linked=false`` and the
     patient continues anonymously.
     """
+    from app.services.screening import templates as screening_templates
+
     session_row = await connection.fetchrow(
-        "SELECT metadata FROM sessions WHERE id = $1", session_id
+        "SELECT metadata, language FROM sessions WHERE id = $1", session_id
     )
     if session_row is None:
         raise HTTPException(status_code=404, detail="Session not found")
@@ -353,6 +357,7 @@ async def link_visit(
     metadata["visit"] = {
         "visit_id": info.visit_id,
         "hn": info.patient_id,
+        "patient_name": info.patient_name,
         "birthdate": info.birthdate,
         "age_years": info.age_years,
         "appointment": info.appointment,
@@ -371,9 +376,26 @@ async def link_visit(
         session_id,
         metadata,
     )
+    # Open the conversation with a persisted greeting (personalized when the
+    # HIS gave us a name) so chat shows it on load and the nurse transcript
+    # keeps it; voice speaks the same line from the bridge.
+    has_messages = await connection.fetchval(
+        "SELECT EXISTS (SELECT 1 FROM messages WHERE session_id = $1)", session_id
+    )
+    if not has_messages:
+        language = session_row["language"] or "th"
+        await connection.execute(
+            """
+            INSERT INTO messages (session_id, role, input_mode, content)
+            VALUES ($1, 'assistant', 'text', $2)
+            """,
+            session_id,
+            screening_templates.greeting_line(info.patient_name, language),
+        )
     return LinkVisitResponse(
         linked=True,
         visit_id=info.visit_id,
+        patient_name=info.patient_name,
         age_years=info.age_years,
         appointment=info.appointment,
         has_his_vitals=bool(his_vitals),
@@ -574,7 +596,11 @@ async def update_session_vitals(
 
 
 # Canonical rules-engine vital -> the raw metadata key normalize_vitals reads.
-_MEASUREMENT_METADATA_KEY = {"temp": "temperature"}
+_MEASUREMENT_METADATA_KEY = {
+    "temp": "temperature",
+    "weight": "weight_kg",
+    "height": "height_cm",
+}
 
 
 @app.post("/sessions/{session_id}/measurement")
@@ -854,6 +880,9 @@ async def chat(
         latency_ms=result.latency_ms,
         alert_sent=result.alert_sent,
         assistant_message_id=assistant_message.get("id"),
+        awaiting_measurement=result.awaiting_measurement,
+        reply_options=result.reply_options or [],
+        flow_complete=bool(result.flow_complete),
     )
 
 @app.post("/sessions/{session_id}/chat/stream")
@@ -1259,9 +1288,11 @@ async def list_assessment_reviews(
             NULLIF(s.metadata->>'patient_contact_relation', '') AS patient_contact_relation,
             s.metadata->'triage_classification'->'disposition_reasons' AS disposition_reasons,
             s.metadata->'visit'->>'visit_id' AS visit_id,
+            NULLIF(s.metadata->'visit'->>'patient_name', '') AS patient_name,
             s.metadata->'vitals' AS vitals,
             s.metadata->'triage_classification'->>'symptoms_summary' AS ai_chief_complaint,
             s.metadata->'triage_classification'->>'key_reason' AS ai_illness_note,
+            NULLIF(s.metadata->>'patient_follow_up', '') AS patient_follow_up,
             s.metadata->'his_routing'->>'status' AS his_routing_status
         FROM assessment_reviews ar
         JOIN sessions s ON s.id = ar.session_id
@@ -1648,6 +1679,15 @@ async def voice_call(websocket: WebSocket, session_id: str):
                 session_id,
             )
 
+    async def push_options(payload: dict) -> None:
+        try:
+            await websocket.send_json({"type": "question_options", **payload})
+        except Exception:
+            logger.debug(
+                "Failed to push question options to %s (likely client closed)",
+                session_id,
+            )
+
     async with pool.acquire() as conn:
         try:
             await live_voice_service.connect(
@@ -1659,6 +1699,7 @@ async def voice_call(websocket: WebSocket, session_id: str):
                 emergency_callback=push_emergency,
                 assessment_callback=push_assessment,
                 measurement_callback=push_measurement,
+                options_callback=push_options,
             )
         except ValueError as exc:
             await websocket.close(code=1008, reason=str(exc))
@@ -1750,6 +1791,19 @@ async def voice_call(websocket: WebSocket, session_id: str):
                     if content:
                         try:
                             live_voice_service.inject_text_turn(session_id, content)
+                        except ValueError:
+                            return
+                    continue
+                elif msg_type == "tap_reply":
+                    # Quick-reply chip tap — same as submit_measurement: wins
+                    # over whatever the mic is capturing. Tagged "button" so
+                    # the nurse transcript shows how the answer was given.
+                    content = str(payload.get("content") or "").strip()
+                    if content:
+                        try:
+                            live_voice_service.inject_text_turn(
+                                session_id, content, input_mode="button"
+                            )
                         except ValueError:
                             return
                     continue
@@ -2808,7 +2862,8 @@ async def get_ai_metrics(
         SELECT violation, COUNT(*) AS count
         FROM ai_inference_audit,
              LATERAL jsonb_array_elements_text(validator_result) AS violation
-        {where + (' AND ' if where else 'WHERE ')} validator_result IS NOT NULL
+        {where + (' AND ' if where else 'WHERE ')}
+            jsonb_typeof(validator_result) = 'array'
         GROUP BY violation
         ORDER BY count DESC
         """,

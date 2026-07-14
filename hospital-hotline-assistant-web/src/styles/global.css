@@ -4093,6 +4093,156 @@ a:hover {
   white-space: nowrap;
 }
 
+/* ── Measurement Card (mid-interview vitals capture) ─────────────────────── */
+
+.measurement-card-choice-row,
+.measurement-card-actions {
+  display: flex;
+  gap: 0.6rem;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-top: 0.6rem;
+}
+
+/* ── Quick-reply chips ───────────────────────────────────────────────────── */
+
+.quick-reply-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 0.75rem 0 0.25rem;
+}
+
+.quick-reply-btn {
+  border: 1px solid var(--mch-cyan, #00a8a8);
+  background: #fff;
+  color: var(--color-text, #1a2b3c);
+  border-radius: 999px;
+  padding: 0.45rem 0.9rem;
+  font-size: 0.92rem;
+  cursor: pointer;
+}
+
+.quick-reply-btn:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--mch-cyan, #00a8a8) 12%, white);
+}
+
+.quick-reply-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ── Patient slip (chrome-less / print) ──────────────────────────────────── */
+
+.slip-page {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 2rem 1.25rem 3rem;
+  font-family: var(--font-body, "Sarabun", system-ui, sans-serif);
+  color: var(--color-text, #1a2b3c);
+  background: linear-gradient(180deg, #f4fbfb 0%, #ffffff 40%);
+  min-height: 100vh;
+}
+
+.slip-header {
+  text-align: center;
+  margin-bottom: 1.5rem;
+}
+
+.slip-hospital {
+  color: var(--mch-cyan, #00a8a8);
+  font-weight: 600;
+  margin: 0 0 0.35rem;
+}
+
+.slip-title {
+  margin: 0;
+  font-size: 1.6rem;
+}
+
+.slip-subtitle {
+  margin: 0.35rem 0 0;
+}
+
+.slip-code-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 1rem;
+  border: 2px dashed var(--mch-cyan, #00a8a8);
+  border-radius: 12px;
+  margin-bottom: 1.25rem;
+}
+
+.slip-code {
+  font-size: 1.8rem;
+  letter-spacing: 0.06em;
+  font-family: ui-monospace, monospace;
+}
+
+.slip-label {
+  font-size: 0.85rem;
+  color: var(--color-text-muted, #5b6b7c);
+}
+
+.slip-fields {
+  display: grid;
+  gap: 0.75rem;
+  margin: 0 0 1.25rem;
+}
+
+.slip-fields dt {
+  font-size: 0.8rem;
+  color: var(--color-text-muted, #5b6b7c);
+}
+
+.slip-fields dd {
+  margin: 0.15rem 0 0;
+  font-weight: 600;
+}
+
+.slip-vitals h2 {
+  font-size: 1rem;
+  margin: 0 0 0.75rem;
+}
+
+.slip-vitals-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.slip-vitals-row:last-of-type {
+  margin-bottom: 1.5rem;
+}
+
+.slip-vitals-row span {
+  display: block;
+  font-size: 0.8rem;
+  color: var(--color-text-muted, #5b6b7c);
+}
+
+.slip-vitals-row strong {
+  font-size: 1.05rem;
+}
+
+.slip-print-hint {
+  margin-bottom: 0.75rem;
+}
+
+@media print {
+  .slip-page .primary-btn,
+  .slip-print-hint {
+    display: none !important;
+  }
+  .slip-page {
+    background: #fff;
+    padding: 0;
+  }
+}
+
 /* ── Admin Tab Bar ────────────────────────────────────────────────────────── */
 
 .admin-tab-bar {

@@ -22,6 +22,7 @@ class MockHisAdapter:
         return VisitInfo(
             visit_id=visit_id.strip(),
             is_active=True,
+            patient_name="Mock Patient",
             raw={"source": "mock"},
         )
 
@@ -30,6 +31,12 @@ class MockHisAdapter:
 
     async def push_referral(self, referral: dict[str, Any]) -> bool:
         logger.info("[MockHIS] stage-1 referral push: %s", referral)
+        return True
+
+    async def push_follow_up(self, visit_id: str, follow_up: str) -> bool:
+        logger.info(
+            "[MockHIS] follow-up push visit=%s text=%s", visit_id, follow_up
+        )
         return True
 
     async def confirm_routing(

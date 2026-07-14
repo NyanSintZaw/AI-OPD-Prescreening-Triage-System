@@ -59,11 +59,15 @@ async def test_cough_interview_loop_to_general_opd(criteria):
     engine = make_engine(criteria, model)
     session = "s2"
 
-    async def turn(text, extraction=None):
+    async def turn(text, extraction=None, turn_context=None):
         if extraction is not None:
             model.extractions.append(extraction)
         return await engine.run_turn(
-            session_id=session, language="en", input_mode="text", content=text,
+            session_id=session,
+            language="en",
+            input_mode="text",
+            content=text,
+            turn_context=turn_context,
         )
 
     # T1: chief complaint -> engine asks for age first
@@ -85,7 +89,7 @@ async def test_cough_interview_loop_to_general_opd(criteria):
     }))
     assert r["classification"] == {}  # dc_severe_distress next
 
-    # T4..: deny remaining red flags, then slots
+    # T4..: deny remaining red flags, then BP + onset + weight
     r = await turn("no, I can speak fine", ext(findings={
         "severe_respiratory_distress": "absent", "blue_lips": "absent",
     }))
@@ -93,10 +97,14 @@ async def test_cough_interview_loop_to_general_opd(criteria):
     r = await turn("no chest pain", ext(findings={"chest_pain": "absent"}))
     r = await turn("no fever", ext(findings={"fever": "absent", "high_fever": "absent"}))
     assert r["classification"] == {}
-    r = await turn("about a 2", ext(distress_score=2))
+    assert r.get("awaiting_measurement") == "sbp"
+    r = await turn("BP 118/76", turn_context={"vitals": {"sbp": 118, "dbp": 76}})
     r = await turn("it started 3 days ago", ext(slot_updates={"onset": "3 days ago"}))
+    r = await turn(
+        "68 kg, 172 cm",
+        turn_context={"vitals": {"weight": 68, "height": 172}},
+    )
 
-    # budget (8) is now spent -> dispose
     assert r["classification"].get("classified") is True
     assert r["classification"]["level"] == 4
     assert r["classification"]["department_code"] == "opd_general"
@@ -139,6 +147,15 @@ async def test_thai_tinnitus_meets_ent_criteria(criteria):
         )
         if r_final["classification"].get("classified"):
             break
+
+    if r_final is None or not r_final["classification"].get("classified"):
+        r_final = await engine.run_turn(
+            session_id=session,
+            language="th",
+            input_mode="text",
+            content="68 กก. 165 ซม.",
+            turn_context={"vitals": {"weight": 68, "height": 165}},
+        )
 
     classification = r_final["classification"]
     assert classification["classified"] is True

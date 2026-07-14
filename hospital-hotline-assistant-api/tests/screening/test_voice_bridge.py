@@ -27,7 +27,7 @@ SILENT_CHUNK = b"\x00\x00" * 640  # 40 ms of digital silence
 
 class FakeConn:
     async def fetchrow(self, query, *args):
-        return {"id": args[0]}
+        return {"id": args[0], "metadata": {}}
 
 
 class FakeStt:
@@ -58,10 +58,12 @@ class FakeTriageService:
     def __init__(self) -> None:
         self.turns: deque[list[dict]] = deque()
         self.contents: list[str] = []
+        self.modes: list[str] = []
 
     async def process_chat_stream(self, *, connection, session_id, language, input_mode, content):
-        assert input_mode == "voice"
+        assert input_mode in ("voice", "text", "button")
         self.contents.append(content)
+        self.modes.append(input_mode)
         events = self.turns.popleft() if self.turns else []
         for event in events:
             yield event
@@ -85,6 +87,7 @@ def final_turn(reply: str = "Please proceed to the Emergency Department.") -> li
             "result": {
                 "reply": reply,
                 "assessment_status": "complete",
+                "flow_complete": True,
                 "severity": {"level": "unknown"},
             },
             "assistant_message": {"content": reply},
@@ -239,6 +242,47 @@ async def test_silence_fallback_ends_turn(harness):
     await harness.wait_until(lambda: ("user", "chest pain") in harness.transcripts)
     # silence fallback must NOT mute — the client never muted itself
     assert harness.service._sessions[SESSION_ID]["muted"] is False
+
+
+async def test_quiet_first_utterance_triggers_turn(harness):
+    """AGC-quiet speech (amp ~320 — below the old fixed 600 gate) must still
+    end the turn in a quiet booth: the adaptive gate sits at the configured
+    minimum when the noise floor is low. Regression for 'my voice only
+    registered after a while' on live calls."""
+    quiet_speech = b"\x40\x01" * 640  # 40 ms @16 kHz of amplitude 320
+    harness.stt.transcripts.append("sore throat")
+    harness.triage.turns.append(interview_turn("Since when?"))
+    await harness.wait_until(lambda: harness.chunks)
+
+    # a moment of near-silence first (like the greeting playing)
+    for _ in range(10):
+        await harness.service.send_audio(SESSION_ID, SILENT_CHUNK)
+    for _ in range(10):
+        await harness.service.send_audio(SESSION_ID, quiet_speech)
+    n_silence = int(SILENCE_HANG_MS / 40) + 1
+    for _ in range(n_silence):
+        await harness.service.send_audio(SESSION_ID, SILENT_CHUNK)
+
+    await harness.wait_until(lambda: ("user", "sore throat") in harness.transcripts)
+
+
+async def test_noisy_room_raises_gate():
+    """Constant room noise must lift the adaptive gate above the minimum so
+    noise alone never counts as speech."""
+    from app.services.screening.voice_bridge import (
+        NOISE_FLOOR_INITIAL,
+        NOISE_GATE_FACTOR,
+        SPEECH_AMPLITUDE_THRESHOLD,
+    )
+
+    # After sustained noise at amplitude 300, the EMA floor approaches 300 and
+    # the gate approaches 300 × factor — so 300-level input stays "noise".
+    floor = NOISE_FLOOR_INITIAL
+    for _ in range(200):
+        gate = max(SPEECH_AMPLITUDE_THRESHOLD, floor * NOISE_GATE_FACTOR)
+        assert 300 < gate  # noise never crosses the gate while it adapts
+        floor = floor * 0.95 + 300 * 0.05
+    assert floor * NOISE_GATE_FACTOR > 900  # settled gate ≈ 3.5× the noise
 
 
 async def test_short_buffer_ignored(harness):
@@ -415,6 +459,27 @@ async def test_unknown_session_rejected():
 
 
 # ── bilingual voice ─────────────────────────────────────────────────────────────
+
+async def test_injected_turns_carry_input_mode(harness):
+    # Spoken turn -> "voice"; tapped quick reply -> "button";
+    # measurement popup submission -> default "text".
+    harness.stt.transcripts.append("I have a cough")
+    harness.triage.turns.append(interview_turn("How long?"))
+    await harness.wait_until(lambda: harness.chunks)  # greeting done
+    await harness.speak_turn()
+    await harness.wait_until(lambda: len(harness.triage.contents) == 1)
+
+    harness.triage.turns.append(interview_turn("Anything else?"))
+    harness.service.inject_text_turn(SESSION_ID, "2–3 days", input_mode="button")
+    await harness.wait_until(lambda: len(harness.triage.contents) == 2)
+
+    harness.triage.turns.append(interview_turn("Thanks."))
+    harness.service.inject_text_turn(SESSION_ID, "37.2°C")
+    await harness.wait_until(lambda: len(harness.triage.contents) == 3)
+
+    assert harness.triage.modes == ["voice", "button", "text"]
+    assert harness.triage.contents[1] == "2–3 days"
+
 
 async def test_thai_voice_turn_uses_thai_language_end_to_end():
     """A Thai voice session must greet in Thai and pass language='th' into

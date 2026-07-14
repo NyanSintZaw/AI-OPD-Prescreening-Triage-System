@@ -103,6 +103,26 @@ def _catalog_lines(criteria: ScreeningCriteria, state: ScreeningState) -> list[s
     return lines
 
 
+def _pending_question_finding_ids(
+    criteria: ScreeningCriteria, state: ScreeningState
+) -> list[str]:
+    """Finding ids the pending question checks, so a bare yes/no/'none of
+    these' can be mapped mechanically instead of inferred from wording."""
+
+    qid = state.pending_question_id
+    if not qid:
+        return []
+    all_questions = [
+        *criteria.universal_questions,
+        *criteria.pre_disposition_questions,
+        *(q for t in criteria.complaint_templates for q in t.questions),
+    ]
+    for question in all_questions:
+        if question.id == qid:
+            return list(question.finding_ids)
+    return []
+
+
 def build_extraction_prompt(
     criteria: ScreeningCriteria,
     state: ScreeningState,
@@ -116,6 +136,12 @@ def build_extraction_prompt(
         context_lines.append(f"Chief complaint so far: {state.chief_complaint}")
     if pending_question_text:
         context_lines.append(f"The assistant just asked: {pending_question_text}")
+        pending_fids = _pending_question_finding_ids(criteria, state)
+        if pending_fids:
+            context_lines.append(
+                "That question checks exactly these finding ids: "
+                + ", ".join(pending_fids)
+            )
     context = "\n".join(context_lines) or "This is the first message."
 
     return f"""You are a clinical intake scribe for a Thai hospital. Read ONE patient message
@@ -134,8 +160,20 @@ Finding catalog (use ONLY these ids):
 {catalog}
 
 Rules:
-- A denial ("no", "ไม่มีค่ะ") of the pending question's findings -> those finding ids with state "absent".
+- A denial ("no", "ไม่มีค่ะ", "none of these", "ไม่มีอาการเหล่านี้") of the pending
+  question -> ALL of that question's finding ids with state "absent".
+- A bare affirmation ("yes", "ใช่", "มี") of a pending question that checks exactly
+  ONE finding -> that finding id with state "present".
+- A bare affirmation of a pending question that checks SEVERAL findings:
+  if they are severity grades of the SAME symptom (e.g. dyspnea vs
+  severe_respiratory_distress) -> record only the mildest as "present";
+  if they are DISTINCT symptoms (e.g. confusion vs stiff_neck) -> record NO
+  finding updates (the assistant will ask which one). When the patient names
+  specific symptoms, record exactly those as "present".
 - Numbers 0-10 answering a pain/breathing question -> pain_score or distress_score.
+- A timeframe answering when it started or how long it has lasted (e.g.
+  "2-3 days", "since yesterday") -> fill BOTH slot_updates.onset and
+  slot_updates.duration when the phrasing covers both, so neither is re-asked.
 - Ages like "6 เดือน" -> age_years 0.5.
 - complaint_category: whenever the patient states any symptom, pick the SINGLE
   closest category from the allowed list. If more than one could fit (e.g.

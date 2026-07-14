@@ -94,6 +94,7 @@ export function HospitalDbPanel() {
                 <tr>
                   <th>{t('hdbVisitId')}</th>
                   <th>{t('hdbHn')}</th>
+                  <th>{t('hdbPatientName')}</th>
                   <th>{t('hdbAge')}</th>
                   <th>{t('hdbStatus')}</th>
                 </tr>
@@ -107,6 +108,7 @@ export function HospitalDbPanel() {
                   >
                     <td><code>{v.visit_id.slice(-8)}</code></td>
                     <td>{v.hnx ?? '—'}</td>
+                    <td>{v.patient_name?.trim() || '—'}</td>
                     <td>{ageFromBirthdate(v.birthdate)}</td>
                     <td>
                       <span className={`hdb-status hdb-status-${v.screening_status}`}>
@@ -130,6 +132,7 @@ export function HospitalDbPanel() {
 
               <h4>{t('hdbGroupRegistered')}</h4>
               <Field label={t('hdbHn')} value={selected.hnx} />
+              <Field label={t('hdbPatientName')} value={selected.patient_name} />
               <Field label={t('hdbBirthdate')} value={selected.birthdate} />
               <Field label={t('hdbAppointment')} value={selected.appointment ? t('hdbYes') : t('hdbNo')} />
 
@@ -142,6 +145,7 @@ export function HospitalDbPanel() {
               <Field label={t('hdbTemperature')} value={selected.vitals.temperature} stage="1" />
               <Field label={t('hdbWaist')} value={selected.vitals.waist_width} />
               <Field label={t('hdbFirstLocation')} value={selected.first_location.department} stage="1" />
+              <Field label={t('hdbFollowUp')} value={selected.follow_up} stage="1" />
 
               <h4>{t('hdbGroupStage2')}</h4>
               <Field label={t('hdbChiefComplaint')} value={selected.nurse_chief_complaint} stage="2" />

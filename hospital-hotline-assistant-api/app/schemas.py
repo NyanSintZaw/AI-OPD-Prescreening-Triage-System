@@ -2,12 +2,12 @@ from datetime import date, datetime, time
 from typing import Any, Literal
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 LanguageCode = Literal["th", "en"]
 SessionStatus = Literal["active", "completed", "reset", "escalated"]
 MessageRole = Literal["user", "assistant", "system"]
-InputMode = Literal["voice", "text"]
+InputMode = Literal["voice", "text", "button"]
 SeverityLevel = Literal["emergency", "urgent", "general", "unknown"]
 DepartmentKind = Literal["emergency", "opd"]
 ReviewStatus = Literal["pending", "approved", "corrected"]
@@ -54,11 +54,23 @@ class SessionVitalsUpdate(BaseModel):
 
 class SessionMeasurementUpdate(BaseModel):
     """A single vital captured mid-interview when the engine requests it
-    (e.g. temperature, once a fever is reported). Merges into the session's
-    stored vitals without disturbing the booth's blood-pressure reading."""
+    (temperature once a fever is reported; weight/height near the end of the
+    interview). Merges into the session's stored vitals without disturbing
+    the blood-pressure reading (BP has its own PUT with provenance)."""
 
-    vital: Literal["temp"]
-    value: float = Field(..., ge=25, le=45)
+    vital: Literal["temp", "weight", "height"]
+    value: float
+
+    @model_validator(mode="after")
+    def _check_range(self) -> "SessionMeasurementUpdate":
+        low, high = {
+            "temp": (25.0, 45.0),      # °C
+            "weight": (1.0, 400.0),    # kg
+            "height": (30.0, 272.0),   # cm
+        }[self.vital]
+        if not (low <= self.value <= high):
+            raise ValueError(f"{self.vital} must be between {low} and {high}")
+        return self
 
 
 class LinkVisitRequest(BaseModel):
@@ -68,6 +80,7 @@ class LinkVisitRequest(BaseModel):
 class LinkVisitResponse(BaseModel):
     linked: bool
     visit_id: str
+    patient_name: str | None = None
     age_years: int | None = None
     appointment: bool = False
     has_his_vitals: bool = False
@@ -333,6 +346,9 @@ class ChatResponse(BaseModel):
     latency_ms: int | None = None
     alert_sent: bool = False
     assistant_message_id: UUID | None = None
+    awaiting_measurement: str | None = None
+    reply_options: list[dict[str, str]] = Field(default_factory=list)
+    flow_complete: bool = False
 
 
 class ConversationSummaryOut(BaseModel):
@@ -411,9 +427,11 @@ class AssessmentReviewOut(BaseModel):
     # the linked HIS visit, and the AI narrative the nurse can edit before it
     # is published to the HIS at Stage 2.
     visit_id: str | None = None
+    patient_name: str | None = None
     vitals: dict[str, Any] | None = None
     ai_chief_complaint: str | None = None
     ai_illness_note: str | None = None
+    patient_follow_up: str | None = None
     chief_complaint: str | None = None
     illness_note: str | None = None
     his_routing_status: str | None = None

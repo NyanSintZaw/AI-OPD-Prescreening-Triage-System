@@ -47,6 +47,9 @@ export interface UseVoiceCallOptions {
   /** Fired when the engine asks the booth to take a reading mid-call
    *  (``measurement_request`` frame, e.g. temperature). */
   onMeasurementRequest?: (vital: string) => void;
+  /** Fired when the engine attaches tappable quick-reply chips
+   *  (``question_options`` frame). */
+  onQuestionOptions?: (options: Array<{ id: string; label: string }>) => void;
 }
 
 export interface VoiceEmergencyPayload {
@@ -85,6 +88,8 @@ export interface UseVoiceCallApi {
    *  requested reading (temperature popup). ``content`` is spoken/logged as
    *  the patient's utterance (e.g. "38.5°C"). */
   submitMeasurement: (content: string) => void;
+  /** Tap a quick-reply chip — wins over whatever the mic is capturing. */
+  tapReply: (content: string) => void;
   toggleMute: () => void;
   setMuted: (muted: boolean) => void;
   toggleSpeaker: () => void;
@@ -298,11 +303,13 @@ export function useVoiceCall(options: UseVoiceCallOptions): UseVoiceCallApi {
   const pendingAssessmentRef = useRef<ChatResponsePayload | null>(null);
   const assessmentCommittedRef = useRef(false);
   const onMeasurementRef = useRef(options.onMeasurementRequest);
+  const onQuestionOptionsRef = useRef(options.onQuestionOptions);
 
   languageRef.current = language;
   sessionIdRef.current = sessionId;
   onAssessmentCompleteRef.current = onAssessmentComplete;
   onMeasurementRef.current = options.onMeasurementRequest;
+  onQuestionOptionsRef.current = options.onQuestionOptions;
 
   const commitAssessment = useCallback(() => {
     if (assessmentCommittedRef.current) return;
@@ -589,6 +596,12 @@ export function useVoiceCall(options: UseVoiceCallOptions): UseVoiceCallApi {
         .webkitAudioContext;
     const ctx = new Ctor();
     inputCtxRef.current = ctx;
+    // A context created outside a user gesture (the call page auto-starts)
+    // can begin 'suspended' — the worklet then produces NO mic frames and
+    // early speech is silently lost. resume() is a no-op when running.
+    if (ctx.state === 'suspended') {
+      void ctx.resume().catch(() => undefined);
+    }
 
     const workletUrl = makeWorkletBlobUrl();
     workletUrlRef.current = workletUrl;
@@ -763,6 +776,17 @@ export function useVoiceCall(options: UseVoiceCallOptions): UseVoiceCallApi {
             const vital = (message as { vital?: string }).vital ?? 'temp';
             try {
               onMeasurementRef.current?.(vital);
+            } catch {
+              // best-effort
+            }
+            return;
+          }
+          case 'question_options': {
+            const options = (message as {
+              options?: Array<{ id: string; label: string }>;
+            }).options ?? [];
+            try {
+              onQuestionOptionsRef.current?.(options);
             } catch {
               // best-effort
             }
@@ -1010,6 +1034,19 @@ export function useVoiceCall(options: UseVoiceCallOptions): UseVoiceCallApi {
     }
   }, [updateState]);
 
+  const tapReply = useCallback((content: string) => {
+    const text = content.trim();
+    if (!text) return;
+    const ws = wsRef.current;
+    if (!ws || ws.readyState !== WebSocket.OPEN) return;
+    try {
+      ws.send(JSON.stringify({ type: 'tap_reply', content: text }));
+      if (activeRef.current) updateState('thinking');
+    } catch {
+      // ignore — mic turn can still carry the answer
+    }
+  }, [updateState]);
+
   // ----- Mute toggle ---------------------------------------------------
 
   const setMuted = useCallback(
@@ -1090,6 +1127,7 @@ export function useVoiceCall(options: UseVoiceCallOptions): UseVoiceCallApi {
     end,
     sendTurn,
     submitMeasurement,
+    tapReply,
     toggleMute,
     setMuted,
     toggleSpeaker,

@@ -152,6 +152,38 @@ async def test_confirm_without_edits_publishes_held_stage1_values(client):
     assert visit["nurse_patient_illness"] == REFERRAL["reason"]
 
 
+async def test_visit_payload_includes_patient_name(client):
+    visit = (await client.get(f"/api/visits/{VISIT}", headers=HEADERS)).json()
+    assert visit["patient_name"] == "สมชาย ใจดี"
+    assert visit["follow_up"] is None
+    listed = (await client.get("/api/visits", headers=HEADERS)).json()["visits"]
+    by_id = {v["visit_id"]: v for v in listed}
+    assert by_id[VISIT]["patient_name"] == "สมชาย ใจดี"
+
+
+async def test_follow_up_written_and_reset(client):
+    resp = await client.put(
+        f"/api/visits/{VISIT}/follow-up",
+        headers=HEADERS,
+        json={"follow_up": "Can I eat before the blood test?"},
+    )
+    assert resp.status_code == 200
+    assert resp.json()["follow_up"] == "Can I eat before the blood test?"
+
+    # reset clears follow_up but keeps the registration-owned name
+    await client.post("/api/admin/reset", headers=HEADERS, json={"visit_ids": [VISIT]})
+    visit = (await client.get(f"/api/visits/{VISIT}", headers=HEADERS)).json()
+    assert visit["follow_up"] is None
+    assert visit["patient_name"] == "สมชาย ใจดี"
+
+
+async def test_follow_up_requires_api_key(client):
+    resp = await client.put(
+        f"/api/visits/{VISIT}/follow-up", json={"follow_up": "x"}
+    )
+    assert resp.status_code == 401
+
+
 async def test_routing_without_prescreen_conflicts(client):
     resp = await client.put(
         f"/api/visits/{VISIT}/routing",

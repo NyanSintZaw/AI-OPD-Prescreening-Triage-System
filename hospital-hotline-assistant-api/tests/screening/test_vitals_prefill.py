@@ -43,7 +43,11 @@ def test_normalize_vitals_maps_and_derives_map():
 
 def test_normalize_vitals_drops_junk_and_empty():
     assert normalize_vitals(None) == {}
-    assert normalize_vitals({"weight_kg": 70, "unknown": 1, "systolic": ""}) == {}
+    assert normalize_vitals({"unknown": 1, "systolic": ""}) == {}
+    assert normalize_vitals({"weight_kg": 70, "height_cm": 165}) == {
+        "weight": 70.0,
+        "height": 165.0,
+    }
     assert normalize_vitals({"temperature": "38.5"}) == {"temp": 38.5}
 
 
@@ -87,7 +91,12 @@ async def test_linked_age_suppresses_age_question_and_routes_child(criteria):
             language="en",
             input_mode="text",
             content=text,
-            turn_context={"age_years": 8, "vitals": {}},
+            # weight/height already recorded at the booth, so the wrap-up
+            # measurement is pre-resolved and doesn't lengthen this interview
+            turn_context={
+                "age_years": 8,
+                "vitals": {"weight_kg": 24, "height_cm": 128},
+            },
         )
 
     r = await turn("my son has a cough", ext(

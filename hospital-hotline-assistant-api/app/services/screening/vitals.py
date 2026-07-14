@@ -26,6 +26,10 @@ _ALIASES: dict[str, str] = {
     "temp": "temp",
     "spo2": "spo2",
     "pain_score": "pain_score",
+    "weight": "weight",
+    "weight_kg": "weight",
+    "height": "height",
+    "height_cm": "height",
 }
 
 

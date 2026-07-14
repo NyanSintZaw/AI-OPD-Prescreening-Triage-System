@@ -145,6 +145,10 @@ class ScreeningTriageEngine:
             "input_mode": input_mode,
             "model_name": result.get("model_name"),
             "awaiting_measurement": result.get("awaiting_measurement"),
+            "reply_options": result.get("reply_options") or [],
+            "flow_complete": bool(result.get("flow_complete")),
+            "post_disposition": bool(result.get("post_disposition")),
+            "patient_follow_up": result.get("patient_follow_up"),
         }
 
     def decision_from_classification(self, classification: dict[str, Any]) -> TriageDecision:
@@ -246,6 +250,10 @@ class ScreeningTriageEngine:
             "model_name": self._model_label,
             "escalated": output.escalated,
             "awaiting_measurement": output.awaiting_measurement,
+            "reply_options": output.reply_options,
+            "flow_complete": output.flow_complete,
+            "post_disposition": output.post_disposition,
+            "patient_follow_up": state.patient_follow_up,
             "audit": result.get("audit") or [],
         }
 

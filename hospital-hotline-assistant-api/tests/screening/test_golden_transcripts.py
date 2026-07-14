@@ -26,7 +26,7 @@ def make_engine(criteria, model):
     return ScreeningTriageEngine(
         model=model,
         store=InMemoryStateStore(criteria),
-        question_budget=8,
+        question_budget=12,
         model_label="screening:test",
     )
 
@@ -70,6 +70,8 @@ class Journey:
         self,
         text: str,
         extraction: ExtractionResult | None = None,
+        *,
+        turn_context: dict | None = None,
         **safety,
     ) -> dict:
         if extraction is not None:
@@ -79,6 +81,7 @@ class Journey:
             language=self.language,
             input_mode="text",
             content=text,
+            turn_context=turn_context,
         )
         self.replies.append(result["reply"])
         assert_reply_safe(result["reply"], self.language, **safety)
@@ -86,7 +89,7 @@ class Journey:
 
 
 async def test_golden_en_cough_full_journey(criteria):
-    """EN: cough → structured interview → opd_general → repeat guidance.
+    """EN: cough → structured interview → opd_general → follow-up → done.
     Every reply validator-clean (no contact/phone step — booth-only)."""
 
     j = Journey(criteria, "en", "g1")
@@ -95,32 +98,67 @@ async def test_golden_en_cough_full_journey(criteria):
         chief_complaint="cough", complaint_category="dyspnea_cough",
         findings={"cough": "present"},
     ))
-    r = await j.turn("I'm 30", ext(age_years=30))
-    r = await j.turn("no trouble breathing", ext(findings={
-        "dyspnea": "absent", "severe_respiratory_distress": "absent",
-    }))
-    r = await j.turn("I can speak normally", ext(findings={
-        "severe_respiratory_distress": "absent", "blue_lips": "absent",
-    }))
-    r = await j.turn("no blood", ext(findings={"hemoptysis": "absent"}))
-    r = await j.turn("no chest pain", ext(findings={"chest_pain": "absent"}))
-    r = await j.turn("no fever", ext(findings={"fever": "absent", "high_fever": "absent"}))
-    r = await j.turn("about a 2", ext(distress_score=2))
-    r = await j.turn("3 days ago", ext(slot_updates={"onset": "3 days ago"}))
+    scripted = [
+        ("I'm 30", ext(age_years=30)),
+        ("no trouble breathing", ext(findings={
+            "dyspnea": "absent", "severe_respiratory_distress": "absent",
+        })),
+        ("I can speak normally", ext(findings={
+            "severe_respiratory_distress": "absent", "blue_lips": "absent",
+        })),
+        ("no blood", ext(findings={"hemoptysis": "absent"})),
+        ("no chest pain", ext(findings={"chest_pain": "absent"})),
+        ("no fever", ext(findings={"fever": "absent", "high_fever": "absent"})),
+        ("about a 2", ext(distress_score=2)),
+        ("3 days ago", ext(slot_updates={"onset": "3 days ago"})),
+        ("3 days", ext(slot_updates={"duration": "3 days"})),
+        ("no swelling", ext(findings={"orthopnea": "absent", "edema": "absent"})),
+        ("no", ext(findings={
+            "evening_fever": "absent", "fatigue_weight_loss": "absent",
+            "chronic_cough_2w": "absent",
+        })),
+    ]
+    for text, extraction in scripted:
+        if r["classification"].get("classified"):
+            break
+        ctx = None
+        if r.get("awaiting_measurement") == "sbp":
+            ctx = {"vitals": {"sbp": 118, "dbp": 76}}
+        elif r.get("awaiting_measurement") == "weight":
+            ctx = {"vitals": {"weight": 68, "height": 172}}
+        r = await j.turn(text, extraction, turn_context=ctx)
+
+    # Drain any remaining measurement gate.
+    for _ in range(4):
+        if r["classification"].get("classified"):
+            break
+        if r.get("awaiting_measurement") == "sbp":
+            r = await j.turn(
+                "BP 118/76",
+                turn_context={"vitals": {"sbp": 118, "dbp": 76}},
+            )
+        elif r.get("awaiting_measurement") == "weight":
+            r = await j.turn(
+                "68 kg, 172 cm",
+                turn_context={"vitals": {"weight": 68, "height": 172}},
+            )
+        else:
+            r = await j.turn("no", ext())
 
     classification = r["classification"]
-    assert classification["classified"] is True
+    assert classification.get("classified") is True
     assert classification["department_code"] == "opd_general"
     assert classification["disposition_reasons"], "nurse reasoning must be present"
     assert_reply_safe(r["reply"], "en", department_code="opd_general")
+    assert r.get("flow_complete") is False  # follow-up offer still open
+
+    r = await j.turn("no")
+    assert r.get("flow_complete") is True
 
     # post-completion turn repeats guidance, never restarts the interview
     r = await j.turn("where do I go again?")
     assert "OPD General" in r["reply"]
     assert r["classification"] == {}
-
-    # 9 interview/dispose turns + 1 repeat = 10 (no contact turns)
-    assert len(j.replies) == 10
 
 
 async def test_golden_th_chest_pain_emergency_journey(criteria):
@@ -183,6 +221,12 @@ async def test_golden_en_ear_fails_ent_criteria_to_general(criteria):
             break
         r = await j.turn(text, extraction)
 
+    if not r["classification"].get("classified"):
+        r = await j.turn(
+            "70 kg, 165 cm",
+            turn_context={"vitals": {"weight": 70, "height": 165}},
+        )
+
     classification = r["classification"]
     assert classification["classified"] is True
     assert classification["department_code"] == "opd_general"
@@ -214,7 +258,19 @@ async def test_golden_en_child_routes_to_pediatrics(criteria):
     for extraction in answers:
         if r["classification"].get("classified"):
             break
-        r = await j.turn("answer", extraction)
+        # Inject BP + weight when the engine asks for them so we can finish.
+        ctx = None
+        if r.get("awaiting_measurement") == "sbp":
+            ctx = {"vitals": {"sbp": 110, "dbp": 70}}
+        elif r.get("awaiting_measurement") == "weight":
+            ctx = {"vitals": {"weight": 25, "height": 120}}
+        r = await j.turn("answer", extraction, turn_context=ctx)
+
+    if not r["classification"].get("classified"):
+        r = await j.turn(
+            "BP 110/70, 25 kg",
+            turn_context={"vitals": {"sbp": 110, "dbp": 70, "weight": 25, "height": 120}},
+        )
 
     classification = r["classification"]
     assert classification["classified"] is True

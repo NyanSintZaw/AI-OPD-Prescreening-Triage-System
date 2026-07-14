@@ -4,6 +4,7 @@ One bounded invocation per chat turn. All routing decisions are pure
 functions over state + criteria (the LLM never chooses the path):
 
     entry ─┬─ phase escalated ─────────► escalate ─► END
+           ├─ phase follow_up ─────────► followup ─► END
            ├─ phase disposed/done ─────► repeat ─► END
            └─ else ─► ingest ─┬─ escalated ─► escalate ─► END
                               ├─ complete (incl. red-flag L1/L2) ─► dispose ─► explain ─► END
@@ -17,6 +18,7 @@ from langgraph.graph import END, StateGraph
 from .nodes.base import GraphDeps, GraphState
 from .nodes.dispose import make_dispose_node
 from .nodes.explain import make_explain_node
+from .nodes.followup import make_followup_node
 from .nodes.ingest import make_ingest_node
 from .nodes.question import interview_inputs, make_question_node
 from .nodes.terminal import make_escalate_node, make_repeat_node
@@ -30,6 +32,7 @@ def build_screening_graph(deps: GraphDeps):
     graph.add_node("question", make_question_node(deps))
     graph.add_node("dispose", make_dispose_node(deps))
     graph.add_node("explain", make_explain_node(deps))
+    graph.add_node("followup", make_followup_node(deps))
     graph.add_node("repeat", make_repeat_node(deps))
     graph.add_node("escalate", make_escalate_node(deps))
 
@@ -37,13 +40,20 @@ def build_screening_graph(deps: GraphDeps):
         phase = gs["s"].phase
         if phase == "escalated_to_nurse":
             return "escalate"
+        if phase == "follow_up":
+            return "followup"
         if phase in ("disposed", "done"):
             return "repeat"
         return "ingest"
 
     graph.set_conditional_entry_point(
         route_entry,
-        {"escalate": "escalate", "repeat": "repeat", "ingest": "ingest"},
+        {
+            "escalate": "escalate",
+            "followup": "followup",
+            "repeat": "repeat",
+            "ingest": "ingest",
+        },
     )
 
     def route_after_ingest(gs: GraphState) -> str:
@@ -74,7 +84,7 @@ def build_screening_graph(deps: GraphDeps):
         {"escalate": "escalate", "dispose": "dispose", "question": "question"},
     )
     graph.add_edge("dispose", "explain")
-    for terminal in ("question", "explain", "repeat", "escalate"):
+    for terminal in ("question", "explain", "followup", "repeat", "escalate"):
         graph.add_edge(terminal, END)
 
     return graph.compile()

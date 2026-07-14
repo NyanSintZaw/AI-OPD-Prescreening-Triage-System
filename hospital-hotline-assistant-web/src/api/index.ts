@@ -373,10 +373,11 @@ export const api = {
     ),
 
   /** Record a single vital the engine requested mid-interview (e.g. the
-   *  temperature-on-demand popup). Merges into the session's stored vitals. */
+   *  temperature-on-demand popup, or weight/height near the end of the
+   *  interview). Merges into the session's stored vitals. */
   updateSessionMeasurement: (
     sessionId: string,
-    payload: { vital: 'temp'; value: number },
+    payload: { vital: 'temp' | 'weight' | 'height'; value: number },
   ) =>
     request<{ session_id: string; vitals: Record<string, unknown> }>(
       `/sessions/${sessionId}/measurement`,

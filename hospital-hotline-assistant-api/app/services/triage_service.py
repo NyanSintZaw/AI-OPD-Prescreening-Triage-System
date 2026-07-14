@@ -372,6 +372,96 @@ class TriageService:
         # otherwise reuse the one from earlier in the conversation.
         classification: dict[str, Any] = new_classification or prior_classification
         contact: dict[str, Any] = adk_result.get("contact", {}) or {}
+        post_disposition = bool(adk_result.get("post_disposition"))
+        patient_follow_up = adk_result.get("patient_follow_up")
+        flow_complete = bool(adk_result.get("flow_complete"))
+        reply_options = adk_result.get("reply_options") or []
+
+        # Post-disposition turns (follow-up capture / closing) only persist
+        # message rows — never re-write severity/review/referral/surveillance.
+        if post_disposition:
+            model_name = adk_result.get("model_name") or (
+                f"screening:{getattr(settings, 'screening_model_name', 'unknown')}"
+            )
+            latency_ms = int((perf_counter() - start) * 1000)
+            msg_assistant = ctx.get("assistant_message_override")
+            if msg_assistant is None:
+                msg_assistant = await connection.fetchrow(
+                    """
+                    INSERT INTO messages (
+                        session_id, role, input_mode, content, model_name, response_latency_ms, metadata
+                    )
+                    VALUES ($1, 'assistant', NULL, $2, $3, $4, '{}'::jsonb)
+                    RETURNING *
+                    """,
+                    session_id,
+                    reply,
+                    model_name,
+                    latency_ms,
+                )
+
+            existing_metadata = dict(prior_metadata)
+            existing_metadata["triage_classification"] = classification
+            if isinstance(patient_follow_up, str) and patient_follow_up.strip():
+                existing_metadata["patient_follow_up"] = patient_follow_up.strip()
+                await self._maybe_push_follow_up(
+                    metadata=existing_metadata,
+                    text=patient_follow_up.strip(),
+                )
+
+            await connection.execute(
+                """
+                UPDATE sessions
+                SET metadata = $2::jsonb
+                WHERE id = $1
+                """,
+                session_id,
+                existing_metadata,
+            )
+
+            decision = self.triage_engine.decision_from_classification(classification)
+            severity_level = decision.severity_level
+            dept_code = decision.opd_department_code
+            if severity_level == "emergency":
+                dept_code = "emergency"
+            department_id = (
+                department_by_code[dept_code]["id"]
+                if dept_code and dept_code in department_by_code
+                else None
+            )
+            result = TriageResult(
+                reply=reply,
+                severity_level=severity_level,
+                severity_explanation=decision.key_reason,
+                severity_confidence=0.85 if classification.get("classified") else None,
+                department_id=department_id,
+                department_reason=decision.key_reason,
+                department_confidence=0.85 if department_id else None,
+                emergency_trigger_id=None,
+                emergency_alert_message=None,
+                detected_symptoms=(
+                    [str(decision.symptoms_summary)]
+                    if decision.symptoms_summary
+                    else [content]
+                ),
+                follow_up_question=None,
+                follow_up_reason=None,
+                model_name=model_name,
+                latency_ms=latency_ms,
+                alert_sent=False,
+                raw_text=content,
+                pain_score=_classification_score(classification.get("pain_score")),
+                pain_location=_classification_text(classification.get("pain_location")),
+                distress_score=_classification_score(classification.get("distress_score")),
+                distress_type=_classification_text(classification.get("distress_type")),
+                red_flags=_classification_red_flags(classification.get("red_flags")),
+                contact=contact,
+                awaiting_measurement=adk_result.get("awaiting_measurement"),
+                reply_options=reply_options,
+                flow_complete=flow_complete,
+                post_disposition=True,
+            )
+            return result, dict(msg_assistant)
 
         # The deterministic screening engine is authoritative: it decides the
         # MOPH level and department from versioned criteria every turn. This
@@ -637,8 +727,33 @@ class TriageService:
             red_flags=red_flags,
             contact=contact,
             awaiting_measurement=adk_result.get("awaiting_measurement"),
+            reply_options=adk_result.get("reply_options") or [],
+            flow_complete=bool(adk_result.get("flow_complete")),
+            post_disposition=False,
         )
         return result, dict(msg_assistant)
+
+    async def _maybe_push_follow_up(
+        self,
+        *,
+        metadata: dict[str, Any],
+        text: str,
+    ) -> None:
+        """Best-effort HIS write-back of the patient's post-disposition note."""
+
+        visit = metadata.get("visit") or {}
+        visit_id = visit.get("visit_id")
+        if not visit_id or not text:
+            return
+        try:
+            ok = await self.his_adapter.push_follow_up(str(visit_id), text)
+            metadata["his_follow_up"] = {
+                "status": "pushed" if ok else "failed",
+                "text": text,
+            }
+        except Exception as exc:
+            logger.warning("HIS push_follow_up failed: %s", exc)
+            metadata["his_follow_up"] = {"status": "error", "text": text}
 
     async def _maybe_push_referral(
         self,
@@ -783,6 +898,10 @@ class TriageService:
                         or adk_result["classification"]
                     )
                     adk_result["awaiting_measurement"] = event.get("awaiting_measurement")
+                    adk_result["reply_options"] = event.get("reply_options") or []
+                    adk_result["flow_complete"] = bool(event.get("flow_complete"))
+                    adk_result["post_disposition"] = bool(event.get("post_disposition"))
+                    adk_result["patient_follow_up"] = event.get("patient_follow_up")
         except Exception as exc:
             yield {"type": "error", "message": f"agent_stream_failed: {exc}"}
             return

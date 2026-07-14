@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import re
 from time import perf_counter
 
 from ..extraction import ExtractionResult, build_extraction_prompt
@@ -14,15 +15,57 @@ logger = logging.getLogger(__name__)
 
 MAX_EXTRACTION_FAILURES = 2
 
+# Sequence of affirmation tokens; Thai polite particles join without spaces
+# ("ใช่ค่ะ" = ใช่ + ค่ะ), so the separator is optional.
+_AFF_TOKEN = r"(?:yes|yeah|yep|sure|ok|okay|ใช่|มี|ครับผม|ครับ|ค่ะ|คะ)"
+_BARE_AFFIRMATION = re.compile(
+    rf"^\s*{_AFF_TOKEN}(?:[\s,.!]*{_AFF_TOKEN})*[\s,.!]*$",
+    re.IGNORECASE,
+)
 
-def _pending_question_text(state, criteria) -> str | None:
+
+def _pending_question(state, criteria):
     if not state.pending_question_id:
         return None
     template = get_template(criteria, state.complaint_category)
-    for question in [*criteria.universal_questions, *template.questions]:
+    questions = [
+        *criteria.universal_questions,
+        *template.questions,
+        *criteria.pre_disposition_questions,
+    ]
+    for question in questions:
         if question.id == state.pending_question_id:
-            return question.text_en if state.language == "en" else question.text_th
+            return question
     return None
+
+
+def _pending_question_text(state, criteria) -> str | None:
+    question = _pending_question(state, criteria)
+    if question is None:
+        return None
+    return question.text_en if state.language == "en" else question.text_th
+
+
+def strip_ambiguous_affirmation(result: ExtractionResult, pending, user_text: str) -> None:
+    """A bare "yes" to a compound red flag cannot say WHICH bundled symptom is
+    present — models mark them ALL (observed live: one Yes recorded confusion,
+    dyspnea AND stiff_neck as present). Drop those updates deterministically so
+    the policy re-asks the question with one chip per finding. uq_breathing is
+    exempt: its findings are severity grades and the mildest-grade rule applies.
+    """
+
+    if (
+        pending is None
+        or pending.kind != "red_flag"
+        or pending.id == "uq_breathing"
+        or len(pending.finding_ids) <= 1
+        or not _BARE_AFFIRMATION.match(user_text)
+    ):
+        return
+    ambiguous = set(pending.finding_ids)
+    result.finding_updates = [
+        u for u in result.finding_updates if u.id not in ambiguous
+    ]
 
 
 def _closest_category(raw: str, known: set[str]) -> str | None:
@@ -123,6 +166,9 @@ def make_ingest_node(deps: GraphDeps):
             return {"s": state, "audit": audit}
 
         state.extraction_failures = 0
+        strip_ambiguous_affirmation(
+            result, _pending_question(state, criteria), user_text
+        )
         _apply(state, criteria, result)
         if result.wants_human:
             state.phase = "escalated_to_nurse"

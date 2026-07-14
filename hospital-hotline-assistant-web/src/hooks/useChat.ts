@@ -47,6 +47,10 @@ export interface ChatAssessment {
   assessmentStatus?: 'complete' | 'in_progress';
   /** Vital key (e.g. 'temp') the engine is asking the booth to measure now. */
   awaitingMeasurement?: string | null;
+  /** Localized quick-reply chips under the last assistant bubble. */
+  replyOptions?: Array<{ id: string; label: string }>;
+  /** True when the patient-facing flow (incl. follow-up) is finished. */
+  flowComplete?: boolean;
 }
 
 export function toAssessment(
@@ -99,6 +103,8 @@ export function toAssessment(
     contact: payload.contact ?? undefined,
     assessmentStatus: payload.assessment_status ?? undefined,
     awaitingMeasurement: payload.awaiting_measurement ?? undefined,
+    replyOptions: payload.reply_options ?? [],
+    flowComplete: Boolean(payload.flow_complete),
   };
 }
 

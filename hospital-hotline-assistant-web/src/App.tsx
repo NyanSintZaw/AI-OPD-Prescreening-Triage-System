@@ -5,7 +5,7 @@ import { ChatPage } from './pages/ChatPage';
 import { LandingPage } from './pages/LandingPage';
 import { LoginPage } from './pages/LoginPage';
 import { NursePage } from './pages/NursePage';
-import { VitalsPage } from './pages/VitalsPage';
+import { SlipPage } from './pages/SlipPage';
 import { ProtectedRoute } from './components/ProtectedRoute';
 
 export function App() {
@@ -16,9 +16,9 @@ export function App() {
         <Route path="/login" element={<Navigate to="/login/nurse" replace />} />
         <Route path="/login/:portal" element={<LoginPage />} />
         <Route path="/patient" element={<LandingPage />} />
-        <Route path="/vitals" element={<VitalsPage />} />
         <Route path="/call" element={<CallPage />} />
         <Route path="/chat" element={<ChatPage />} />
+        <Route path="/slip/:sessionId" element={<SlipPage />} />
         <Route
           path="/nurse"
           element={

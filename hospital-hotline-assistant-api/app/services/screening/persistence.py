@@ -137,8 +137,12 @@ class PostgresStateStore:
             rows.append((
                 session_id, turn_no, call_site, model_name, prompt_version,
                 criteria_version_id,
-                json.dumps(payload, ensure_ascii=False) if payload else None,
-                json.dumps(violations, ensure_ascii=False) if violations else None,
+                # Raw dict/list: the pool's jsonb codec (database.py) does the
+                # json.dumps — pre-dumping here double-encodes into a JSONB
+                # string scalar, which broke /admin/ai-metrics (migration 018
+                # repaired the affected rows).
+                payload if payload else None,
+                violations if violations else None,
                 ok,
                 int(latency_ms) if latency_ms is not None else None,
             ))

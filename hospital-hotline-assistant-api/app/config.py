@@ -54,11 +54,18 @@ class Settings(BaseSettings):
     # Voice turn endpointing — tunable without a code change (restart to apply).
     # silence_hang: ms of silence after speech that ends the caller's turn.
     #   Higher = fewer mid-thought cut-offs but slower; lower = snappier but
-    #   more truncated answers. amplitude_threshold: mic level counted as
-    #   speech (higher ignores room noise). min_turn_audio: drop blips shorter
-    #   than this.
+    #   more truncated answers.
+    # amplitude_threshold: MINIMUM mic level counted as speech. The effective
+    #   gate is max(threshold, noise_gate_factor × rolling noise floor), so a
+    #   noisy booth raises it automatically. Keep the minimum LOW: browser
+    #   auto-gain ramps up over the first seconds of a call, and a high fixed
+    #   gate (the old 600) silently dropped the caller's first utterance.
+    #   A too-low gate only costs an occasional empty STT turn, which the
+    #   bridge already discards silently.
+    # min_turn_audio: drop blips shorter than this.
     voice_silence_hang_ms: int = 2500
-    voice_speech_amplitude_threshold: int = 600
+    voice_speech_amplitude_threshold: int = 250
+    voice_noise_gate_factor: float = 3.5
     voice_min_turn_audio_ms: int = 500
     # hard wall-clock cap per LLM call (seconds). Vertex/Gemini gRPC has no
     # client deadline by default, so a stalled response would hang the turn

@@ -33,6 +33,12 @@ class TriageResult:
     # canonical vital key (e.g. "temp") the engine is asking the booth to
     # measure now; the transport pops a numeric input for it. None otherwise.
     awaiting_measurement: str | None = None
+    # Localized quick-reply chips [{id, label}].
+    reply_options: list[dict[str, str]] | None = None
+    # True when the patient-facing flow (incl. follow-up) is finished.
+    flow_complete: bool = False
+    # True for post-disposition turns (follow-up capture / closing).
+    post_disposition: bool = False
 
 
 

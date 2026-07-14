@@ -40,6 +40,11 @@ class HisAdapter(Protocol):
         """Stage 1: send the AI booth's pending pre-screening referral to
         the HIS (recommended department, complaint, vitals, reasons)."""
 
+    async def push_follow_up(self, visit_id: str, follow_up: str) -> bool:
+        """Record the patient's own follow-up question/concern on the visit
+        so the destination doctor/nurse sees it. Verbatim patient words —
+        needs no sign-off."""
+
     async def confirm_routing(
         self,
         visit_id: str,

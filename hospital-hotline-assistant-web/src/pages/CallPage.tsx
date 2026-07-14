@@ -3,11 +3,12 @@ import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { api } from '../api';
 import { Layout } from '../components/Layout';
-import { PatientIdPassPopup } from '../components/PatientIdPass';
+import { MeasurementCard } from '../components/MeasurementCard';
 import { RecommendationCard } from '../components/RecommendationCard';
 import { useChat, toAssessment, type ChatAssessment } from '../hooks/useChat';
 import { useLanguage, useSessionStorage } from '../hooks/useSession';
 import { useVoiceCall } from '../hooks/useVoiceCall';
+import { openPatientSlip } from '../utils/openSlip';
 
 function PhoneIcon() {
   return (
@@ -71,16 +72,20 @@ export function CallPage() {
     useState<ChatAssessment | null>(null);
   const [displayAssessment, setDisplayAssessment] = useState<ChatAssessment | null>(null);
   const [callFinished, setCallFinished] = useState(false);
-  const [tempRequested, setTempRequested] = useState(false);
-  const [tempInput, setTempInput] = useState('');
-  const [tempSaving, setTempSaving] = useState(false);
+  const [measurementVital, setMeasurementVital] = useState<string | null>(null);
+  const [replyOptions, setReplyOptions] = useState<Array<{ id: string; label: string }>>([]);
+  const [mapAutoOpen, setMapAutoOpen] = useState(false);
+  const slipOpenedRef = useRef(false);
 
   const voiceCall = useVoiceCall({
     sessionId,
     language,
-    onMeasurementRequest: () => {
-      setTempInput('');
-      setTempRequested(true);
+    onMeasurementRequest: (vital) => {
+      setMeasurementVital(vital);
+      setReplyOptions([]);
+    },
+    onQuestionOptions: (options) => {
+      setReplyOptions(options);
     },
     onAssessmentComplete: (payload) => {
       void (async () => {
@@ -104,20 +109,15 @@ export function CallPage() {
     },
   });
 
-  const submitTemperature = async () => {
-    const value = Number.parseFloat(tempInput);
-    if (!sessionId || !Number.isFinite(value) || value < 30 || value > 45) return;
-    setTempSaving(true);
-    try {
-      await api.updateSessionMeasurement(sessionId, { vital: 'temp', value });
-    } catch {
-      // Non-fatal: the continuation turn's extraction can still read it.
-    } finally {
-      setTempSaving(false);
-      setTempRequested(false);
-      setTempInput('');
-    }
-    voiceCall.submitMeasurement(`${value}°C`);
+  const handleMeasurementSubmit = (continuationText: string) => {
+    setMeasurementVital(null);
+    setReplyOptions([]);
+    voiceCall.submitMeasurement(continuationText);
+  };
+
+  const handleTapReply = (label: string) => {
+    setReplyOptions([]);
+    voiceCall.tapReply(label);
   };
 
   const callActive = voiceCall.state !== 'idle' && voiceCall.state !== 'error';
@@ -154,8 +154,6 @@ export function CallPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const [mapAutoOpen, setMapAutoOpen] = useState(false);
-
   // When the call auto-ends after assessment, mark the session complete.
   useEffect(() => {
     if (!sessionId || callFinished) return;
@@ -169,6 +167,13 @@ export function CallPage() {
     setDisplayAssessment(pendingDisplayAssessment);
     setAssessment(pendingDisplayAssessment);
   }, [callFinished, pendingDisplayAssessment, displayAssessment, setAssessment]);
+
+  useEffect(() => {
+    if (!assessmentReady || !sessionId || slipOpenedRef.current) return;
+    slipOpenedRef.current = true;
+    openPatientSlip(sessionId);
+    setMapAutoOpen(true);
+  }, [assessmentReady, sessionId]);
 
   const statusLabel = useMemo(() => {
     if (assessmentReceived) {
@@ -305,35 +310,26 @@ export function CallPage() {
                 </div>
               )}
 
-              {tempRequested && !assessmentReady && (
-                <div className="measurement-prompt-card">
-                  <p className="measurement-prompt-title">{t('measureTempTitle')}</p>
-                  <p className="measurement-prompt-subtitle muted">{t('measureTempHint')}</p>
-                  <div className="location-prompt-row">
-                    <input
-                      type="number"
-                      inputMode="decimal"
-                      className="location-prompt-input"
-                      placeholder="37.0"
-                      min={30}
-                      max={45}
-                      step={0.1}
-                      value={tempInput}
-                      onChange={(e) => setTempInput(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') void submitTemperature();
-                      }}
-                      autoFocus
-                    />
+              {measurementVital && !assessmentReady && (
+                <MeasurementCard
+                  vital={measurementVital}
+                  language={language}
+                  onSubmit={handleMeasurementSubmit}
+                />
+              )}
+
+              {replyOptions.length > 0 && !measurementVital && !assessmentReady && (
+                <div className="quick-reply-row" role="group" aria-label={t('quickReplyLabel')}>
+                  {replyOptions.map((opt) => (
                     <button
+                      key={opt.id}
                       type="button"
-                      className="primary-btn location-prompt-confirm"
-                      onClick={() => void submitTemperature()}
-                      disabled={tempSaving || !tempInput.trim()}
+                      className="quick-reply-btn"
+                      onClick={() => handleTapReply(opt.label)}
                     >
-                      {tempSaving ? t('loading') : t('measureTempConfirm')}
+                      {opt.label}
                     </button>
-                  </div>
+                  ))}
                 </div>
               )}
             </>
@@ -350,14 +346,15 @@ export function CallPage() {
                 </p>
               )}
               {displayAssessment && (
-                <PatientIdPassPopup
-                  sessionId={sessionId}
-                  language={language}
-                  assessment={displayAssessment}
-                  autoOpenKey={`${sessionId}-${displayAssessment.assistantMessageId ?? displayAssessment.severity?.level ?? 'assessment'}`}
-                  onClose={() => setMapAutoOpen(true)}
-                  triggerVariant="primary"
-                />
+                <button
+                  type="button"
+                  className="primary-btn"
+                  onClick={() => {
+                    if (sessionId) openPatientSlip(sessionId);
+                  }}
+                >
+                  {t('viewSlip')}
+                </button>
               )}
               {callFinished && (
                 <button

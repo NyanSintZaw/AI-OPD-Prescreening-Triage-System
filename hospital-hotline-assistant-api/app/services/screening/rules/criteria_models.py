@@ -21,6 +21,7 @@ from pydantic import BaseModel, Field, model_validator
 VitalName = Literal[
     "hr", "rr", "sbp", "dbp", "map", "spo2", "temp",
     "pain_score", "distress_score", "age_years",
+    "weight", "height",
 ]
 
 CompareOp = Literal["lt", "le", "gt", "ge", "eq"]
@@ -147,6 +148,23 @@ OldcartsSlot = Literal[
 ]
 
 
+class QuestionOption(BaseModel):
+    """Deterministic quick-reply chip for a question (localized labels)."""
+
+    id: str
+    text_en: str
+    text_th: str
+
+
+class QuestionOption(BaseModel):
+    """One tappable quick-reply answer shown under the question. The label
+    is nurse-approved wording; tapping sends it as the patient's reply."""
+
+    id: str
+    text_en: str
+    text_th: str
+
+
 class QuestionTemplate(BaseModel):
     """One nurse-approved interview question.
 
@@ -159,6 +177,13 @@ class QuestionTemplate(BaseModel):
     slot: OldcartsSlot | None = None
     vital: VitalName | None = None  # for kind="measurement": the vital to collect
     finding_ids: list[str] = Field(default_factory=list)  # findings this question resolves / gates on
+    # For kind="measurement": only ask patients at/above this age (e.g. the
+    # BP always-measure guard for age >= 60 on otherwise-minor complaints).
+    # Unknown age also skips (resolved) so we never block the interview on it.
+    min_age_years: float | None = None
+    # Authored quick-reply options; kinds without authored options fall back
+    # to engine defaults (yes/no for red_flag/associated).
+    options: list[QuestionOption] = Field(default_factory=list)
     text_en: str
     text_th: str
     priority: int = 100  # lower asks earlier within its kind
@@ -213,6 +238,9 @@ class ScreeningCriteria(BaseModel):
     complaint_templates: list[ComplaintTemplate]
     # universal red-flag questions asked for every complaint before anything else
     universal_questions: list[QuestionTemplate] = Field(default_factory=list)
+    # universal questions asked LAST, after the template's own questions —
+    # typically booth measurements (weight/height) collected before disposing
+    pre_disposition_questions: list[QuestionTemplate] = Field(default_factory=list)
 
     @model_validator(mode="after")
     def _check_references(self) -> "ScreeningCriteria":
@@ -250,6 +278,12 @@ class ScreeningCriteria(BaseModel):
                         raise ValueError(
                             f"question {question.id!r} references unknown finding {fid!r}"
                         )
+        for question in [*self.universal_questions, *self.pre_disposition_questions]:
+            for fid in question.finding_ids:
+                if fid not in known:
+                    raise ValueError(
+                        f"question {question.id!r} references unknown finding {fid!r}"
+                    )
         categories = {t.category for t in self.complaint_templates}
         for entry in self.routing_table:
             if entry.complaint_category not in categories and entry.complaint_category != "*":

@@ -57,6 +57,12 @@ class RoutingIn(BaseModel):
     rerouted: bool = False
 
 
+class FollowUpIn(BaseModel):
+    # Patient's own follow-up question/concern captured at the booth,
+    # recorded for the destination doctor/nurse to address.
+    follow_up: str
+
+
 class ResetIn(BaseModel):
     # When empty/omitted, every visit is reset to its pre-registration state.
     visit_ids: list[str] = Field(default_factory=list)
@@ -68,7 +74,7 @@ class ResetIn(BaseModel):
 _RESET_COLUMNS = (
     "measure_spid", "measure_name", "measure_department", "modify_time",
     "weight", "height", "bmi", "waist_width", "pressure", "temperature", "pulse",
-    "nurse_chief_complaint", "nurse_patient_illness",
+    "nurse_chief_complaint", "nurse_patient_illness", "follow_up",
     "first_location_id", "first_location_name", "first_location_department",
     "second_location_id", "second_location_name", "second_location_department",
 )
@@ -154,6 +160,7 @@ def build_app(db_path: str | Path | None = None) -> FastAPI:
         return {
             "visit_id": row["visit_id"],
             "hnx": row["hnx"],
+            "patient_name": row["patient_name"],
             "appointment": bool(row["appointment"]),
             "birthdate": row["birthdate"],
             "screening_status": _screening_status(row),
@@ -177,6 +184,7 @@ def build_app(db_path: str | Path | None = None) -> FastAPI:
             },
             "nurse_chief_complaint": row["nurse_chief_complaint"],
             "nurse_patient_illness": row["nurse_patient_illness"],
+            "follow_up": row["follow_up"],
             "first_location": {
                 "id": row["first_location_id"],
                 "name": row["first_location_name"],
@@ -227,6 +235,7 @@ def build_app(db_path: str | Path | None = None) -> FastAPI:
                 {
                     "visit_id": r["visit_id"],
                     "hnx": r["hnx"],
+                    "patient_name": r["patient_name"],
                     "appointment": bool(r["appointment"]),
                     "birthdate": r["birthdate"],
                     "screening_status": _screening_status(r),
@@ -380,6 +389,31 @@ def build_app(db_path: str | Path | None = None) -> FastAPI:
             "SELECT * FROM prescreen_results WHERE visit_id = ?", (visit_id,)
         ).fetchone()
         return prescreen_payload(row)
+
+    @app.put(
+        "/api/visits/{visit_id}/follow-up",
+        dependencies=[Depends(require_api_key)],
+    )
+    def update_follow_up(
+        visit_id: str,
+        payload: FollowUpIn,
+        db: sqlite3.Connection = Depends(get_db),
+    ):
+        """Record the patient's own follow-up question/concern from the booth.
+
+        Written as soon as the patient states it (end of the booth flow) —
+        unlike the nurse narrative it needs no human sign-off, it IS the
+        patient's verbatim words for the doctor."""
+        fetch_visit(db, visit_id)
+        db.execute(
+            """
+            UPDATE visits SET follow_up = ?, modify_time = datetime('now')
+            WHERE visit_id = ?
+            """,
+            (payload.follow_up.strip() or None, visit_id),
+        )
+        db.commit()
+        return visit_payload(fetch_visit(db, visit_id))
 
     @app.get(
         "/api/visits/{visit_id}/prescreen",

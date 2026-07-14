@@ -327,6 +327,12 @@ export function NursePage() {
                       <span className="nurse-card-dept-value">{complaintPreview(review)}</span>
                     </div>
                     <div className="nurse-card-meta-item">
+                      <span className="nurse-card-dept-label">{t('nursePatientName')}</span>
+                      <span className="nurse-card-dept-value">
+                        {review.patient_name || '—'}
+                      </span>
+                    </div>
+                    <div className="nurse-card-meta-item">
                       <span className="nurse-card-dept-label">{t('nurseVisitLabel')}</span>
                       <span className="nurse-card-dept-value">
                         {review.visit_id ? <code>{review.visit_id}</code> : t('nurseVisitNotLinked')}
@@ -461,6 +467,10 @@ export function NursePage() {
                         <strong>{formatNumber(selectedReview.vitals?.temperature, 1)}</strong>
                       </div>
                       <div className="nurse-vital-item">
+                        <span className="nurse-card-dept-label">{t('nursePatientName')}</span>
+                        <strong>{selectedReview.patient_name || '—'}</strong>
+                      </div>
+                      <div className="nurse-vital-item">
                         <span className="nurse-card-dept-label">{t('nurseVisitLabel')}</span>
                         <strong>
                           {selectedReview.visit_id ? (
@@ -471,6 +481,11 @@ export function NursePage() {
                         </strong>
                       </div>
                     </div>
+
+                    <p className="nurse-review-section-title">{t('nursePatientFollowUp')}</p>
+                    <p className="nurse-follow-up-note">
+                      {selectedReview.patient_follow_up || '—'}
+                    </p>
 
                     <p className="nurse-review-section-title">{t('nurseAssessmentSection')}</p>
                     {selectedReview.status === 'pending' ? (

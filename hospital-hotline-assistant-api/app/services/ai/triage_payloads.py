@@ -80,4 +80,6 @@ def _triage_result_to_payload(result: TriageResult) -> dict[str, Any]:
         "latency_ms": result.latency_ms,
         "contact": result.contact or None,
         "awaiting_measurement": result.awaiting_measurement,
+        "reply_options": result.reply_options or [],
+        "flow_complete": bool(result.flow_complete),
     }

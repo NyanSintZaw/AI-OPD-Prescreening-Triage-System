@@ -1,7 +1,7 @@
 export type LanguageCode = 'th' | 'en';
 export type SessionStatus = 'active' | 'completed' | 'reset' | 'escalated';
 export type MessageRole = 'user' | 'assistant' | 'system';
-export type InputMode = 'voice' | 'text';
+export type InputMode = 'voice' | 'text' | 'button';
 export type SeverityLevel = 'emergency' | 'urgent' | 'general' | 'unknown';
 export type DepartmentKind = 'emergency' | 'opd';
 export type ReviewStatus = 'pending' | 'approved' | 'corrected';
@@ -177,6 +177,7 @@ export interface AssessmentReviewOut {
   notes: string | null;
   /** Booth context: linked HIS visit + measurements taken at the kiosk. */
   visit_id?: string | null;
+  patient_name?: string | null;
   vitals?: {
     systolic?: number | null;
     diastolic?: number | null;
@@ -189,6 +190,8 @@ export interface AssessmentReviewOut {
   /** AI narrative (read-only originals the nurse can edit before publishing). */
   ai_chief_complaint?: string | null;
   ai_illness_note?: string | null;
+  /** Patient note captured after disposition for the doctor. */
+  patient_follow_up?: string | null;
   /** Nurse-signed narrative, set on confirm. */
   chief_complaint?: string | null;
   illness_note?: string | null;
@@ -246,6 +249,10 @@ export interface ChatResponsePayload {
   /** Set to a vital key (e.g. 'temp') when the engine asks the booth to take
    *  a reading mid-interview; the UI pops a numeric input for it. */
   awaiting_measurement?: string | null;
+  /** Localized quick-reply chips under the assistant bubble. */
+  reply_options?: Array<{ id: string; label: string }>;
+  /** True when the patient-facing flow (incl. follow-up) is finished. */
+  flow_complete?: boolean;
   department?: {
     department_id?: string;
     reason?: string;
@@ -437,6 +444,7 @@ export type HisScreeningStatus = 'registered' | 'screened' | 'routed';
 export interface HisVisitSummary {
   visit_id: string;
   hnx: string | null;
+  patient_name?: string | null;
   appointment: boolean;
   birthdate: string | null;
   screening_status: HisScreeningStatus;
@@ -446,6 +454,7 @@ export interface HisVisitSummary {
 export interface HisVisitDetail {
   visit_id: string;
   hnx: string | null;
+  patient_name?: string | null;
   appointment: boolean;
   birthdate: string | null;
   screening_status: HisScreeningStatus;
@@ -463,6 +472,8 @@ export interface HisVisitDetail {
   measure: { spid: string | null; name: string | null; department: string | null };
   nurse_chief_complaint: string | null;
   nurse_patient_illness: string | null;
+  /** Patient note captured at the booth after disposition (Stage 1). */
+  follow_up?: string | null;
   first_location: { id: string | null; name: string | null; department: string | null };
   second_location: { id: string | null; name: string | null; department: string | null };
   modify_time: string | null;
@@ -481,6 +492,7 @@ export interface HisVisitDetailResponse {
 export interface LinkVisitResponse {
   linked: boolean;
   visit_id: string;
+  patient_name?: string | null;
   age_years?: number | null;
   appointment?: boolean;
   has_his_vitals?: boolean;
