@@ -271,9 +271,11 @@
 }
 
 /* ── Shell ──────────────────────────────────────────────────────────────── */
+/* NOTE: no z-index here — a z-index would trap fixed overlays/modals
+   rendered inside the shell in a stacking context BELOW the top bar
+   (z-index 5), hiding their close buttons under the header. */
 .kiosk-shell {
   position: relative;
-  z-index: 1;
   height: 100%;
   width: 100%;
   display: flex;
@@ -745,78 +747,112 @@
   text-align: left;
 }
 
-.k-stats {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: clamp(10px, 1.2vw, 18px);
+/* Rotating stat banner — a tall tinted announcement strip: one stat at a
+   time as a full sentence with the number highlighted, plus a friendly
+   supporting sub-line. The whole card tints to the active stat's color. */
+.k-stat-banner {
+  position: relative;
   width: 100%;
-}
-
-.k-stat {
+  min-height: clamp(124px, 15vh, 164px);
+  padding: clamp(14px, 2vh, 22px) clamp(20px, 2.4vw, 36px);
   display: flex;
   align-items: center;
-  gap: 14px;
-  padding: clamp(14px, 1.8vh, 20px) clamp(14px, 1.4vw, 22px);
+  justify-content: center;
   background: var(--k-surface);
-  border: 1px solid var(--k-border);
+  border: 2px solid var(--k-border-strong);
   border-radius: var(--k-r-md);
   box-shadow: var(--k-shadow-sm);
+  box-sizing: border-box;
+  overflow: hidden;
+  transition: border-color 450ms var(--k-ease);
+}
+
+/* Full accent border + faint tint wash fading into the white card —
+   the rotating color signal, in the same light family as the canvas. */
+.k-stat-banner--blue {
+  border-color: var(--k-primary);
+  background: linear-gradient(90deg, var(--k-primary-tint) 0%, var(--k-surface) 46%);
+}
+
+.k-stat-banner--green {
+  border-color: var(--k-success);
+  background: linear-gradient(90deg, var(--k-success-tint) 0%, var(--k-surface) 46%);
+}
+
+.k-stat-banner--amber {
+  border-color: var(--k-warning);
+  background: linear-gradient(90deg, var(--k-warning-tint) 0%, var(--k-surface) 46%);
+}
+
+.k-stat-line {
+  display: flex;
+  align-items: center;
+  gap: clamp(16px, 1.8vw, 26px);
+  max-width: min(980px, 100%);
   text-align: left;
 }
 
-.k-stat-icon {
+.k-stat-line-ico {
   display: grid;
   place-items: center;
-  width: 50px;
-  height: 50px;
+  width: 64px;
+  height: 64px;
   border-radius: var(--k-r-sm);
-  background: var(--k-primary-tint);
-  color: var(--k-primary-deep);
+  background: var(--k-bg);
   flex-shrink: 0;
 }
 
-/* Per-tile accents so the stats strip reads as three distinct datapoints. */
-.k-stat--blue .k-stat-icon {
-  background: var(--k-primary-tint);
-  color: var(--k-primary-deep);
-}
-
-.k-stat--green .k-stat-icon {
-  background: var(--k-success-tint);
-  color: var(--k-success-strong);
-}
-
-.k-stat--violet .k-stat-icon {
-  background: var(--k-violet-tint);
-  color: var(--k-violet);
-}
-
-.k-stat--amber .k-stat-icon {
-  background: var(--k-warning-tint);
-  color: var(--k-warning-text);
-}
-
-.k-stat-body {
+.k-stat-line-body {
   display: flex;
   flex-direction: column;
-  line-height: 1.15;
+  gap: 4px;
   min-width: 0;
 }
 
-.k-stat-value {
-  font-size: clamp(26px, 2.6vw, 36px);
+.k-stat-line-text {
+  font-size: clamp(20px, 2vw, 27px);
   font-weight: 800;
   color: var(--k-ink);
-  font-variant-numeric: tabular-nums;
+  line-height: 1.3;
 }
 
-.k-stat-label {
-  font-size: var(--k-fs-caption);
+.k-stat-line-num {
+  font-size: clamp(40px, 4vw, 58px);
+  font-weight: 800;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  margin: 0 6px;
+}
+
+.k-stat-line-sub {
+  font-size: var(--k-fs-body);
   font-weight: 600;
-  color: var(--k-ink-3);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  color: var(--k-ink-2);
+  line-height: 1.4;
+}
+
+/* Accent per stat: blue / green / amber — solid chip matching the banner
+   border, white icon, colored number. */
+.k-stat-line--blue .k-stat-line-ico {
+  background: var(--k-primary);
+  color: #fff;
+}
+.k-stat-line--blue .k-stat-line-num {
+  color: var(--k-primary);
+}
+.k-stat-line--green .k-stat-line-ico {
+  background: var(--k-success);
+  color: #fff;
+}
+.k-stat-line--green .k-stat-line-num {
+  color: var(--k-success);
+}
+.k-stat-line--amber .k-stat-line-ico {
+  background: var(--k-warning);
+  color: #fff;
+}
+.k-stat-line--amber .k-stat-line-num {
+  color: var(--k-warning);
 }
 
 .k-home-footer {
@@ -863,8 +899,8 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 10px;
-  padding: clamp(34px, 5.5vh, 56px) 24px;
+  gap: 12px;
+  padding: clamp(28px, 4.6vh, 44px) 24px clamp(22px, 3.4vh, 32px);
   background: var(--k-surface);
   border: 2px solid var(--k-border);
   border-radius: var(--k-r-lg);
@@ -884,6 +920,37 @@
 
 .k-lang-card:active {
   transform: scale(0.98);
+}
+
+.k-lang-flag {
+  display: block;
+  width: clamp(84px, 8vw, 108px);
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: var(--k-shadow-sm);
+  border: 1px solid rgba(30, 44, 64, 0.12);
+  line-height: 0;
+  margin-bottom: 6px;
+}
+
+.k-lang-flag svg {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.k-lang-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  padding: 10px 20px;
+  border-radius: 999px;
+  background: var(--k-primary-tint);
+  border: 1px solid var(--k-primary-tint-border);
+  color: var(--k-primary-deep);
+  font-size: var(--k-fs-caption);
+  font-weight: 800;
 }
 
 .kiosk-root .k-lang-card:disabled {
@@ -1149,6 +1216,12 @@
   background: var(--k-success-tint);
   color: var(--k-success);
   border: 2px solid var(--k-success-tint-border);
+}
+
+.k-error-badge {
+  background: var(--k-danger-tint);
+  color: var(--k-danger);
+  border-color: rgba(194, 65, 59, 0.3);
 }
 
 .k-hello-name {
@@ -1561,12 +1634,26 @@
   overflow: auto;
 }
 
-.k-overlay-body .map-viewer,
-.k-overlay-body iframe {
-  width: 100%;
-  height: 100%;
+/* Keep the hospital map at a sane, centered size — the map canvas is
+   width-driven (fixed aspect ratio), so uncapped it fills the whole
+   1920px overlay. */
+.k-overlay-body .hmv-wrap {
+  width: min(920px, 100%);
+  margin: 0 auto;
+  background: var(--k-surface);
+  border-color: var(--k-border);
   border-radius: var(--k-r-md);
-  background: #fff;
+}
+
+/* Touch-size the map's route controls inside the kiosk overlay. */
+.k-overlay-body .hmv-select {
+  min-height: 52px;
+  font-size: 17px;
+  border-radius: 10px;
+}
+
+.k-overlay-body .hmv-label {
+  font-size: 13px;
 }
 
 /* ── Misc ───────────────────────────────────────────────────────────────── */
@@ -1817,17 +1904,26 @@
     height: 44px;
   }
 
-  .k-stat {
-    padding: 10px 14px;
+  .k-stat-banner {
+    min-height: 96px;
+    padding: 10px 20px;
   }
 
-  .k-stat-icon {
-    width: 42px;
-    height: 42px;
+  .k-stat-line-ico {
+    width: 46px;
+    height: 46px;
   }
 
-  .k-stat-value {
-    font-size: clamp(20px, 2vw, 28px);
+  .k-stat-line-num {
+    font-size: clamp(28px, 3vw, 40px);
+  }
+
+  .k-stat-line-text {
+    font-size: clamp(17px, 1.7vw, 21px);
+  }
+
+  .k-stat-line-sub {
+    font-size: 13px;
   }
 
   .k-speech {
@@ -1847,11 +1943,22 @@
   }
 
   .k-lang-card {
-    padding: 26px 20px;
+    padding: 20px 20px 18px;
+    gap: 8px;
   }
 
   .k-lang-card .k-lang-word {
     font-size: clamp(28px, 3vw, 40px);
+  }
+
+  .k-lang-flag {
+    width: 72px;
+    margin-bottom: 2px;
+  }
+
+  .k-lang-cta {
+    margin-top: 4px;
+    padding: 7px 16px;
   }
 
   .k-langselect {
@@ -1861,6 +1968,10 @@
   .k-hello-badge {
     width: 84px;
     height: 84px;
+  }
+
+  .k-overlay-body .hmv-wrap {
+    width: min(660px, 100%);
   }
 }
 

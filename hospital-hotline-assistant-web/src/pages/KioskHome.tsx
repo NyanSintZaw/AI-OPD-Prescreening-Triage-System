@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
+import { AnimatePresence, animate, motion, useReducedMotion } from 'framer-motion';
 import {
   ArrowRight,
   Brain,
@@ -21,7 +21,6 @@ import {
   X,
 } from '@phosphor-icons/react';
 import { KioskFrame } from '../components/kiosk/KioskFrame';
-import { StatCounter } from '../components/kiosk/StatCounter';
 import { HospitalMapViewer } from '../components/HospitalMapViewer';
 import { useLanguage } from '../hooks/useSession';
 import { useKioskStats } from '../hooks/useKioskStats';
@@ -30,6 +29,25 @@ import { prewarmVoiceCall } from '../hooks/voicePrewarm';
 /** Rotating pitch headlines + the how-it-works step they highlight. */
 const AD_KEYS = ['kioskAd1', 'kioskAd2', 'kioskAd3'] as const;
 const ROTATE_MS = 4500;
+
+/** Count-up number for the rotating stat banner (snaps under reduced motion). */
+function AnimatedNumber({ value }: { value: number }) {
+  const reduce = useReducedMotion();
+  const [display, setDisplay] = useState(reduce ? value : 0);
+  useEffect(() => {
+    if (reduce) {
+      setDisplay(value);
+      return;
+    }
+    const controls = animate(0, value, {
+      duration: 0.9,
+      ease: 'easeOut',
+      onUpdate: (v) => setDisplay(Math.round(v)),
+    });
+    return () => controls.stop();
+  }, [value, reduce]);
+  return <span className="k-stat-line-num">{display.toLocaleString()}</span>;
+}
 
 /**
  * Kiosk attract screen. Sells the service with a rotating benefit headline,
@@ -188,30 +206,65 @@ export function KioskHome() {
           </div>
         </div>
 
-        {/* Bottom band: live counters + disclaimer */}
+        {/* Bottom band: rotating full-sentence stat banner + disclaimer */}
         <div className="k-home-band">
           <div className="k-today">
             <span className="k-today-label">{t('kioskTodayTitle')}</span>
-            <div className="k-stats">
-              <StatCounter
-                value={stats.visitors_today}
-                label={t('kioskStatVisitors')}
-                icon={<UsersThree size={26} weight="duotone" />}
-                accent="blue"
-              />
-              <StatCounter
-                value={stats.navigated_today}
-                label={t('kioskStatNavigated')}
-                icon={<NavigationArrow size={24} weight="duotone" />}
-                accent="green"
-              />
-              <StatCounter
-                value={stats.sessions_today}
-                label={t('kioskStatSessions')}
-                icon={<ChatsCircle size={26} weight="duotone" />}
-                accent="amber"
-              />
-            </div>
+            {(() => {
+              const statLines = [
+                {
+                  accent: 'blue',
+                  icon: <UsersThree size={34} weight="duotone" />,
+                  pre: t('kioskStatSent1Pre'),
+                  post: t('kioskStatSent1Post'),
+                  sub: t('kioskStatSent1Sub'),
+                  value: stats.visitors_today,
+                },
+                {
+                  accent: 'green',
+                  icon: <NavigationArrow size={32} weight="duotone" />,
+                  pre: t('kioskStatSent2Pre'),
+                  post: t('kioskStatSent2Post'),
+                  sub: t('kioskStatSent2Sub'),
+                  value: stats.navigated_today,
+                },
+                {
+                  accent: 'amber',
+                  icon: <ChatsCircle size={34} weight="duotone" />,
+                  pre: t('kioskStatSent3Pre'),
+                  post: t('kioskStatSent3Post'),
+                  sub: t('kioskStatSent3Sub'),
+                  value: stats.sessions_today,
+                },
+              ];
+              const line = statLines[adIdx];
+              return (
+                <div className={`k-stat-banner k-stat-banner--${line.accent}`}>
+                  <AnimatePresence mode="wait">
+                    <motion.div
+                      key={adIdx}
+                      className={`k-stat-line k-stat-line--${line.accent}`}
+                      initial={{ opacity: 0, y: 18 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -18 }}
+                      transition={{ duration: 0.4, ease: 'easeOut' }}
+                    >
+                      <span className="k-stat-line-ico" aria-hidden="true">
+                        {line.icon}
+                      </span>
+                      <span className="k-stat-line-body">
+                        <span className="k-stat-line-text">
+                          {line.pre && <>{line.pre} </>}
+                          <AnimatedNumber value={line.value} />
+                          {line.post && <> {line.post}</>}
+                        </span>
+                        <span className="k-stat-line-sub">{line.sub}</span>
+                      </span>
+                    </motion.div>
+                  </AnimatePresence>
+                </div>
+              );
+            })()}
           </div>
           <p className="k-home-footer">{t('disclaimer')}</p>
         </div>
