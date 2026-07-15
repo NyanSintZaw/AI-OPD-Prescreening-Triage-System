@@ -372,6 +372,44 @@ class AdminUserOut(BaseModel):
     role: Literal["super_admin", "admin", "viewer"]
 
 
+class AdminUserManageOut(AdminUserOut):
+    """Row in the admin User Settings table (nurse accounts)."""
+
+    is_active: bool
+    last_login_at: datetime | None = None
+    created_at: datetime
+
+
+class AdminUserCreate(BaseModel):
+    email: str = Field(..., min_length=3, max_length=255)
+    full_name: str = Field(..., min_length=1, max_length=150)
+    password: str = Field(..., min_length=8, max_length=128)
+    # Only nurse accounts (role "admin") are manageable from the UI for now.
+    role: Literal["admin"] = "admin"
+
+
+class AdminUserUpdate(BaseModel):
+    full_name: str | None = Field(default=None, min_length=1, max_length=150)
+    password: str | None = Field(default=None, min_length=8, max_length=128)
+    is_active: bool | None = None
+
+
+class HisConnectionOut(BaseModel):
+    """Hospital-DB connection state shown in admin Database Settings."""
+
+    mode: Literal["mock", "http"]
+    endpoint: str | None = None
+    name: str
+    connected: bool
+    visit_count: int | None = None
+    message: str | None = None
+
+
+class HisConnectionUpdate(BaseModel):
+    endpoint: str = Field(..., min_length=8, max_length=500)  # http(s)://…
+    name: str = Field(..., min_length=1, max_length=120)
+
+
 class AdminLoginRequest(BaseModel):
     email: str
     password: str

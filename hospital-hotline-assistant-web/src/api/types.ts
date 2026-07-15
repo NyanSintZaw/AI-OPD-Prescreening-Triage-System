@@ -489,6 +489,43 @@ export interface HisVisitDetailResponse {
   visit: HisVisitDetail | null;
 }
 
+export interface HisConnection {
+  mode: 'mock' | 'http';
+  endpoint: string | null;
+  /** Display name shown as the Hospital Database panel title. */
+  name: string;
+  connected: boolean;
+  visit_count?: number | null;
+  message?: string | null;
+}
+
+export interface HisConnectionUpdate {
+  endpoint: string;
+  name: string;
+}
+
+export interface AdminManagedUser {
+  id: string;
+  email: string;
+  full_name: string | null;
+  role: 'super_admin' | 'admin' | 'viewer';
+  is_active: boolean;
+  last_login_at: string | null;
+  created_at: string;
+}
+
+export interface AdminUserCreateRequest {
+  email: string;
+  full_name: string;
+  password: string;
+}
+
+export interface AdminUserUpdateRequest {
+  full_name?: string;
+  password?: string;
+  is_active?: boolean;
+}
+
 export interface LinkVisitResponse {
   linked: boolean;
   visit_id: string;

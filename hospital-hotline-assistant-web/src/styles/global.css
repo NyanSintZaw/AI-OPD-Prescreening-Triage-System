@@ -1960,6 +1960,21 @@ a:hover {
   border-color: var(--mch-cyan);
 }
 
+.nurse-dept-filter {
+  min-height: 42px;
+  max-width: 240px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  padding: 0 0.85rem;
+  font: inherit;
+  background: var(--color-bg);
+}
+
+.nurse-dept-filter:focus {
+  outline: 2px solid var(--mch-cyan-light);
+  border-color: var(--mch-cyan);
+}
+
 .chip-group {
   display: inline-flex;
   align-items: center;
@@ -5603,6 +5618,85 @@ a:hover {
 .hdb-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; }
 .hdb-header h2 { margin: 0 0 0.2rem; }
 .hdb-unavailable { padding: 1.5rem; text-align: center; }
+
+/* Connection setup / status card */
+.hdb-connection {
+  border: 1px solid var(--color-border, #dbe3ec);
+  border-radius: 12px;
+  padding: 0.9rem 1.1rem;
+  background: var(--color-surface, #fff);
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+.hdb-connection.disconnected { border-style: dashed; }
+.hdb-connection-status { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; }
+.hdb-conn-dot { width: 10px; height: 10px; border-radius: 50%; flex: none; }
+.hdb-conn-dot.ok { background: #22a06b; box-shadow: 0 0 0 3px rgba(34, 160, 107, 0.18); }
+.hdb-conn-dot.off { background: #c0392b; box-shadow: 0 0 0 3px rgba(192, 57, 43, 0.15); }
+.hdb-conn-text { font-size: 0.92rem; }
+.hdb-connection-form {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1.4fr) auto;
+  gap: 0.75rem;
+  align-items: end;
+}
+.hdb-connection-form .error-text { grid-column: 1 / -1; margin: 0; }
+@media (max-width: 720px) {
+  .hdb-connection-form { grid-template-columns: 1fr; }
+}
+
+.hdb-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 25, 35, 0.45);
+  display: grid;
+  place-items: center;
+  z-index: 60;
+}
+.hdb-modal {
+  background: var(--color-surface, #fff);
+  border-radius: 14px;
+  padding: 1.4rem 1.6rem;
+  max-width: 420px;
+  width: min(92vw, 420px);
+  box-shadow: 0 18px 48px rgba(10, 20, 30, 0.25);
+}
+.hdb-modal h3 { margin: 0 0 0.5rem; }
+.hdb-modal-actions { display: flex; gap: 0.75rem; margin-top: 1rem; }
+
+/* ── Admin User Settings (nurse accounts) ── */
+.users-panel { display: flex; flex-direction: column; gap: 1rem; }
+.users-create-card {
+  border: 1px solid var(--color-border, #dbe3ec);
+  border-radius: 12px;
+  padding: 0.9rem 1.1rem;
+  background: var(--color-surface, #fff);
+}
+.users-create-card h3 { margin: 0 0 0.75rem; font-size: 1rem; }
+.users-create-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) auto;
+  gap: 0.75rem;
+  align-items: end;
+}
+@media (max-width: 860px) {
+  .users-create-grid { grid-template-columns: 1fr; }
+}
+.users-hint { margin: 0.5rem 0 0; font-size: 0.85rem; }
+.users-table td { vertical-align: middle; }
+.users-badge {
+  padding: 0.15rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+.users-badge.active { background: rgba(34, 160, 107, 0.14); color: #1c7d54; }
+.users-badge.inactive { background: rgba(120, 130, 140, 0.16); color: #5b6b7c; }
+.users-actions { display: flex; gap: 0.6rem; flex-wrap: wrap; align-items: center; }
+.users-reset-row { display: inline-flex; gap: 0.4rem; align-items: center; flex-wrap: wrap; }
+.users-reset-row input { max-width: 170px; }
+.users-danger { color: #c0392b; }
 
 .hdb-body {
   display: grid;

@@ -1,5 +1,8 @@
 # HIS Integration — Scope, Caveats & Benchmark Method
 
+> Security architecture and the production-connection discussion with the
+> hospital IT team live in [hospital-integration-security.md](hospital-integration-security.md).
+
 This document records the deliberate scope decisions behind the hospital
 HIS integration and the pre-screening booth flow, plus the method for the
 optional replay benchmark (H7). It exists so the hospital IT team and

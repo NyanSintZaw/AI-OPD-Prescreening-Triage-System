@@ -77,6 +77,9 @@ class Settings(BaseSettings):
     his_base_url: str | None = None
     his_api_key: str | None = None
     his_timeout_seconds: float = 5.0
+    # Shown as the Hospital Database panel title once an admin establishes
+    # the connection (admin → Database Settings).
+    his_display_name: str = "Hospital DB"
     # extra="ignore" so retired env vars (e.g. TRIAGE_ENGINE / VOICE_ENGINE
     # from older .env files) don't break startup.
     model_config = SettingsConfigDict(

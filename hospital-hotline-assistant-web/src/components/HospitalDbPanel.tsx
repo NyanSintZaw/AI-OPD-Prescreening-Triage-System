@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { api } from '../api';
-import type { HisVisitDetail, HisVisitSummary } from '../api/types';
+import { getAdminRole } from '../api/client';
+import type { HisConnection, HisVisitDetail, HisVisitSummary } from '../api/types';
 
 function ageFromBirthdate(birthdate: string | null): string {
   if (!birthdate) return '—';
@@ -28,8 +29,170 @@ function Field({ label, value, stage }: { label: string; value: unknown; stage?:
   );
 }
 
+/** Connection setup / status for the hospital DB — the demo's "the hospital
+ *  plugs its database into our system" moment. Two fields for now: endpoint
+ *  and a display name that becomes the panel title. */
+function ConnectionCard({
+  conn,
+  onConnected,
+}: {
+  conn: HisConnection | null;
+  onConnected: (next: HisConnection) => void;
+}) {
+  const { t } = useTranslation();
+  const canEdit = getAdminRole() === 'super_admin';
+  const connected = Boolean(conn?.connected);
+  const [open, setOpen] = useState(!connected);
+  const [endpoint, setEndpoint] = useState(conn?.endpoint ?? 'http://localhost:8001');
+  const [name, setName] = useState(conn?.name ?? '');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [confirmDisconnect, setConfirmDisconnect] = useState(false);
+
+  // Keep the collapsed/expanded state in sync when the connection loads.
+  useEffect(() => {
+    setOpen(!connected);
+    if (conn?.endpoint) setEndpoint(conn.endpoint);
+    if (conn?.name) setName(conn.name);
+  }, [connected, conn?.endpoint, conn?.name]);
+
+  const connect = async () => {
+    if (!endpoint.trim() || !name.trim()) {
+      setError(t('hdbConnRequired'));
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    try {
+      const next = await api.updateHisConnection({
+        endpoint: endpoint.trim(),
+        name: name.trim(),
+      });
+      onConnected(next);
+      setOpen(false);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const disconnect = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      const next = await api.disconnectHisConnection();
+      setConfirmDisconnect(false);
+      onConnected(next);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className={`hdb-connection ${connected ? 'connected' : 'disconnected'}`}>
+      <div className="hdb-connection-status">
+        <span className={`hdb-conn-dot ${connected ? 'ok' : 'off'}`} aria-hidden="true" />
+        <span className="hdb-conn-text">
+          {connected
+            ? t('hdbConnConnected', {
+                endpoint: conn?.endpoint ?? '',
+                count: conn?.visit_count ?? 0,
+              })
+            : t('hdbConnNotConnected')}
+        </span>
+        {connected && canEdit && (
+          <>
+            <button type="button" className="text-btn" onClick={() => setOpen((v) => !v)}>
+              {t('hdbConnChange')}
+            </button>
+            <button
+              type="button"
+              className="text-btn users-danger"
+              onClick={() => setConfirmDisconnect(true)}
+              disabled={busy}
+            >
+              {t('hdbConnDisconnect')}
+            </button>
+          </>
+        )}
+      </div>
+
+      {confirmDisconnect && (
+        <div className="hdb-modal-backdrop" role="presentation">
+          <div className="hdb-modal" role="alertdialog" aria-modal="true">
+            <h3>{t('hdbConnDisconnectTitle')}</h3>
+            <p className="muted">{t('hdbConnDisconnectBody', { name: conn?.name ?? '' })}</p>
+            {error && <p className="error-text">{error}</p>}
+            <div className="hdb-modal-actions">
+              <button
+                type="button"
+                className="secondary-btn users-danger"
+                onClick={() => void disconnect()}
+                disabled={busy}
+              >
+                {busy ? t('loading') : t('hdbConnDisconnectConfirm')}
+              </button>
+              <button
+                type="button"
+                className="text-btn"
+                onClick={() => setConfirmDisconnect(false)}
+                disabled={busy}
+              >
+                {t('usersCancel')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {conn?.message && !connected && <p className="error-text">{conn.message}</p>}
+
+      {open && canEdit && (
+        <div className="hdb-connection-form">
+          <label className="vitals-extra-field">
+            <span>{t('hdbConnEndpoint')}</span>
+            <input
+              type="url"
+              placeholder="http://localhost:8001"
+              value={endpoint}
+              onChange={(e) => setEndpoint(e.target.value)}
+              disabled={busy}
+            />
+          </label>
+          <label className="vitals-extra-field">
+            <span>{t('hdbConnName')}</span>
+            <input
+              type="text"
+              placeholder={t('hdbConnNamePlaceholder')}
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              disabled={busy}
+              maxLength={120}
+            />
+          </label>
+          <button
+            type="button"
+            className="primary-btn"
+            onClick={() => void connect()}
+            disabled={busy || !endpoint.trim() || !name.trim()}
+          >
+            {busy ? t('hdbConnConnecting') : t('hdbConnConnect')}
+          </button>
+          {error && <p className="error-text">{error}</p>}
+        </div>
+      )}
+      {open && !canEdit && !connected && (
+        <p className="muted">{t('hdbConnAskAdmin')}</p>
+      )}
+    </div>
+  );
+}
+
 export function HospitalDbPanel() {
   const { t } = useTranslation();
+  const [conn, setConn] = useState<HisConnection | null>(null);
   const [available, setAvailable] = useState(true);
   const [visits, setVisits] = useState<HisVisitSummary[]>([]);
   const [selected, setSelected] = useState<HisVisitDetail | null>(null);
@@ -40,6 +203,13 @@ export function HospitalDbPanel() {
     setLoading(true);
     setError(null);
     try {
+      const connection = await api.getHisConnection();
+      setConn(connection);
+      if (!connection.connected) {
+        setAvailable(false);
+        setVisits([]);
+        return;
+      }
       const res = await api.getHisVisits();
       setAvailable(res.available);
       setVisits(res.visits);
@@ -72,7 +242,7 @@ export function HospitalDbPanel() {
     <div className="hdb-panel">
       <div className="hdb-header">
         <div>
-          <h2>{t('hdbTitle')}</h2>
+          <h2>{conn?.connected && conn.name ? conn.name : t('hdbTitle')}</h2>
           <p className="muted">{t('hdbSubtitle')}</p>
         </div>
         <button type="button" className="secondary-btn" onClick={() => void refresh()}>
@@ -80,10 +250,17 @@ export function HospitalDbPanel() {
         </button>
       </div>
 
+      <ConnectionCard
+        conn={conn}
+        onConnected={() => void loadVisits()}
+      />
+
       {error && <p className="error-text">{error}</p>}
 
       {!available ? (
-        <p className="muted hdb-unavailable">{t('hdbUnavailable')}</p>
+        !loading && !conn?.connected ? null : (
+          <p className="muted hdb-unavailable">{t('hdbUnavailable')}</p>
+        )
       ) : loading ? (
         <p className="muted">{t('loading')}</p>
       ) : (

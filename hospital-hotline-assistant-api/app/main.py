@@ -29,6 +29,7 @@ from app.database import create_pool, get_connection, record_to_dict, records_to
 from app.services import TriageService
 from app.services.surveillance_extractor import extract_and_save as surveillance_extract
 from app.services.admin_auth import (
+    hash_password_sha256,
     issue_admin_token,
     validate_admin_token,
     verify_password,
@@ -49,6 +50,11 @@ from app.schemas import (
     ConversationSummaryOut,
     AdminLoginRequest,
     AdminLoginResponse,
+    AdminUserCreate,
+    AdminUserManageOut,
+    AdminUserUpdate,
+    HisConnectionOut,
+    HisConnectionUpdate,
     AdminUserOut,
     DepartmentOut,
     DepartmentRecommendationCreate,
@@ -299,6 +305,123 @@ async def admin_login(
             role=user["role"],
         ),
     )
+
+
+# ── Nurse account management (admin → User Settings) ────────────────────────
+# Nurses ARE admin_users rows with role 'admin' (the /nurse portal role).
+# Only those rows are manageable here — super_admin/viewer accounts are not
+# touchable from the UI.
+
+async def _fetch_manageable_user(
+    connection: asyncpg.Connection, user_id: UUID
+) -> asyncpg.Record:
+    row = await connection.fetchrow(
+        "SELECT * FROM admin_users WHERE id = $1", user_id
+    )
+    if row is None:
+        raise HTTPException(status_code=404, detail="User not found")
+    if row["role"] != "admin":
+        raise HTTPException(
+            status_code=403, detail="Only nurse accounts can be managed here"
+        )
+    return row
+
+
+def _manage_user_out(row: asyncpg.Record) -> AdminUserManageOut:
+    return AdminUserManageOut(
+        id=row["id"],
+        email=row["email"],
+        full_name=row["full_name"],
+        role=row["role"],
+        is_active=row["is_active"],
+        last_login_at=row["last_login_at"],
+        created_at=row["created_at"],
+    )
+
+
+@app.get("/admin/users", response_model=list[AdminUserManageOut])
+async def admin_list_users(
+    connection: asyncpg.Connection = Depends(get_connection),
+    _admin_user: dict = Depends(require_roles("super_admin")),
+):
+    rows = await connection.fetch(
+        """
+        SELECT * FROM admin_users
+        WHERE role = 'admin'
+        ORDER BY created_at DESC
+        """
+    )
+    return [_manage_user_out(row) for row in rows]
+
+
+@app.post(
+    "/admin/users",
+    response_model=AdminUserManageOut,
+    status_code=status.HTTP_201_CREATED,
+)
+async def admin_create_user(
+    payload: AdminUserCreate,
+    connection: asyncpg.Connection = Depends(get_connection),
+    _admin_user: dict = Depends(require_roles("super_admin")),
+):
+    email = payload.email.strip().lower()
+    if "@" not in email:
+        raise HTTPException(status_code=422, detail="Invalid email address")
+    existing = await connection.fetchval(
+        "SELECT 1 FROM admin_users WHERE LOWER(email) = $1", email
+    )
+    if existing:
+        raise HTTPException(status_code=409, detail="An account with this email already exists")
+    row = await connection.fetchrow(
+        """
+        INSERT INTO admin_users (email, password_hash, full_name, role, is_active)
+        VALUES ($1, $2, $3, 'admin', TRUE)
+        RETURNING *
+        """,
+        email,
+        hash_password_sha256(payload.password),
+        payload.full_name.strip(),
+    )
+    return _manage_user_out(row)
+
+
+@app.patch("/admin/users/{user_id}", response_model=AdminUserManageOut)
+async def admin_update_user(
+    user_id: UUID,
+    payload: AdminUserUpdate,
+    connection: asyncpg.Connection = Depends(get_connection),
+    _admin_user: dict = Depends(require_roles("super_admin")),
+):
+    await _fetch_manageable_user(connection, user_id)
+    row = await connection.fetchrow(
+        """
+        UPDATE admin_users SET
+            full_name = COALESCE($2, full_name),
+            password_hash = COALESCE($3, password_hash),
+            is_active = COALESCE($4, is_active),
+            updated_at = NOW()
+        WHERE id = $1
+        RETURNING *
+        """,
+        user_id,
+        payload.full_name.strip() if payload.full_name else None,
+        hash_password_sha256(payload.password) if payload.password else None,
+        payload.is_active,
+    )
+    return _manage_user_out(row)
+
+
+@app.delete("/admin/users/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def admin_delete_user(
+    user_id: UUID,
+    connection: asyncpg.Connection = Depends(get_connection),
+    _admin_user: dict = Depends(require_roles("super_admin")),
+):
+    """Hard delete a nurse account. Review history survives — reviewer FKs
+    are ON DELETE SET NULL, so signed reviews just show a blank reviewer."""
+    await _fetch_manageable_user(connection, user_id)
+    await connection.execute("DELETE FROM admin_users WHERE id = $1", user_id)
+
 
 @app.post("/sessions", response_model=SessionOut, status_code=status.HTTP_201_CREATED)
 async def create_session(payload: SessionCreate, connection: asyncpg.Connection = Depends(get_connection)):
@@ -1397,6 +1520,121 @@ async def _his_proxy_get(path: str) -> dict | None:
     except httpx.HTTPError as exc:
         logger.warning("HIS proxy GET %s failed: %s", path, exc)
     return None
+
+
+async def _probe_his_endpoint(endpoint: str) -> tuple[bool, int | None, str | None]:
+    """Try the visits listing on a candidate HIS endpoint. Returns
+    (connected, visit_count, error_message)."""
+    headers = {"X-API-Key": settings.his_api_key} if settings.his_api_key else {}
+    url = f"{endpoint.rstrip('/')}/api/visits"
+    try:
+        async with httpx.AsyncClient(timeout=3.0) as client:
+            resp = await client.get(url, headers=headers)
+    except httpx.HTTPError as exc:
+        return False, None, f"Could not reach the database endpoint: {exc}"
+    if resp.status_code == 401:
+        return False, None, "The database rejected our API key (401)."
+    if resp.status_code != 200:
+        return False, None, f"The database answered with status {resp.status_code}."
+    try:
+        visits = resp.json().get("visits", [])
+    except ValueError:
+        return False, None, "The endpoint did not return the expected data."
+    return True, len(visits), None
+
+
+def _his_connection_payload(
+    connected: bool, visit_count: int | None, message: str | None
+) -> HisConnectionOut:
+    return HisConnectionOut(
+        mode="http" if settings.his_mode == "http" else "mock",
+        endpoint=settings.his_base_url if settings.his_mode == "http" else None,
+        name=settings.his_display_name,
+        connected=connected,
+        visit_count=visit_count,
+        message=message,
+    )
+
+
+@app.get("/admin/his/connection", response_model=HisConnectionOut)
+async def admin_his_connection(
+    _admin_user: dict = Depends(require_roles("super_admin", "admin", "viewer")),
+):
+    """Current hospital-DB connection state for the Database Settings tab."""
+    if settings.his_mode != "http" or not settings.his_base_url:
+        return _his_connection_payload(False, None, None)
+    connected, count, message = await _probe_his_endpoint(settings.his_base_url)
+    return _his_connection_payload(connected, count, message)
+
+
+@app.put("/admin/his/connection", response_model=HisConnectionOut)
+async def admin_his_connect(
+    payload: HisConnectionUpdate,
+    request: Request,
+    _admin_user: dict = Depends(require_roles("super_admin")),
+):
+    """Establish (or change) the hospital-DB connection from the admin page.
+
+    Probes the endpoint first — an unreachable endpoint is rejected without
+    saving, so the demo can never end up pointed at a dead database. On
+    success the adapter is swapped live (no restart) and the config is
+    persisted to .env.
+    """
+    from app.services.env_persist import persist_env_keys
+    from app.services.screening.his import HttpHisAdapter
+
+    endpoint = payload.endpoint.strip().rstrip("/")
+    if not endpoint.startswith(("http://", "https://")):
+        raise HTTPException(
+            status_code=422, detail="Endpoint must start with http:// or https://"
+        )
+    connected, count, message = await _probe_his_endpoint(endpoint)
+    if not connected:
+        raise HTTPException(status_code=422, detail=message or "Connection failed")
+
+    settings.his_mode = "http"
+    settings.his_base_url = endpoint
+    settings.his_display_name = payload.name.strip()
+    request.app.state.his_adapter = HttpHisAdapter(
+        base_url=endpoint,
+        api_key=settings.his_api_key,
+        timeout=settings.his_timeout_seconds,
+    )
+    try:
+        persist_env_keys({
+            "HIS_MODE": "http",
+            "HIS_BASE_URL": endpoint,
+            "HIS_DISPLAY_NAME": settings.his_display_name,
+        })
+    except OSError:
+        logger.exception("HIS connection applied but failed to persist .env")
+    logger.info(
+        "HIS connection established by admin: %s (%s)", endpoint, settings.his_display_name
+    )
+    return _his_connection_payload(True, count, None)
+
+
+@app.delete("/admin/his/connection", response_model=HisConnectionOut)
+async def admin_his_disconnect(
+    request: Request,
+    _admin_user: dict = Depends(require_roles("super_admin")),
+):
+    """Disconnect the hospital DB: back to the mock adapter, persisted.
+
+    HIS_BASE_URL is kept in .env so reconnecting pre-fills the last endpoint;
+    only the mode flips. Booth flows keep working (mock accepts every visit,
+    write-backs are logged instead of sent)."""
+    from app.services.env_persist import persist_env_keys
+    from app.services.screening.his import MockHisAdapter
+
+    settings.his_mode = "mock"
+    request.app.state.his_adapter = MockHisAdapter()
+    try:
+        persist_env_keys({"HIS_MODE": "mock"})
+    except OSError:
+        logger.exception("HIS disconnect applied but failed to persist .env")
+    logger.info("HIS connection disconnected by admin")
+    return _his_connection_payload(False, None, None)
 
 
 @app.get("/admin/his/visits")

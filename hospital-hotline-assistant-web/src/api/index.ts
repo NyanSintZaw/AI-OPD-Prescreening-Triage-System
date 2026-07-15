@@ -30,10 +30,15 @@ import type {
   LanguageCode,
   MessageCreate,
   MessageOut,
+  HisConnection,
+  HisConnectionUpdate,
   HisVisitSummary,
   HisVisitDetail,
   HisVisitsResponse,
   HisVisitDetailResponse,
+  AdminManagedUser,
+  AdminUserCreateRequest,
+  AdminUserUpdateRequest,
   LinkVisitRequest,
   LinkVisitResponse,
   KioskStats,
@@ -414,6 +419,35 @@ export const api = {
 
   getHisVisit: (visitId: string) =>
     request<HisVisitDetailResponse>(`/admin/his/visits/${visitId}`),
+
+  getHisConnection: () => request<HisConnection>('/admin/his/connection'),
+
+  updateHisConnection: (payload: HisConnectionUpdate) =>
+    request<HisConnection>('/admin/his/connection', {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    }),
+
+  disconnectHisConnection: () =>
+    request<HisConnection>('/admin/his/connection', { method: 'DELETE' }),
+
+  // ── Nurse account management (admin → User Settings) ─────────────────────
+  listAdminUsers: () => request<AdminManagedUser[]>('/admin/users'),
+
+  createAdminUser: (payload: AdminUserCreateRequest) =>
+    request<AdminManagedUser>('/admin/users', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+
+  updateAdminUser: (userId: string, payload: AdminUserUpdateRequest) =>
+    request<AdminManagedUser>(`/admin/users/${userId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+    }),
+
+  deleteAdminUser: (userId: string) =>
+    request<void>(`/admin/users/${userId}`, { method: 'DELETE' }),
 
   // ── Triage manual PDF upload ───────────────────────────────────────────────
   uploadTriageManual: async (file: File): Promise<TriageManualUploadOut> => {
