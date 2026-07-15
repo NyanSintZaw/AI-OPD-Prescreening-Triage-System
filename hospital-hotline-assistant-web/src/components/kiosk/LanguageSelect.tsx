@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { Translate, X } from '@phosphor-icons/react';
+import { HandTap, Translate, X } from '@phosphor-icons/react';
 import type { AppLanguage } from '../../i18n/resources';
 
 interface LanguageSelectProps {
@@ -10,12 +10,55 @@ interface LanguageSelectProps {
   onExit: () => void;
 }
 
+/** Thai tricolour — official stripe ratio 1:1:2:1:1. */
+function ThaiFlag() {
+  return (
+    <svg viewBox="0 0 90 60" role="img" aria-label="ธงชาติไทย">
+      <rect width="90" height="60" fill="#A51931" />
+      <rect y="10" width="90" height="40" fill="#F4F5F8" />
+      <rect y="20" width="90" height="20" fill="#2D2A4A" />
+    </svg>
+  );
+}
+
+/** Simplified Union Jack. */
+function UkFlag() {
+  return (
+    <svg viewBox="0 0 90 60" role="img" aria-label="United Kingdom flag">
+      <rect width="90" height="60" fill="#012169" />
+      <path d="M0,0 L90,60 M90,0 L0,60" stroke="#fff" strokeWidth="12" />
+      <path d="M0,0 L90,60 M90,0 L0,60" stroke="#C8102E" strokeWidth="5" />
+      <path d="M45,0 V60 M0,30 H90" stroke="#fff" strokeWidth="20" />
+      <path d="M45,0 V60 M0,30 H90" stroke="#C8102E" strokeWidth="11" />
+    </svg>
+  );
+}
+
 /**
  * First phase of the kiosk session: pick the conversation language.
- * Deliberately bilingual and label-heavy — the patient hasn't chosen a
- * language yet, so both are always shown side by side.
+ * Flag + native name + greeting + explicit "tap to select" affordance on
+ * each card. Deliberately bilingual — no language is chosen yet.
  */
 export function LanguageSelect({ onSelect, busy, onExit }: LanguageSelectProps) {
+  const cards = [
+    {
+      lang: 'th' as AppLanguage,
+      flag: <ThaiFlag />,
+      word: 'ภาษาไทย',
+      hello: 'สวัสดีค่ะ ยินดีให้บริการ',
+      cta: 'แตะเพื่อเลือก',
+      delay: 0.08,
+    },
+    {
+      lang: 'en' as AppLanguage,
+      flag: <UkFlag />,
+      word: 'English',
+      hello: 'Hello, happy to help',
+      cta: 'Tap to select',
+      delay: 0.16,
+    },
+  ];
+
   return (
     <div className="k-langselect">
       <motion.div
@@ -35,33 +78,29 @@ export function LanguageSelect({ onSelect, busy, onExit }: LanguageSelectProps) 
       </motion.div>
 
       <div className="k-lang-cards">
-        <motion.button
-          type="button"
-          className="k-lang-card"
-          onClick={() => onSelect('th')}
-          disabled={busy}
-          initial={{ opacity: 0, y: 22 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4, delay: 0.08, ease: 'easeOut' }}
-          whileTap={{ scale: 0.97 }}
-        >
-          <span className="k-lang-word">ภาษาไทย</span>
-          <span className="k-lang-hello">สวัสดีค่ะ</span>
-        </motion.button>
-
-        <motion.button
-          type="button"
-          className="k-lang-card"
-          onClick={() => onSelect('en')}
-          disabled={busy}
-          initial={{ opacity: 0, y: 22 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4, delay: 0.16, ease: 'easeOut' }}
-          whileTap={{ scale: 0.97 }}
-        >
-          <span className="k-lang-word">English</span>
-          <span className="k-lang-hello">Hello</span>
-        </motion.button>
+        {cards.map((card) => (
+          <motion.button
+            key={card.lang}
+            type="button"
+            className="k-lang-card"
+            onClick={() => onSelect(card.lang)}
+            disabled={busy}
+            initial={{ opacity: 0, y: 22 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, delay: card.delay, ease: 'easeOut' }}
+            whileTap={{ scale: 0.97 }}
+          >
+            <span className="k-lang-flag" aria-hidden="true">
+              {card.flag}
+            </span>
+            <span className="k-lang-word">{card.word}</span>
+            <span className="k-lang-hello">{card.hello}</span>
+            <span className="k-lang-cta">
+              <HandTap size={20} weight="duotone" aria-hidden="true" />
+              {card.cta}
+            </span>
+          </motion.button>
+        ))}
       </div>
 
       {busy ? (

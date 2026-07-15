@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Check, PhoneSlash, Sparkle } from '@phosphor-icons/react';
+import { ArrowClockwise, Check, PhoneSlash, Sparkle, WarningCircle } from '@phosphor-icons/react';
 import type { AppLanguage } from '../../i18n/resources';
 import type { VoiceCallState } from '../../hooks/useVoiceCall';
 import { AiOrb } from './AiOrb';
@@ -24,6 +24,11 @@ interface ConversationStageProps {
   onEnd: () => void;
   measurementVital: string | null;
   onMeasurementSubmit: (continuationText: string) => void;
+  /** Set when the voice pipeline failed to start (mic denied/busy, WS drop). */
+  errorText?: string | null;
+  hasError?: boolean;
+  /** Re-attempt voiceCall.start() — a tap is also a fresh permission gesture. */
+  onRetry: () => void;
   /**
    * Future lip-synced avatar. Render the avatar component here (video /
    * canvas / WebGL — children auto-fill the tile via CSS) and it replaces
@@ -52,8 +57,42 @@ export function ConversationStage({
   measurementVital,
   onMeasurementSubmit,
   avatar,
+  errorText,
+  hasError = false,
+  onRetry,
 }: ConversationStageProps) {
   const { t } = useTranslation();
+
+  // Mic/connection failure: say so plainly and offer a big retry — never
+  // leave the patient staring at an endless "connecting" state.
+  if (hasError || state === 'error') {
+    return (
+      <div className="k-conv" style={{ justifyContent: 'center' }}>
+        <div className="k-conv-top">
+          <span className="k-hello-badge k-error-badge">
+            <WarningCircle size={52} weight="duotone" aria-hidden="true" />
+          </span>
+          <h2 className="k-speech-text" style={{ textAlign: 'center' }}>
+            {t('kioskConvErrorTitle')}
+          </h2>
+          <p className="k-guidance" style={{ maxWidth: 620 }}>
+            {t('kioskConvErrorHint')}
+          </p>
+          {errorText && <p className="k-error">{errorText}</p>}
+        </div>
+        <div className="k-conv-bar">
+          <button type="button" className="k-btn primary xl" onClick={onRetry}>
+            <ArrowClockwise size={26} weight="bold" aria-hidden="true" />
+            {t('kioskRetry')}
+          </button>
+          <button type="button" className="k-btn danger-ghost" onClick={onEnd}>
+            <PhoneSlash size={22} weight="bold" aria-hidden="true" />
+            {t('kioskEndConversation')}
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   const isListening = state === 'listening';
   const isSpeaking = state === 'speaking';

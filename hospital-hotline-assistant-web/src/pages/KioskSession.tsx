@@ -51,6 +51,7 @@ export function KioskSession() {
   const [replyOptions, setReplyOptions] = useState<Array<{ id: string; label: string }>>([]);
   const [measurementVital, setMeasurementVital] = useState<string | null>(null);
   const [assessment, setAssessment] = useState<ChatAssessment | null>(null);
+  const [startFailed, setStartFailed] = useState(false);
 
   const startedRef = useRef(false);
   const slipRef = useRef(false);
@@ -146,14 +147,22 @@ export function KioskSession() {
     return () => clearTimeout(timer);
   }, [phase, patientName]);
 
-  // Start the mic pipeline once we enter the conversation phase.
+  // Start the mic pipeline once we enter the conversation phase. A failure
+  // (mic denied/busy) flips startFailed so the stage shows a retry screen
+  // instead of hanging on "connecting".
   useEffect(() => {
     if (phase !== 'conversation' || !sessionId || startedRef.current) return;
     if (!voiceCall.supported) return;
     startedRef.current = true;
-    void voiceCall.start().catch(() => undefined);
+    void voiceCall.start().catch(() => setStartFailed(true));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase, sessionId, voiceCall.supported]);
+
+  const handleRetryVoice = useCallback(() => {
+    setStartFailed(false);
+    void voiceCall.start().catch(() => setStartFailed(true));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Tear the call down if the component unmounts mid-conversation.
   useEffect(() => {
@@ -272,6 +281,9 @@ export function KioskSession() {
                   setReplyOptions([]);
                   voiceCall.submitMeasurement(text);
                 }}
+                errorText={voiceCall.error}
+                hasError={startFailed}
+                onRetry={handleRetryVoice}
               />
             ) : (
               <div className="k-hello" style={{ height: '100%', justifyContent: 'center' }}>
