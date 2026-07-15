@@ -25,7 +25,6 @@ import {
 } from '@phosphor-icons/react';
 import { KioskFrame } from '../components/kiosk/KioskFrame';
 import { AiOrb } from '../components/kiosk/AiOrb';
-import { HospitalMapViewer } from '../components/HospitalMapViewer';
 import { useLanguage } from '../hooks/useSession';
 import { useKioskStats } from '../hooks/useKioskStats';
 import { prewarmVoiceCall } from '../hooks/voicePrewarm';
@@ -378,8 +377,12 @@ export function KioskHome() {
               {t('kioskClose')}
             </button>
           </div>
-          <div className="k-overlay-body">
-            <HospitalMapViewer />
+          <div className="k-overlay-body k-overlay-body-map">
+            <iframe
+              src="/hospital-map/index.html"
+              className="k-map-frame"
+              title={t('kioskViewMap')}
+            />
           </div>
         </div>
       )}

@@ -1487,6 +1487,16 @@ a:hover {
   text-align: left;
 }
 
+/* Inline CareNav wayfinder on the landing page */
+.landing-map-frame {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  min-height: 420px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+}
+
 /* Phone-call page */
 .call-page {
   display: grid;

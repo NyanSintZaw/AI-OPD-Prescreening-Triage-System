@@ -1778,6 +1778,20 @@
   overflow: auto;
 }
 
+/* The CareNav wayfinder is a full-viewport app — give the iframe the
+   whole overlay body, no padding or scrolling. */
+.k-overlay-body-map {
+  padding: 0;
+  overflow: hidden;
+  display: flex;
+}
+
+.k-map-frame {
+  flex: 1;
+  width: 100%;
+  border: 0;
+}
+
 /* Keep the hospital map at a sane, centered size — the map canvas is
    width-driven (fixed aspect ratio), so uncapped it fills the whole
    1920px overlay. */

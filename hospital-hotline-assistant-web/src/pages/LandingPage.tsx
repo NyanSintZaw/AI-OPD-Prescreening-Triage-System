@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { api } from '../api';
 import { Layout } from '../components/Layout';
-import { HospitalMapViewer } from '../components/HospitalMapViewer';
 import { useLanguage, useSessionStorage, setStoredPatientName } from '../hooks/useSession';
 import { prewarmVoiceCall } from '../hooks/voicePrewarm';
 
@@ -162,7 +161,13 @@ export function LandingPage() {
             </button>
           </div>
 
-          {showMap && <HospitalMapViewer />}
+          {showMap && (
+            <iframe
+              src="/hospital-map/index.html"
+              className="landing-map-frame"
+              title={t('modeMapTitle')}
+            />
+          )}
 
           <p className="landing-disclaimer muted">{t('disclaimer')}</p>
         </div>
