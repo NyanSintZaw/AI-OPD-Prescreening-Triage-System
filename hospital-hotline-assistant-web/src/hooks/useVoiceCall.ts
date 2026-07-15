@@ -84,6 +84,10 @@ export interface UseVoiceCallApi {
   start: () => Promise<void>;
   end: () => Promise<void>;
   sendTurn: () => void;
+  /** Barge-in while the assistant is speaking: cut the reply's audio, drop
+   *  the rest of its chunks, and go straight back to listening so the
+   *  patient can correct a misheard turn. The reply text stays on screen. */
+  interrupt: () => void;
   /** Tell the server to run a continuation turn after the caller PUT a
    *  requested reading (temperature popup). ``content`` is spoken/logged as
    *  the patient's utterance (e.g. "38.5°C"). */
@@ -121,6 +125,13 @@ const END_CALL_ACK_TIMEOUT_MS = 1500;
 // After assessment_complete, wait this long once playback is idle before
 // hanging up so the patient hears the full spoken summary.
 const AUTO_END_AFTER_ASSESSMENT_MS = 2500;
+// Stage stall watchdogs: if the call sits in a transient state longer than
+// this, assume the connection/server hung and surface the error screen
+// (with retry) instead of an endless spinner. Set on the error string as
+// the sentinel code 'stall_timeout' so the UI can show timeout copy.
+const CONNECT_STALL_MS = 20_000;
+const THINKING_STALL_MS = 45_000;
+export const VOICE_STALL_ERROR = 'stall_timeout';
 
 /**
  * AudioWorklet processor source. We ship it inline (as a blob URL) so the
@@ -325,6 +336,10 @@ export function useVoiceCall(options: UseVoiceCallOptions): UseVoiceCallApi {
     }
   }, []);
 
+  // Set by interrupt(): drop the current reply's remaining audio chunks
+  // until the next turn starts, so barge-in doesn't fight arriving PCM.
+  const discardPlaybackRef = useRef(false);
+
   const wsRef = useRef<WebSocket | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const inputCtxRef = useRef<AudioContext | null>(null);
@@ -458,6 +473,9 @@ export function useVoiceCall(options: UseVoiceCallOptions): UseVoiceCallApi {
   const schedulePlaybackChunk = useCallback(
     (data: ArrayBuffer) => {
       if (!activeRef.current) return;
+      // Barge-in: the patient interrupted this reply — drop the rest of
+      // its audio. The caption already went out on the JSON channel.
+      if (discardPlaybackRef.current) return;
       // Speaker off: drop the chunk on the floor. The transcript
       // caption pathway is on a different channel (JSON over the
       // same WS) so the user still sees the agent's words even
@@ -703,6 +721,9 @@ export function useVoiceCall(options: UseVoiceCallOptions): UseVoiceCallApi {
             const role = message.role === 'agent' ? 'agent' : 'user';
             const text = (message.text ?? '').toString();
             if (!text) return;
+            // A new transcript means a new turn is flowing (server pushes
+            // each line before its audio) — stop discarding barge-in audio.
+            discardPlaybackRef.current = false;
             // Accumulate within the current utterance, reset the other
             // role's buffer so we don't bleed an old fragment forward.
             // ``smartMergeTranscript`` keeps captions clean even when the
@@ -816,6 +837,7 @@ export function useVoiceCall(options: UseVoiceCallOptions): UseVoiceCallApi {
     // still reveal the slip. Idempotent with the onIdle commit.
     commitAssessment();
     activeRef.current = false;
+    discardPlaybackRef.current = false;
     pendingAutoEndRef.current = false;
     setAutoEnding(false);
     if (autoEndTimerRef.current !== null) {
@@ -856,6 +878,7 @@ export function useVoiceCall(options: UseVoiceCallOptions): UseVoiceCallApi {
     if (activeRef.current) return;
 
     activeRef.current = true;
+    discardPlaybackRef.current = false;
     setError(null);
     setLastTranscript('');
     setLastReply('');
@@ -1008,6 +1031,7 @@ export function useVoiceCall(options: UseVoiceCallOptions): UseVoiceCallApi {
 
   const sendTurn = useCallback(() => {
     if (!activeRef.current || mutedRef.current) return;
+    discardPlaybackRef.current = false;
     mutedRef.current = true;
     setMutedState(true);
     const ws = wsRef.current;
@@ -1020,12 +1044,36 @@ export function useVoiceCall(options: UseVoiceCallOptions): UseVoiceCallApi {
     }
   }, [updateState]);
 
+  // Barge-in: cut the reply's audio, silence its remaining chunks, and
+  // reopen the mic so the patient can immediately correct a misheard turn.
+  // Server-side nothing is cancelled — the engine already answered; the
+  // patient's next utterance is simply the next turn.
+  const interrupt = useCallback(() => {
+    if (!activeRef.current || stateRef.current !== 'speaking') return;
+    discardPlaybackRef.current = true;
+    teardownPlayback();
+    if (mutedRef.current) {
+      mutedRef.current = false;
+      setMutedState(false);
+      const ws = wsRef.current;
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        try {
+          ws.send(JSON.stringify({ type: 'unmute' }));
+        } catch {
+          // The next explicit mute/unmute action will resync state.
+        }
+      }
+    }
+    updateState('listening');
+  }, [teardownPlayback, updateState]);
+
   // The temperature-on-demand popup: the reading is already PUT onto the
   // session by the caller; tell the server to run a continuation turn whose
   // turn_context now carries the value so the engine proceeds.
   const submitMeasurement = useCallback((content: string) => {
     const ws = wsRef.current;
     if (!ws || ws.readyState !== WebSocket.OPEN) return;
+    discardPlaybackRef.current = false;
     try {
       ws.send(JSON.stringify({ type: 'submit_measurement', content }));
       if (activeRef.current) updateState('thinking');
@@ -1039,6 +1087,7 @@ export function useVoiceCall(options: UseVoiceCallOptions): UseVoiceCallApi {
     if (!text) return;
     const ws = wsRef.current;
     if (!ws || ws.readyState !== WebSocket.OPEN) return;
+    discardPlaybackRef.current = false;
     try {
       ws.send(JSON.stringify({ type: 'tap_reply', content: text }));
       if (activeRef.current) updateState('thinking');
@@ -1103,6 +1152,25 @@ export function useVoiceCall(options: UseVoiceCallOptions): UseVoiceCallApi {
     setSpeakerEnabled(!speakerEnabledRef.current);
   }, [setSpeakerEnabled]);
 
+  // ----- Stage stall watchdog ------------------------------------------
+  //
+  // If the call sits in a transient state too long (WS handshake hung,
+  // server never answers a turn), surface the error/retry screen rather
+  // than an endless "Connecting…"/"Thinking…" spinner.
+  useEffect(() => {
+    let limitMs: number | null = null;
+    if (state === 'starting' || state === 'greeting') limitMs = CONNECT_STALL_MS;
+    else if (state === 'thinking' || state === 'uploading') limitMs = THINKING_STALL_MS;
+    if (limitMs === null) return;
+    const timer = window.setTimeout(() => {
+      if (!activeRef.current || stateRef.current !== state) return;
+      cleanup();
+      setError(VOICE_STALL_ERROR);
+      updateState('error');
+    }, limitMs);
+    return () => window.clearTimeout(timer);
+  }, [state, cleanup, updateState]);
+
   // ----- Cleanup on unmount --------------------------------------------
 
   useEffect(() => {
@@ -1126,6 +1194,7 @@ export function useVoiceCall(options: UseVoiceCallOptions): UseVoiceCallApi {
     start,
     end,
     sendTurn,
+    interrupt,
     submitMeasurement,
     tapReply,
     toggleMute,

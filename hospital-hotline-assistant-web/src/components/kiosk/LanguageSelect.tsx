@@ -8,6 +8,8 @@ interface LanguageSelectProps {
   busy: boolean;
   /** Back to the home screen — rendered below the cards (bilingual label). */
   onExit: () => void;
+  /** True when the last session-creation attempt failed — tapping a card retries. */
+  error?: boolean;
 }
 
 /** Thai tricolour — official stripe ratio 1:1:2:1:1. */
@@ -39,7 +41,7 @@ function UkFlag() {
  * Flag + native name + greeting + explicit "tap to select" affordance on
  * each card. Deliberately bilingual — no language is chosen yet.
  */
-export function LanguageSelect({ onSelect, busy, onExit }: LanguageSelectProps) {
+export function LanguageSelect({ onSelect, busy, onExit, error = false }: LanguageSelectProps) {
   const cards = [
     {
       lang: 'th' as AppLanguage,
@@ -76,6 +78,12 @@ export function LanguageSelect({ onSelect, busy, onExit }: LanguageSelectProps) 
           <small>Please select your language</small>
         </h2>
       </motion.div>
+
+      {error && (
+        <p className="k-error">
+          เราไม่สามารถเริ่มเซสชันของคุณได้ กรุณาลองอีกครั้ง · We couldn’t start your session — please try again
+        </p>
+      )}
 
       <div className="k-lang-cards">
         {cards.map((card) => (

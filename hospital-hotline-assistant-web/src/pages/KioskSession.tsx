@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { AnimatePresence, motion } from 'framer-motion';
-import { CheckCircle, HandHeart, HouseLine, Printer } from '@phosphor-icons/react';
+import { CheckCircle, HandHeart, HouseLine, PhoneSlash, Printer } from '@phosphor-icons/react';
 import { api } from '../api';
 import { KioskFrame } from '../components/kiosk/KioskFrame';
 import { Stepper, type KioskStep } from '../components/kiosk/Stepper';
@@ -45,13 +45,16 @@ export function KioskSession() {
 
   const [phase, setPhase] = useState<Phase>('language');
   const [creating, setCreating] = useState(false);
+  const [sessionError, setSessionError] = useState(false);
   const [linking, setLinking] = useState(false);
   const [notFound, setNotFound] = useState(false);
+  const [linkError, setLinkError] = useState(false);
   const [patientName, setPatientName] = useState<string | null>(null);
   const [replyOptions, setReplyOptions] = useState<Array<{ id: string; label: string }>>([]);
   const [measurementVital, setMeasurementVital] = useState<string | null>(null);
   const [assessment, setAssessment] = useState<ChatAssessment | null>(null);
   const [startFailed, setStartFailed] = useState(false);
+  const [confirmExit, setConfirmExit] = useState(false);
 
   const startedRef = useRef(false);
   const slipRef = useRef(false);
@@ -91,6 +94,7 @@ export function KioskSession() {
     async (lang: AppLanguage) => {
       if (creating) return;
       setCreating(true);
+      setSessionError(false);
       setLanguage(lang);
       try {
         const session = await api.createSession({
@@ -101,12 +105,15 @@ export function KioskSession() {
         setStoredPatientName(null);
         setPhase('visit');
       } catch {
-        navigate('/kiosk');
+        // Stay on the language screen with a visible error rather than
+        // silently bouncing the patient back to the attract screen —
+        // re-tapping a language card retries.
+        setSessionError(true);
       } finally {
         setCreating(false);
       }
     },
-    [creating, setLanguage, setSessionId, navigate],
+    [creating, setLanguage, setSessionId],
   );
 
   // ── Visit phase handlers ─────────────────────────────────────────────────
@@ -115,6 +122,7 @@ export function KioskSession() {
       if (!sessionId) return;
       setLinking(true);
       setNotFound(false);
+      setLinkError(false);
       try {
         const res = await api.linkVisit(sessionId, visitId);
         if (res.linked) {
@@ -124,10 +132,14 @@ export function KioskSession() {
           }
           setPhase('hello');
         } else {
+          // Clean HIS response: this visit ID genuinely isn't registered.
           setNotFound(true);
         }
       } catch {
-        setNotFound(true);
+        // Thrown exception: couldn't even check (network/server failure) —
+        // distinct from "not found" so the patient isn't told to re-enter
+        // a correct ID when the real problem is connectivity.
+        setLinkError(true);
       } finally {
         setLinking(false);
       }
@@ -182,15 +194,28 @@ export function KioskSession() {
 
   // ── Reset / exit ─────────────────────────────────────────────────────────
   const resetToHome = useCallback(() => {
+    setConfirmExit(false);
     void voiceCall.end();
     setSessionId(null);
     navigate('/kiosk');
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [navigate, setSessionId]);
 
+  // Mid-conversation an accidental Exit tap would throw away the whole
+  // interview — confirm first. Every other phase exits immediately.
+  const requestExit = useCallback(() => {
+    if (phase === 'conversation') {
+      setConfirmExit(true);
+    } else {
+      resetToHome();
+    }
+  }, [phase, resetToHome]);
+
   const idle = useIdleReset({
-    enabled: phase !== 'result', // result screen waits on the patient explicitly
-    warnAfterMs: phase === 'conversation' ? 60000 : 45000,
+    // Also armed on the result screen so a walk-away doesn't leave the
+    // previous patient's recommendation on display — just with more slack.
+    enabled: true,
+    warnAfterMs: phase === 'result' ? 90000 : phase === 'conversation' ? 60000 : 45000,
     graceMs: IDLE_GRACE_SECONDS * 1000,
     onReset: resetToHome,
   });
@@ -207,8 +232,11 @@ export function KioskSession() {
       onLanguageChange={setLanguage}
       // On the language phase the Exit control lives below the language
       // cards instead of crowding the brand lockup in the top bar.
-      onExit={phase === 'language' ? undefined : resetToHome}
-      hideLanguage={phase === 'language'}
+      onExit={phase === 'language' ? undefined : requestExit}
+      // The session's language is pinned when it's created — a mid-session
+      // toggle would switch the UI while the assistant keeps speaking the
+      // chosen language, so the toggle is hidden for the whole session.
+      hideLanguage
       center={step !== null ? <Stepper current={step} /> : undefined}
     >
       <AnimatePresence mode="wait">
@@ -218,6 +246,7 @@ export function KioskSession() {
               onSelect={(lang) => void handleLanguageSelect(lang)}
               busy={creating}
               onExit={resetToHome}
+              error={sessionError}
             />
           </motion.div>
         )}
@@ -230,6 +259,7 @@ export function KioskSession() {
               onSkip={handleSkip}
               linking={linking}
               notFound={notFound}
+              linkError={linkError}
             />
           </motion.div>
         )}
@@ -274,7 +304,9 @@ export function KioskSession() {
                   voiceCall.tapReply(label);
                 }}
                 onDone={voiceCall.sendTurn}
-                onEnd={resetToHome}
+                onEnd={requestExit}
+                onInterrupt={voiceCall.interrupt}
+                canInterrupt={!voiceCall.autoEnding}
                 measurementVital={measurementVital}
                 onMeasurementSubmit={(text) => {
                   setMeasurementVital(null);
@@ -334,6 +366,25 @@ export function KioskSession() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Exit confirmation — an accidental tap must not destroy the interview */}
+      {confirmExit && (
+        <div className="k-modal-backdrop">
+          <div className="k-modal" role="alertdialog" aria-modal="true">
+            <h3>{t('kioskExitConfirmTitle')}</h3>
+            <p>{t('kioskExitConfirmBody')}</p>
+            <div className="k-modal-actions">
+              <button type="button" className="k-btn primary" onClick={() => setConfirmExit(false)}>
+                {t('kioskExitConfirmNo')}
+              </button>
+              <button type="button" className="k-btn danger-ghost" onClick={resetToHome}>
+                <PhoneSlash size={20} weight="bold" aria-hidden="true" />
+                {t('kioskExitConfirmYes')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Idle "are you still there?" prompt with a countdown ring */}
       {idle.warning && (

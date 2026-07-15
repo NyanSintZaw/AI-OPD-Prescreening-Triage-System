@@ -1,9 +1,17 @@
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { AnimatePresence, motion } from 'framer-motion';
-import { ArrowClockwise, Check, PhoneSlash, Sparkle, WarningCircle } from '@phosphor-icons/react';
+import {
+  ArrowClockwise,
+  ArrowCounterClockwise,
+  Check,
+  PhoneSlash,
+  Sparkle,
+  WarningCircle,
+} from '@phosphor-icons/react';
 import type { AppLanguage } from '../../i18n/resources';
-import type { VoiceCallState } from '../../hooks/useVoiceCall';
+import { VOICE_STALL_ERROR, type VoiceCallState } from '../../hooks/useVoiceCall';
+import { useLiveCaption } from '../../hooks/useLiveCaption';
 import { AiOrb } from './AiOrb';
 import { MeasurementCard } from '../MeasurementCard';
 
@@ -29,6 +37,10 @@ interface ConversationStageProps {
   hasError?: boolean;
   /** Re-attempt voiceCall.start() — a tap is also a fresh permission gesture. */
   onRetry: () => void;
+  /** Barge-in while the assistant speaks → useVoiceCall.interrupt. */
+  onInterrupt?: () => void;
+  /** False once the assessment is wrapping up — hides the interrupt button. */
+  canInterrupt?: boolean;
   /**
    * Future lip-synced avatar. Render the avatar component here (video /
    * canvas / WebGL — children auto-fill the tile via CSS) and it replaces
@@ -60,12 +72,21 @@ export function ConversationStage({
   errorText,
   hasError = false,
   onRetry,
+  onInterrupt,
+  canInterrupt = true,
 }: ConversationStageProps) {
   const { t } = useTranslation();
 
+  const isListening = state === 'listening';
+  // Live "we're hearing you" preview of the patient's speech (Web Speech
+  // API, Chrome). The server's end-of-turn STT stays authoritative.
+  const liveCaption = useLiveCaption(language, isListening && !measurementVital && !hasError);
+
   // Mic/connection failure: say so plainly and offer a big retry — never
-  // leave the patient staring at an endless "connecting" state.
+  // leave the patient staring at an endless "connecting" state. A stalled
+  // connection ('stall_timeout') gets its own copy, distinct from mic issues.
   if (hasError || state === 'error') {
+    const isStall = errorText === VOICE_STALL_ERROR;
     return (
       <div className="k-conv" style={{ justifyContent: 'center' }}>
         <div className="k-conv-top">
@@ -73,12 +94,12 @@ export function ConversationStage({
             <WarningCircle size={52} weight="duotone" aria-hidden="true" />
           </span>
           <h2 className="k-speech-text" style={{ textAlign: 'center' }}>
-            {t('kioskConvErrorTitle')}
+            {isStall ? t('kioskConvTimeoutTitle') : t('kioskConvErrorTitle')}
           </h2>
           <p className="k-guidance" style={{ maxWidth: 620 }}>
-            {t('kioskConvErrorHint')}
+            {isStall ? t('kioskConvTimeoutHint') : t('kioskConvErrorHint')}
           </p>
-          {errorText && <p className="k-error">{errorText}</p>}
+          {errorText && !isStall && <p className="k-error">{errorText}</p>}
         </div>
         <div className="k-conv-bar">
           <button type="button" className="k-btn primary xl" onClick={onRetry}>
@@ -94,7 +115,6 @@ export function ConversationStage({
     );
   }
 
-  const isListening = state === 'listening';
   const isSpeaking = state === 'speaking';
   const busy =
     state === 'thinking' || state === 'uploading' || state === 'starting' || state === 'greeting';
@@ -170,11 +190,20 @@ export function ConversationStage({
           </AnimatePresence>
         </div>
 
-        {lastTranscript && (
-          <p className="k-user-echo">
+        {isListening && liveCaption ? (
+          // Live preview while the patient talks — replaced by the server's
+          // final transcript once the turn processes.
+          <p className="k-user-echo live">
             <b>{t('kioskYouLabel')}:</b>
-            {lastTranscript}
+            {liveCaption}
           </p>
+        ) : (
+          lastTranscript && (
+            <p className="k-user-echo">
+              <b>{t('kioskYouLabel')}:</b>
+              {lastTranscript}
+            </p>
+          )
         )}
 
         {guidance && <p className="k-guidance">{guidance}</p>}
@@ -244,6 +273,15 @@ export function ConversationStage({
               <Check size={28} weight="bold" aria-hidden="true" />
               {doneLabel}
             </motion.button>
+
+            {/* Barge-in while the reply is playing — lets the patient cut a
+                mis-heard answer short and immediately speak a correction. */}
+            {isSpeaking && canInterrupt && onInterrupt && (
+              <button type="button" className="k-btn secondary" onClick={onInterrupt}>
+                <ArrowCounterClockwise size={22} weight="bold" aria-hidden="true" />
+                {t('kioskConvInterrupt')}
+              </button>
+            )}
 
             <button type="button" className="k-btn danger-ghost" onClick={onEnd}>
               <PhoneSlash size={22} weight="bold" aria-hidden="true" />

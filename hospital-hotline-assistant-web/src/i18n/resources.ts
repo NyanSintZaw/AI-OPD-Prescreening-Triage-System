@@ -11,6 +11,17 @@ export const resources = {
       kioskAd2: 'Just say your symptoms — AI will guide you',
       kioskAd3: 'Only 3–5 minutes, no typing needed',
       kioskTouchStart: 'Touch to start',
+      kioskHeroHello: 'Hello! Your AI assistant is ready to help',
+      kioskStatEmptyText: 'Be the first today — tap Start to begin!',
+      kioskStatEmptySub: 'The AI assistant is ready and waiting to guide you',
+      // Advertising board (rotates with the live stats at the bottom)
+      kioskAdBoardTitle: 'Did you know?',
+      kioskAdBoard1Text: 'Speak Thai or English — the assistant understands both',
+      kioskAdBoard1Sub: 'Talk naturally, in your own words. No forms, no typing.',
+      kioskAdBoard2Text: 'You get a printed slip with your department and a map',
+      kioskAdBoard2Sub: 'Show it at the counter — the staff will know exactly where you are headed.',
+      kioskAdBoard3Text: 'Your answers help nurses prepare before you even arrive',
+      kioskAdBoard3Sub: 'The care team sees your symptoms summary the moment you are routed.',
       kioskFeatVoice: 'Just speak',
       kioskFeatLang: 'ไทย / English',
       kioskFeatTime: '3–5 minutes',
@@ -69,6 +80,13 @@ export const resources = {
       kioskVisitLinkedHello: 'Hello, {{name}}',
       kioskVisitLinkedReady: 'We found your visit. Let’s begin.',
       kioskVisitNotFound: 'We couldn’t find that Visit ID. Please try again or continue without it.',
+      kioskVisitInvalidFormat:
+        'That doesn’t look like a valid Visit ID. It should be the 18-digit number printed on your registration slip — please check and try again.',
+      kioskVisitLinkError:
+        'We’re having trouble checking your visit right now. Please try again in a moment.',
+      kioskVisitVoiceMicError:
+        'Can’t reach the microphone. Please allow microphone access, or type your Visit ID instead.',
+      kioskVisitVoiceSttError: 'We couldn’t understand that. Please try speaking again.',
       kioskVisitKeypadClear: 'Clear',
       kioskVisitKeypadBackspace: 'Delete',
       // Conversation
@@ -89,7 +107,17 @@ export const resources = {
       kioskConvErrorTitle: 'Can’t reach the microphone',
       kioskConvErrorHint:
         'Please allow microphone access in the browser, make sure no other app is using the mic, then try again.',
+      kioskConvTimeoutTitle: 'This is taking longer than expected',
+      kioskConvTimeoutHint:
+        'The connection seems stuck. Tap “Try again” to reconnect and continue where you left off, or end the conversation and ask our staff for help.',
+      kioskConvInterrupt: 'Tap to speak again',
       kioskRetry: 'Try again',
+      // Exit confirmation (mid-conversation)
+      kioskExitConfirmTitle: 'End this conversation?',
+      kioskExitConfirmBody:
+        'Your answers so far will be discarded and the kiosk will return to the start.',
+      kioskExitConfirmYes: 'Yes, exit',
+      kioskExitConfirmNo: 'Continue conversation',
       // Result
       kioskResultTitle: 'All done',
       kioskResultSubtitle: 'Here is where to go next',
@@ -137,6 +165,7 @@ export const resources = {
         'This system does not diagnose diseases or replace medical professionals. Recommendations are preliminary only.',
       vitalsEnterManually: 'Enter manually instead',
       vitalsRequiredError: 'Please fill in all fields before continuing.',
+      vitalsRangeError: 'That value looks out of range. Please check the reading and enter it again.',
       vitalsMeasureTitle: 'Measure your blood pressure',
       vitalsStep1:
         'Sit down and wrap the cuff snugly around your bare upper arm, about two finger-widths above the elbow.',
@@ -388,6 +417,9 @@ export const resources = {
       modeChatSubtitle: 'Type your symptoms and read replies on screen.',
       modeMapTitle: 'Hospital Map',
       modeMapSubtitle: 'Find your department and get directions inside the hospital.',
+      tapToViewMap: 'Tap to view interactive map',
+      hospitalMap: 'Hospital Route Map',
+      closeMap: 'Close Map',
       mapSelectDepartment: 'Select a department',
       mapSearchPlaceholder: 'Or type a department name…',
       mapShowRoute: 'Show Route',
@@ -687,6 +719,17 @@ export const resources = {
       kioskAd2: 'แค่บอกอาการ AI จะแนะนำแผนกให้คุณ',
       kioskAd3: 'ใช้เวลาเพียง 3–5 นาที ไม่ต้องพิมพ์',
       kioskTouchStart: 'แตะเพื่อเริ่ม',
+      kioskHeroHello: 'สวัสดีค่ะ ผู้ช่วย AI พร้อมดูแลคุณ',
+      kioskStatEmptyText: 'จะเป็นคนแรกของวันนี้ไหม? แตะปุ่มเพื่อเริ่มเลย',
+      kioskStatEmptySub: 'ผู้ช่วย AI พร้อมให้บริการและรอแนะนำคุณอยู่',
+      // Advertising board (rotates with the live stats at the bottom)
+      kioskAdBoardTitle: 'รู้หรือไม่?',
+      kioskAdBoard1Text: 'พูดไทยหรืออังกฤษก็ได้ ผู้ช่วยเข้าใจทั้งสองภาษา',
+      kioskAdBoard1Sub: 'พูดได้ตามธรรมชาติในแบบของคุณ ไม่ต้องกรอกฟอร์ม ไม่ต้องพิมพ์',
+      kioskAdBoard2Text: 'รับใบแนะนำแผนกพร้อมแผนที่นำทางในโรงพยาบาล',
+      kioskAdBoard2Sub: 'ยื่นที่เคาน์เตอร์ได้เลย เจ้าหน้าที่จะทราบทันทีว่าคุณกำลังไปแผนกไหน',
+      kioskAdBoard3Text: 'คำตอบของคุณช่วยให้พยาบาลเตรียมพร้อมก่อนคุณไปถึง',
+      kioskAdBoard3Sub: 'ทีมดูแลจะเห็นสรุปอาการของคุณทันทีที่ระบบส่งต่อแผนก',
       kioskFeatVoice: 'พูดได้เลย',
       kioskFeatLang: 'ไทย / English',
       kioskFeatTime: '3–5 นาที',
@@ -745,6 +788,11 @@ export const resources = {
       kioskVisitLinkedHello: 'สวัสดีคุณ {{name}}',
       kioskVisitLinkedReady: 'เราพบข้อมูลของคุณแล้ว มาเริ่มกันเลย',
       kioskVisitNotFound: 'ไม่พบรหัสการเข้ารับบริการนี้ กรุณาลองใหม่หรือดำเนินการต่อโดยไม่มีรหัส',
+      kioskVisitInvalidFormat:
+        'รูปแบบรหัสไม่ถูกต้อง รหัสควรเป็นตัวเลข 18 หลักที่พิมพ์อยู่บนใบลงทะเบียนของคุณ กรุณาตรวจสอบแล้วลองใหม่อีกครั้ง',
+      kioskVisitLinkError: 'ขณะนี้ระบบไม่สามารถตรวจสอบข้อมูลการเข้ารับบริการของคุณได้ กรุณาลองใหม่อีกครั้งในอีกสักครู่',
+      kioskVisitVoiceMicError: 'ไม่สามารถใช้ไมโครโฟนได้ กรุณาอนุญาตการใช้ไมโครโฟน หรือพิมพ์รหัสการเข้ารับบริการแทน',
+      kioskVisitVoiceSttError: 'เราไม่เข้าใจสิ่งที่คุณพูด กรุณาลองพูดอีกครั้ง',
       kioskVisitKeypadClear: 'ล้าง',
       kioskVisitKeypadBackspace: 'ลบ',
       // Conversation
@@ -765,7 +813,16 @@ export const resources = {
       kioskConvErrorTitle: 'ไม่สามารถใช้ไมโครโฟนได้',
       kioskConvErrorHint:
         'กรุณาอนุญาตการใช้ไมโครโฟนในเบราว์เซอร์ และตรวจสอบว่าไม่มีแอปอื่นใช้ไมโครโฟนอยู่ แล้วลองอีกครั้ง',
+      kioskConvTimeoutTitle: 'ใช้เวลานานกว่าปกติ',
+      kioskConvTimeoutHint:
+        'การเชื่อมต่อดูเหมือนจะค้าง แตะ “ลองอีกครั้ง” เพื่อเชื่อมต่อใหม่และคุยต่อจากเดิม หรือจบการสนทนาแล้วติดต่อเจ้าหน้าที่',
+      kioskConvInterrupt: 'แตะเพื่อพูดใหม่',
       kioskRetry: 'ลองอีกครั้ง',
+      // Exit confirmation (mid-conversation)
+      kioskExitConfirmTitle: 'ต้องการจบการสนทนาหรือไม่?',
+      kioskExitConfirmBody: 'คำตอบของคุณจะถูกยกเลิก และตู้บริการจะกลับไปหน้าเริ่มต้น',
+      kioskExitConfirmYes: 'ใช่ ออกเลย',
+      kioskExitConfirmNo: 'คุยต่อ',
       // Result
       kioskResultTitle: 'เสร็จเรียบร้อย',
       kioskResultSubtitle: 'นี่คือจุดที่คุณต้องไปต่อ',
@@ -813,6 +870,7 @@ export const resources = {
         'ระบบนี้ไม่ได้วินิจฉัยโรคหรือแทนที่บุคลากรทางการแพทย์ คำแนะนำเป็นเพียงเบื้องต้นเท่านั้น',
       vitalsEnterManually: 'กรอกค่าเองแทน',
       vitalsRequiredError: 'กรุณากรอกข้อมูลให้ครบทุกช่องก่อนดำเนินการต่อ',
+      vitalsRangeError: 'ค่าที่กรอกดูผิดปกติ กรุณาตรวจสอบค่าที่วัดได้แล้วกรอกใหม่อีกครั้ง',
       vitalsMeasureTitle: 'วัดความดันโลหิตของคุณ',
       vitalsStep1: 'นั่งลงและพันผ้าพันแขนให้กระชับรอบต้นแขน เหนือข้อศอกประมาณสองนิ้ว',
       vitalsStep2: 'วางแขนบนโต๊ะ หงายฝ่ามือขึ้น',
@@ -1055,6 +1113,9 @@ export const resources = {
       modeChatSubtitle: 'พิมพ์อาการของคุณและดูคำตอบบนหน้าจอ',
       modeMapTitle: 'แผนที่โรงพยาบาล',
       modeMapSubtitle: 'ค้นหาแผนกและดูเส้นทางภายในโรงพยาบาล',
+      tapToViewMap: 'แตะเพื่อดูแผนที่แบบโต้ตอบ',
+      hospitalMap: 'แผนที่เส้นทางโรงพยาบาล',
+      closeMap: 'ปิดแผนที่',
       mapSelectDepartment: 'เลือกแผนก',
       mapSearchPlaceholder: 'หรือพิมพ์ชื่อแผนก…',
       mapShowRoute: 'แสดงเส้นทาง',

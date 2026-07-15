@@ -97,8 +97,8 @@
   z-index: 0;
   pointer-events: none;
   background:
-    radial-gradient(640px 640px at 8% 18%, rgba(63, 78, 135, 0.07), transparent 70%),
-    radial-gradient(720px 720px at 96% 88%, rgba(63, 78, 135, 0.05), transparent 70%);
+    radial-gradient(640px 640px at 8% 18%, rgba(63, 78, 135, 0.1), transparent 70%),
+    radial-gradient(720px 720px at 96% 88%, rgba(63, 78, 135, 0.08), transparent 70%);
   animation: k-aurora-drift 36s ease-in-out infinite alternate;
 }
 
@@ -372,6 +372,21 @@
   border-color: var(--k-border-strong);
 }
 
+/* Outline — a secondary action that must still read unmistakably tappable
+   (vs the flat informational badges): white fill, visible primary border. */
+.k-btn.outline {
+  background: var(--k-surface);
+  border: 2px solid var(--k-primary-tint-border);
+  color: var(--k-primary);
+  font-weight: 800;
+  box-shadow: var(--k-shadow-sm);
+}
+
+.k-btn.outline:hover {
+  border-color: var(--k-primary);
+  background: var(--k-primary-tint);
+}
+
 .k-btn.ghost {
   background: transparent;
   color: var(--k-ink-3);
@@ -499,7 +514,7 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: clamp(20px, 3.4vh, 38px);
+  gap: clamp(16px, 2.8vh, 30px);
   width: min(1500px, 94vw);
   text-align: center;
 }
@@ -508,23 +523,65 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: clamp(20px, 3.4vh, 40px);
+  gap: clamp(18px, 3vh, 34px);
   width: 100%;
 }
 
-.k-hero {
+/* The two home zones. Portrait/base: display:contents dissolves the
+   wrappers so all blocks stack in ONE column of .k-home-main, re-ordered
+   via `order` below. Landscape turns them into real side-by-side columns:
+   pitch (headline + how-it-works) left, action (greeting + buttons) right. */
+.k-home-pitch,
+.k-home-action {
+  display: contents;
+}
+
+.k-hero-hello {
+  order: 1;
+}
+.k-ad-head {
+  order: 2;
+}
+.k-hero-sub {
+  order: 3;
+}
+.k-ad-dots {
+  order: 4;
+}
+.k-feat-chips {
+  order: 5;
+}
+.k-cta-row {
+  order: 6;
+}
+.k-how {
+  order: 7;
+}
+
+/* Assistant presence: breathing orb + welcome line above the headline.
+   The orb's box is slightly overcropped (its ring never reaches the edge)
+   to keep the row's height cost down. */
+.k-hero-hello {
   display: flex;
-  flex-direction: column;
   align-items: center;
-  gap: clamp(14px, 2.2vh, 24px);
-  min-width: 0;
+  gap: 14px;
+}
+
+.k-hero-hello > [role='img'] {
+  margin: -6px 0;
+}
+
+.k-hero-hello-text {
+  font-size: var(--k-fs-lead);
+  font-weight: 700;
+  color: var(--k-primary);
 }
 
 /* Rotating pitch headline — fixed-height slot so crossfades don't reflow. */
 .k-ad-head {
   display: flex;
   align-items: center;
-  min-height: clamp(110px, 16vh, 190px);
+  min-height: clamp(96px, 14vh, 170px);
 }
 
 .k-ad-title {
@@ -536,6 +593,16 @@
   margin: 0;
   max-width: 14em;
   text-wrap: balance;
+}
+
+/* Permanent promise line under the greeting. */
+.k-hero-sub {
+  font-size: var(--k-fs-body-lg);
+  font-weight: 600;
+  color: var(--k-ink-2);
+  line-height: 1.5;
+  max-width: 30em;
+  margin: 0;
 }
 
 .k-ad-dots {
@@ -556,30 +623,34 @@
   background: var(--k-primary);
 }
 
-/* Feature chips (trust / ease signals) */
+/* Feature badges (trust / ease signals) — a tidy 2×2 grid of soft tint
+   capsules. Deliberately distinct BOTH from the body text above (they sit
+   on a tint, not bare canvas) and from the buttons below (flat, no border,
+   no shadow, square-ish corners instead of the button pill). */
 .k-feat-chips {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 10px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px 12px;
+  width: min(560px, 100%);
 }
 
 .k-feat-chip {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 8px;
-  padding: 10px 18px;
-  border-radius: 999px;
-  background: var(--k-surface);
-  border: 1px solid var(--k-border);
-  box-shadow: var(--k-shadow-sm);
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: rgba(63, 78, 135, 0.08);
   font-size: var(--k-fs-caption);
   font-weight: 700;
   color: var(--k-ink-2);
+  white-space: nowrap;
 }
 
 .k-feat-chip svg {
   color: var(--k-primary);
+  flex-shrink: 0;
 }
 
 .k-cta-row {
@@ -594,13 +665,34 @@
   width: 100%;
 }
 
-/* How-it-works panel — steps auto-highlight to keep the screen alive. */
+/* The one action that must be irresistible: gradient fill + depth. The
+   pulse ring and nudging arrow come from framer-motion in KioskHome. */
+.k-cta-row .k-cta-start {
+  min-height: clamp(88px, 11vh, 104px);
+  background: linear-gradient(180deg, #4a5a99 0%, var(--k-primary) 45%, var(--k-primary-deep) 100%);
+  box-shadow: var(--k-shadow-lg);
+}
+
+.k-cta-row .k-cta-start:hover {
+  background: linear-gradient(180deg, #4a5a99 0%, var(--k-primary-strong) 45%, var(--k-primary-deep) 100%);
+}
+
+.k-cta-hint {
+  font-size: var(--k-fs-caption);
+  font-weight: 600;
+  color: var(--k-ink-3);
+}
+
+/* How-it-works panel — a numbered TIMELINE, deliberately flat. These rows
+   are information, not menu options: no per-step card fill, border, or
+   scale (which read as "selectable"). Only the number circle, inline icon
+   and name take the journey accent when active. */
 .k-how {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  width: min(600px, 92vw);
-  padding: clamp(18px, 2.6vh, 28px);
+  gap: clamp(10px, 1.6vh, 16px);
+  width: min(620px, 92vw);
+  padding: clamp(20px, 3vh, 32px) clamp(20px, 2.4vw, 32px);
   box-sizing: border-box;
   text-align: left;
 }
@@ -611,41 +703,69 @@
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--k-ink-3);
+  margin-bottom: 4px;
 }
 
 .k-how-step {
   display: flex;
+  align-items: stretch;
+  gap: 18px;
+}
+
+/* Left rail: numbered circle + connector line down to the next step. */
+.k-how-rail {
+  display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 16px;
-  padding: clamp(12px, 1.8vh, 18px) 16px;
-  border-radius: var(--k-r-md);
-  border: 1.5px solid transparent;
+  flex-shrink: 0;
+}
+
+.k-how-dot {
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  border: 2.5px solid var(--k-border-strong);
+  background: var(--k-surface-tint);
+  color: var(--k-ink-3);
+  font-size: 19px;
+  font-weight: 800;
+  flex-shrink: 0;
   transition: all 450ms var(--k-ease);
 }
 
-.k-how-ico {
-  display: grid;
-  place-items: center;
-  width: 56px;
-  height: 56px;
-  border-radius: var(--k-r-sm);
-  background: var(--k-bg-2);
-  color: var(--k-ink-3);
-  flex-shrink: 0;
-  transition: all 450ms var(--k-ease);
+.k-how-line {
+  flex: 1;
+  width: 2.5px;
+  min-height: 18px;
+  margin: 4px 0;
+  border-radius: 2px;
+  background: var(--k-border);
 }
 
 .k-how-text {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 3px;
   min-width: 0;
+  padding-bottom: clamp(10px, 1.6vh, 18px);
 }
 
 .k-how-name {
+  display: flex;
+  align-items: center;
+  gap: 10px;
   font-size: var(--k-fs-body-lg);
   font-weight: 800;
-  color: var(--k-ink);
+  color: var(--k-ink-2);
+  transition: color 450ms var(--k-ease);
+}
+
+.k-how-name-ico {
+  display: inline-flex;
+  color: var(--k-ink-3);
+  transition: color 450ms var(--k-ease);
 }
 
 .k-how-sub {
@@ -654,45 +774,34 @@
   line-height: 1.4;
 }
 
-.k-how-num {
-  margin-left: auto;
-  font-size: 15px;
-  font-weight: 800;
-  color: var(--k-border-strong);
-  flex-shrink: 0;
-  transition: color 450ms var(--k-ease);
+.k-how-step.active .k-how-name {
+  color: var(--k-ink);
 }
 
 /* Per-step accents when active: blue → amber → green (journey colors). */
-.k-how-step--1.active {
-  background: var(--k-primary-tint);
-  border-color: var(--k-primary-tint-border);
-  transform: scale(1.02);
-}
-.k-how-step--1.active .k-how-ico {
+.k-how-step--1.active .k-how-dot {
+  border-color: var(--k-primary);
   background: var(--k-primary);
   color: #fff;
 }
-.k-how-step--2.active {
-  background: var(--k-warning-tint);
-  border-color: var(--k-warning-tint-border);
-  transform: scale(1.02);
+.k-how-step--1.active .k-how-name-ico {
+  color: var(--k-primary);
 }
-.k-how-step--2.active .k-how-ico {
+.k-how-step--2.active .k-how-dot {
+  border-color: var(--k-warning);
   background: var(--k-warning);
   color: #fff;
 }
-.k-how-step--3.active {
-  background: var(--k-success-tint);
-  border-color: var(--k-success-tint-border);
-  transform: scale(1.02);
+.k-how-step--2.active .k-how-name-ico {
+  color: var(--k-warning);
 }
-.k-how-step--3.active .k-how-ico {
+.k-how-step--3.active .k-how-dot {
+  border-color: var(--k-success);
   background: var(--k-success);
   color: #fff;
 }
-.k-how-step.active .k-how-num {
-  color: var(--k-ink-3);
+.k-how-step--3.active .k-how-name-ico {
+  color: var(--k-success);
 }
 
 /* Bottom band: stats + disclaimer */
@@ -716,7 +825,7 @@
 .k-float-ico {
   position: absolute;
   color: var(--k-primary);
-  opacity: 0.09;
+  opacity: 0.13;
   animation: k-bob 7s ease-in-out infinite;
 }
 
@@ -730,58 +839,76 @@
   }
 }
 
-/* Today stats strip */
+/* Today stats / advertising strip */
 .k-today {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 0;
   width: 100%;
 }
 
+/* The board's title is a solid TAB attached to the strip's top-left corner,
+   colored to match the current slide's accent — unmissable, and visually
+   one piece with the card below it. */
 .k-today-label {
-  font-size: var(--k-fs-caption);
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  margin-left: 22px;
+  padding: 9px 22px;
+  border-radius: 14px 14px 0 0;
+  background: var(--k-primary);
+  color: #fff;
+  font-size: clamp(15px, 1.3vw, 18px);
   font-weight: 800;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: var(--k-ink-3);
   text-align: left;
+  transition: background 450ms var(--k-ease);
 }
 
-/* Rotating stat banner — a tall tinted announcement strip: one stat at a
-   time as a full sentence with the number highlighted, plus a friendly
-   supporting sub-line. The whole card tints to the active stat's color. */
+.k-today-label--blue {
+  background: var(--k-primary);
+}
+
+.k-today-label--green {
+  background: var(--k-success);
+}
+
+.k-today-label--amber {
+  background: var(--k-warning);
+}
+
+/* Rotating stat banner — a FLAT tinted announcement strip (deliberately
+   card-less and border-less so it reads as a ticker, not a control): one
+   stat at a time as a full sentence with the number highlighted, plus a
+   friendly supporting sub-line. Tints to the active stat's color. */
 .k-stat-banner {
   position: relative;
   width: 100%;
-  min-height: clamp(124px, 15vh, 164px);
-  padding: clamp(14px, 2vh, 22px) clamp(20px, 2.4vw, 36px);
+  min-height: clamp(88px, 10vh, 118px);
+  padding: clamp(12px, 1.8vh, 18px) clamp(20px, 2.4vw, 36px);
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--k-surface);
-  border: 2px solid var(--k-border-strong);
   border-radius: var(--k-r-md);
-  box-shadow: var(--k-shadow-sm);
   box-sizing: border-box;
   overflow: hidden;
-  transition: border-color 450ms var(--k-ease);
+  transition: background 450ms var(--k-ease);
 }
 
-/* Full accent border + faint tint wash fading into the white card —
-   the rotating color signal, in the same light family as the canvas. */
+/* Accent tint — opaque so the strip reads as one clean color block on the
+   canvas (semi-transparent washes looked muddy over the periwinkle). */
 .k-stat-banner--blue {
-  border-color: var(--k-primary);
-  background: linear-gradient(90deg, var(--k-primary-tint) 0%, var(--k-surface) 46%);
+  background: linear-gradient(90deg, var(--k-primary-tint) 0%, #e9edf8 100%);
 }
 
 .k-stat-banner--green {
-  border-color: var(--k-success);
-  background: linear-gradient(90deg, var(--k-success-tint) 0%, var(--k-surface) 46%);
+  background: linear-gradient(90deg, var(--k-success-tint) 0%, #f0f9f4 100%);
 }
 
 .k-stat-banner--amber {
-  border-color: var(--k-warning);
-  background: linear-gradient(90deg, var(--k-warning-tint) 0%, var(--k-surface) 46%);
+  background: linear-gradient(90deg, var(--k-warning-tint) 0%, #fbf6ea 100%);
 }
 
 .k-stat-line {
@@ -1415,6 +1542,23 @@
   margin-right: 6px;
 }
 
+/* Live speech preview (Web Speech API) — tentative until the server's
+   end-of-turn transcript replaces it. */
+.k-user-echo.live {
+  font-style: italic;
+  animation: k-live-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes k-live-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.65;
+  }
+}
+
 .k-guidance {
   font-size: var(--k-fs-body);
   font-weight: 600;
@@ -1714,37 +1858,61 @@
 
 /* ── Landscape (wide demo screens) ──────────────────────────────────────── */
 @media (orientation: landscape) and (min-width: 900px) {
-  /* Home attract → hero pitch left, how-it-works right, stats band below. */
+  /* Home attract → how-it-works left, hero pitch right, stats band below.
+     row-reverse (not a DOM swap) so the hero stays first in the markup:
+     portrait still stacks the pitch + CTA above the explainer, and the
+     primary content still comes first for screen readers. Putting the
+     Start/Map buttons on the right suits the booth's right-hand reach. */
+  .k-home {
+    gap: clamp(14px, 2.2vh, 24px);
+  }
+
   .k-home-main {
     flex-direction: row;
     align-items: center;
     justify-content: center;
-    gap: clamp(40px, 5vw, 90px);
+    gap: clamp(32px, 4vw, 72px);
   }
 
-  .k-hero {
-    flex: 1 1 55%;
+  /* Wrappers become real columns: pitch left, action (buttons) right. */
+  .k-home-pitch {
+    display: flex;
+    flex-direction: column;
     align-items: flex-start;
+    gap: clamp(14px, 2.2vh, 24px);
+    flex: 1 1 48%;
+    max-width: 700px;
+    min-width: 0;
     text-align: left;
-    max-width: 760px;
   }
 
-  .k-hero .k-feat-chips {
-    justify-content: flex-start;
+  .k-home-action {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: clamp(14px, 2.2vh, 24px);
+    flex: 1 1 52%;
+    max-width: 640px;
+    min-width: 0;
+    text-align: left;
   }
 
   .k-cta-row {
-    width: min(560px, 100%);
+    width: 100%;
     align-items: flex-start;
   }
 
+  .k-cta-hint {
+    align-self: center;
+  }
+
   .k-how {
-    flex: 1 1 45%;
-    max-width: 620px;
+    width: 100%;
+    max-width: none;
   }
 
   .k-ad-head {
-    min-height: clamp(130px, 20vh, 210px);
+    min-height: clamp(96px, 13vh, 150px);
   }
 
   /* Visit → two columns inside the card: display+context left, method right */
@@ -1874,38 +2042,88 @@
   }
 
   .k-home {
-    gap: 14px;
+    gap: 12px;
   }
 
   .k-home-main {
-    gap: 18px;
+    gap: 16px;
   }
 
-  .k-hero {
+  .k-home-pitch,
+  .k-home-action {
     gap: 10px;
   }
 
   .k-ad-head {
-    min-height: clamp(80px, 13vh, 130px);
+    min-height: clamp(60px, 10vh, 96px);
+  }
+
+  /* Shave the hello row: smaller orb footprint via negative margins (the
+     orb's box is fixed by its size prop; the ring never reaches this far). */
+  .k-hero-hello {
+    gap: 10px;
+  }
+
+  .k-hero-hello > [role='img'] {
+    transform: scale(0.78);
+    margin: -10px -6px;
+  }
+
+  .k-hero-sub {
+    font-size: 16px;
+    max-width: 26em;
+  }
+
+  .k-cta-hint {
+    font-size: 13px;
+  }
+
+  .k-today-label {
+    font-size: 13px;
+    padding: 7px 18px;
+  }
+
+  .k-stat-line-num {
+    font-size: clamp(30px, 3vw, 40px);
+  }
+
+  .k-stat-line-text {
+    font-size: clamp(17px, 1.7vw, 21px);
+  }
+
+  .k-home-footer {
+    font-size: 13px;
   }
 
   .k-how {
     gap: 8px;
-    padding: 14px 16px;
+    padding: 14px 18px;
   }
 
   .k-how-step {
-    padding: 8px 12px;
-    gap: 12px;
+    gap: 14px;
   }
 
-  .k-how-ico {
-    width: 44px;
-    height: 44px;
+  .k-how-dot {
+    width: 38px;
+    height: 38px;
+    font-size: 16px;
+  }
+
+  .k-how-line {
+    min-height: 10px;
+  }
+
+  .k-how-text {
+    padding-bottom: 8px;
+  }
+
+  .k-hero-hello .k-hero-hello-text {
+    font-size: 17px;
   }
 
   .k-stat-banner {
-    min-height: 96px;
+    min-height: 84px;
     padding: 10px 20px;
   }
 
@@ -1975,6 +2193,88 @@
   }
 }
 
+/* ── Portrait (kiosk pillar / rotated screens) ──────────────────────────── */
+/* Home stacks hero → how → band in one column, so height is the scarce
+   resource: every vertical dimension tracks vh so the whole attract screen
+   fits the viewport without scrolling. */
+@media (orientation: portrait) {
+  .k-home {
+    gap: clamp(14px, 2vh, 24px);
+  }
+
+  /* All blocks stack directly in k-home-main (the column wrappers are
+     display:contents here) — one gap governs the whole column. */
+  .k-home-main {
+    gap: clamp(10px, 1.6vh, 20px);
+  }
+
+  .k-ad-head {
+    min-height: clamp(72px, 9vh, 150px);
+  }
+
+  .k-ad-title {
+    font-size: clamp(30px, 6vw, 56px);
+  }
+
+  .k-hero-sub {
+    font-size: clamp(15px, 2.4vw, 20px);
+    max-width: 26em;
+  }
+
+  .k-how {
+    width: min(620px, 94vw);
+    padding: clamp(14px, 2vh, 24px) clamp(16px, 4vw, 28px);
+    gap: clamp(8px, 1.2vh, 14px);
+  }
+
+  .k-how-text {
+    padding-bottom: clamp(6px, 1.2vh, 14px);
+  }
+
+  .k-cta-row .k-cta-start {
+    min-height: clamp(72px, 8.5vh, 96px);
+  }
+
+  .k-stat-banner {
+    min-height: clamp(80px, 9vh, 120px);
+  }
+
+  .k-stat-line-num {
+    font-size: clamp(32px, 4.5vh, 52px);
+  }
+
+  .k-stat-line-text {
+    font-size: clamp(17px, 2vh, 24px);
+  }
+}
+
+/* Short portrait windows (e.g. 768×1024 tablets/dev windows): the stack is
+   at its tightest — drop the decorative orb (the greeting text stays) and
+   compress the timeline so everything still fits without scrolling. */
+@media (orientation: portrait) and (max-height: 1150px) {
+  .k-hero-hello > [role='img'] {
+    display: none;
+  }
+
+  .k-how-dot {
+    width: 38px;
+    height: 38px;
+    font-size: 16px;
+  }
+
+  .k-how-line {
+    min-height: 10px;
+  }
+
+  .k-float-ico {
+    opacity: 0.08;
+  }
+
+  .k-home-footer {
+    font-size: 13px;
+  }
+}
+
 /* ── Reduced motion ─────────────────────────────────────────────────────── */
 @media (prefers-reduced-motion: reduce) {
   .k-caret,
@@ -1982,6 +2282,7 @@
   .k-spinner,
   .k-mic-btn.recording,
   .k-float-ico,
+  .k-user-echo.live,
   .kiosk-aurora {
     animation: none !important;
   }

@@ -66,12 +66,6 @@ export function KioskFrame({
               <span className="k-brand-sub">MAE FAH LUANG UNIVERSITY MEDICAL CENTER HOSPITAL</span>
             </span>
           </div>
-          {onExit && (
-            <button type="button" className="k-exit" onClick={onExit}>
-              <X size={20} weight="bold" aria-hidden="true" />
-              {t('kioskExit')}
-            </button>
-          )}
         </div>
 
         <div className="k-topbar-center">{center}</div>
@@ -97,6 +91,12 @@ export function KioskFrame({
                 EN
               </button>
             </div>
+          )}
+          {onExit && (
+            <button type="button" className="k-exit" onClick={onExit}>
+              <X size={20} weight="bold" aria-hidden="true" />
+              {t('kioskExit')}
+            </button>
           )}
         </div>
       </header>

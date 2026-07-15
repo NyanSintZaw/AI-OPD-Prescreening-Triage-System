@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { AnimatePresence, animate, motion, useReducedMotion } from 'framer-motion';
@@ -7,11 +7,14 @@ import {
   Brain,
   ChatsCircle,
   ClipboardText,
+  FirstAidKit,
+  HandTap,
   Heartbeat,
   Hospital,
   MapTrifold,
   Microphone,
   NavigationArrow,
+  Pill,
   Printer,
   Stethoscope,
   Thermometer,
@@ -21,6 +24,7 @@ import {
   X,
 } from '@phosphor-icons/react';
 import { KioskFrame } from '../components/kiosk/KioskFrame';
+import { AiOrb } from '../components/kiosk/AiOrb';
 import { HospitalMapViewer } from '../components/HospitalMapViewer';
 import { useLanguage } from '../hooks/useSession';
 import { useKioskStats } from '../hooks/useKioskStats';
@@ -80,9 +84,9 @@ export function KioskHome() {
   };
 
   const howSteps = [
-    { icon: <Microphone size={28} weight="duotone" />, name: t('kioskHow1'), sub: t('kioskHow1Sub') },
-    { icon: <Brain size={28} weight="duotone" />, name: t('kioskHow2'), sub: t('kioskHow2Sub') },
-    { icon: <Hospital size={28} weight="duotone" />, name: t('kioskHow3'), sub: t('kioskHow3Sub') },
+    { icon: <Microphone size={22} weight="duotone" />, name: t('kioskHow1'), sub: t('kioskHow1Sub') },
+    { icon: <Brain size={22} weight="duotone" />, name: t('kioskHow2'), sub: t('kioskHow2Sub') },
+    { icon: <Hospital size={22} weight="duotone" />, name: t('kioskHow3'), sub: t('kioskHow3Sub') },
   ];
 
   const featChips = [
@@ -115,12 +119,28 @@ export function KioskHome() {
           weight="duotone"
           style={{ top: '70%', right: '4%', animationDelay: '2.4s' }}
         />
+        <Pill
+          className="k-float-ico"
+          size={48}
+          weight="duotone"
+          style={{ top: '42%', right: '3%', animationDelay: '3.2s' }}
+        />
+        <FirstAidKit
+          className="k-float-ico"
+          size={54}
+          weight="duotone"
+          style={{ top: '38%', left: '6%', animationDelay: '4s' }}
+        />
       </div>
 
       <div className="k-home">
+        {/* Two zones in landscape: the PITCH column (rotating headline +
+            how-it-works) on the left, the ACTION column (greeting, promise,
+            buttons) on the right — buttons stay in right-hand reach. In
+            portrait both wrappers become display:contents and the blocks
+            re-order into one sensible column via CSS `order`. */}
         <div className="k-home-main">
-          {/* Hero: rotating pitch + chips + CTA */}
-          <div className="k-hero">
+          <div className="k-home-pitch">
             <div className="k-ad-head">
               <AnimatePresence mode="wait">
                 <motion.h1
@@ -142,6 +162,42 @@ export function KioskHome() {
               ))}
             </div>
 
+            {/* How it works — a numbered timeline (deliberately flat: these
+                rows are information, not menu options). Steps highlight in
+                sync with the headline. */}
+            <div className="k-card k-how">
+              <span className="k-how-title">{t('kioskHowTitle')}</span>
+              {howSteps.map((step, i) => (
+                <div
+                  key={step.name}
+                  className={`k-how-step k-how-step--${i + 1} ${i === adIdx ? 'active' : ''}`}
+                >
+                  <span className="k-how-rail">
+                    <span className="k-how-dot">{i + 1}</span>
+                    {i < howSteps.length - 1 && <span className="k-how-line" aria-hidden="true" />}
+                  </span>
+                  <span className="k-how-text">
+                    <span className="k-how-name">
+                      <span className="k-how-name-ico" aria-hidden="true">
+                        {step.icon}
+                      </span>
+                      {step.name}
+                    </span>
+                    <span className="k-how-sub">{step.sub}</span>
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="k-home-action">
+            <div className="k-hero-hello">
+              <AiOrb state="idle" size={64} />
+              <span className="k-hero-hello-text">{t('kioskHeroHello')}</span>
+            </div>
+
+            <p className="k-hero-sub">{t('kioskWelcomeSub')}</p>
+
             <div className="k-feat-chips">
               {featChips.map((chip) => (
                 <span key={chip.label} className="k-feat-chip">
@@ -154,7 +210,7 @@ export function KioskHome() {
             <div className="k-cta-row">
               <motion.button
                 type="button"
-                className="k-btn primary xl"
+                className="k-btn primary xl k-cta-start"
                 onClick={start}
                 whileTap={{ scale: 0.97 }}
                 animate={
@@ -162,13 +218,14 @@ export function KioskHome() {
                     ? undefined
                     : {
                         boxShadow: [
-                          '0 10px 24px -10px rgba(63,78,135,0.5), 0 0 0 0 rgba(63,78,135,0.3)',
-                          '0 10px 24px -10px rgba(63,78,135,0.5), 0 0 0 18px rgba(63,78,135,0)',
+                          '0 14px 30px -10px rgba(45,57,99,0.55), 0 0 0 0 rgba(63,78,135,0.3)',
+                          '0 14px 30px -10px rgba(45,57,99,0.55), 0 0 0 18px rgba(63,78,135,0)',
                         ],
                       }
                 }
                 transition={{ duration: 2, repeat: Infinity }}
               >
+                <HandTap size={30} weight="duotone" aria-hidden="true" />
                 {t('kioskTouchStart')}
                 <motion.span
                   aria-hidden="true"
@@ -179,42 +236,38 @@ export function KioskHome() {
                   <ArrowRight size={30} weight="bold" />
                 </motion.span>
               </motion.button>
+              <span className="k-cta-hint">{t('kioskDurationHint')}</span>
 
-              <button type="button" className="k-btn secondary" onClick={() => setShowMap(true)}>
+              <button type="button" className="k-btn outline" onClick={() => setShowMap(true)}>
                 <MapTrifold size={24} weight="duotone" aria-hidden="true" />
                 {t('kioskViewMap')}
               </button>
             </div>
           </div>
-
-          {/* How it works — steps highlight in sync with the headline. */}
-          <div className="k-card k-how">
-            <span className="k-how-title">{t('kioskHowTitle')}</span>
-            {howSteps.map((step, i) => (
-              <div
-                key={step.name}
-                className={`k-how-step k-how-step--${i + 1} ${i === adIdx ? 'active' : ''}`}
-              >
-                <span className="k-how-ico">{step.icon}</span>
-                <span className="k-how-text">
-                  <span className="k-how-name">{step.name}</span>
-                  <span className="k-how-sub">{step.sub}</span>
-                </span>
-                <span className="k-how-num">{i + 1}</span>
-              </div>
-            ))}
-          </div>
         </div>
 
-        {/* Bottom band: rotating full-sentence stat banner + disclaimer */}
+        {/* Bottom band: rotating advertising board (live stats alternating
+            with service pitches) + disclaimer */}
         <div className="k-home-band">
           <div className="k-today">
-            <span className="k-today-label">{t('kioskTodayTitle')}</span>
             {(() => {
-              const statLines = [
+              type BoardLine = {
+                accent: string;
+                icon: ReactNode;
+                kind: 'stat' | 'ad';
+                pre?: string;
+                post?: string;
+                sub: string;
+                value?: number;
+                text?: string;
+              };
+              // Stats alternate with pure advertising slides — the board is
+              // half proof ("N patients guided today"), half pitch.
+              const boardLines: BoardLine[] = [
                 {
                   accent: 'blue',
                   icon: <UsersThree size={34} weight="duotone" />,
+                  kind: 'stat',
                   pre: t('kioskStatSent1Pre'),
                   post: t('kioskStatSent1Post'),
                   sub: t('kioskStatSent1Sub'),
@@ -222,47 +275,93 @@ export function KioskHome() {
                 },
                 {
                   accent: 'green',
+                  icon: <Translate size={34} weight="duotone" />,
+                  kind: 'ad',
+                  text: t('kioskAdBoard1Text'),
+                  sub: t('kioskAdBoard1Sub'),
+                },
+                {
+                  accent: 'amber',
                   icon: <NavigationArrow size={32} weight="duotone" />,
+                  kind: 'stat',
                   pre: t('kioskStatSent2Pre'),
                   post: t('kioskStatSent2Post'),
                   sub: t('kioskStatSent2Sub'),
                   value: stats.navigated_today,
                 },
                 {
-                  accent: 'amber',
+                  accent: 'blue',
+                  icon: <Printer size={34} weight="duotone" />,
+                  kind: 'ad',
+                  text: t('kioskAdBoard2Text'),
+                  sub: t('kioskAdBoard2Sub'),
+                },
+                {
+                  accent: 'green',
                   icon: <ChatsCircle size={34} weight="duotone" />,
+                  kind: 'stat',
                   pre: t('kioskStatSent3Pre'),
                   post: t('kioskStatSent3Post'),
                   sub: t('kioskStatSent3Sub'),
                   value: stats.sessions_today,
                 },
+                {
+                  accent: 'amber',
+                  icon: <Heartbeat size={34} weight="duotone" />,
+                  kind: 'ad',
+                  text: t('kioskAdBoard3Text'),
+                  sub: t('kioskAdBoard3Sub'),
+                },
               ];
-              const line = statLines[adIdx];
+              const boardIdx = tick % boardLines.length;
+              const line = boardLines[boardIdx];
+              // Never advertise a zero — "0 patients guided today" sells
+              // nothing. Swap in a "be the first" pitch for that rotation.
+              const isEmpty = line.kind === 'stat' && line.value === 0;
               return (
-                <div className={`k-stat-banner k-stat-banner--${line.accent}`}>
-                  <AnimatePresence mode="wait">
-                    <motion.div
-                      key={adIdx}
-                      className={`k-stat-line k-stat-line--${line.accent}`}
-                      initial={{ opacity: 0, y: 18 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -18 }}
-                      transition={{ duration: 0.4, ease: 'easeOut' }}
-                    >
-                      <span className="k-stat-line-ico" aria-hidden="true">
-                        {line.icon}
-                      </span>
-                      <span className="k-stat-line-body">
-                        <span className="k-stat-line-text">
-                          {line.pre && <>{line.pre} </>}
-                          <AnimatedNumber value={line.value} />
-                          {line.post && <> {line.post}</>}
+                <>
+                  <span className={`k-today-label k-today-label--${line.accent}`}>
+                    {line.kind === 'stat' ? t('kioskTodayTitle') : t('kioskAdBoardTitle')}
+                  </span>
+                  <div className={`k-stat-banner k-stat-banner--${line.accent}`}>
+                    <AnimatePresence mode="wait">
+                      <motion.div
+                        key={boardIdx}
+                        className={`k-stat-line k-stat-line--${line.accent}`}
+                        initial={{ opacity: 0, y: 18 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -18 }}
+                        transition={{ duration: 0.4, ease: 'easeOut' }}
+                      >
+                        <span className="k-stat-line-ico" aria-hidden="true">
+                          {line.icon}
                         </span>
-                        <span className="k-stat-line-sub">{line.sub}</span>
-                      </span>
-                    </motion.div>
-                  </AnimatePresence>
-                </div>
+                        <span className="k-stat-line-body">
+                          {line.kind === 'ad' ? (
+                            <>
+                              <span className="k-stat-line-text">{line.text}</span>
+                              <span className="k-stat-line-sub">{line.sub}</span>
+                            </>
+                          ) : isEmpty ? (
+                            <>
+                              <span className="k-stat-line-text">{t('kioskStatEmptyText')}</span>
+                              <span className="k-stat-line-sub">{t('kioskStatEmptySub')}</span>
+                            </>
+                          ) : (
+                            <>
+                              <span className="k-stat-line-text">
+                                {line.pre && <>{line.pre} </>}
+                                <AnimatedNumber value={line.value ?? 0} />
+                                {line.post && <> {line.post}</>}
+                              </span>
+                              <span className="k-stat-line-sub">{line.sub}</span>
+                            </>
+                          )}
+                        </span>
+                      </motion.div>
+                    </AnimatePresence>
+                  </div>
+                </>
               );
             })()}
           </div>
