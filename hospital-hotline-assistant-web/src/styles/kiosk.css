@@ -879,10 +879,11 @@
   background: var(--k-warning);
 }
 
-/* Rotating stat banner — a FLAT tinted announcement strip (deliberately
-   card-less and border-less so it reads as a ticker, not a control): one
-   stat at a time as a full sentence with the number highlighted, plus a
-   friendly supporting sub-line. Tints to the active stat's color. */
+/* Rotating stat banner — a white card so it stands off the periwinkle
+   canvas (the old flat tints were nearly the same value as --k-bg and
+   blended in): one stat at a time as a full sentence with the number
+   highlighted, plus a friendly supporting sub-line. The active stat's
+   accent survives as a tint fading in from the left edge. */
 .k-stat-banner {
   position: relative;
   width: 100%;
@@ -894,21 +895,22 @@
   border-radius: var(--k-r-md);
   box-sizing: border-box;
   overflow: hidden;
+  background: var(--k-surface);
+  border: 1px solid var(--k-border);
+  box-shadow: var(--k-shadow-md);
   transition: background 450ms var(--k-ease);
 }
 
-/* Accent tint — opaque so the strip reads as one clean color block on the
-   canvas (semi-transparent washes looked muddy over the periwinkle). */
 .k-stat-banner--blue {
-  background: linear-gradient(90deg, var(--k-primary-tint) 0%, #e9edf8 100%);
+  background: linear-gradient(90deg, var(--k-primary-tint) 0%, var(--k-surface) 55%);
 }
 
 .k-stat-banner--green {
-  background: linear-gradient(90deg, var(--k-success-tint) 0%, #f0f9f4 100%);
+  background: linear-gradient(90deg, var(--k-success-tint) 0%, var(--k-surface) 55%);
 }
 
 .k-stat-banner--amber {
-  background: linear-gradient(90deg, var(--k-warning-tint) 0%, #fbf6ea 100%);
+  background: linear-gradient(90deg, var(--k-warning-tint) 0%, var(--k-surface) 55%);
 }
 
 .k-stat-line {
