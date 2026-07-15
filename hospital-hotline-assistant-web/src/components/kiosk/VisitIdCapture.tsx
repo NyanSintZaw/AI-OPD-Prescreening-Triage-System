@@ -17,7 +17,14 @@ interface VisitIdCaptureProps {
   linking: boolean;
   /** True when the last submitted ID wasn't found in the HIS. */
   notFound: boolean;
+  /** True when the last link attempt failed to reach the HIS (network/server error). */
+  linkError: boolean;
 }
+
+// The HIS visit_id is an 18-digit numeric string (confirmed from
+// hospital-his-mock/sample_visits.csv, e.g. "990000000000000001").
+const VISIT_ID_LENGTH = 18;
+const VISIT_ID_RE = /^\d{18}$/;
 
 /** Chunk the entered ID into groups of 4 for readable display. */
 function digitGroups(value: string): string[] {
@@ -26,6 +33,13 @@ function digitGroups(value: string): string[] {
     groups.push(value.slice(i, i + 4));
   }
   return groups;
+}
+
+/** Shrink the digit display as the value grows so all 18 digits stay visible. */
+function digitDisplayFontSize(len: number): string {
+  if (len > 14) return 'clamp(18px, 2.4vw, 28px)';
+  if (len > 8) return 'clamp(22px, 2.9vw, 34px)';
+  return 'clamp(28px, 3.6vw, 44px)';
 }
 
 /**
@@ -39,12 +53,14 @@ export function VisitIdCapture({
   onSkip,
   linking,
   notFound,
+  linkError,
 }: VisitIdCaptureProps) {
   const { t } = useTranslation();
   const [tab, setTab] = useState<Tab>('type');
   const [visitId, setVisitId] = useState('');
   const [cameraOn, setCameraOn] = useState(false);
   const [cameraError, setCameraError] = useState(false);
+  const [formatError, setFormatError] = useState(false);
   const wedgeRef = useRef<HTMLInputElement>(null);
   const voice = useVoiceVisitId(language);
 
@@ -59,14 +75,17 @@ export function VisitIdCapture({
   }, [tab, cameraOn, voice.state]);
 
   const append = (d: string) => {
-    setVisitId((v) => (v + d).slice(0, 24));
+    setFormatError(false);
+    setVisitId((v) => (v + d).slice(0, VISIT_ID_LENGTH));
     refocusWedge();
   };
   const backspace = () => {
+    setFormatError(false);
     setVisitId((v) => v.slice(0, -1));
     refocusWedge();
   };
   const clear = () => {
+    setFormatError(false);
     setVisitId('');
     refocusWedge();
   };
@@ -74,6 +93,11 @@ export function VisitIdCapture({
   const submit = (value: string) => {
     const trimmed = value.replace(/\s+/g, '').trim();
     if (!trimmed) return;
+    if (!VISIT_ID_RE.test(trimmed)) {
+      setFormatError(true);
+      return;
+    }
+    setFormatError(false);
     onSubmit(trimmed);
   };
 
@@ -110,6 +134,7 @@ export function VisitIdCapture({
             onClick={() => {
               setTab('type');
               setCameraOn(false);
+              setFormatError(false);
             }}
           >
             <Keyboard size={22} weight="duotone" aria-hidden="true" /> {t('kioskVisitTabType')}
@@ -119,7 +144,10 @@ export function VisitIdCapture({
             role="tab"
             aria-selected={tab === 'scan'}
             className={tab === 'scan' ? 'active' : ''}
-            onClick={() => setTab('scan')}
+            onClick={() => {
+              setTab('scan');
+              setFormatError(false);
+            }}
           >
             <Scan size={22} weight="duotone" aria-hidden="true" /> {t('kioskVisitTabScan')}
           </button>
@@ -131,6 +159,7 @@ export function VisitIdCapture({
             onClick={() => {
               setTab('voice');
               setCameraOn(false);
+              setFormatError(false);
             }}
           >
             <Microphone size={22} weight="duotone" aria-hidden="true" /> {t('kioskVisitTabVoice')}
@@ -138,8 +167,12 @@ export function VisitIdCapture({
         </div>
 
         <div className="k-visit-ctrl">
-          {/* Current value (shared across all methods) */}
-          <div className={`k-display ${visitId ? '' : 'placeholder'}`}>
+          {/* Current value (shared across all methods) — font shrinks as the
+              value grows so the full 18-digit ID always stays visible. */}
+          <div
+            className={`k-display ${visitId ? '' : 'placeholder'}`}
+            style={visitId ? { fontSize: digitDisplayFontSize(visitId.length) } : undefined}
+          >
             {visitId ? (
               <>
                 {groups.map((g, i) => (
@@ -154,7 +187,9 @@ export function VisitIdCapture({
             )}
           </div>
 
-          {notFound && !linking && <p className="k-error">{t('kioskVisitNotFound')}</p>}
+          {formatError && <p className="k-error">{t('kioskVisitInvalidFormat')}</p>}
+          {!formatError && notFound && !linking && <p className="k-error">{t('kioskVisitNotFound')}</p>}
+          {!formatError && linkError && !linking && <p className="k-error">{t('kioskVisitLinkError')}</p>}
 
           {/* Hidden wedge-scanner sink — always mounted so hardware scans work. */}
           <input
@@ -164,7 +199,10 @@ export function VisitIdCapture({
             inputMode="none"
             aria-hidden="true"
             tabIndex={-1}
-            onChange={(e) => setVisitId(e.target.value.replace(/[^0-9A-Za-z]/g, '').slice(0, 24))}
+            onChange={(e) => {
+              setFormatError(false);
+              setVisitId(e.target.value.replace(/\D+/g, '').slice(0, VISIT_ID_LENGTH));
+            }}
             onKeyDown={(e) => {
               if (e.key === 'Enter') submit(visitId);
             }}
@@ -275,6 +313,11 @@ export function VisitIdCapture({
                       ? t('kioskVisitVoiceProcessing')
                       : t('kioskVisitVoiceHint')}
                 </p>
+                {voice.error && voice.state === 'idle' && (
+                  <p className="k-error">
+                    {voice.error === 'stt' ? t('kioskVisitVoiceSttError') : t('kioskVisitVoiceMicError')}
+                  </p>
+                )}
               </motion.div>
             )}
           </AnimatePresence>

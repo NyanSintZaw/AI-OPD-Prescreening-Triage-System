@@ -25,6 +25,11 @@ const parseNum = (v: string): number | undefined => {
   return Number.isFinite(n) ? n : undefined;
 };
 
+// Physiologically plausible input ranges (HTML min/max don't stop typed
+// values, so submits re-check). Out-of-range gets its own message —
+// "fill in all fields" would gaslight a patient whose fields ARE filled.
+const inRange = (n: number, min: number, max: number) => n >= min && n <= max;
+
 /**
  * Inline card the booth shows mid-interview when the screening engine asks
  * for a reading it needs right now (``awaiting_measurement`` on chat turns,
@@ -78,8 +83,12 @@ export function MeasurementCard({ vital, onSubmit, onCancel, disabled }: Measure
 
   const submitTemp = async () => {
     const value = parseNum(tempValue);
-    if (value === undefined || value < 30 || value > 45) {
+    if (value === undefined) {
       setErrorKey('vitalsRequiredError');
+      return;
+    }
+    if (!inRange(value, 30, 45)) {
+      setErrorKey('vitalsRangeError');
       return;
     }
     setSaving(true);
@@ -102,6 +111,14 @@ export function MeasurementCard({ vital, onSubmit, onCancel, disabled }: Measure
     const pul = parseNum(pulse);
     if (sys === undefined || dia === undefined) {
       setErrorKey('vitalsRequiredError');
+      return;
+    }
+    if (
+      !inRange(sys, 40, 300) ||
+      !inRange(dia, 20, 200) ||
+      (pul !== undefined && !inRange(pul, 20, 250))
+    ) {
+      setErrorKey('vitalsRangeError');
       return;
     }
     // Only tag as a device reading if the cuff filled BP and the patient
@@ -138,6 +155,10 @@ export function MeasurementCard({ vital, onSubmit, onCancel, disabled }: Measure
     const hgt = parseNum(heightCm);
     if (wgt === undefined || hgt === undefined) {
       setErrorKey('vitalsRequiredError');
+      return;
+    }
+    if (!inRange(wgt, 1, 400) || !inRange(hgt, 30, 272)) {
+      setErrorKey('vitalsRangeError');
       return;
     }
     setSaving(true);
