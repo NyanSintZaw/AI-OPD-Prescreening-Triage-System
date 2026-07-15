@@ -8,7 +8,7 @@ interface RecommendationCardProps {
 }
 
 export function RecommendationCard({ assessment, autoOpenMap = false }: RecommendationCardProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [showMapPopup, setShowMapPopup] = useState(autoOpenMap);
 
   useEffect(() => {
@@ -16,6 +16,18 @@ export function RecommendationCard({ assessment, autoOpenMap = false }: Recommen
       setShowMapPopup(true);
     }
   }, [autoOpenMap]);
+
+  // The viewer's Back button posts carenav:back from inside the iframe.
+  useEffect(() => {
+    const onMessage = (event: MessageEvent) => {
+      if (event.origin !== window.location.origin) return;
+      if ((event.data as { type?: string } | null)?.type === 'carenav:back') {
+        setShowMapPopup(false);
+      }
+    };
+    window.addEventListener('message', onMessage);
+    return () => window.removeEventListener('message', onMessage);
+  }, []);
 
   if (!assessment.severity && !assessment.department) {
     return null;
@@ -87,20 +99,10 @@ export function RecommendationCard({ assessment, autoOpenMap = false }: Recommen
             onClick={() => setShowMapPopup(false)}
           />
           <div className="patient-id-modal-card map-modal-card">
-            <div className="map-modal-header">
-              <h3>{t('hospitalMap', 'Hospital Route Map')}</h3>
-              <button
-                type="button"
-                className="secondary-btn map-modal-close"
-                onClick={() => setShowMapPopup(false)}
-              >
-                {t('closeMap', 'Close Map')}
-              </button>
-            </div>
             <iframe
-              src={`/hospital-map/index.html?destination=${mapDestination}`}
+              src={`/hospital-map/index.html?destination=${mapDestination}&lang=${i18n.language}`}
               className="map-modal-frame"
-              title="Hospital Route Map Interactive"
+              title={t('hospitalMap', 'Hospital Route Map')}
             />
           </div>
         </div>

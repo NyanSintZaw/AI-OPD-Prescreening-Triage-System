@@ -105,9 +105,9 @@ select {
 }
 
 /* ------------------------------------------------
-   Floating chrome: brand chip + floor switcher
+   Floating chrome: back button + floor switcher
    ------------------------------------------------ */
-.brand-chip {
+.back-chip {
   position: absolute;
   top: 16px;
   left: 16px;
@@ -115,7 +115,7 @@ select {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 8px 16px 8px 8px;
+  padding: 8px 18px 8px 8px;
   border: 1px solid var(--glass-border);
   border-radius: 999px;
   background: var(--glass);
@@ -125,9 +125,17 @@ select {
   font-size: 16px;
   font-weight: 900;
   letter-spacing: -0.02em;
+  color: var(--text);
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
 }
 
-.brand-mark {
+.back-chip:active {
+  transform: scale(0.97);
+}
+
+.back-mark {
   width: 40px;
   height: 40px;
   display: grid;
@@ -136,17 +144,9 @@ select {
   background: linear-gradient(135deg, var(--primary), var(--teal));
 }
 
-.brand-mark svg {
+.back-mark svg {
   width: 26px;
   height: 26px;
-}
-
-.brand-mark rect {
-  fill: rgba(255, 255, 255, 0.18);
-}
-
-.brand-mark path {
-  fill: #ffffff;
 }
 
 .kiosk-floor-switcher {
@@ -491,13 +491,13 @@ select {
 }
 
 /* Below ~800px the text chip would slide under the centered floor
-   switcher — collapse it to the logo only */
+   switcher — collapse it to the arrow only */
 @media (max-width: 800px) {
-  .brand-chip span {
+  .back-chip .back-label {
     display: none;
   }
 
-  .brand-chip {
+  .back-chip {
     padding: 6px;
   }
 }
@@ -523,7 +523,7 @@ select {
    reads the hidden elements as 0-height, so the map
    fills the frame automatically.
    ------------------------------------------------ */
-body.embedded-mode .brand-chip,
+body.embedded-mode .back-chip,
 body.embedded-mode .planner-card,
 body.embedded-mode .toast {
   display: none;

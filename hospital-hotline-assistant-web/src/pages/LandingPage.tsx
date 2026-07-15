@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { api } from '../api';
@@ -40,6 +40,18 @@ export function LandingPage() {
   const [showMap, setShowMap] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [visitId, setVisitId] = useState('');
+
+  // The wayfinder's Back button posts carenav:back from inside the iframe.
+  useEffect(() => {
+    const onMessage = (event: MessageEvent) => {
+      if (event.origin !== window.location.origin) return;
+      if ((event.data as { type?: string } | null)?.type === 'carenav:back') {
+        setShowMap(false);
+      }
+    };
+    window.addEventListener('message', onMessage);
+    return () => window.removeEventListener('message', onMessage);
+  }, []);
 
   const startSession = async (mode: 'call' | 'chat') => {
     setStartingMode(mode);
@@ -163,7 +175,7 @@ export function LandingPage() {
 
           {showMap && (
             <iframe
-              src="/hospital-map/index.html"
+              src={`/hospital-map/index.html?lang=${language}`}
               className="landing-map-frame"
               title={t('modeMapTitle')}
             />

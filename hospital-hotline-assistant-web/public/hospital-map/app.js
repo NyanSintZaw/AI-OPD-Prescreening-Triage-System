@@ -12,6 +12,7 @@ const GROUP_ORDER = ["Access", "Service", "Emergency", "Department", "Clinic", "
 // recommendation card; without it the page is the full kiosk viewer.
 const URL_PARAMS = new URLSearchParams(window.location.search);
 const EMBEDDED = URL_PARAMS.get("embedded") === "true";
+const LANG = (URL_PARAMS.get("lang") || "").toLowerCase().startsWith("th") ? "th" : "en";
 
 const state = {
   floors: {},
@@ -40,7 +41,8 @@ const els = {
   routeOverlay: document.getElementById("routeOverlay"),
   floorSwitcher: document.getElementById("kioskFloorSwitcher"),
   plannerCard: document.getElementById("plannerCard"),
-  brandChip: document.querySelector(".brand-chip"),
+  backBtn: document.getElementById("backBtn"),
+  backLabel: document.getElementById("backLabel"),
   toast: document.getElementById("toast")
 };
 
@@ -801,7 +803,7 @@ function fitMap() {
   const pad = 14;
   const chromeH = Math.max(
     els.floorSwitcher?.offsetHeight || 0,
-    els.brandChip?.offsetHeight || 0
+    els.backBtn?.offsetHeight || 0
   );
   const topReserve = chromeH + pad * 2;
 
@@ -839,6 +841,21 @@ function init() {
   if (EMBEDDED) {
     document.body.classList.add("embedded-mode");
   }
+
+  if (LANG === "th") {
+    els.backLabel.textContent = "กลับ";
+    els.backBtn.setAttribute("aria-label", "กลับ");
+  }
+
+  // Inside the triage app the viewer lives in an iframe — tell the host
+  // page to close the map. Standalone, plain history back.
+  els.backBtn.addEventListener("click", () => {
+    if (window.parent !== window) {
+      window.parent.postMessage({ type: "carenav:back" }, "*");
+    } else if (window.history.length > 1) {
+      window.history.back();
+    }
+  });
 
   buildGrid();
 

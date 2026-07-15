@@ -75,6 +75,18 @@ export function KioskHome() {
   }, [reduce]);
   const adIdx = tick % AD_KEYS.length;
 
+  // The wayfinder's Back button posts carenav:back from inside the iframe.
+  useEffect(() => {
+    const onMessage = (event: MessageEvent) => {
+      if (event.origin !== window.location.origin) return;
+      if ((event.data as { type?: string } | null)?.type === 'carenav:back') {
+        setShowMap(false);
+      }
+    };
+    window.addEventListener('message', onMessage);
+    return () => window.removeEventListener('message', onMessage);
+  }, []);
+
   const start = () => {
     // Anchor mic permission + audio playback to this tap so the assistant's
     // voice is never blocked by autoplay policy.
@@ -379,7 +391,7 @@ export function KioskHome() {
           </div>
           <div className="k-overlay-body k-overlay-body-map">
             <iframe
-              src="/hospital-map/index.html"
+              src={`/hospital-map/index.html?lang=${language}`}
               className="k-map-frame"
               title={t('kioskViewMap')}
             />
