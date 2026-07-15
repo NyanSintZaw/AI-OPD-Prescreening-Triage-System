@@ -930,6 +930,52 @@ a:hover {
   border-color: var(--color-border-strong);
 }
 
+/* Fullscreen wayfinding map — the whole CareNav viewer, edge to edge.
+   Compound selectors so the mobile patient-id-modal overrides further
+   down can't re-add padding/max-height. */
+.patient-id-modal.map-modal {
+  padding: 0;
+}
+
+.patient-id-modal-card.map-modal-card {
+  width: 100vw;
+  height: 100dvh;
+  max-height: none;
+  border-radius: 0;
+  border: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.map-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.65rem 1rem;
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-surface);
+}
+
+.map-modal-header h3 {
+  margin: 0;
+  font-size: 1.15rem;
+}
+
+.map-modal-close {
+  min-height: 44px;
+}
+
+.map-modal-frame {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  border: 0;
+  display: block;
+}
+
 .patient-id-compact {
   width: 100%;
   display: grid;

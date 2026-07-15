@@ -21,22 +21,17 @@ export function RecommendationCard({ assessment, autoOpenMap = false }: Recommen
     return null;
   }
 
-  // Map AI department codes to our route finder keys
+  // Map AI department codes to locations on the CareNav wayfinder map.
+  // The viewer resolves these case-insensitively against its location ids
+  // and labels; departments without their own room on the map route to
+  // general OPD, matching the OPD-first policy.
   const getMapDestinationKey = (codeOrId: string) => {
     const normalized = codeOrId.toLowerCase().replace('dept_', '').replace('opd_', '');
-    const validKeys = [
-      'entrance', 'publicWaiting', 'mainHallway', 'counter', 'emergency',
-      'opd', 'neurology', 'cardiology', 'pediatrics', 'orthopedics',
-      'gynecology', 'gastroenterology', 'ent', 'teeth'
-    ];
-    if (validKeys.includes(normalized)) return normalized;
-    if (normalized.includes('dental')) return 'teeth';
-    if (normalized.includes('reception')) return 'counter';
-    if (normalized.includes('neuro')) return 'neurology';
+    if (normalized.includes('emergency') || normalized === 'er') return 'emergency';
     if (normalized.includes('cardio')) return 'cardiology';
-    // Fallback: general OPD
-    if (normalized === 'general') return 'opd';
-    return null;
+    if (normalized.includes('neuro')) return 'neurology';
+    if (normalized.includes('pediatric') || normalized.includes('paediatric')) return 'pediatrics';
+    return 'opd';
   };
 
   const mapDestination = assessment.department
@@ -84,39 +79,29 @@ export function RecommendationCard({ assessment, autoOpenMap = false }: Recommen
       </div>
 
       {showMapPopup && mapDestination && (
-        <div className="patient-id-modal" role="dialog" aria-modal="true">
+        <div className="patient-id-modal map-modal" role="dialog" aria-modal="true">
           <button
             type="button"
             className="patient-id-modal-backdrop"
             aria-label={t('close')}
             onClick={() => setShowMapPopup(false)}
           />
-          <div className="patient-id-modal-card" style={{ maxWidth: '800px', padding: 0, overflow: 'hidden' }}>
-            <div style={{ padding: '16px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'var(--bg)' }}>
-              <h3 style={{ margin: 0 }}>{t('hospitalMap', 'Hospital Route Map')}</h3>
-              <button 
-                onClick={() => setShowMapPopup(false)}
-                style={{
-                  background: 'none', border: 'none', fontSize: '24px', cursor: 'pointer', color: 'var(--text)', padding: '0 8px'
-                }}
-              >
-                &times;
-              </button>
-            </div>
-            <iframe 
-              src={`/hospital-map/index.html?destination=${mapDestination}&embedded=true`} 
-              style={{ width: '100%', border: 'none', display: 'block', aspectRatio: '637/454' }}
-              title="Hospital Route Map Interactive"
-            />
-            <div style={{ padding: '16px', borderTop: '1px solid var(--border)', backgroundColor: 'var(--bg)', display: 'flex', justifyContent: 'center' }}>
-              <button 
-                className="secondary-btn"
-                style={{ width: '100%' }}
+          <div className="patient-id-modal-card map-modal-card">
+            <div className="map-modal-header">
+              <h3>{t('hospitalMap', 'Hospital Route Map')}</h3>
+              <button
+                type="button"
+                className="secondary-btn map-modal-close"
                 onClick={() => setShowMapPopup(false)}
               >
                 {t('closeMap', 'Close Map')}
               </button>
             </div>
+            <iframe
+              src={`/hospital-map/index.html?destination=${mapDestination}`}
+              className="map-modal-frame"
+              title="Hospital Route Map Interactive"
+            />
           </div>
         </div>
       )}

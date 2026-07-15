@@ -1,19 +1,3 @@
-const MAP_WIDTH = 637;
-const MAP_HEIGHT = 454;
-const CELL_SIZE = 4;
-const WALL_PADDING = 2.0;
-const PIXELS_PER_METER = 8;
-const WALKING_SPEED_M_PER_MIN = 55;
-const TURN_PENALTY = 0.45;
-const ROUTE_ANIMATION_DURATION_MS = 7200;
-const ROUTE_TANGENT_SAMPLE_DISTANCE = 0.1;
-
-// Extracted black wall segments from the uploaded floor plan.
-const WALLS = [{"x1":361.0,"y1":302.0,"x2":629.0,"y2":302.0,"w":10.0},{"x1":104.0,"y1":302.0,"x2":323.0,"y2":302.0,"w":10.0},{"x1":230.0,"y1":449.0,"x2":637.0,"y2":449.0,"w":10.0},{"x1":167.0,"y1":449.0,"x2":0.0,"y2":449.0,"w":10.0},{"x1":5.0,"y1":307.0,"x2":5.0,"y2":444.0,"w":10.0},{"x1":318.0,"y1":169.0,"x2":318.0,"y2":307.0,"w":10.0},{"x1":5.0,"y1":169.0,"x2":5.00001,"y2":307.0,"w":10.0},{"x1":323.0,"y1":174.0,"x2":41.0,"y2":174.0,"w":10.0},{"x1":422.0,"y1":93.0,"x2":202.0,"y2":93.0,"w":10.0},{"x1":637.0,"y1":93.0,"x2":521.0,"y2":93.0,"w":10.0},{"x1":631.0,"y1":174.0,"x2":361.0,"y2":174.0,"w":10.0},{"x1":80.0,"y1":93.0,"x2":0.0,"y2":93.0,"w":10.0},{"x1":1085.0,"y1":5.0,"x2":4.0,"y2":5.0,"w":10.0},{"x1":211.0,"y1":93.0,"x2":123.0,"y2":93.0,"w":10.0},{"x1":207.0,"y1":0.0,"x2":207.0,"y2":88.0,"w":10.0},{"x1":5.0,"y1":0.0,"x2":5.0,"y2":88.0,"w":10.0},{"x1":474.0,"y1":2.18557e-07,"x2":474.0,"y2":97.0,"w":10.0},{"x1":366.0,"y1":252.0,"x2":366.0,"y2":307.0,"w":10.0},{"x1":366.0,"y1":169.0,"x2":366.0,"y2":224.0,"w":10.0},{"x1":60.0,"y1":174.0,"x2":-13.0,"y2":174.0,"w":10.0},{"x1":-12.0,"y1":302.0,"x2":60.0,"y2":302.0,"w":10.0},{"x1":634.0,"y1":5.0,"x2":634.0,"y2":398.0,"w":10.0},{"x1":593.5,"y1":307.0,"x2":593.5,"y2":360.0,"w":3.0},{"x1":519.5,"y1":307.0,"x2":519.5,"y2":360.0,"w":3.0},{"x1":449.5,"y1":307.0,"x2":449.5,"y2":360.0,"w":3.0},{"x1":555.5,"y1":307.0,"x2":555.5,"y2":360.0,"w":3.0},{"x1":484.5,"y1":307.0,"x2":484.5,"y2":360.0,"w":3.0},{"x1":448.0,"y1":359.5,"x2":461.0,"y2":359.5,"w":1.0},{"x1":472.0,"y1":359.5,"x2":485.0,"y2":359.5,"w":1.0},{"x1":484.0,"y1":359.5,"x2":497.0,"y2":359.5,"w":1.0},{"x1":594.0,"y1":359.5,"x2":607.0,"y2":359.5,"w":1.0},{"x1":618.0,"y1":359.5,"x2":631.0,"y2":359.5,"w":1.0},{"x1":508.0,"y1":359.5,"x2":521.0,"y2":359.5,"w":1.0},{"x1":519.0,"y1":359.5,"x2":532.0,"y2":359.5,"w":1.0},{"x1":543.0,"y1":359.5,"x2":556.0,"y2":359.5,"w":1.0},{"x1":580.0,"y1":359.5,"x2":593.0,"y2":359.5,"w":1.0},{"x1":555.0,"y1":359.5,"x2":568.0,"y2":359.5,"w":1.0},{"x1":634.0,"y1":430.0,"x2":634.0,"y2":454.0,"w":10.0}];
-
-// Extra no-walk zones. Useful for hospital desks, counters, restricted equipment, beds, etc.
-const EXTRA_BLOCKERS = [{"id":"checkInDesk","label":"Check-in counter / staff desk","x":126,"y":302,"width":154,"height":39,"padding":5}];
-
 const DIRECTIONS = [
   { dx: 1, dy: 0, key: "right", label: "Go right", degree: 360, icon: "→" },
   { dx: -1, dy: 0, key: "left", label: "Go left", degree: 180, icon: "←" },
@@ -21,34 +5,20 @@ const DIRECTIONS = [
   { dx: 0, dy: 1, key: "down", label: "Go down", degree: 270, icon: "↓" }
 ];
 
-const BASE_LOCATIONS = {
-  entrance: { label: "Entrance", group: "Access", x: 198, y: 438, type: "entry" },
-  publicWaiting: { label: "Public Waiting Area", group: "Access", x: 310, y: 386, type: "hallway" },
-  mainHallway: { label: "Main Hallway", group: "Access", x: 342, y: 134, type: "hallway" },
-  counter: { label: "Registration Counter", group: "Service", x: 198, y: 350, type: "service" },
-  emergency: { label: "Emergency & Trauma", group: "Emergency", x: 82, y: 314, type: "emergency" },
-  opd: { label: "General Practice / OPD", group: "Department", x: 374, y: 238, type: "room" },
-  neurology: { label: "Neurology", group: "Department", x: 106, y: 106, type: "room" },
-  cardiology: { label: "Cardiology", group: "Department", x: 450, y: 106, type: "room" },
-  pediatrics: { label: "Pediatrics", group: "Department", x: 502, y: 106, type: "room" },
-  orthopedics: { label: "Orthopedics", group: "Clinic", x: 466, y: 366, type: "room" },
-  gynecology: { label: "Gynecology & Obstetrics", group: "Clinic", x: 502, y: 366, type: "room" },
-  gastroenterology: { label: "Gastroenterology", group: "Clinic", x: 538, y: 366, type: "room" },
-  ent: { label: "ENT (Ear, Nose, Throat)", group: "Clinic", x: 574, y: 366, type: "room" },
-  teeth: { label: "Teeth / Dental", group: "Clinic", x: 614, y: 366, type: "room" }
-};
-
 const GROUP_ORDER = ["Access", "Service", "Emergency", "Department", "Clinic", "Custom"];
 
+// The triage app opens this page with ?destination=<location>&embedded=true.
+// Embedded mode is the small non-interactive preview inside the
+// recommendation card; without it the page is the full kiosk viewer.
+const URL_PARAMS = new URLSearchParams(window.location.search);
+const EMBEDDED = URL_PARAMS.get("embedded") === "true";
+
 const state = {
-  grid: null,
-  clearancePenalty: null,
-  cols: Math.ceil(MAP_WIDTH / CELL_SIZE),
-  rows: Math.ceil(MAP_HEIGHT / CELL_SIZE),
+  floors: {},
+  activeFloorId: null,
   customStart: null,
-  customDestination: null,
-  zoomPercent: 100,
-  routeAnimationFrame: null
+  isAutoRouting: true,
+  currentRoute: null
 };
 
 const els = {
@@ -56,21 +26,32 @@ const els = {
   destinationSelect: document.getElementById("destinationSelect"),
   findRouteBtn: document.getElementById("findRouteBtn"),
   resetBtn: document.getElementById("resetBtn"),
-  coordinateReadout: document.getElementById("coordinateReadout"),
   blockerLayer: document.getElementById("blockerLayer"),
   poiLayer: document.getElementById("poiLayer"),
   routeHalo: document.getElementById("routeHalo"),
   routeLine: document.getElementById("routeLine"),
-  routeHead: document.getElementById("routeHead"),
   turnLayer: document.getElementById("turnLayer"),
   markerLayer: document.getElementById("markerLayer"),
   mapViewport: document.getElementById("mapViewport"),
   mapInner: document.getElementById("mapInner"),
-  zoomInBtn: document.getElementById("zoomInBtn"),
-  zoomOutBtn: document.getElementById("zoomOutBtn"),
-  zoomResetBtn: document.getElementById("zoomResetBtn"),
-  directionsList: document.getElementById("directionsList")
+  transitionOverlay: document.getElementById("transitionOverlay"),
+  transitionText: document.getElementById("transitionText"),
+  floorImage: document.getElementById("floorImage"),
+  routeOverlay: document.getElementById("routeOverlay"),
+  floorSwitcher: document.getElementById("kioskFloorSwitcher"),
+  plannerCard: document.getElementById("plannerCard"),
+  brandChip: document.querySelector(".brand-chip"),
+  toast: document.getElementById("toast")
 };
+
+let toastTimer = null;
+
+function showToast(message) {
+  els.toast.textContent = message;
+  els.toast.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => els.toast.classList.remove("show"), 3500);
+}
 
 function escapeHtml(value) {
   return String(value)
@@ -105,58 +86,67 @@ function pointInsideBlocker(x, y, blocker) {
     y <= blocker.y + blocker.height + padding;
 }
 
-function isBlockedPoint(x, y, padding = WALL_PADDING) {
-  if (x < 0 || y < 0 || x > MAP_WIDTH || y > MAP_HEIGHT) {
+function isBlockedPoint(x, y, floor, padding = WALL_PADDING) {
+  if (x < 0 || y < 0 || x > floor.mapWidth || y > floor.mapHeight) {
     return true;
   }
 
-  for (const blocker of EXTRA_BLOCKERS) {
-    if (pointInsideBlocker(x, y, blocker)) {
-      return true;
-    }
+  for (const blocker of (floor.blockers || [])) {
+    if (pointInsideBlocker(x, y, blocker)) return true;
   }
 
-  for (const wall of WALLS) {
+  for (const wall of (floor.walls || [])) {
     const radius = wall.w / 2 + padding;
     const minX = Math.min(wall.x1, wall.x2) - radius;
     const maxX = Math.max(wall.x1, wall.x2) + radius;
     const minY = Math.min(wall.y1, wall.y2) - radius;
     const maxY = Math.max(wall.y1, wall.y2) + radius;
 
-    if (x < minX || x > maxX || y < minY || y > maxY) {
-      continue;
-    }
-
-    if (distancePointToSegment(x, y, wall) <= radius) {
-      return true;
-    }
+    if (x < minX || x > maxX || y < minY || y > maxY) continue;
+    if (distancePointToSegment(x, y, wall) <= radius) return true;
   }
 
   return false;
 }
 
 function buildGrid() {
-  const grid = Array.from({ length: state.rows }, () => Array(state.cols).fill(false));
+  state.floors = {};
+  FLOORS.forEach(floor => {
+    const cols = Math.ceil(floor.mapWidth / CELL_SIZE);
+    const rows = Math.ceil(floor.mapHeight / CELL_SIZE);
+    const grid = Array.from({ length: rows }, () => Array(cols).fill(false));
 
-  for (let row = 0; row < state.rows; row += 1) {
-    for (let col = 0; col < state.cols; col += 1) {
-      const x = (col + 0.5) * CELL_SIZE;
-      const y = (row + 0.5) * CELL_SIZE;
-      grid[row][col] = isBlockedPoint(x, y);
+    for (let row = 0; row < rows; row += 1) {
+      for (let col = 0; col < cols; col += 1) {
+        const x = (col + 0.5) * CELL_SIZE;
+        const y = (row + 0.5) * CELL_SIZE;
+        grid[row][col] = isBlockedPoint(x, y, floor);
+      }
     }
-  }
 
-  state.grid = grid;
-  buildClearancePenalty();
+    const clearancePenalty = buildClearancePenalty(grid, cols, rows);
+
+    state.floors[floor.id] = {
+      ...floor,
+      cols,
+      rows,
+      grid,
+      clearancePenalty
+    };
+  });
+  
+  if (FLOORS.length > 0) {
+    state.activeFloorId = FLOORS[0].id;
+  }
 }
 
-function buildClearancePenalty() {
-  const penalty = Array.from({ length: state.rows }, () => Array(state.cols).fill(0));
+function buildClearancePenalty(grid, cols, rows) {
+  const penalty = Array.from({ length: rows }, () => Array(cols).fill(0));
   const radius = 5;
 
-  for (let row = 0; row < state.rows; row += 1) {
-    for (let col = 0; col < state.cols; col += 1) {
-      if (state.grid[row][col]) {
+  for (let row = 0; row < rows; row += 1) {
+    for (let col = 0; col < cols; col += 1) {
+      if (grid[row][col]) {
         penalty[row][col] = 99;
         continue;
       }
@@ -165,7 +155,9 @@ function buildClearancePenalty() {
       for (let dr = -radius; dr <= radius; dr += 1) {
         for (let dc = -radius; dc <= radius; dc += 1) {
           if (dc === 0 && dr === 0) continue;
-          if (isCellBlocked(col + dc, row + dr)) {
+          const r2 = row + dr;
+          const c2 = col + dc;
+          if (r2 < 0 || c2 < 0 || r2 >= rows || c2 >= cols || grid[r2][c2]) {
             blockedNeighbors += 1;
           }
         }
@@ -173,19 +165,20 @@ function buildClearancePenalty() {
       penalty[row][col] = Math.min(0.65, blockedNeighbors * 0.01);
     }
   }
-
-  state.clearancePenalty = penalty;
+  return penalty;
 }
 
-function cellPenalty(col, row) {
-  if (!state.clearancePenalty) return 0;
-  return state.clearancePenalty[row]?.[col] || 0;
+function cellPenalty(col, row, floorId) {
+  const floor = state.floors[floorId];
+  if (!floor || !floor.clearancePenalty) return 0;
+  return floor.clearancePenalty[row]?.[col] || 0;
 }
 
-function pointToCell(point) {
+function pointToCell(point, floorId) {
+  const floor = state.floors[floorId];
   return {
-    col: Math.max(0, Math.min(state.cols - 1, Math.floor(point.x / CELL_SIZE))),
-    row: Math.max(0, Math.min(state.rows - 1, Math.floor(point.y / CELL_SIZE)))
+    col: Math.max(0, Math.min(floor.cols - 1, Math.floor(point.x / CELL_SIZE))),
+    row: Math.max(0, Math.min(floor.rows - 1, Math.floor(point.y / CELL_SIZE)))
   };
 }
 
@@ -196,16 +189,17 @@ function cellToPoint(cell) {
   };
 }
 
-function isCellBlocked(col, row) {
-  return row < 0 || col < 0 || row >= state.rows || col >= state.cols || state.grid[row][col];
+function isCellBlocked(col, row, floorId) {
+  const floor = state.floors[floorId];
+  return row < 0 || col < 0 || row >= floor.rows || col >= floor.cols || floor.grid[row][col];
 }
 
 function cellKey(col, row, direction = "") {
   return `${col},${row},${direction}`;
 }
 
-function nearestFreeCell(cell, maxRadius = 40) {
-  if (!isCellBlocked(cell.col, cell.row)) {
+function nearestFreeCell(cell, floorId, maxRadius = 40) {
+  if (!isCellBlocked(cell.col, cell.row, floorId)) {
     return cell;
   }
 
@@ -216,7 +210,7 @@ function nearestFreeCell(cell, maxRadius = 40) {
         if (Math.abs(dc) !== radius && Math.abs(dr) !== radius) continue;
         const col = cell.col + dc;
         const row = cell.row + dr;
-        if (!isCellBlocked(col, row)) {
+        if (!isCellBlocked(col, row, floorId)) {
           options.push({ col, row, distance: Math.abs(dc) + Math.abs(dr) });
         }
       }
@@ -227,7 +221,6 @@ function nearestFreeCell(cell, maxRadius = 40) {
       return { col: options[0].col, row: options[0].row };
     }
   }
-
   return null;
 }
 
@@ -286,13 +279,11 @@ function heuristic(a, b) {
   return Math.abs(a.col - b.col) + Math.abs(a.row - b.row);
 }
 
-function findOrthogonalPath(startPoint, endPoint) {
-  const startCell = nearestFreeCell(pointToCell(startPoint));
-  const endCell = nearestFreeCell(pointToCell(endPoint));
+function findOrthogonalPath(startPoint, endPoint, floorId) {
+  const startCell = nearestFreeCell(pointToCell(startPoint, floorId), floorId);
+  const endCell = nearestFreeCell(pointToCell(endPoint, floorId), floorId);
 
-  if (!startCell || !endCell) {
-    return null;
-  }
+  if (!startCell || !endCell) return null;
 
   const open = new MinHeap();
   const cameFrom = new Map();
@@ -317,11 +308,11 @@ function findOrthogonalPath(startPoint, endPoint) {
       const nextCol = current.col + direction.dx;
       const nextRow = current.row + direction.dy;
 
-      if (isCellBlocked(nextCol, nextRow)) continue;
+      if (isCellBlocked(nextCol, nextRow, floorId)) continue;
 
       const nextKey = cellKey(nextCol, nextRow, direction.key);
       const turnCost = current.direction !== "start" && current.direction !== direction.key ? TURN_PENALTY : 0;
-      const newCost = currentCost + 1 + turnCost + cellPenalty(nextCol, nextRow);
+      const newCost = currentCost + 1 + turnCost + cellPenalty(nextCol, nextRow, floorId);
 
       if (!costSoFar.has(nextKey) || newCost < costSoFar.get(nextKey)) {
         costSoFar.set(nextKey, newCost);
@@ -387,110 +378,51 @@ function routeLength(points) {
   return total;
 }
 
-function easeInOutSine(progress) {
-  return -(Math.cos(Math.PI * progress) - 1) / 2;
-}
-
-function cancelRouteAnimation() {
-  if (state.routeAnimationFrame !== null) {
-    cancelAnimationFrame(state.routeAnimationFrame);
-    state.routeAnimationFrame = null;
-  }
-
-}
-
-function routeAngleAtLength(path, pathLength, distance) {
-  const current = path.getPointAtLength(distance);
-  let nextDistance = Math.min(pathLength, distance + ROUTE_TANGENT_SAMPLE_DISTANCE);
-  let next = path.getPointAtLength(nextDistance);
-
-  if (Math.hypot(next.x - current.x, next.y - current.y) < 0.001) {
-    nextDistance = Math.max(0, distance - ROUTE_TANGENT_SAMPLE_DISTANCE);
-    next = current;
-    const previous = path.getPointAtLength(nextDistance);
-    return Math.atan2(next.y - previous.y, next.x - previous.x) * 180 / Math.PI;
-  }
-
-  return Math.atan2(next.y - current.y, next.x - current.x) * 180 / Math.PI;
-}
-
-function setRouteProgress(pathLength, progress) {
-  const clampedProgress = Math.max(0, Math.min(1, progress));
-  const distance = pathLength * clampedProgress;
-  const dashOffset = pathLength - distance;
-
-  [els.routeHalo, els.routeLine].forEach(path => {
-    path.style.strokeDasharray = `${pathLength} ${pathLength}`;
-    path.style.strokeDashoffset = dashOffset;
-  });
-
-  if (!els.routeHead) return;
-
-  const point = els.routeLine.getPointAtLength(distance);
-  const angle = routeAngleAtLength(els.routeLine, pathLength, distance);
-  els.routeHead.setAttribute(
-    "transform",
-    `translate(${point.x.toFixed(2)} ${point.y.toFixed(2)}) rotate(${angle.toFixed(2)})`
-  );
-}
-
-function animateRoute(pathLength) {
-  cancelRouteAnimation();
-  setRouteProgress(pathLength, 0);
-
-  if (els.routeHead) {
-    els.routeHead.setAttribute("display", "block");
-  }
-
-  const animationStart = performance.now();
-
-  function step(timestamp) {
-    const rawProgress = Math.min(1, (timestamp - animationStart) / ROUTE_ANIMATION_DURATION_MS);
-    const easedProgress = easeInOutSine(rawProgress);
-
-    setRouteProgress(pathLength, easedProgress);
-
-    if (rawProgress < 1) {
-      state.routeAnimationFrame = requestAnimationFrame(step);
-      return;
-    }
-
-    setRouteProgress(pathLength, 1);
-    state.routeAnimationFrame = null;
-  }
-
-  state.routeAnimationFrame = requestAnimationFrame(step);
-}
-
-function countTurns(points) {
-  let turns = 0;
-  for (let i = 2; i < points.length; i += 1) {
-    const before = getSegmentDirection(points[i - 2], points[i - 1]).key;
-    const after = getSegmentDirection(points[i - 1], points[i]).key;
-    if (before !== after) turns += 1;
-  }
-  return turns;
-}
-
 function metersFromPixels(px) {
   return Math.max(1, Math.round(px / PIXELS_PER_METER));
 }
 
 function getLocations() {
-  return {
-    ...BASE_LOCATIONS,
-    ...(state.customStart ? { customStart: state.customStart } : {}),
-    ...(state.customDestination ? { customDestination: state.customDestination } : {})
-  };
+  const locs = {};
+  FLOORS.forEach(floor => {
+    Object.entries(floor.locations).forEach(([id, loc]) => {
+      locs[`${floor.id}_${id}`] = { ...loc, floorId: floor.id, originalId: id };
+    });
+  });
+  
+  if (state.customStart) locs.customStart = state.customStart;
+  if (state.customDestination) locs.customDestination = state.customDestination;
+  return locs;
 }
 
 function getLocation(id) {
   return getLocations()[id];
 }
 
+// Resolve a ?destination=/?start= URL value to a location id. Accepts the
+// combined id ("F1_OPD"), the per-floor id ("OPD") or the display label
+// ("Cardiology"), all case-insensitively, so callers don't need to know
+// which floor a department sits on.
+function resolveLocationId(value) {
+  if (!value) return null;
+  const target = String(value).trim().toLowerCase();
+  if (!target) return null;
+  const locations = getLocations();
+  const matchers = [
+    ([id]) => id.toLowerCase() === target,
+    ([, location]) => (location.originalId || "").toLowerCase() === target,
+    ([, location]) => (location.label || "").toLowerCase() === target
+  ];
+  for (const matches of matchers) {
+    const entry = Object.entries(locations).find(matches);
+    if (entry) return entry[0];
+  }
+  return null;
+}
+
 function populateSelects() {
-  const startValue = els.startSelect.value || "entrance";
-  const destinationValue = els.destinationSelect.value || "opd";
+  const startValue = els.startSelect.value;
+  const destinationValue = els.destinationSelect.value;
   const locations = getLocations();
 
   function buildOptions() {
@@ -499,7 +431,9 @@ function populateSelects() {
       if (entries.length === 0) return "";
       const optionHtml = entries
         .sort((a, b) => a[1].label.localeCompare(b[1].label))
-        .map(([id, location]) => `<option value="${id}">${escapeHtml(location.label)}</option>`)
+        .map(([id, location]) => {
+          return `<option value="${id}">${escapeHtml(location.label)}</option>`;
+        })
         .join("");
       return `<optgroup label="${escapeHtml(group)}">${optionHtml}</optgroup>`;
     }).join("");
@@ -508,20 +442,59 @@ function populateSelects() {
   const html = buildOptions();
   els.startSelect.innerHTML = html;
   els.destinationSelect.innerHTML = html;
+  
+  const allIds = Object.keys(locations);
+  const entId = allIds.find(k => locations[k].type === "entry") || allIds.find(k => locations[k].type === "hallway") || allIds[0];
+  const destId = allIds.find(k => locations[k].label === "OPD") || allIds[1];
+  
+  els.startSelect.value = locations[startValue] ? startValue : entId;
+  els.destinationSelect.value = locations[destinationValue] ? destinationValue : destId;
+}
 
-  els.startSelect.value = locations[startValue] ? startValue : "entrance";
-  els.destinationSelect.value = locations[destinationValue] ? destinationValue : "opd";
+function setupFloorSwitcher() {
+  const switcherHtml = FLOORS.map(f => {
+    return `<button class="pill ${state.activeFloorId === f.id ? 'success' : 'outline'}" data-floor-id="${f.id}">
+      ${escapeHtml(f.name)}
+    </button>`;
+  }).join('');
+  
+  els.floorSwitcher.innerHTML = switcherHtml;
+  
+  els.floorSwitcher.querySelectorAll('button').forEach(btn => {
+    btn.addEventListener('click', () => {
+      state.isAutoRouting = false;
+      renderFloor(btn.dataset.floorId);
+    });
+  });
+}
+
+function renderFloor(floorId) {
+  state.activeFloorId = floorId;
+  const floor = state.floors[floorId];
+
+  els.floorImage.src = floor.mapImageSrc || 'assets/floor-map.svg';
+  els.routeOverlay.setAttribute('viewBox', `0 0 ${floor.mapWidth} ${floor.mapHeight}`);
+  fitMap();
+
+  renderBlockers();
+  renderPois();
+  setupFloorSwitcher();
+  displayCurrentRoute();
 }
 
 function renderBlockers() {
-  els.blockerLayer.innerHTML = EXTRA_BLOCKERS.map(blocker => {
+  const floor = state.floors[state.activeFloorId];
+  if (!floor) return;
+  els.blockerLayer.innerHTML = (floor.blockers || []).map(blocker => {
     const padding = blocker.padding || 0;
     return `<rect class="service-block" x="${blocker.x - padding}" y="${blocker.y - padding}" width="${blocker.width + padding * 2}" height="${blocker.height + padding * 2}" rx="6"><title>${escapeHtml(blocker.label)}</title></rect>`;
   }).join("");
 }
 
 function renderPois() {
-  els.poiLayer.innerHTML = Object.entries(BASE_LOCATIONS).map(([, location]) => {
+  const floor = state.floors[state.activeFloorId];
+  if (!floor) return;
+  els.poiLayer.innerHTML = Object.entries(floor.locations).map(([, location]) => {
     const cls = location.type === "entry" ? "entry" : location.type === "emergency" ? "emergency" : location.type === "service" ? "service" : location.type === "hallway" ? "hallway" : "";
     return `<circle class="poi ${cls}" cx="${location.x}" cy="${location.y}" r="4.6"><title>${escapeHtml(location.label)}</title></circle>`;
   }).join("");
@@ -549,15 +522,36 @@ function markerSvg(location, kind) {
 
 let routeAnimationFrameId = null;
 
-function cancelRouteAnimation() {
+function clearRoute() {
   if (routeAnimationFrameId) {
     cancelAnimationFrame(routeAnimationFrameId);
     routeAnimationFrameId = null;
   }
+  
+  [els.routeHalo, els.routeLine].forEach(path => {
+    path.style.removeProperty("stroke-dasharray");
+    path.style.removeProperty("stroke-dashoffset");
+    path.setAttribute("d", "");
+  });
+  els.markerLayer.innerHTML = "";
 }
 
-function animateRouteDrawing(points, durationMs) {
-  cancelRouteAnimation();
+function animateRouteDrawing(points, durationMs, onComplete) {
+  if (routeAnimationFrameId) {
+    cancelAnimationFrame(routeAnimationFrameId);
+    routeAnimationFrameId = null;
+  }
+
+  if (!state.isAutoRouting) {
+    let d = `M ${points[0].x.toFixed(1)} ${points[0].y.toFixed(1)}`;
+    for (let i = 1; i < points.length; i++) {
+      d += ` L ${points[i].x.toFixed(1)} ${points[i].y.toFixed(1)}`;
+    }
+    els.routeHalo.setAttribute("d", d);
+    els.routeLine.setAttribute("d", d);
+    if (onComplete) onComplete();
+    return;
+  }
 
   const segments = [];
   let totalLength = 0;
@@ -595,98 +589,185 @@ function animateRouteDrawing(points, durationMs) {
 
     if (progress < 1) {
       routeAnimationFrameId = requestAnimationFrame(step);
+    } else if (onComplete) {
+      onComplete();
     }
   }
 
   routeAnimationFrameId = requestAnimationFrame(step);
 }
 
-function drawRoute(points, startLocation, destinationLocation) {
+function drawRoute(points, stops, onComplete) {
   els.routeLine.style.removeProperty("stroke-dasharray");
   els.routeLine.style.removeProperty("stroke-dashoffset");
 
-  animateRouteDrawing(points, 2000);
+  animateRouteDrawing(points, 2000, onComplete);
 
-  const startMarker = { ...startLocation, x: points[0].x, y: points[0].y };
-  const destinationMarker = { ...destinationLocation, x: points[points.length - 1].x, y: points[points.length - 1].y };
-  els.markerLayer.innerHTML = markerSvg(startMarker, "start") + markerSvg(destinationMarker, "destination");
-}
-
-function clearRoute() {
-  cancelRouteAnimation();
-  
-  [els.routeHalo, els.routeLine].forEach(path => {
-    path.style.removeProperty("stroke-dasharray");
-    path.style.removeProperty("stroke-dashoffset");
-  });
-  els.routeHalo.setAttribute("d", "");
-  els.routeLine.setAttribute("d", "");
-  els.markerLayer.innerHTML = "";
-}
-
-function renderDirections(points, startLocation, destinationLocation) {
-  const steps = [];
-  steps.push({ badgeClass: "start", badge: "S", text: `Start at ${startLocation.label}.`, distance: "0 m" });
-
-  for (let i = 1; i < points.length; i += 1) {
-    const direction = getSegmentDirection(points[i - 1], points[i]);
-    const segmentPixels = Math.abs(points[i].x - points[i - 1].x) + Math.abs(points[i].y - points[i - 1].y);
-    const meters = metersFromPixels(segmentPixels);
-    if (meters < 1) continue;
-    steps.push({
-      badgeClass: "",
-      badge: `${direction.degree}°`,
-      text: `${direction.label} only (${direction.icon}).`,
-      distance: `${meters} m`
-    });
+  let markersHtml = "";
+  for (let i = 0; i < stops.length; i++) {
+    let type = "waypoint";
+    let x = stops[i].x;
+    let y = stops[i].y;
+    
+    if (i === 0) {
+       type = "start";
+       x = points[0].x;
+       y = points[0].y;
+    } else if (i === stops.length - 1) {
+       type = "destination";
+       x = points[points.length - 1].x;
+       y = points[points.length - 1].y;
+    }
+    const markerLoc = { ...stops[i], x, y };
+    markersHtml += markerSvg(markerLoc, type);
   }
-
-  steps.push({ badgeClass: "arrive", badge: "A", text: `Arrive at ${destinationLocation.label}.`, distance: "0 m" });
-
-  els.directionsList.innerHTML = steps.map(step => `
-    <li>
-      <span class="step-badge ${step.badgeClass}">${escapeHtml(step.badge)}</span>
-      <span>${escapeHtml(step.text)}</span>
-      <span class="step-distance">${escapeHtml(step.distance)}</span>
-    </li>
-  `).join("");
+  
+  els.markerLayer.innerHTML = markersHtml;
 }
 
-function setStatus(text, warning = false) {
-  // Removed routeStatus UI element
+function displayCurrentRoute() {
+  if (!state.currentRoute) {
+    clearRoute();
+    return;
+  }
+  
+  const rt = state.currentRoute;
+  
+  if (rt.type === 'single') {
+    if (state.activeFloorId === rt.floorId) {
+      drawRoute(rt.path, rt.stops);
+    } else {
+      clearRoute();
+    }
+  } else {
+    if (state.activeFloorId === rt.floor1) {
+      drawRoute(rt.path1, rt.stops1, state.isAutoRouting ? () => {
+        setTimeout(() => {
+          if (state.currentRoute === rt && state.activeFloorId === rt.floor1) {
+            const nextFloorName = state.floors[rt.floor2].name;
+            els.transitionText.innerText = `Take the elevator to ${nextFloorName}...`;
+            els.transitionOverlay.style.display = 'flex';
+            
+            // trigger CSS transition
+            setTimeout(() => {
+              els.transitionOverlay.classList.add('show');
+            }, 10);
+            
+            setTimeout(() => {
+              if (state.currentRoute === rt) {
+                renderFloor(rt.floor2);
+                els.transitionOverlay.classList.remove('show');
+                setTimeout(() => {
+                  els.transitionOverlay.style.display = 'none';
+                }, 300);
+              } else {
+                els.transitionOverlay.classList.remove('show');
+                els.transitionOverlay.style.display = 'none';
+              }
+            }, 2000);
+          }
+        }, 200);
+      } : null);
+    } else if (state.activeFloorId === rt.floor2) {
+      drawRoute(rt.path2, rt.stops2);
+    } else {
+      clearRoute();
+    }
+  }
 }
 
 function runRoute() {
-  const startLocation = getLocation(els.startSelect.value);
+  state.isAutoRouting = true;
+  const startLocation = state.customStart || getLocation(els.startSelect.value);
   const destinationLocation = getLocation(els.destinationSelect.value);
-
+  
   if (!startLocation || !destinationLocation) {
-    return;
-  }
-
-  const points = findOrthogonalPath(startLocation, destinationLocation);
-
-  if (!points || points.length < 2) {
     clearRoute();
-    els.directionsList.innerHTML = `<li><span class="step-badge">!</span><span>No safe 90 degree route found. Move the start or destination into an open walking area.</span></li>`;
     return;
   }
+  
+  if (startLocation.floorId === destinationLocation.floorId) {
+    const path = findOrthogonalPath(startLocation, destinationLocation, startLocation.floorId);
+    if (!path) {
+      state.currentRoute = null;
+      clearRoute();
+      showToast("No safe route found. Try a different start or destination.");
+      return;
+    }
+    state.currentRoute = {
+      type: 'single',
+      floorId: startLocation.floorId,
+      path,
+      stops: [startLocation, destinationLocation]
+    };
+  } else {
+    const elevators1 = Object.values(state.floors[startLocation.floorId].locations).filter(l => l.type === 'elevator');
+    const elevators2 = Object.values(state.floors[destinationLocation.floorId].locations).filter(l => l.type === 'elevator');
+      
+    let bestElevatorLabel = null;
+    let shortestLen = Infinity;
+    let bestPath1 = null;
+    let bestPath2 = null;
+    let elevatorLoc1 = null;
+    let elevatorLoc2 = null;
 
-  drawRoute(points, startLocation, destinationLocation);
+    elevators1.forEach(e1 => {
+      const e2 = elevators2.find(e => e.label === e1.label);
+      if (e2) {
+        const path1 = findOrthogonalPath(startLocation, e1, startLocation.floorId);
+        const path2 = findOrthogonalPath(e2, destinationLocation, destinationLocation.floorId);
+        if (path1 && path2) {
+          const len = routeLength(path1) + routeLength(path2);
+          if (len < shortestLen) {
+            shortestLen = len;
+            bestElevatorLabel = e1.label;
+            bestPath1 = path1;
+            bestPath2 = path2;
+            elevatorLoc1 = { ...e1, floorId: startLocation.floorId };
+            elevatorLoc2 = { ...e2, floorId: destinationLocation.floorId };
+          }
+        }
+      }
+    });
 
-  renderDirections(points, startLocation, destinationLocation);
+    if (!bestPath1) {
+      state.currentRoute = null;
+      clearRoute();
+      showToast("No elevator route found between floors.");
+      return;
+    }
+    
+    state.currentRoute = {
+      type: 'multi',
+      floor1: startLocation.floorId,
+      floor2: destinationLocation.floorId,
+      path1: bestPath1,
+      path2: bestPath2,
+      stops1: [startLocation, elevatorLoc1],
+      stops2: [elevatorLoc2, destinationLocation],
+      elevatorLabel: bestElevatorLabel
+    };
+    
+    if (state.activeFloorId !== startLocation.floorId) {
+       renderFloor(startLocation.floorId);
+       return; 
+    }
+  }
+  
+  displayCurrentRoute();
 }
 
 function mapPointFromEvent(event) {
   const rect = els.mapInner.getBoundingClientRect();
-  const x = ((event.clientX - rect.left) / rect.width) * MAP_WIDTH;
-  const y = ((event.clientY - rect.top) / rect.height) * MAP_HEIGHT;
-  if (x < 0 || y < 0 || x > MAP_WIDTH || y > MAP_HEIGHT) return null;
+  const floor = state.floors[state.activeFloorId];
+  const x = ((event.clientX - rect.left) / rect.width) * floor.mapWidth;
+  const y = ((event.clientY - rect.top) / rect.height) * floor.mapHeight;
+  if (x < 0 || y < 0 || x > floor.mapWidth || y > floor.mapHeight) return null;
   return { x, y };
 }
 
-function snapToWalkable(point) {
-  const cell = nearestFreeCell(pointToCell(point), 45);
+function snapToWalkable(point, floorId) {
+  const cell = nearestFreeCell(pointToCell(point, floorId), floorId, 45);
   if (!cell) return null;
   const snapped = cellToPoint(cell);
   return {
@@ -695,88 +776,129 @@ function snapToWalkable(point) {
   };
 }
 
-function setCustomPoint(point, isDestination) {
-  const snapped = snapToWalkable(point);
-  if (!snapped) return;
-
-  if (isDestination) {
-    state.customDestination = { label: "Custom Destination", group: "Custom", x: snapped.x, y: snapped.y, type: "room" };
-  } else {
-    state.customStart = { label: "Custom Start / You are here", group: "Custom", x: snapped.x, y: snapped.y, type: "entry" };
-  }
-
-  populateSelects();
-  if (isDestination) {
-    els.destinationSelect.value = "customDestination";
-  } else {
-    els.startSelect.value = "customStart";
-  }
-
-  runRoute();
-}
-
-function setZoom(percent) {
-  state.zoomPercent = Math.max(80, Math.min(260, percent));
-  els.mapInner.style.width = `${state.zoomPercent}%`;
-  els.zoomResetBtn.innerText = `${state.zoomPercent}%`;
-}
-
 function resetCustomPoints() {
   state.customStart = null;
   state.customDestination = null;
   populateSelects();
-  els.startSelect.value = "entrance";
-  els.destinationSelect.value = "opd";
   runRoute();
 }
 
-function init() {
-  buildGrid();
-  populateSelects();
-  renderBlockers();
-  renderPois();
 
-  // Read URL parameters
-  const params = new URLSearchParams(window.location.search);
-  const destParam = params.get("destination");
-  if (destParam && getLocation(destParam)) {
-    els.destinationSelect.value = destParam;
+function fitMap() {
+  const floor = state.floors[state.activeFloorId];
+  if (!floor) return;
+
+  const stageW = els.mapViewport.clientWidth;
+  const stageH = els.mapViewport.clientHeight;
+  if (!stageW || !stageH) return;
+
+  // Reserve the bands the floating chrome occupies, then fit the whole
+  // floor into what remains — aspect ratio preserved, so nothing can
+  // cover the map and the kiosk never needs to scroll or pan.
+  // Portrait: planner card sits along the bottom edge.
+  // Landscape: planner card is docked on the left (mirrors the CSS
+  // orientation media query).
+  const pad = 14;
+  const chromeH = Math.max(
+    els.floorSwitcher?.offsetHeight || 0,
+    els.brandChip?.offsetHeight || 0
+  );
+  const topReserve = chromeH + pad * 2;
+
+  const isLandscape = stageW > stageH;
+  let leftReserve = pad;
+  let bottomReserve = pad;
+  if (isLandscape) {
+    leftReserve = (els.plannerCard?.offsetWidth || 0) + pad * 2;
+  } else {
+    bottomReserve = (els.plannerCard?.offsetHeight || 0) + pad * 2;
   }
-  
-  const embeddedParam = params.get("embedded");
-  if (embeddedParam === "true") {
+
+  const availW = Math.max(160, stageW - leftReserve - pad);
+  const availH = Math.max(160, stageH - topReserve - bottomReserve);
+
+  const scale = Math.min(availW / floor.mapWidth, availH / floor.mapHeight);
+  const width = Math.floor(floor.mapWidth * scale);
+  const height = Math.floor(floor.mapHeight * scale);
+
+  els.mapInner.style.width = `${width}px`;
+  els.mapInner.style.height = `${height}px`;
+  els.mapInner.style.left = `${Math.floor(leftReserve + (availW - width) / 2)}px`;
+  els.mapInner.style.top = `${Math.floor(topReserve + (availH - height) / 2)}px`;
+
+  // Keep the route line a constant thickness on screen. The widths are
+  // in map units, so dividing by the scale makes line, halo and the
+  // arrow marker (markerUnits="strokeWidth") render identically at any
+  // map size — no misaligned caps or arrowheads on small screens.
+  els.routeLine.style.strokeWidth = (7 / scale).toFixed(3);
+  els.routeHalo.style.strokeWidth = (15 / scale).toFixed(3);
+}
+
+
+function init() {
+  if (EMBEDDED) {
     document.body.classList.add("embedded-mode");
+  }
+
+  buildGrid();
+
+  if (FLOORS.length > 0) {
+    renderFloor(state.activeFloorId);
+  }
+
+  populateSelects();
+
+  const startParam = resolveLocationId(URL_PARAMS.get("start"));
+  if (startParam) {
+    els.startSelect.value = startParam;
+  }
+  const destinationParam = resolveLocationId(URL_PARAMS.get("destination"));
+  if (destinationParam) {
+    els.destinationSelect.value = destinationParam;
   }
 
   runRoute();
 
   els.findRouteBtn.addEventListener("click", runRoute);
-  els.startSelect.addEventListener("change", runRoute);
-  els.destinationSelect.addEventListener("change", runRoute);
+  els.startSelect.addEventListener("change", () => {
+    state.customStart = null; 
+    populateSelects();
+    runRoute();
+  });
+  els.destinationSelect.addEventListener("change", () => {
+    runRoute();
+  });
   els.resetBtn.addEventListener("click", resetCustomPoints);
 
-  document.querySelectorAll("[data-destination]").forEach(button => {
-    button.addEventListener("click", () => {
-      els.destinationSelect.value = button.dataset.destination;
-      runRoute();
-    });
-  });
-
   els.mapInner.addEventListener("click", event => {
-    if (document.body.classList.contains("embedded-mode")) return;
+    if (EMBEDDED) return;
     const point = mapPointFromEvent(event);
     if (!point) return;
-    setCustomPoint(point, event.shiftKey);
-  });
+    const snapped = snapToWalkable(point, state.activeFloorId);
+    if (!snapped) return;
 
-  els.mapInner.addEventListener("mousemove", event => {
-    const point = mapPointFromEvent(event);
-    if (!point) return;
-  });
+    const stop = { 
+      label: "Custom Start", 
+      group: "Custom", 
+      x: snapped.x, 
+      y: snapped.y, 
+      type: "entry",
+      floorId: state.activeFloorId
+    };
 
-  els.zoomInBtn.addEventListener("click", () => setZoom(state.zoomPercent + 20));
-  els.zoomOutBtn.addEventListener("click", () => setZoom(state.zoomPercent - 20));
-  els.zoomResetBtn.addEventListener("click", () => setZoom(100));
+    state.customStart = stop;
+    populateSelects();
+    els.startSelect.value = "customStart";
+    runRoute();
+  });
 }
 
 init();
+
+
+
+// Refit whenever the stage or the planner card changes size (e.g. the
+// route summary appears) so the map never gets covered.
+const mapObserver = new ResizeObserver(() => fitMap());
+mapObserver.observe(els.mapViewport);
+mapObserver.observe(els.plannerCard);

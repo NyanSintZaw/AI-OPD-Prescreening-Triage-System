@@ -2,110 +2,68 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Hospital Orthogonal Route Finder</title>
-  <link rel="stylesheet" href="style.css" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <title>CareNav Hospital Wayfinder</title>
+  <link rel="stylesheet" href="style.css?v=13" />
 </head>
 <body>
-  <div class="app-shell">
-    <header class="topbar">
-      <div class="brand">
-        <div class="brand-mark" aria-hidden="true">
-          <svg viewBox="0 0 48 48" role="img">
-            <rect x="5" y="5" width="38" height="38" rx="12"></rect>
-            <path d="M21 12h6v9h9v6h-9v9h-6v-9h-9v-6h9z"></path>
-          </svg>
-        </div>
-        <div>
-          <h1>CareNav Hospital Wayfinder</h1>
-          <p>Professional 2D routing with hospital-safe 90 degree paths</p>
-        </div>
+  <main class="map-stage">
+    <div id="mapViewport" class="map-viewport">
+      <div id="transitionOverlay" class="transition-overlay" style="display: none;"><div class="transition-content"><div class="elevator-icon">🛗</div><h2 style="color: white;" id="transitionText"></h2></div></div>
+      <div id="mapInner" class="map-inner">
+        <img id="floorImage" alt="Hospital floor plan" draggable="false" />
+        <svg id="routeOverlay" viewBox="0 0 637 454" preserveAspectRatio="none" aria-label="Hospital route overlay">
+          <defs>
+            <marker id="routeArrow" viewBox="0 0 12 12" markerWidth="7" markerHeight="7" refX="7.5" refY="6" orient="auto" markerUnits="strokeWidth">
+              <path d="M2,2 L10,6 L2,10 Z" class="route-arrow"></path>
+            </marker>
+          </defs>
+          <g id="blockerLayer"></g>
+          <g id="poiLayer"></g>
+          <path id="routeHalo" d=""></path>
+          <path id="routeLine" d=""></path>
+          <g id="turnLayer"></g>
+          <g id="markerLayer"></g>
+        </svg>
       </div>
+    </div>
 
-      <div class="top-actions" aria-label="Route settings">
-        <span class="pill">Ground Floor</span>
-        <span class="pill success">90 degree route only</span>
-        <span class="pill outline">No diagonal shortcuts</span>
+    <div class="brand-chip">
+      <div class="brand-mark" aria-hidden="true">
+        <svg viewBox="0 0 48 48" role="img">
+          <rect x="5" y="5" width="38" height="38" rx="12"></rect>
+          <path d="M21 12h6v9h9v6h-9v9h-6v-9h-9v-6h9z"></path>
+        </svg>
       </div>
-    </header>
+      <span>CareNav Wayfinder</span>
+    </div>
 
-    <main class="layout">
-      <aside class="sidebar">
-        <section class="panel control-panel">
-          <div class="panel-kicker">Route planner</div>
+    <div id="kioskFloorSwitcher" class="kiosk-floor-switcher"></div>
 
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+    <aside id="plannerCard" class="planner-card" aria-label="Route planner">
+      <div class="field-row">
+        <div class="select-field">
           <label for="startSelect">Start location</label>
           <select id="startSelect"></select>
-
+        </div>
+        <div class="select-field">
           <label for="destinationSelect">Destination</label>
           <select id="destinationSelect"></select>
+        </div>
+      </div>
 
-          <button id="findRouteBtn" class="primary-btn" type="button">
-            Find hospital route
-          </button>
+      <div class="action-row">
+        <button id="findRouteBtn" class="primary-btn" type="button">Find route</button>
+        <button id="resetBtn" class="ghost-btn" type="button">Reset</button>
+      </div>
 
-          <div class="quick-actions" aria-label="Quick destinations">
-            <button type="button" data-destination="emergency">Emergency</button>
-            <button type="button" data-destination="counter">Reception</button>
-            <button type="button" data-destination="opd">OPD</button>
-          </div>
+      <p class="map-hint">Tap the map to set a custom starting point</p>
+    </aside>
+  </main>
 
-          <button id="resetBtn" class="ghost-btn" type="button">Reset custom points</button>
-        </section>
-        <section class="panel directions-card">
-          <div class="directions-head">
-            <div>
-              <h2>Step-by-step directions</h2>
-              <p>Clear hospital instructions using only up, down, left, and right.</p>
-            </div>
-
-          </div>
-          <ol id="directionsList">
-            <li><span class="step-badge">1</span><span>Select a start and destination, then click Find hospital route.</span></li>
-          </ol>
-        </section>
-      </aside>
-
-      <section class="workspace">
-        <section class="map-card">
-          <div class="map-card-header">
-            <div>
-              <div class="panel-kicker">Hospital floor map</div>
-              <h2>Orthogonal indoor route</h2>
-              <p>The line uses only 0, 90, 180, and 270 degree segments.</p>
-            </div>
-            <div class="zoom-controls" aria-label="Map zoom controls">
-              <button id="zoomOutBtn" type="button" title="Zoom out">-</button>
-              <button id="zoomResetBtn" type="button" title="Reset zoom">100%</button>
-              <button id="zoomInBtn" type="button" title="Zoom in">+</button>
-            </div>
-          </div>
-
-          <div id="mapViewport" class="map-viewport">
-            <div id="mapInner" class="map-inner">
-              <img id="floorImage" src="assets/floor-map.svg?v=2" alt="Hospital ground floor plan" draggable="false" />
-              <svg id="routeOverlay" viewBox="0 0 637 454" preserveAspectRatio="none" aria-label="Hospital route overlay">
-                <defs>
-                  <marker id="routeArrow" viewBox="0 0 12 12" markerWidth="6" markerHeight="6" refX="9" refY="6" orient="auto" markerUnits="strokeWidth">
-                    <path d="M2,2 L10,6 L2,10 Z" class="route-arrow"></path>
-                  </marker>
-                </defs>
-                <g id="blockerLayer"></g>
-                <g id="poiLayer"></g>
-                <path id="routeHalo" d=""></path>
-                <path id="routeLine" d=""></path>
-                <g id="turnLayer"></g>
-                <g id="markerLayer"></g>
-              </svg>
-            </div>
-          </div>
-        </section>
-
-
-      </section>
-    </main>
-  </div>
-
+  <script src="map-data.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
