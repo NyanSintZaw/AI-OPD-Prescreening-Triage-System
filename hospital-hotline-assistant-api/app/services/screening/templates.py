@@ -92,6 +92,41 @@ FOLLOW_UP_CLOSE = {
     "th": "ได้ค่ะ กรุณาไปที่{department}นะคะ ดูแลตัวเองด้วยนะคะ",
 }
 
+FOLLOW_UP_ACK_NAMED = {
+    "en": "Got it, {name} — I've noted that for the doctor. Please proceed to {department}.",
+    "th": "รับทราบค่ะ {name} ดิฉันจดไว้ให้คุณหมอแล้ว กรุณาไปที่{department}นะคะ",
+}
+
+FOLLOW_UP_CLOSE_NAMED = {
+    "en": "Alright, {name} — please proceed to {department}. Take care.",
+    "th": "ได้ค่ะ {name} กรุณาไปที่{department}นะคะ ดูแลตัวเองด้วยนะคะ",
+}
+
+
+def polite_name(name: str | None, language: str) -> str | None:
+    """Address form of the HIS-recorded name for mid-conversation mentions:
+    given name only, with the Thai honorific ('สมชาย ใจดี' -> 'คุณสมชาย',
+    'Waraporn Srisuk' -> 'Waraporn'). None when no name is linked."""
+    parts = (name or "").strip().split()
+    if not parts:
+        return None
+    given = parts[0]
+    return f"คุณ{given}" if language == "th" else given
+
+
+def follow_up_ack(name: str | None, department: str, language: str) -> str:
+    polite = polite_name(name, language)
+    if polite:
+        return FOLLOW_UP_ACK_NAMED[language].format(name=polite, department=department)
+    return FOLLOW_UP_ACK[language].format(department=department)
+
+
+def follow_up_close(name: str | None, department: str, language: str) -> str:
+    polite = polite_name(name, language)
+    if polite:
+        return FOLLOW_UP_CLOSE_NAMED[language].format(name=polite, department=department)
+    return FOLLOW_UP_CLOSE[language].format(department=department)
+
 # Closing chip on per-finding red-flag choices; the extractor maps it to
 # "all of the pending question's findings absent".
 NONE_OF_THESE = {

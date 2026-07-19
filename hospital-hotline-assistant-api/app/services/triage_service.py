@@ -108,6 +108,9 @@ def _turn_context(metadata: dict[str, Any]) -> dict[str, Any] | None:
     age = visit.get("age_years")
     if isinstance(age, (int, float)) and age >= 0:
         ctx["age_years"] = age
+    patient_name = str(visit.get("patient_name") or "").strip()
+    if patient_name:
+        ctx["patient_name"] = patient_name
     vitals = metadata.get("vitals") or {}
     if vitals:
         ctx["vitals"] = vitals

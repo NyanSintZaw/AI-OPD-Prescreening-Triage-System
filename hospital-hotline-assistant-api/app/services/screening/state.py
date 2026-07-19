@@ -51,6 +51,7 @@ class ScreeningState(BaseModel):
     turn_count: int = 0
     phase: Phase = "intake"
 
+    patient_name: str | None = None  # HIS-recorded name from the linked visit
     chief_complaint: str | None = None
     complaint_category: str | None = None
     slots: dict[str, str] = Field(default_factory=dict)  # OLDCARTS slot -> answer text

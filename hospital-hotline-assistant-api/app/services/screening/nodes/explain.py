@@ -30,6 +30,7 @@ _EXPLAIN_PROMPT = {
         "name any other department.\n"
         "Patient's reported symptoms: {summary}\n"
         "Send the patient to: {department}\n"
+        "{name_line}"
         "{urgency_line}"
         "{reference}"
         "Close warmly (e.g. wish them well). Do NOT ask any medical follow-up; "
@@ -42,6 +43,7 @@ _EXPLAIN_PROMPT = {
         "ห้ามวินิจฉัยหรือระบุชื่อโรคที่สงสัย ห้ามแนะนำยา และห้ามพูดถึงแผนกอื่น\n"
         "อาการที่ผู้ป่วยเล่า: {summary}\n"
         "ให้ผู้ป่วยไปที่: {department}\n"
+        "{name_line}"
         "{urgency_line}"
         "{reference}"
         "ปิดท้ายอย่างอบอุ่น ห้ามถามคำถามทางการแพทย์เพิ่ม "
@@ -59,6 +61,11 @@ _URGENCY_LINE = {
     "th": "กรณีเร่งด่วน ให้แจ้งว่าควรไปทันที เจ้าหน้าที่ได้รับแจ้งแล้ว\n",
 }
 
+_NAME_LINE = {
+    "en": "Address the patient by name, once, naturally: {name}\n",
+    "th": "เรียกชื่อผู้ป่วยหนึ่งครั้งอย่างเป็นธรรมชาติ: {name}\n",
+}
+
 
 def fallback_explanation(state, deps: GraphDeps) -> str:
     language = state.language
@@ -71,6 +78,9 @@ def fallback_explanation(state, deps: GraphDeps) -> str:
         body = templates.EMERGENCY_EXPLAIN[language]
     else:
         body = templates.OPD_EXPLAIN[language].format(department=department)
+    polite = templates.polite_name(state.patient_name, language)
+    if polite:
+        body = f"{polite} — {body}" if language == "en" else f"{polite}คะ {body}"
     return body
 
 
@@ -102,9 +112,11 @@ def make_explain_node(deps: GraphDeps):
                         )
                 except Exception:
                     logger.debug("rag grounding unavailable; explaining without it")
+            polite = templates.polite_name(state.patient_name, language)
             prompt = _EXPLAIN_PROMPT[language].format(
                 summary=classification.get("symptoms_summary") or "-",
                 department=department,
+                name_line=_NAME_LINE[language].format(name=polite) if polite else "",
                 urgency_line=_URGENCY_LINE[language] if is_emergency else "",
                 reference=reference,
             )

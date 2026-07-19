@@ -63,7 +63,9 @@ def make_followup_node(deps: GraphDeps):
         department = _department_label(state, deps)
 
         if _is_decline(utterance):
-            reply = templates.FOLLOW_UP_CLOSE[language].format(department=department)
+            reply = templates.follow_up_close(
+                state.patient_name, department, language
+            )
             state.phase = "done"
             return {
                 "s": state,
@@ -90,7 +92,7 @@ def make_followup_node(deps: GraphDeps):
         # Anything else is the note itself (or a direct question to record).
         if utterance:
             state.patient_follow_up = utterance
-        reply = templates.FOLLOW_UP_ACK[language].format(department=department)
+        reply = templates.follow_up_ack(state.patient_name, department, language)
         state.phase = "done"
         return {
             "s": state,

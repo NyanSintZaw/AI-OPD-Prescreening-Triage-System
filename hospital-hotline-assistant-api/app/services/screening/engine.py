@@ -185,6 +185,9 @@ class ScreeningTriageEngine:
         if isinstance(age, (int, float)) and age >= 0:
             state.age_years = float(age)
             state.age_asked = True  # never ask — the HIS gave it to us
+        patient_name = str(turn_context.get("patient_name") or "").strip()
+        if patient_name:
+            state.patient_name = patient_name
         vitals = normalize_vitals(turn_context.get("vitals"))
         if vitals:
             state.vitals.update(vitals)
