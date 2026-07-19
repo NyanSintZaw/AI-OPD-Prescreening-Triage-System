@@ -18,7 +18,7 @@ from .base import GraphDeps, GraphState
 # Anything with real content (incl. a "?") falls through to being recorded.
 # Thai polite particles may ride along with either, but a decline needs at
 # least one substantive negative token — a bare "ครับ/ค่ะ" is an affirmation.
-_POLITE = r"(?:ครับผม|ครับ|ค่ะ|คะ|นะ)"
+_POLITE = r"(?:ครับผม|ครับ|ค่ะ|คะ|นะ|แล้ว|เลย|จ้ะ|จ้า)"
 _NEG_CORE = (
     r"(?:no|nope|nothing(?:\s+else)?|none|not\s+really|that'?s\s+all|"
     r"all\s+good|i'?m\s+(?:good|fine|ok|okay)|no\s+thanks?|thanks|thank\s+you|"

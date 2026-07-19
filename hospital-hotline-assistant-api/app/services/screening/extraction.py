@@ -161,7 +161,12 @@ Finding catalog (use ONLY these ids):
 
 Rules:
 - A denial ("no", "ไม่มีค่ะ", "none of these", "ไม่มีอาการเหล่านี้") of the pending
-  question -> ALL of that question's finding ids with state "absent".
+  question -> ALL of that question's finding ids with state "absent". A bare
+  denial applies ONLY to the pending question's finding ids — never to other
+  findings the question wording mentioned in passing.
+- Explicit negations the patient volunteers anywhere in the message ("no fever
+  though", "no trouble breathing", "แต่ไม่มีไข้", "หายใจปกติดี") -> those findings
+  with state "absent" — including in the very first message.
 - A bare affirmation ("yes", "ใช่", "มี") of a pending question that checks exactly
   ONE finding -> that finding id with state "present".
 - A bare affirmation of a pending question that checks SEVERAL findings:

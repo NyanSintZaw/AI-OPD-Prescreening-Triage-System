@@ -20,7 +20,7 @@ from .graph import build_screening_graph
 from .nodes.base import GraphDeps
 from .persistence import InMemoryStateStore, StateStore
 from .state import ScreeningState, TurnOutput
-from .vitals import normalize_vitals
+from .vitals import apply_objective_findings, normalize_vitals
 
 logger = logging.getLogger(__name__)
 
@@ -188,6 +188,7 @@ class ScreeningTriageEngine:
         vitals = normalize_vitals(turn_context.get("vitals"))
         if vitals:
             state.vitals.update(vitals)
+        apply_objective_findings(state)
 
     def _new_state(self, session_id: str, language: str, input_mode: str) -> ScreeningState:
         return ScreeningState(

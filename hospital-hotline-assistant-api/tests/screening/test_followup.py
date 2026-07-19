@@ -41,6 +41,8 @@ async def _run(language: str, utterance: str, phase: str = "follow_up"):
     # multi-token declines must NOT be recorded as notes
     "No, nothing else", "No, that's all. Thanks!", "I'm fine, thank you",
     "ไม่มีค่ะ", "ไม่มีค่ะ ขอบคุณค่ะ", "ไม่มีอะไรจะถามแล้วค่ะ", "แค่นี้ค่ะ",
+    # "แล้ว/เลย" riders (observed live: this exact decline was written to HIS)
+    "ไม่มีแล้วค่ะ ขอบคุณค่ะ", "ไม่มีแล้วครับ", "ไม่มีเลยค่ะ", "ไม่เป็นไรแล้วค่ะ",
 ])
 async def test_negative_closes(text):
     state, out = await _run("en" if text.isascii() else "th", text)
