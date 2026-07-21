@@ -1,0 +1,539 @@
+/* =========================================================
+   CareNav Map Viewer — full-screen map kiosk
+   The map IS the page. Everything else floats over it:
+   brand chip (top-left), floor switcher (top-center),
+   route planner (bottom, centered — or left side in
+   landscape). fitMap() in app.js reserves the space the
+   floating elements occupy, so they never cover the map
+   and the page never scrolls in any direction.
+   ========================================================= */
+
+* {
+  box-sizing: border-box;
+}
+
+:root {
+  --surface-soft: #f6fafc;
+  --border: #d7e3eb;
+  --text: #132236;
+  --muted: #617083;
+  --primary: #0875e1;
+  --primary-dark: #075fb7;
+  --primary-soft: #e7f2ff;
+  --teal: #0f9f94;
+  --teal-soft: #e6f7f5;
+  --emergency: #d92d20;
+  --purple: #7048e8;
+  --amber: #f59e0b;
+  --radius-xl: 26px;
+  --radius-md: 15px;
+  --glass: rgba(255, 255, 255, 0.88);
+  --glass-border: rgba(215, 227, 235, 0.9);
+  --glass-shadow: 0 18px 44px rgba(13, 39, 66, 0.16);
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  width: 100%;
+  overflow: hidden; /* kiosk: the page itself never scrolls */
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 17px;
+  color: var(--text);
+  background: #ffffff;
+  touch-action: manipulation; /* no double-tap zoom delays on kiosk */
+  -webkit-tap-highlight-color: transparent;
+}
+
+h1,
+h2,
+p {
+  margin: 0;
+}
+
+button,
+select {
+  font: inherit;
+}
+
+/* ------------------------------------------------
+   Full-screen map stage
+   ------------------------------------------------ */
+.map-stage {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+}
+
+.map-viewport {
+  position: absolute;
+  inset: 0;
+  overflow: hidden; /* never scrolls — fitMap keeps the map inside */
+  background:
+    linear-gradient(45deg, #f4f8fb 25%, transparent 25%) 0 0 / 26px 26px,
+    linear-gradient(-45deg, #f4f8fb 25%, transparent 25%) 0 13px / 26px 26px,
+    #ffffff;
+}
+
+.map-inner {
+  position: absolute; /* left/top/size set by fitMap() */
+  background: #ffffff;
+  border-radius: 6px;
+  box-shadow: 0 14px 40px rgba(31, 58, 89, 0.10);
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.map-inner img,
+#routeOverlay {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.map-inner img {
+  display: block;
+  object-fit: fill;
+}
+
+#routeOverlay {
+  pointer-events: none;
+  overflow: visible;
+}
+
+/* ------------------------------------------------
+   Floating chrome: back button + floor switcher
+   ------------------------------------------------ */
+.back-chip {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 18px 8px 8px;
+  border: 1px solid var(--glass-border);
+  border-radius: 999px;
+  background: var(--glass);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow: 0 10px 24px rgba(13, 39, 66, 0.12);
+  font-size: 16px;
+  font-weight: 900;
+  letter-spacing: -0.02em;
+  color: var(--text);
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+.back-chip:active {
+  transform: scale(0.97);
+}
+
+.back-mark {
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  background: linear-gradient(135deg, var(--primary), var(--teal));
+}
+
+.back-mark svg {
+  width: 26px;
+  height: 26px;
+}
+
+.kiosk-floor-switcher {
+  position: absolute;
+  top: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 60;
+  display: flex;
+  gap: 10px;
+  background: var(--glass);
+  padding: 8px;
+  border-radius: 18px;
+  border: 1px solid var(--glass-border);
+  box-shadow: 0 12px 28px rgba(13, 39, 66, 0.14);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.kiosk-floor-switcher button {
+  min-height: 56px;
+  min-width: 110px;
+  padding: 10px 22px;
+  font-size: 19px;
+  font-weight: 800;
+  white-space: nowrap;
+  border-radius: 12px;
+  cursor: pointer;
+  border: 2px solid transparent;
+  transition: background 0.2s ease, box-shadow 0.2s ease;
+}
+
+.kiosk-floor-switcher button.outline {
+  background: #f0f4f8;
+  color: var(--text);
+  border-color: #d7e3eb;
+}
+
+.kiosk-floor-switcher button.success {
+  background: var(--primary);
+  color: white;
+  border-color: var(--primary-dark);
+  box-shadow: 0 8px 16px rgba(8, 117, 225, 0.3);
+}
+
+/* ------------------------------------------------
+   Toast — transient messages (e.g. no route found)
+   ------------------------------------------------ */
+.toast {
+  position: absolute;
+  top: 100px;
+  left: 50%;
+  transform: translateX(-50%) translateY(-10px);
+  z-index: 200;
+  max-width: min(88vw, 560px);
+  padding: 15px 24px;
+  border-radius: 15px;
+  background: rgba(19, 34, 54, 0.93);
+  color: #ffffff;
+  font-size: 16px;
+  font-weight: 700;
+  text-align: center;
+  box-shadow: 0 16px 36px rgba(13, 39, 66, 0.3);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s ease, transform 0.25s ease;
+}
+
+.toast.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+/* ------------------------------------------------
+   Route planner — the single floating control card.
+   Portrait: centered along the bottom edge.
+   Landscape: docked to the left, vertically centered.
+   ------------------------------------------------ */
+.planner-card {
+  position: absolute;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(94vw, 720px);
+  z-index: 40;
+  padding: 18px 20px 14px;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-xl);
+  background: var(--glass);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  box-shadow: var(--glass-shadow);
+}
+
+.field-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+.select-field label {
+  display: block;
+  margin: 0 0 6px 4px;
+  color: #27364d;
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.select-field select {
+  width: 100%;
+  height: 60px;
+  padding: 0 44px 0 16px;
+  border: 2px solid var(--border);
+  border-radius: var(--radius-md);
+  outline: none;
+  background: #ffffff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='10'%3E%3Cpath d='M1 1l7 7 7-7' stroke='%23617083' stroke-width='2.4' fill='none' stroke-linecap='round'/%3E%3C/svg%3E") no-repeat right 16px center;
+  appearance: none;
+  -webkit-appearance: none;
+  color: var(--text);
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.select-field select:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 4px rgba(8, 117, 225, 0.12);
+}
+
+.action-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.primary-btn {
+  height: 62px;
+  border: 0;
+  border-radius: var(--radius-md);
+  color: white;
+  background: linear-gradient(135deg, var(--primary), var(--teal));
+  box-shadow: 0 10px 20px rgba(8, 117, 225, 0.24);
+  font-size: 20px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.primary-btn:active {
+  transform: scale(0.985);
+}
+
+.ghost-btn {
+  height: 62px;
+  min-width: 116px;
+  padding: 0 20px;
+  border: 2px solid #c9ddff;
+  border-radius: var(--radius-md);
+  color: var(--primary-dark);
+  background: var(--primary-soft);
+  font-size: 17px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.ghost-btn:active {
+  transform: scale(0.97);
+}
+
+.map-hint {
+  margin-top: 10px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+/* ------------------------------------------------
+   Map SVG layers
+   ------------------------------------------------ */
+.service-block {
+  fill: rgba(245, 158, 11, 0.11);
+  stroke: rgba(245, 158, 11, 0.8);
+  stroke-width: 2;
+  stroke-dasharray: 5 4;
+}
+
+.poi {
+  fill: rgba(8, 117, 225, 0.75);
+  stroke: #ffffff;
+  stroke-width: 1.6;
+  filter: drop-shadow(0 2px 5px rgba(19, 34, 54, 0.18));
+}
+
+.poi.entry {
+  fill: var(--teal);
+}
+
+.poi.emergency {
+  fill: var(--emergency);
+}
+
+.poi.service {
+  fill: var(--amber);
+}
+
+.poi.hallway {
+  fill: #64748b;
+  opacity: 0.65;
+}
+
+/* Stroke widths are set by fitMap() in map units, compensated for the
+   current map scale, so line, halo and arrow marker stay proportional
+   and aligned at every screen size (a mix of non-scaling strokes and
+   map-scaled markers caused artifacts around the arrowhead). */
+#routeHalo,
+#routeLine {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+#routeHalo {
+  stroke: rgba(255, 255, 255, 0.95);
+  stroke-width: 15;
+  stroke-linecap: butt;
+  filter: drop-shadow(0 7px 13px rgba(13, 66, 114, 0.22));
+}
+
+#routeLine {
+  stroke: var(--primary);
+  stroke-width: 7;
+  /* butt cap: a round cap bulges out past the arrowhead tip as a nub;
+     a flush end hides completely under the marker's wide base */
+  stroke-linecap: butt;
+  marker-end: url(#routeArrow);
+}
+
+.route-arrow {
+  fill: var(--primary);
+}
+
+.marker-pin-start,
+.marker-pin-destination,
+.marker-pin-waypoint {
+  stroke: #ffffff;
+  stroke-width: 2.5;
+  filter: drop-shadow(0 7px 12px rgba(0, 0, 0, 0.24));
+}
+
+.marker-pin-start {
+  fill: var(--primary);
+}
+
+.marker-pin-destination {
+  fill: var(--purple);
+}
+
+.marker-pin-emergency {
+  fill: var(--emergency);
+}
+
+.marker-pin-waypoint {
+  fill: #feca57;
+}
+
+.marker-label {
+  paint-order: stroke;
+  stroke: #ffffff;
+  stroke-width: 5;
+  stroke-linejoin: round;
+  fill: #11243d;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+/* ------------------------------------------------
+   Elevator transition overlay (covers the stage)
+   ------------------------------------------------ */
+.transition-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(12, 12, 29, 0.95);
+  backdrop-filter: blur(8px);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.transition-overlay.show {
+  opacity: 1;
+}
+
+.transition-content {
+  text-align: center;
+  animation: pulseElevator 1.5s infinite;
+}
+
+.elevator-icon {
+  font-size: 4rem;
+  margin-bottom: 1rem;
+}
+
+.transition-content h2 {
+  font-weight: 600;
+  font-size: 1.5rem;
+  margin: 0;
+  color: white;
+}
+
+@keyframes pulseElevator {
+  0% { transform: scale(1); opacity: 0.8; }
+  50% { transform: scale(1.05); opacity: 1; }
+  100% { transform: scale(1); opacity: 0.8; }
+}
+
+/* ------------------------------------------------
+   Responsive
+   ------------------------------------------------ */
+
+/* Landscape: dock the planner on the left so the wide
+   map keeps the full height of the screen. app.js
+   mirrors this by reserving width instead of height. */
+@media (orientation: landscape) {
+  .planner-card {
+    bottom: auto;
+    left: 16px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: min(36vw, 400px);
+  }
+
+  .field-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Below ~800px the text chip would slide under the centered floor
+   switcher — collapse it to the arrow only */
+@media (max-width: 800px) {
+  .back-chip .back-label {
+    display: none;
+  }
+
+  .back-chip {
+    padding: 6px;
+  }
+}
+
+/* Narrow phones: stack the selects, tighten chrome */
+@media (max-width: 520px) {
+  .field-row {
+    grid-template-columns: 1fr;
+  }
+
+  .kiosk-floor-switcher button {
+    min-width: 84px;
+    min-height: 50px;
+    font-size: 16px;
+  }
+}
+
+/* ------------------------------------------------
+   Embedded preview mode (?embedded=true) — the small
+   read-only thumbnail inside the triage recommendation
+   card. All floating chrome disappears; only the map,
+   the route and the floor switcher remain. fitMap()
+   reads the hidden elements as 0-height, so the map
+   fills the frame automatically.
+   ------------------------------------------------ */
+body.embedded-mode .back-chip,
+body.embedded-mode .planner-card,
+body.embedded-mode .toast {
+  display: none;
+}
+
+body.embedded-mode .map-viewport {
+  background: #ffffff;
+}
+
+body.embedded-mode .map-inner {
+  box-shadow: none;
+  border-radius: 0;
+}

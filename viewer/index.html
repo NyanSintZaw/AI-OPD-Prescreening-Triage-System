@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <title>CareNav Hospital Wayfinder</title>
+  <link rel="stylesheet" href="style.css?v=13" />
+</head>
+<body>
+  <main class="map-stage">
+    <div id="mapViewport" class="map-viewport">
+      <div id="transitionOverlay" class="transition-overlay" style="display: none;"><div class="transition-content"><div class="elevator-icon">🛗</div><h2 style="color: white;" id="transitionText"></h2></div></div>
+      <div id="mapInner" class="map-inner">
+        <img id="floorImage" alt="Hospital floor plan" draggable="false" />
+        <svg id="routeOverlay" viewBox="0 0 637 454" preserveAspectRatio="none" aria-label="Hospital route overlay">
+          <defs>
+            <marker id="routeArrow" viewBox="0 0 12 12" markerWidth="7" markerHeight="7" refX="7.5" refY="6" orient="auto" markerUnits="strokeWidth">
+              <path d="M2,2 L10,6 L2,10 Z" class="route-arrow"></path>
+            </marker>
+          </defs>
+          <g id="blockerLayer"></g>
+          <g id="poiLayer"></g>
+          <path id="routeHalo" d=""></path>
+          <path id="routeLine" d=""></path>
+          <g id="turnLayer"></g>
+          <g id="markerLayer"></g>
+        </svg>
+      </div>
+    </div>
+
+    <button id="backBtn" class="back-chip" type="button" aria-label="Back">
+      <span class="back-mark" aria-hidden="true">
+        <svg viewBox="0 0 48 48" role="img">
+          <path d="M28 13 17 24l11 11" fill="none" stroke="#ffffff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"></path>
+        </svg>
+      </span>
+      <span id="backLabel" class="back-label">Back</span>
+    </button>
+
+    <div id="kioskFloorSwitcher" class="kiosk-floor-switcher"></div>
+
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+    <aside id="plannerCard" class="planner-card" aria-label="Route planner">
+      <div class="field-row">
+        <div class="select-field">
+          <label for="startSelect">Start location</label>
+          <select id="startSelect"></select>
+        </div>
+        <div class="select-field">
+          <label for="destinationSelect">Destination</label>
+          <select id="destinationSelect"></select>
+        </div>
+      </div>
+
+      <div class="action-row">
+        <button id="findRouteBtn" class="primary-btn" type="button">Find route</button>
+        <button id="resetBtn" class="ghost-btn" type="button">Reset</button>
+      </div>
+
+      <p class="map-hint">Tap the map to set a custom starting point</p>
+    </aside>
+  </main>
+
+  <script src="map-data.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
