@@ -55,10 +55,18 @@ export interface UseVoiceCallOptions {
    *  can transition (back to VN entry / to the history form) without
    *  cutting the AI off mid-sentence. */
   onIdentity?: (payload: VoiceIdentityPayload) => void;
+  /** Fired after the spoken continue-vs-start-over gate resolves
+   *  (``resume_choice`` frame); drain-committed like ``onIdentity``. */
+  onResumeChoice?: (payload: VoiceResumeChoicePayload) => void;
 }
 
 export interface VoiceIdentityPayload {
   kind: 'confirmed' | 'rejected';
+  needsHistory: boolean;
+}
+
+export interface VoiceResumeChoicePayload {
+  kind: 'continue' | 'start_over' | 'decline';
   needsHistory: boolean;
 }
 
@@ -91,7 +99,7 @@ export interface UseVoiceCallApi {
   completedAssessment: ChatResponsePayload | null;
   /** True while waiting for the agent to finish speaking before auto-hangup. */
   autoEnding: boolean;
-  start: () => Promise<void>;
+  start: (opts?: { resumePrompt?: 'active' | 'completed' }) => Promise<void>;
   end: () => Promise<void>;
   sendTurn: () => void;
   /** Barge-in while the assistant is speaking: cut the reply's audio, drop
@@ -195,10 +203,19 @@ class PcmDownsampleProcessor extends AudioWorkletProcessor {
 registerProcessor('pcm-downsample', PcmDownsampleProcessor);
 `;
 
-function buildWebSocketUrl(sessionId: string, language: string): string {
+function buildWebSocketUrl(
+  sessionId: string,
+  language: string,
+  resumePrompt?: 'active' | 'completed',
+): string {
   const wsBase = baseUrl.replace(/^http/, 'ws');
   const normalizedLanguage = language === 'th' ? 'th' : 'en';
-  return `${wsBase}/ws/voice/${encodeURIComponent(sessionId)}?language=${encodeURIComponent(normalizedLanguage)}`;
+  let url = `${wsBase}/ws/voice/${encodeURIComponent(sessionId)}?language=${encodeURIComponent(normalizedLanguage)}`;
+  if (resumePrompt) {
+    // Open the call with the spoken continue-vs-start-over gate.
+    url += `&resume_prompt=${resumePrompt}`;
+  }
+  return url;
 }
 
 /**
@@ -326,10 +343,12 @@ export function useVoiceCall(options: UseVoiceCallOptions): UseVoiceCallApi {
   const onMeasurementRef = useRef(options.onMeasurementRequest);
   const onQuestionOptionsRef = useRef(options.onQuestionOptions);
   const onIdentityRef = useRef(options.onIdentity);
-  // Identity outcome mirrors the assessment's drain-then-commit dance: the
-  // frame lands before the spoken line finishes playing, and the kiosk must
-  // not yank the screen away mid-sentence.
+  const onResumeChoiceRef = useRef(options.onResumeChoice);
+  // Identity/resume outcomes mirror the assessment's drain-then-commit
+  // dance: the frame lands before the spoken line finishes playing, and the
+  // kiosk must not yank the screen away mid-sentence.
   const pendingIdentityRef = useRef<VoiceIdentityPayload | null>(null);
+  const pendingResumeRef = useRef<VoiceResumeChoicePayload | null>(null);
 
   languageRef.current = language;
   sessionIdRef.current = sessionId;
@@ -337,6 +356,7 @@ export function useVoiceCall(options: UseVoiceCallOptions): UseVoiceCallApi {
   onMeasurementRef.current = options.onMeasurementRequest;
   onQuestionOptionsRef.current = options.onQuestionOptions;
   onIdentityRef.current = options.onIdentity;
+  onResumeChoiceRef.current = options.onResumeChoice;
 
   const commitAssessment = useCallback(() => {
     if (assessmentCommittedRef.current) return;
@@ -358,6 +378,17 @@ export function useVoiceCall(options: UseVoiceCallOptions): UseVoiceCallApi {
     pendingIdentityRef.current = null;
     try {
       onIdentityRef.current?.(payload);
+    } catch {
+      // best-effort
+    }
+  }, []);
+
+  const commitResumeChoice = useCallback(() => {
+    const payload = pendingResumeRef.current;
+    if (!payload) return;
+    pendingResumeRef.current = null;
+    try {
+      onResumeChoiceRef.current?.(payload);
     } catch {
       // best-effort
     }
@@ -486,9 +517,10 @@ export function useVoiceCall(options: UseVoiceCallOptions): UseVoiceCallApi {
           }
           speakingTimerRef.current = null;
           // The final reply's audio has drained — safe to reveal the slip
-          // or apply a pending identity transition.
+          // or apply a pending identity/resume transition.
           commitAssessment();
           commitIdentity();
+          commitResumeChoice();
           if (pendingAutoEndRef.current) {
             tryScheduleAutoEnd();
           }
@@ -497,7 +529,7 @@ export function useVoiceCall(options: UseVoiceCallOptions): UseVoiceCallApi {
     };
     playbackRef.current = queue;
     return queue;
-  }, [updateState, tryScheduleAutoEnd, commitAssessment, commitIdentity]);
+  }, [updateState, tryScheduleAutoEnd, commitAssessment, commitIdentity, commitResumeChoice]);
 
   const schedulePlaybackChunk = useCallback(
     (data: ArrayBuffer) => {
@@ -855,6 +887,22 @@ export function useVoiceCall(options: UseVoiceCallOptions): UseVoiceCallApi {
             }
             return;
           }
+          case 'resume_choice': {
+            const raw = message as { kind?: string; needs_history?: boolean };
+            const kind =
+              raw.kind === 'start_over' || raw.kind === 'decline'
+                ? raw.kind
+                : 'continue';
+            pendingResumeRef.current = {
+              kind,
+              needsHistory: Boolean(raw.needs_history),
+            };
+            const queue = playbackRef.current;
+            if (!speakerEnabledRef.current || !queue || queue.scheduledCount === 0) {
+              commitResumeChoice();
+            }
+            return;
+          }
           default:
             return;
         }
@@ -868,7 +916,7 @@ export function useVoiceCall(options: UseVoiceCallOptions): UseVoiceCallApi {
         void data.arrayBuffer().then((buf) => schedulePlaybackChunk(buf));
       }
     },
-    [schedulePlaybackChunk, tryScheduleAutoEnd, commitAssessment, commitIdentity],
+    [schedulePlaybackChunk, tryScheduleAutoEnd, commitAssessment, commitIdentity, commitResumeChoice],
   );
 
   // ----- Lifecycle: start / end ----------------------------------------
@@ -911,7 +959,7 @@ export function useVoiceCall(options: UseVoiceCallOptions): UseVoiceCallApi {
     setMutedState(false);
   }, [teardownInputGraph, teardownPlayback, commitAssessment]);
 
-  const start = useCallback(async () => {
+  const start = useCallback(async (opts?: { resumePrompt?: 'active' | 'completed' }) => {
     if (!supported) {
       setError('Voice calling is not supported in this browser.');
       updateState('error');
@@ -931,6 +979,7 @@ export function useVoiceCall(options: UseVoiceCallOptions): UseVoiceCallApi {
     pendingAssessmentRef.current = null;
     assessmentCommittedRef.current = false;
     pendingIdentityRef.current = null;
+    pendingResumeRef.current = null;
     if (autoEndTimerRef.current !== null) {
       window.clearTimeout(autoEndTimerRef.current);
       autoEndTimerRef.current = null;
@@ -965,7 +1014,9 @@ export function useVoiceCall(options: UseVoiceCallOptions): UseVoiceCallApi {
     // of the two instead of their sum.
     let ws: WebSocket;
     try {
-      ws = new WebSocket(buildWebSocketUrl(activeSessionId, languageRef.current));
+      ws = new WebSocket(
+        buildWebSocketUrl(activeSessionId, languageRef.current, opts?.resumePrompt),
+      );
       ws.binaryType = 'arraybuffer';
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to open voice channel');

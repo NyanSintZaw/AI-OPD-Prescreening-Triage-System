@@ -110,6 +110,61 @@ def confirm_name_ask(name: str, language: str, *, retry: bool = False) -> str:
     return table.get(language, table["en"]).format(name=name.strip())
 
 
+# Spoken resume gate — the same VN has a same-day session; ask continue vs
+# start over (unfinished) or start-over yes/no (already completed) before
+# anything else happens in the call.
+RESUME_ASK_ACTIVE = {
+    "en": (
+        "Welcome back{name}! You have an unfinished assessment — "
+        "would you like to continue it, or start over?"
+    ),
+    "th": (
+        "ยินดีต้อนรับกลับค่ะ{name} คุณมีการประเมินที่ยังไม่เสร็จ "
+        "ต้องการทำต่อ หรือเริ่มใหม่คะ"
+    ),
+}
+
+RESUME_ASK_DONE = {
+    "en": (
+        "Hello again{name}! Your assessment today is already complete. "
+        "Would you like to start a new one?"
+    ),
+    "th": (
+        "สวัสดีอีกครั้งค่ะ{name} การประเมินของคุณวันนี้เสร็จสิ้นแล้ว "
+        "ต้องการเริ่มการประเมินใหม่ไหมคะ"
+    ),
+}
+
+RESUME_RETRY = {
+    "en": 'Sorry, I didn\'t catch that — please say "continue" or "start over", or tap a button.',
+    "th": "ขอโทษค่ะ พูดว่า “ทำต่อ” หรือ “เริ่มใหม่” หรือแตะปุ่มบนหน้าจอได้เลยค่ะ",
+}
+
+RESUME_ACK_CONTINUE = {
+    "en": "Great — let's continue where we left off.",
+    "th": "ได้ค่ะ ทำต่อจากเดิมกันเลยนะคะ",
+}
+
+RESUME_ACK_STARTOVER = {
+    "en": "Alright — let's start fresh.",
+    "th": "ได้ค่ะ เริ่มกันใหม่นะคะ",
+}
+
+RESUME_ACK_DECLINE = {
+    "en": "No problem — you can choose from the screen.",
+    "th": "ได้ค่ะ เลือกจากหน้าจอได้เลยนะคะ",
+}
+
+
+def resume_ask(name: str | None, language: str, status: str) -> str:
+    table = RESUME_ASK_DONE if status == "completed" else RESUME_ASK_ACTIVE
+    polite = polite_name(name, language)
+    name_part = ""
+    if polite:
+        name_part = f", {polite}" if language == "en" else f" {polite}"
+    return table.get(language, table["en"]).format(name=name_part)
+
+
 FOLLOW_UP_OFFER = {
     "en": (
         "Before you go — is there anything you'd like to ask or tell the doctor? "

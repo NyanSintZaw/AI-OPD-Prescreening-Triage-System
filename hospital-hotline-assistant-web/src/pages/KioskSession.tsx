@@ -166,6 +166,37 @@ export function KioskSession() {
       }
       // Confirmed without history: the same call continues into intake.
     },
+    onResumeChoice: (payload) => {
+      // Spoken outcome of the continue-vs-start-over gate (drain-committed).
+      const offer = resumeOffer;
+      if (!offer) return;
+      if (payload.kind === 'continue') {
+        setResumeOffer(null);
+        if (offer.patientName) {
+          setPatientName(offer.patientName);
+          setStoredPatientName(offer.patientName);
+        }
+        if (payload.needsHistory) {
+          // Bridge handed off to the history form; the call is done.
+          void voiceCall.end();
+          startedRef.current = false;
+          setNeedsHistory(true);
+          setPhase('history');
+        } else {
+          // Same call keeps going (identity gate or intake already speaking).
+          setNeedsHistory(offer.needsHistory);
+          setPhase('conversation');
+        }
+        return;
+      }
+      if (payload.kind === 'start_over') {
+        void handleResumeStartOver();
+        return;
+      }
+      // decline / unclear ×2 — the call ends; the on-screen buttons decide.
+      void voiceCall.end();
+      startedRef.current = false;
+    },
   });
 
   // ── Language phase: pin UI language only — session is created at visit ──
@@ -267,6 +298,12 @@ export function KioskSession() {
             (typeof visitMeta?.patient_name === 'string' ? visitMeta.patient_name : null);
           // Never silently resume: the patient decides (continue for an
           // unfinished assessment; start over — or reprint — for a done one).
+          // Adopt the old session id now so the voice call can open on it
+          // and SPEAK the question (start-over re-nulls runSessionRef).
+          runSessionRef.current = existing.session.id;
+          setSessionId(existing.session.id);
+          setLanguage(existing.session.language);
+          startedRef.current = false;
           setResumeOffer({
             visitId,
             sessionId: existing.session.id,
@@ -290,18 +327,28 @@ export function KioskSession() {
         setLinking(false);
       }
     },
-    [createAndLink],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [createAndLink, setLanguage, setSessionId],
   );
 
   const handleResumeContinue = useCallback(() => {
     if (!resumeOffer) return;
+    // A tap decides directly — end the spoken gate's call (if any); the
+    // adopted phase restarts it with the normal opening.
+    void voiceCall.end();
+    startedRef.current = false;
     adoptSession(resumeOffer);
     setResumeOffer(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [adoptSession, resumeOffer]);
 
   const handleResumeStartOver = useCallback(async () => {
     if (!resumeOffer || linking) return;
     setLinking(true);
+    void voiceCall.end();
+    startedRef.current = false;
+    // The fresh run must never reuse the old session.
+    runSessionRef.current = null;
     try {
       if (resumeOffer.status === 'active') {
         // Retire the abandoned run so it can't be offered again.
@@ -318,6 +365,7 @@ export function KioskSession() {
     } finally {
       setLinking(false);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [createAndLink, linking, resumeOffer]);
 
   const handleSkip = useCallback(async () => {
@@ -415,6 +463,21 @@ export function KioskSession() {
     void voiceCall.start().catch(() => setStartFailed(true));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase, sessionId, voiceCall.supported]);
+
+  // The resume chooser is spoken too: open the call on the old session with
+  // the continue-vs-start-over gate. The on-screen buttons stay live as the
+  // tap path (and the only path on kiosks without a mic).
+  useEffect(() => {
+    if (phase !== 'resume' || !resumeOffer || !sessionId || startedRef.current) return;
+    if (!voiceCall.supported) return;
+    startedRef.current = true;
+    void voiceCall
+      .start({
+        resumePrompt: resumeOffer.status === 'completed' ? 'completed' : 'active',
+      })
+      .catch(() => undefined); // buttons still work if the mic fails here
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase, sessionId, resumeOffer, voiceCall.supported]);
 
   const handleRetryVoice = useCallback(() => {
     setStartFailed(false);
@@ -580,6 +643,9 @@ export function KioskSession() {
               type="button"
               className="text-btn"
               onClick={() => {
+                void voiceCall.end();
+                startedRef.current = false;
+                runSessionRef.current = null;
                 setResumeOffer(null);
                 setPhase('visit');
               }}

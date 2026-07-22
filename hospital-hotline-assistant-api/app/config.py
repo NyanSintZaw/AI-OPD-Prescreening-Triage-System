@@ -1,4 +1,15 @@
-﻿from pydantic_settings import BaseSettings, SettingsConfigDict
+﻿from pathlib import Path
+
+from pydantic import field_validator
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+# Resolve .env relative to this package, not the process working directory —
+# launching uvicorn from the monorepo root must load the same config as
+# launching it from hospital-hotline-assistant-api/ (a cwd-dependent .env
+# silently booted the app with default settings: HIS in mock mode, no API
+# key, wrong model config).
+_ENV_FILE = Path(__file__).resolve().parent.parent / ".env"
+
 
 class Settings(BaseSettings):
     app_name: str = "Hospital Hotline Assistant API"
@@ -82,8 +93,25 @@ class Settings(BaseSettings):
     his_display_name: str = "Hospital DB"
     # extra="ignore" so retired env vars (e.g. TRIAGE_ENGINE / VOICE_ENGINE
     # from older .env files) don't break startup.
+    @field_validator("google_application_credentials", "triage_manual_path")
+    @classmethod
+    def _anchor_relative_paths(cls, value: str | None) -> str | None:
+        """Resolve relative file paths against the API root, not the cwd.
+
+        `.env` conventionally holds paths like ``./phoenix_gcp_credentials.json``;
+        launching uvicorn from the monorepo root must find the same files as
+        launching from hospital-hotline-assistant-api/ (a cwd-relative
+        credentials path broke TTS/STT with DefaultCredentialsError).
+        """
+        if not value:
+            return value
+        path = Path(value)
+        if not path.is_absolute():
+            path = _ENV_FILE.parent / path
+        return str(path)
+
     model_config = SettingsConfigDict(
-        env_file=".env", env_file_encoding="utf-8", extra="ignore"
+        env_file=_ENV_FILE, env_file_encoding="utf-8", extra="ignore"
     )
 
 settings = Settings()

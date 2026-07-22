@@ -2319,6 +2319,10 @@ async def voice_call(websocket: WebSocket, session_id: str):
     live_voice_service = websocket.app.state.live_voice_service  # TurnVoiceService
     requested_language = websocket.query_params.get("language", "en")
     language = requested_language if requested_language in {"en", "th"} else "en"
+    # Kiosk found a same-day session for this VN: open the call with the
+    # spoken continue-vs-start-over gate ('active' | 'completed').
+    raw_resume = websocket.query_params.get("resume_prompt")
+    resume_prompt = raw_resume if raw_resume in {"active", "completed"} else None
 
     # Callbacks forward turn transcripts + emergency banner triggers to the
     # frontend over the WS. ``send_*`` may raise if the client closed the
@@ -2382,6 +2386,17 @@ async def voice_call(websocket: WebSocket, session_id: str):
                 session_id,
             )
 
+    async def push_resume(payload: dict) -> None:
+        # {"kind": "continue"|"start_over"|"decline", ...} — the spoken
+        # continue-vs-start-over outcome; the kiosk transitions on it.
+        try:
+            await websocket.send_json({"type": "resume_choice", **payload})
+        except Exception:
+            logger.debug(
+                "Failed to push resume outcome to %s (likely client closed)",
+                session_id,
+            )
+
     async with pool.acquire() as conn:
         try:
             await live_voice_service.connect(
@@ -2395,6 +2410,8 @@ async def voice_call(websocket: WebSocket, session_id: str):
                 measurement_callback=push_measurement,
                 options_callback=push_options,
                 identity_callback=push_identity,
+                resume_callback=push_resume,
+                resume_prompt=resume_prompt,
             )
         except ValueError as exc:
             await websocket.close(code=1008, reason=str(exc))

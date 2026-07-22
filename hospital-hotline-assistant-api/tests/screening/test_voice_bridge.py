@@ -107,7 +107,13 @@ def final_turn(reply: str = "Please proceed to the Emergency Department.") -> li
 
 
 class Harness:
-    def __init__(self, language: str = "en", metadata: dict | None = None) -> None:
+    def __init__(
+        self,
+        language: str = "en",
+        metadata: dict | None = None,
+        resume_prompt: str | None = None,
+    ) -> None:
+        self.resume_prompt = resume_prompt
         self.language = language
         self.stt = FakeStt()
         self.tts = FakeTts()
@@ -122,6 +128,7 @@ class Harness:
         self.emergencies: list[dict] = []
         self.assessments: list[dict] = []
         self.identities: list[dict] = []
+        self.resumes: list[dict] = []
         self.options: list[dict] = []
         self.chunks: list[bytes] = []
         self._task: asyncio.Task | None = None
@@ -139,6 +146,9 @@ class Harness:
         async def on_identity(payload: dict) -> None:
             self.identities.append(payload)
 
+        async def on_resume(payload: dict) -> None:
+            self.resumes.append(payload)
+
         async def on_options(payload: dict) -> None:
             self.options.append(payload)
 
@@ -151,6 +161,8 @@ class Harness:
             assessment_callback=on_assessment,
             options_callback=on_options,
             identity_callback=on_identity,
+            resume_callback=on_resume,
+            resume_prompt=self.resume_prompt,
         )
 
         async def consume() -> None:
@@ -664,5 +676,133 @@ async def test_identity_yes_first_time_hands_off_to_history_form():
         ) in harness.transcripts
         # The kiosk ends the call for the form; no clinical turn ran.
         assert harness.triage.contents == []
+    finally:
+        await harness.stop()
+
+
+# ── spoken resume gate (continue vs start over) ───────────────────────────────
+
+
+def resume_harness(status: str = "active", *, confirmed: bool = True,
+                   language: str = "th") -> Harness:
+    return Harness(
+        language=language,
+        metadata={
+            "visit": {
+                "visit_id": "990000000000000007",
+                "patient_name": "มาลี วงศ์สว่าง",
+                "name_confirmed": confirmed,
+            },
+        },
+        resume_prompt=status,
+    )
+
+
+async def test_resume_gate_asks_before_anything_else():
+    harness = resume_harness()
+    await harness.start()
+    try:
+        await harness.wait_until(lambda: harness.chunks)
+        assert harness.transcripts[0] == (
+            "agent",
+            templates.resume_ask("มาลี วงศ์สว่าง", "th", "active"),
+        )
+    finally:
+        await harness.stop()
+
+
+async def test_resume_continue_flows_into_intake():
+    harness = resume_harness()
+    await harness.start()
+    try:
+        await harness.wait_until(lambda: harness.chunks)
+        harness.stt.transcripts.append("ทำต่อค่ะ")
+        await harness.speak_turn()
+        await harness.wait_until(lambda: harness.resumes)
+        assert harness.resumes == [{"kind": "continue", "needs_history": False}]
+        # ack + the normal intake greeting followed in the SAME call
+        assert (
+            "agent",
+            templates.RESUME_ACK_CONTINUE["th"],
+        ) in harness.transcripts
+        assert (
+            "agent",
+            templates.greeting_line("มาลี วงศ์สว่าง", "th"),
+        ) in harness.transcripts
+        assert harness.triage.contents == []
+    finally:
+        await harness.stop()
+
+
+async def test_resume_continue_unconfirmed_chains_identity_gate():
+    harness = resume_harness(confirmed=False)
+    await harness.start()
+    try:
+        await harness.wait_until(lambda: harness.chunks)
+        harness.stt.transcripts.append("continue")
+        await harness.speak_turn()
+        await harness.wait_until(lambda: harness.resumes)
+        # after "continue", the same call asks the identity confirm
+        await harness.wait_until(
+            lambda: ("agent", templates.confirm_name_ask("มาลี วงศ์สว่าง", "th"))
+            in harness.transcripts
+        )
+        harness.stt.transcripts.append("ใช่ค่ะ")
+        await harness.speak_turn()
+        await harness.wait_until(lambda: harness.identities)
+        assert harness.identities[0]["kind"] == "confirmed"
+    finally:
+        await harness.stop()
+
+
+async def test_resume_start_over_signals_kiosk():
+    harness = resume_harness()
+    await harness.start()
+    try:
+        await harness.wait_until(lambda: harness.chunks)
+        harness.stt.transcripts.append("เริ่มใหม่ค่ะ")
+        await harness.speak_turn()
+        await harness.wait_until(lambda: harness.resumes)
+        assert harness.resumes == [{"kind": "start_over"}]
+        # further audio ignored while the kiosk relinks
+        harness.stt.transcripts.append("มีไข้ค่ะ")
+        await harness.speak_turn()
+        await asyncio.sleep(0.1)
+        assert harness.triage.contents == []
+    finally:
+        await harness.stop()
+
+
+async def test_resume_completed_yes_no_variant():
+    harness = resume_harness(status="completed")
+    await harness.start()
+    try:
+        await harness.wait_until(lambda: harness.chunks)
+        assert harness.transcripts[0] == (
+            "agent",
+            templates.resume_ask("มาลี วงศ์สว่าง", "th", "completed"),
+        )
+        harness.stt.transcripts.append("ไม่ค่ะ")
+        await harness.speak_turn()
+        await harness.wait_until(lambda: harness.resumes)
+        assert harness.resumes == [{"kind": "decline"}]
+    finally:
+        await harness.stop()
+
+
+async def test_resume_unclear_twice_falls_back_to_buttons():
+    harness = resume_harness()
+    await harness.start()
+    try:
+        await harness.wait_until(lambda: harness.chunks)
+        harness.stt.transcripts.append("อากาศดีนะ")
+        await harness.speak_turn()
+        await harness.wait_until(
+            lambda: ("agent", templates.RESUME_RETRY["th"]) in harness.transcripts
+        )
+        harness.stt.transcripts.append("หิวข้าว")
+        await harness.speak_turn()
+        await harness.wait_until(lambda: harness.resumes)
+        assert harness.resumes == [{"kind": "decline"}]
     finally:
         await harness.stop()

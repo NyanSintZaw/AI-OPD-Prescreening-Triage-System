@@ -231,6 +231,15 @@ only after a nurse signed it."
 
 ## Appendix A — Reset between rehearsals / demos
 
+**One-shot reset (preferred):** from `hospital-hotline-assistant-api/`:
+
+```bash
+uv run python scripts/reset_demo.py           # retire sessions, clear BP locks, reseed HIS, restore first-timers
+uv run python scripts/reset_demo.py --purge   # same + wipe ALL session data (empty nurse queue/dashboards)
+```
+
+Individual pieces, if you need finer control:
+
 | Goal | Command |
 |---|---|
 | Pristine everything (HIS visits + HN history + first-time flags back to seed) | `docker compose up -d --force-recreate his-mock` |

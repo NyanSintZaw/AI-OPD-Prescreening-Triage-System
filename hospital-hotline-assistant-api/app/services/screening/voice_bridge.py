@@ -40,10 +40,14 @@ AssessmentCallback = Callable[[dict], Awaitable[None]]
 MeasurementCallback = Callable[[dict], Awaitable[None]]
 OptionsCallback = Callable[[dict], Awaitable[None]]
 IdentityCallback = Callable[[dict], Awaitable[None]]
+ResumeCallback = Callable[[dict], Awaitable[None]]
 
 # Unclear identity answers tolerated before we treat the confirm as rejected
 # (safe default: never start a clinical interview on an unverified identity).
 MAX_IDENTITY_RETRIES = 2
+# Unclear resume answers tolerated before falling back to the on-screen
+# buttons (kind "decline" — the kiosk keeps its chooser visible).
+MAX_RESUME_RETRIES = 2
 
 INPUT_SAMPLE_RATE = 16_000   # browser worklet sends 16 kHz mono Int16
 OUTPUT_SAMPLE_RATE = 24_000  # frontend playback scheduler expects 24 kHz
@@ -147,6 +151,8 @@ class TurnVoiceService:
         measurement_callback: MeasurementCallback | None = None,
         options_callback: OptionsCallback | None = None,
         identity_callback: IdentityCallback | None = None,
+        resume_callback: ResumeCallback | None = None,
+        resume_prompt: str | None = None,
     ) -> None:
         from app.services.visit_confirm import needs_history_intake
 
@@ -173,6 +179,12 @@ class TurnVoiceService:
             "identity_attempts": 0,
             "needs_history": needs_history_intake(metadata),
             "identity_cb": identity_callback,
+            # Spoken resume gate: the kiosk found a same-day session for this
+            # VN and asks continue-vs-start-over in the call itself.
+            "awaiting_resume": resume_prompt in ("active", "completed"),
+            "resume_status": resume_prompt or "",
+            "resume_attempts": 0,
+            "resume_cb": resume_callback,
             "db_connection": db_connection,
             "db_pool": db_pool,
             "transcript_cb": transcript_callback,
@@ -304,7 +316,15 @@ class TurnVoiceService:
 
         if not session["greeted"]:
             session["greeted"] = True
-            if session.get("awaiting_identity"):
+            if session.get("awaiting_resume"):
+                ask = templates.resume_ask(
+                    session.get("patient_name"),
+                    session["language"],
+                    session["resume_status"],
+                )
+                async for chunk in self._speak_line(session_id, session, ask):
+                    yield chunk
+            elif session.get("awaiting_identity"):
                 ask = templates.confirm_name_ask(
                     session["patient_name"], session["language"]
                 )
@@ -412,6 +432,15 @@ class TurnVoiceService:
         language = session["language"]
         await self._push_transcript(session, "user", transcript)
 
+        # Resume gate first: continue-vs-start-over decides which session the
+        # rest of the call even belongs to.
+        if session.get("awaiting_resume"):
+            async for chunk in self._handle_resume_turn(
+                session_id, session, transcript
+            ):
+                yield chunk
+            return
+
         # Identity gate: while unconfirmed, answers (spoken or tapped chips)
         # are classified as yes/no — the triage pipeline never runs.
         if session.get("awaiting_identity"):
@@ -490,6 +519,112 @@ class TurnVoiceService:
                 except Exception:
                     logger.exception("assessment_cb failed for %s", session_id)
             logger.info("Turn voice assessment complete for %s", session_id)
+
+    # ------------------------------------------------------------------
+    # Spoken resume gate (continue vs start over)
+    # ------------------------------------------------------------------
+
+    async def _fire_resume(
+        self, session_id: str, session: dict[str, Any], payload: dict[str, Any]
+    ) -> None:
+        resume_cb: ResumeCallback | None = session.get("resume_cb")
+        if resume_cb is None:
+            return
+        try:
+            await resume_cb(payload)
+        except Exception:
+            logger.exception("resume_cb failed for %s", session_id)
+
+    async def _handle_resume_turn(
+        self, session_id: str, session: dict[str, Any], transcript: str
+    ) -> AsyncIterator[bytes]:
+        """Classify a continue/start-over answer and speak/signal the outcome.
+
+        Unfinished session: "ทำต่อ" continues in this call (identity gate or
+        intake next); "เริ่มใหม่" hands off to the kiosk to retire this
+        session and relink fresh. Completed session: a yes/no "start a new
+        one?". Unclear twice → kind "decline": the kiosk's on-screen buttons
+        stay available — voice never guesses this decision.
+        """
+        from app.services.screening.nlu_yesno import (
+            classify_resume_choice,
+            classify_yes_no,
+        )
+
+        language = session["language"]
+        decision = classify_resume_choice(transcript)
+        if decision == "other" and session["resume_status"] == "completed":
+            # The done-variant question is a plain yes/no ("start a new one?").
+            yn = classify_yes_no(transcript)
+            if yn == "yes":
+                decision = "start_over"
+            elif yn == "no":
+                decision = "decline"
+
+        if decision == "other":
+            session["resume_attempts"] += 1
+            if session["resume_attempts"] < MAX_RESUME_RETRIES:
+                async for chunk in self._speak_line(
+                    session_id, session, templates.RESUME_RETRY[language]
+                ):
+                    yield chunk
+                return
+            decision = "decline"
+
+        session["awaiting_resume"] = False
+
+        if decision == "continue":
+            async for chunk in self._speak_line(
+                session_id, session, templates.RESUME_ACK_CONTINUE[language]
+            ):
+                yield chunk
+            needs_history = bool(session.get("needs_history"))
+            if session.get("awaiting_identity"):
+                # Same call flows straight into the spoken name confirm.
+                ask = templates.confirm_name_ask(
+                    session["patient_name"], language
+                )
+                async for chunk in self._speak_line(session_id, session, ask):
+                    yield chunk
+                await self._push_identity_options(session_id, session)
+            elif needs_history:
+                # Kiosk ends the call and shows the history form.
+                session["disposed"] = True
+                async for chunk in self._speak_line(
+                    session_id, session,
+                    templates.CONFIRM_NAME_HISTORY_NEXT[language],
+                ):
+                    yield chunk
+            else:
+                greeting = templates.greeting_line(
+                    session.get("patient_name"), language
+                )
+                async for chunk in self._speak_line(session_id, session, greeting):
+                    yield chunk
+            await self._fire_resume(
+                session_id, session,
+                {"kind": "continue", "needs_history": needs_history
+                 and not session.get("awaiting_identity")},
+            )
+            return
+
+        if decision == "start_over":
+            # Kiosk retires this session and relinks the VN on a fresh one.
+            session["disposed"] = True
+            async for chunk in self._speak_line(
+                session_id, session, templates.RESUME_ACK_STARTOVER[language]
+            ):
+                yield chunk
+            await self._fire_resume(session_id, session, {"kind": "start_over"})
+            return
+
+        # decline: leave the decision to the on-screen buttons.
+        session["disposed"] = True
+        async for chunk in self._speak_line(
+            session_id, session, templates.RESUME_ACK_DECLINE[language]
+        ):
+            yield chunk
+        await self._fire_resume(session_id, session, {"kind": "decline"})
 
     # ------------------------------------------------------------------
     # Spoken VN identity gate
