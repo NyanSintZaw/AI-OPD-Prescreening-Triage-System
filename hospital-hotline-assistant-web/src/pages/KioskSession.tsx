@@ -8,16 +8,42 @@ import { KioskFrame } from '../components/kiosk/KioskFrame';
 import { Stepper, type KioskStep } from '../components/kiosk/Stepper';
 import { LanguageSelect } from '../components/kiosk/LanguageSelect';
 import { VisitIdCapture } from '../components/kiosk/VisitIdCapture';
+import { ConfirmNameStep } from '../components/kiosk/ConfirmNameStep';
+import { HistoryIntakeStep, type HistoryIntakeValues } from '../components/kiosk/HistoryIntakeStep';
 import { ConversationStage } from '../components/kiosk/ConversationStage';
 import { RecommendationCard } from '../components/RecommendationCard';
 import { toAssessment, type ChatAssessment } from '../hooks/useChat';
-import { useLanguage, useSessionStorage, setStoredPatientName } from '../hooks/useSession';
+import {
+  useLanguage,
+  useSessionStorage,
+  setStoredPatientName,
+  setStoredSessionId,
+} from '../hooks/useSession';
 import { useVoiceCall } from '../hooks/useVoiceCall';
 import { useIdleReset } from '../hooks/useIdleReset';
 import { openPatientSlip } from '../utils/openSlip';
 import type { AppLanguage } from '../i18n/resources';
 
-type Phase = 'language' | 'visit' | 'hello' | 'conversation' | 'result';
+type Phase =
+  | 'language'
+  | 'visit'
+  | 'resume'
+  | 'confirm'
+  | 'history'
+  | 'hello'
+  | 'conversation'
+  | 'result';
+
+interface ResumeOffer {
+  visitId: string;
+  sessionId: string;
+  /** 'active' → continue or start over; 'completed' → start over / reprint. */
+  status: string;
+  patientName: string | null;
+  nameConfirmed: boolean;
+  needsHistory: boolean;
+  language: AppLanguage;
+}
 
 const IDLE_GRACE_SECONDS = 15;
 
@@ -30,12 +56,12 @@ const phaseTransition = {
 
 /**
  * The kiosk patient journey:
- * choose language → enter visit ID → personal greeting → AI symptom
- * conversation (incl. vital-sign prompts) → routing result → auto-reset.
+ * choose language → enter visit ID → (resume if same VN still active) OR
+ * personal greeting → AI symptom conversation → routing result → auto-reset.
  *
- * The session is created only AFTER the language tap, so the screening
- * engine speaks the chosen language and abandoned language screens don't
- * leave orphan sessions behind.
+ * The session is created only AFTER a VN is confirmed as new (or the patient
+ * skips VN), so abandoned language screens don't leave orphan sessions and
+ * hang-ups can resume via GET /sessions/by-visit/{vn}.
  */
 export function KioskSession() {
   const { t } = useTranslation();
@@ -44,20 +70,42 @@ export function KioskSession() {
   const { sessionId, setSessionId } = useSessionStorage();
 
   const [phase, setPhase] = useState<Phase>('language');
-  const [creating, setCreating] = useState(false);
-  const [sessionError, setSessionError] = useState(false);
   const [linking, setLinking] = useState(false);
   const [notFound, setNotFound] = useState(false);
   const [linkError, setLinkError] = useState(false);
+  // The spoken name-confirm said "no" — VN entry shows a re-enter hint.
+  const [identityRejected, setIdentityRejected] = useState(false);
+  const [confirmBusy, setConfirmBusy] = useState(false);
+  const [confirmUnclear, setConfirmUnclear] = useState(false);
+  const [needsHistory, setNeedsHistory] = useState(false);
+  const [historyBusy, setHistoryBusy] = useState(false);
+  const [historyError, setHistoryError] = useState(false);
   const [patientName, setPatientName] = useState<string | null>(null);
   const [replyOptions, setReplyOptions] = useState<Array<{ id: string; label: string }>>([]);
   const [measurementVital, setMeasurementVital] = useState<string | null>(null);
   const [assessment, setAssessment] = useState<ChatAssessment | null>(null);
   const [startFailed, setStartFailed] = useState(false);
   const [confirmExit, setConfirmExit] = useState(false);
+  // Same-day session found for the entered VN — patient chooses what to do.
+  const [resumeOffer, setResumeOffer] = useState<ResumeOffer | null>(null);
+  // Crisis BP → 15-minute rest before re-measuring; shows the rest screen.
+  const [restMinutes, setRestMinutes] = useState<number | null>(null);
 
   const startedRef = useRef(false);
   const slipRef = useRef(false);
+  // The session belonging to THIS kiosk run. A previous run's id may still
+  // sit in localStorage (tab closed at the slip screen, reload) — reusing it
+  // would leak the previous patient's identity into an anonymous run, so a
+  // run only ever uses a session it created itself or one explicitly
+  // resumed via GET /sessions/by-visit.
+  const runSessionRef = useRef<string | null>(null);
+
+  // Neutralize any stale stored session/name from an earlier run on entry.
+  useEffect(() => {
+    runSessionRef.current = null;
+    setSessionId(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // ── Voice conversation engine ────────────────────────────────────────────
   const voiceCall = useVoiceCall({
@@ -75,7 +123,11 @@ export function KioskSession() {
           const deptMap = new Map(
             departments.map((d) => [
               d.id,
-              { name: language === 'th' ? d.name_th ?? d.name_en : d.name_en, code: d.code },
+              {
+                name: language === 'th' ? d.name_th ?? d.name_en : d.name_en,
+                code: d.code,
+                navLine: language === 'th' ? d.nav_line_th : d.nav_line_en,
+              },
             ]),
           );
           setAssessment(toAssessment(payload, deptMap));
@@ -87,54 +139,148 @@ export function KioskSession() {
         setPhase('result');
       })();
     },
+    onIdentity: (payload) => {
+      // Outcome of the spoken "you are {name}, right?" gate. Delivered
+      // after the AI's line finished playing (drain-committed).
+      if (payload.kind === 'rejected') {
+        void voiceCall.end();
+        startedRef.current = false;
+        setPatientName(null);
+        setStoredPatientName(null);
+        setNeedsHistory(false);
+        setReplyOptions([]);
+        setNotFound(false);
+        setLinkError(false);
+        setIdentityRejected(true);
+        setPhase('visit');
+        return;
+      }
+      if (payload.needsHistory) {
+        // Confirmed, but the first-time history form comes before the
+        // interview: end this call; saving the form restarts it.
+        void voiceCall.end();
+        startedRef.current = false;
+        setReplyOptions([]);
+        setNeedsHistory(true);
+        setPhase('history');
+      }
+      // Confirmed without history: the same call continues into intake.
+    },
   });
 
-  // ── Language phase: pick → create the session in that language ──────────
+  // ── Language phase: pin UI language only — session is created at visit ──
   const handleLanguageSelect = useCallback(
-    async (lang: AppLanguage) => {
-      if (creating) return;
-      setCreating(true);
-      setSessionError(false);
+    (lang: AppLanguage) => {
       setLanguage(lang);
-      try {
-        const session = await api.createSession({
-          language: lang,
-          user_agent: navigator.userAgent,
-        });
-        setSessionId(session.id);
-        setStoredPatientName(null);
-        setPhase('visit');
-      } catch {
-        // Stay on the language screen with a visible error rather than
-        // silently bouncing the patient back to the attract screen —
-        // re-tapping a language card retries.
-        setSessionError(true);
-      } finally {
-        setCreating(false);
-      }
+      setPhase('visit');
     },
-    [creating, setLanguage, setSessionId],
+    [setLanguage],
   );
 
-  // ── Visit phase handlers ─────────────────────────────────────────────────
+  const ensureSession = useCallback(async (): Promise<string> => {
+    // Reuse only within this run (e.g. re-entering a VN after a rejected
+    // name confirmation) — never a stored id from a previous run.
+    if (runSessionRef.current) return runSessionRef.current;
+    const session = await api.createSession({
+      language,
+      user_agent: navigator.userAgent,
+    });
+    runSessionRef.current = session.id;
+    setSessionId(session.id);
+    return session.id;
+  }, [language, setSessionId]);
+
+  // Adopt an existing same-day session (patient chose "continue").
+  const adoptSession = useCallback(
+    (offer: ResumeOffer) => {
+      runSessionRef.current = offer.sessionId;
+      setSessionId(offer.sessionId);
+      setLanguage(offer.language);
+      if (offer.patientName) {
+        setPatientName(offer.patientName);
+        setStoredPatientName(offer.patientName);
+      } else {
+        setPatientName(null);
+        setStoredPatientName(null);
+      }
+      startedRef.current = false;
+      setNeedsHistory(offer.needsHistory);
+      if (offer.nameConfirmed) {
+        setPhase(offer.needsHistory ? 'history' : 'conversation');
+      } else if (offer.patientName) {
+        // Unconfirmed name: the voice call opens with the spoken
+        // "you are {name}, right?" gate. The screen step remains the
+        // no-mic fallback only.
+        setConfirmUnclear(false);
+        setPhase(voiceCall.supported ? 'conversation' : 'confirm');
+      } else {
+        setPhase(offer.needsHistory ? 'history' : 'conversation');
+      }
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [setLanguage, setSessionId, voiceCall.supported],
+  );
+
+  // Create a fresh session and link the VN (first run or "start over").
+  const createAndLink = useCallback(
+    async (visitId: string) => {
+      const id = await ensureSession();
+      const res = await api.linkVisit(id, visitId);
+      if (res.linked) {
+        setNeedsHistory(Boolean(res.is_first_time));
+        if (res.patient_name) {
+          setPatientName(res.patient_name);
+          setStoredPatientName(res.patient_name);
+          setConfirmUnclear(false);
+          // Voice-first: the AI speaks the confirmation in-call; the
+          // ConfirmNameStep screen is only for kiosks without a mic.
+          setPhase(voiceCall.supported ? 'conversation' : 'confirm');
+        } else {
+          setPatientName(null);
+          setStoredPatientName(null);
+          setPhase(res.is_first_time ? 'history' : 'hello');
+        }
+      } else {
+        // Clean HIS response: this visit ID genuinely isn't registered.
+        setNotFound(true);
+      }
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [ensureSession, voiceCall.supported],
+  );
+
+  // ── Visit phase: offer resume when a same-day session exists ────────────
   const handleVisitSubmit = useCallback(
     async (visitId: string) => {
-      if (!sessionId) return;
       setLinking(true);
       setNotFound(false);
       setLinkError(false);
+      setIdentityRejected(false);
       try {
-        const res = await api.linkVisit(sessionId, visitId);
-        if (res.linked) {
-          if (res.patient_name) {
-            setPatientName(res.patient_name);
-            setStoredPatientName(res.patient_name);
-          }
-          setPhase('hello');
-        } else {
-          // Clean HIS response: this visit ID genuinely isn't registered.
-          setNotFound(true);
+        const existing = await api.getSessionByVisit(visitId);
+        if (existing.found && existing.session) {
+          const visitMeta = existing.session.metadata?.visit as
+            | { patient_name?: unknown }
+            | undefined;
+          const name =
+            existing.patient_name ||
+            (typeof visitMeta?.patient_name === 'string' ? visitMeta.patient_name : null);
+          // Never silently resume: the patient decides (continue for an
+          // unfinished assessment; start over — or reprint — for a done one).
+          setResumeOffer({
+            visitId,
+            sessionId: existing.session.id,
+            status: existing.status || existing.session.status || 'active',
+            patientName: name,
+            nameConfirmed: Boolean(existing.name_confirmed),
+            needsHistory: Boolean(existing.needs_history_intake),
+            language: existing.session.language as AppLanguage,
+          });
+          setPhase('resume');
+          return;
         }
+
+        await createAndLink(visitId);
       } catch {
         // Thrown exception: couldn't even check (network/server failure) —
         // distinct from "not found" so the patient isn't told to re-enter
@@ -144,15 +290,115 @@ export function KioskSession() {
         setLinking(false);
       }
     },
-    [sessionId],
+    [createAndLink],
   );
 
-  const handleSkip = useCallback(() => {
-    setPatientName(null);
-    setPhase('hello');
+  const handleResumeContinue = useCallback(() => {
+    if (!resumeOffer) return;
+    adoptSession(resumeOffer);
+    setResumeOffer(null);
+  }, [adoptSession, resumeOffer]);
+
+  const handleResumeStartOver = useCallback(async () => {
+    if (!resumeOffer || linking) return;
+    setLinking(true);
+    try {
+      if (resumeOffer.status === 'active') {
+        // Retire the abandoned run so it can't be offered again.
+        await api
+          .updateSession(resumeOffer.sessionId, { status: 'reset' })
+          .catch(() => undefined);
+      }
+      await createAndLink(resumeOffer.visitId);
+      setResumeOffer(null);
+    } catch {
+      setLinkError(true);
+      setPhase('visit');
+      setResumeOffer(null);
+    } finally {
+      setLinking(false);
+    }
+  }, [createAndLink, linking, resumeOffer]);
+
+  const handleSkip = useCallback(async () => {
+    setLinking(true);
+    setLinkError(false);
+    try {
+      await ensureSession();
+      setStoredPatientName(null);
+      setPatientName(null);
+      setPhase('hello');
+    } catch {
+      setLinkError(true);
+    } finally {
+      setLinking(false);
+    }
+  }, [ensureSession]);
+
+  const handleConfirmName = useCallback(
+    async (payload: { confirmed?: boolean; text?: string }) => {
+      if (!sessionId || confirmBusy) return;
+      setConfirmBusy(true);
+      setConfirmUnclear(false);
+      try {
+        const res = await api.confirmVisitName(sessionId, payload);
+        if (res.decision === 'yes') {
+          setPhase(needsHistory ? 'history' : 'conversation');
+          return;
+        }
+        if (res.decision === 'no' || res.unlinked) {
+          setPatientName(null);
+          setStoredPatientName(null);
+          setNeedsHistory(false);
+          setPhase('visit');
+          return;
+        }
+        // uncertain / other — stay on confirm and ask again
+        setConfirmUnclear(true);
+      } catch {
+        setConfirmUnclear(true);
+      } finally {
+        setConfirmBusy(false);
+      }
+    },
+    [confirmBusy, needsHistory, sessionId],
+  );
+
+  const handleHistorySubmit = useCallback(
+    async (values: HistoryIntakeValues) => {
+      if (!sessionId || historyBusy) return;
+      setHistoryBusy(true);
+      setHistoryError(false);
+      try {
+        await api.savePatientHistory(sessionId, values);
+        setNeedsHistory(false);
+        setPhase('conversation');
+      } catch {
+        setHistoryError(true);
+      } finally {
+        setHistoryBusy(false);
+      }
+    },
+    [historyBusy, sessionId],
+  );
+
+  const handleHistorySkip = useCallback(() => {
+    setNeedsHistory(false);
+    setPhase('conversation');
   }, []);
 
-  // ── Greeting phase: a real moment, then auto-advance ────────────────────
+  // Crisis BP → 15-minute rest. End the call, show the rest screen; the
+  // session stays active so re-entering the VN offers "continue".
+  const handleMeasurementRest = useCallback((seconds: number) => {
+    setMeasurementVital(null);
+    setReplyOptions([]);
+    void voiceCall.end();
+    startedRef.current = false;
+    setRestMinutes(Math.max(1, Math.ceil(seconds / 60)));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // ── Greeting phase (anonymous / skip only): brief beat, then advance ────
   useEffect(() => {
     if (phase !== 'hello') return;
     const timer = setTimeout(() => setPhase('conversation'), patientName ? 3000 : 2200);
@@ -190,6 +436,11 @@ export function KioskSession() {
     slipRef.current = true;
     void api.updateSession(sessionId, { status: 'completed' }).catch(() => undefined);
     openPatientSlip(sessionId);
+    // A finished run must never be picked up by the next patient: drop the
+    // stored id now (component state keeps it for the reprint button; the
+    // slip page reads its id from the URL).
+    setStoredSessionId(null);
+    setStoredPatientName(null);
   }, [phase, sessionId]);
 
   // ── Reset / exit ─────────────────────────────────────────────────────────
@@ -222,7 +473,13 @@ export function KioskSession() {
 
   // ── Render ───────────────────────────────────────────────────────────────
   const step: KioskStep | null =
-    phase === 'visit' ? 0 : phase === 'hello' || phase === 'conversation' ? 1 : phase === 'result' ? 2 : null;
+    phase === 'visit' || phase === 'resume'
+      ? 0
+      : phase === 'confirm' || phase === 'history' || phase === 'hello' || phase === 'conversation'
+        ? 1
+        : phase === 'result'
+          ? 2
+          : null;
 
   const ringCircumference = 2 * Math.PI * 42;
 
@@ -243,10 +500,10 @@ export function KioskSession() {
         {phase === 'language' && (
           <motion.div key="language" {...phaseTransition} style={{ width: '100%', display: 'flex', justifyContent: 'center' }}>
             <LanguageSelect
-              onSelect={(lang) => void handleLanguageSelect(lang)}
-              busy={creating}
+              onSelect={handleLanguageSelect}
+              busy={false}
               onExit={resetToHome}
-              error={sessionError}
+              error={false}
             />
           </motion.div>
         )}
@@ -256,10 +513,101 @@ export function KioskSession() {
             <VisitIdCapture
               language={language}
               onSubmit={handleVisitSubmit}
-              onSkip={handleSkip}
+              onSkip={() => void handleSkip()}
               linking={linking}
               notFound={notFound}
               linkError={linkError}
+              identityRejected={identityRejected}
+            />
+          </motion.div>
+        )}
+
+        {phase === 'resume' && resumeOffer && (
+          <motion.div key="resume" {...phaseTransition} className="k-hello">
+            <motion.span
+              className="k-hello-badge"
+              initial={{ scale: 0.6, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ type: 'spring', stiffness: 280, damping: 18, delay: 0.1 }}
+            >
+              <HandHeart size={52} weight="duotone" aria-hidden="true" />
+            </motion.span>
+            <h2 className="k-hello-name">
+              {resumeOffer.status === 'completed'
+                ? t('kioskResumeDoneTitle', {
+                    name: resumeOffer.patientName ?? t('kioskWelcome'),
+                  })
+                : t('kioskResumeTitle', {
+                    name: resumeOffer.patientName ?? t('kioskWelcome'),
+                  })}
+            </h2>
+            <p className="k-hello-lead">
+              {resumeOffer.status === 'completed'
+                ? t('kioskResumeDoneLead')
+                : t('kioskResumeLead')}
+            </p>
+            <div className="k-result-actions">
+              {resumeOffer.status !== 'completed' && (
+                <button
+                  type="button"
+                  className="k-btn primary xl"
+                  onClick={handleResumeContinue}
+                  disabled={linking}
+                >
+                  {t('kioskResumeContinue')}
+                </button>
+              )}
+              <button
+                type="button"
+                className={`k-btn ${resumeOffer.status === 'completed' ? 'primary xl' : 'secondary'}`}
+                onClick={() => void handleResumeStartOver()}
+                disabled={linking}
+              >
+                {linking ? t('loading') : t('kioskResumeStartOver')}
+              </button>
+              {resumeOffer.status === 'completed' && (
+                <button
+                  type="button"
+                  className="k-btn secondary"
+                  onClick={() => openPatientSlip(resumeOffer.sessionId)}
+                >
+                  <Printer size={22} weight="duotone" aria-hidden="true" />{' '}
+                  {t('kioskResumeReprint')}
+                </button>
+              )}
+            </div>
+            <button
+              type="button"
+              className="text-btn"
+              onClick={() => {
+                setResumeOffer(null);
+                setPhase('visit');
+              }}
+              disabled={linking}
+            >
+              {t('kioskResumeBack')}
+            </button>
+          </motion.div>
+        )}
+
+        {phase === 'confirm' && patientName && (
+          <motion.div key="confirm" {...phaseTransition} style={{ width: '100%', display: 'flex', justifyContent: 'center' }}>
+            <ConfirmNameStep
+              patientName={patientName}
+              busy={confirmBusy}
+              unclear={confirmUnclear}
+              onConfirm={(payload) => void handleConfirmName(payload)}
+            />
+          </motion.div>
+        )}
+
+        {phase === 'history' && (
+          <motion.div key="history" {...phaseTransition} style={{ width: '100%', display: 'flex', justifyContent: 'center' }}>
+            <HistoryIntakeStep
+              busy={historyBusy}
+              error={historyError}
+              onSubmit={(values) => void handleHistorySubmit(values)}
+              onSkip={handleHistorySkip}
             />
           </motion.div>
         )}
@@ -313,6 +661,7 @@ export function KioskSession() {
                   setReplyOptions([]);
                   voiceCall.submitMeasurement(text);
                 }}
+                onMeasurementRest={handleMeasurementRest}
                 errorText={voiceCall.error}
                 hasError={startFailed}
                 onRetry={handleRetryVoice}
@@ -366,6 +715,29 @@ export function KioskSession() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Crisis BP → rest 15 minutes; the assessment waits and resumes by VN */}
+      {restMinutes !== null && (
+        <div className="k-modal-backdrop">
+          <div className="k-modal" role="alertdialog" aria-modal="true">
+            <h3>{t('kioskRestTitle')}</h3>
+            <p>{t('kioskRestBody', { minutes: restMinutes })}</p>
+            <p className="muted">{t('kioskRestBody2')}</p>
+            <div className="k-modal-actions">
+              <button
+                type="button"
+                className="k-btn primary"
+                onClick={() => {
+                  setRestMinutes(null);
+                  resetToHome();
+                }}
+              >
+                {t('kioskRestOk')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Exit confirmation — an accidental tap must not destroy the interview */}
       {confirmExit && (

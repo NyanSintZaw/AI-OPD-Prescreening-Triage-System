@@ -49,6 +49,43 @@ Status the demo shows on the admin **Hospital DB** tab: `registered` →
 
 ---
 
+## 0.1 HN (patient) master record — Phase 1 of the backend/AI plan
+
+> See [`meeting-2026-07-17-backend-ai-plan.md`](meeting-2026-07-17-backend-ai-plan.md)
+> §4.1/§5 (Phase 1) for the full design; this is the short "what shipped"
+> note.
+
+The mock HIS's `patients` table (HN — hospital number) is now wired up
+alongside `visits` (VN — visit number). Every visit's `hnx` links to a
+`patients` row holding demographics, booth-collected history
+(smoking/alcohol, allergies, chronic conditions, past surgeries, family
+history), and the last-known weight/height — so a return visit's booth can
+skip re-asking for history/vitals it already has on file.
+
+- **`GET /api/visits/{visit_id}`** now also emits an `"hn"` key (an alias of
+  `"hnx"`, fixing the naming mismatch `HttpHisAdapter` used to read — the
+  real hospital HIS's field name is still an open question, see the backend/AI
+  plan §6 item 1) and a nested `"patient"` object with that HN's history/last
+  vitals, so one round trip gives the app everything it needs.
+- **`GET /api/patients/{hn}`**, **`PUT /api/patients/{hn}/history`**,
+  **`PUT /api/patients/{hn}/vitals`** — read/write the HN record directly.
+  `is_first_time` is `true` iff `history_recorded_at IS NULL`.
+- `hospital-his-mock/sample_patients.csv` seeds 8 synthetic patients matching
+  `sample_visits.csv`'s HNs — half first-time, half returning — so the demo
+  shows both paths. Any visit whose HN isn't in that CSV (e.g. a real export)
+  gets a bare first-time patient record auto-created on startup.
+- `POST /api/admin/reset` takes an optional `reset_history: true` to also
+  wipe the affected patients back to first-time, for repeatable demos.
+- On the triage-app side, `HisAdapter.push_referral`'s Stage-1 write-back is
+  visit-scoped and unchanged. `VisitInfo` (`app/services/screening/his/adapter.py`)
+  gained an optional `patient_history: PatientHistory | None` field parsed
+  from the nested `"patient"` object, and adapters gained
+  `push_patient_history(hn, history)`. **This is plumbing only** — nothing
+  yet reads `patient_history` into session metadata or the screening engine;
+  that's a later phase (first-time-patient history intake) per the plan.
+
+---
+
 ## 1. Departments: what we route to, and what we don't
 
 The AI engine routes to **11 destinations**. The hospital's export contains

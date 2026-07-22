@@ -18,10 +18,16 @@ import argparse
 import os
 from pathlib import Path
 
-from his_mock.database import connect, seed_from_csv
+from his_mock.database import (
+    backfill_patients_from_visits,
+    connect,
+    seed_from_csv,
+    seed_patients_from_csv,
+)
 
 PACKAGE_ROOT = Path(__file__).resolve().parent.parent
 SAMPLE_CSV = PACKAGE_ROOT / "sample_visits.csv"
+SAMPLE_PATIENTS_CSV = PACKAGE_ROOT / "sample_patients.csv"
 
 
 def main() -> None:
@@ -35,6 +41,11 @@ def main() -> None:
         "--sample",
         action="store_true",
         help="Seed from the committed synthetic sample instead of a real export",
+    )
+    parser.add_argument(
+        "--patients-csv",
+        default=os.environ.get("HIS_MOCK_PATIENTS_DATA_PATH", ""),
+        help="Patients (HN) CSV path (defaults to $HIS_MOCK_PATIENTS_DATA_PATH)",
     )
     parser.add_argument(
         "--db",
@@ -53,6 +64,15 @@ def main() -> None:
     # blank) for the before/after demo; a real export loads complete rows.
     count = seed_from_csv(conn, csv_path, pre_registration_only=use_sample)
     print(f"Seeded {count} visits from {csv_path} into {args.db}")
+
+    use_sample_patients = args.sample or not args.patients_csv
+    patients_csv_path = SAMPLE_PATIENTS_CSV if use_sample_patients else Path(args.patients_csv)
+    if Path(patients_csv_path).exists():
+        patient_count = seed_patients_from_csv(conn, patients_csv_path)
+        print(f"Seeded {patient_count} patients from {patients_csv_path} into {args.db}")
+    backfilled = backfill_patients_from_visits(conn)
+    if backfilled:
+        print(f"Backfilled {backfilled} bare patient record(s) from visits with no prior HN record")
 
 
 if __name__ == "__main__":

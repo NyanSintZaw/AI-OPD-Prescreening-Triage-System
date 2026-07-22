@@ -64,10 +64,11 @@ export function RecommendationCard({ assessment, autoOpenMap = false }: Recommen
         )}
         {assessment.department && (
           <p className="recommendation-detail">
-            {t('proceedToGuidance', {
-              department:
-                assessment.department.name ?? assessment.department.departmentId,
-            })}
+            {assessment.department.navLine ||
+              t('proceedToGuidance', {
+                department:
+                  assessment.department.name ?? assessment.department.departmentId,
+              })}
           </p>
         )}
         

@@ -32,6 +32,9 @@ interface ConversationStageProps {
   onEnd: () => void;
   measurementVital: string | null;
   onMeasurementSubmit: (continuationText: string) => void;
+  /** Crisis BP opened the 15-minute rest window — pause the session and
+   *  send the patient off to rest (see MeasurementCard.onRest). */
+  onMeasurementRest?: (secondsRemaining: number) => void;
   /** Set when the voice pipeline failed to start (mic denied/busy, WS drop). */
   errorText?: string | null;
   hasError?: boolean;
@@ -68,6 +71,7 @@ export function ConversationStage({
   onEnd,
   measurementVital,
   onMeasurementSubmit,
+  onMeasurementRest,
   avatar,
   errorText,
   hasError = false,
@@ -215,6 +219,7 @@ export function ConversationStage({
               vital={measurementVital}
               language={language}
               onSubmit={onMeasurementSubmit}
+              onRest={onMeasurementRest}
             />
           </div>
         ) : (

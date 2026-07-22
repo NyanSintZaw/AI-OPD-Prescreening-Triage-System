@@ -66,6 +66,53 @@ def greeting_line(name: str | None, language: str) -> str:
     return VOICE_GREETING.get(language, VOICE_GREETING["en"])
 
 
+# Spoken VN identity gate — the call opens by confirming the HIS name before
+# any symptoms are discussed. Answers are classified by nlu_yesno; "no" ends
+# the call and sends the patient back to the VN entry screen.
+CONFIRM_NAME_ASK = {
+    "en": (
+        "Hello! Before we begin, let me confirm — you are {name}, "
+        "is that right?"
+    ),
+    "th": "สวัสดีค่ะ ขอยืนยันก่อนเริ่มนะคะ คุณคือ {name} ใช่ไหมคะ",
+}
+
+CONFIRM_NAME_RETRY = {
+    "en": (
+        "Sorry, I didn't catch that. Are you {name}? "
+        "Please say yes or no, or tap a button on the screen."
+    ),
+    "th": (
+        "ขอโทษค่ะ ขอถามอีกครั้งนะคะ คุณคือ {name} ใช่หรือไม่คะ "
+        "ตอบว่าใช่หรือไม่ใช่ หรือแตะปุ่มบนหน้าจอได้เลยค่ะ"
+    ),
+}
+
+CONFIRM_NAME_REJECTED = {
+    "en": (
+        "I'm sorry for the mix-up. Please enter your correct visit number "
+        "on the screen."
+    ),
+    "th": "ขอโทษค่ะ รบกวนกรอกหมายเลข visit ที่ถูกต้องบนหน้าจออีกครั้งนะคะ",
+}
+
+CONFIRM_NAME_HISTORY_NEXT = {
+    "en": (
+        "Thank you. Before we talk about today's symptoms, please answer a "
+        "few health questions on the screen."
+    ),
+    "th": (
+        "ขอบคุณค่ะ ก่อนเริ่มคุยเรื่องอาการ "
+        "รบกวนกรอกข้อมูลสุขภาพเพิ่มเติมบนหน้าจอนะคะ"
+    ),
+}
+
+
+def confirm_name_ask(name: str, language: str, *, retry: bool = False) -> str:
+    table = CONFIRM_NAME_RETRY if retry else CONFIRM_NAME_ASK
+    return table.get(language, table["en"]).format(name=name.strip())
+
+
 FOLLOW_UP_OFFER = {
     "en": (
         "Before you go — is there anything you'd like to ask or tell the doctor? "
@@ -177,3 +224,61 @@ def department_display(code: str, language: str) -> str:
     if entry is None:
         return code
     return entry.get(language) or entry["en"]
+
+
+_ORDINALS_EN = {
+    "1": "1st",
+    "2": "2nd",
+    "3": "3rd",
+    "4": "4th",
+    "5": "5th",
+}
+
+
+def _floor_label_en(floor: str) -> str:
+    key = floor.strip()
+    ordinal = _ORDINALS_EN.get(key, f"{key}th" if key.isdigit() else key)
+    if key.isdigit() or key in _ORDINALS_EN:
+        return f"{ordinal} Floor"
+    return floor
+
+
+def nav_line(
+    department_name: str,
+    *,
+    language: str,
+    floor: str | None = None,
+    room: str | None = None,
+    nav_hint: str | None = None,
+) -> str:
+    """Short slip / recommendation wayfinding sentence.
+
+    Prefer an explicit ``nav_hint``; otherwise compose department + floor
+    (and optional room), e.g. *"Please proceed to the ENT Clinic, 3rd Floor."*
+    """
+    name = (department_name or "").strip() or "the clinic"
+    hint = (nav_hint or "").strip()
+    if hint:
+        return hint
+
+    floor_s = (floor or "").strip() or None
+    room_s = (room or "").strip() or None
+
+    if language == "th":
+        parts = [f"กรุณาไปที่{name}"]
+        if floor_s:
+            parts.append(f"ชั้น {floor_s}")
+        if room_s:
+            parts.append(f"ห้อง {room_s}")
+        return " ".join(parts)
+
+    # English: "Please proceed to the {name}, {Nth} Floor."
+    # Avoid doubling "the" when the name already starts with it / OPD.
+    display = name if name.lower().startswith(("the ", "opd")) else f"the {name}"
+    if floor_s and room_s:
+        return f"Please proceed to {display}, {_floor_label_en(floor_s)}, room {room_s}."
+    if floor_s:
+        return f"Please proceed to {display}, {_floor_label_en(floor_s)}."
+    if room_s:
+        return f"Please proceed to {display}, room {room_s}."
+    return f"Please proceed to {display}."

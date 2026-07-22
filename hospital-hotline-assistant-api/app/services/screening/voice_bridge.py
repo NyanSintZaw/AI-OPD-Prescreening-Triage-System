@@ -39,6 +39,11 @@ EmergencyCallback = Callable[[dict], Awaitable[None]]
 AssessmentCallback = Callable[[dict], Awaitable[None]]
 MeasurementCallback = Callable[[dict], Awaitable[None]]
 OptionsCallback = Callable[[dict], Awaitable[None]]
+IdentityCallback = Callable[[dict], Awaitable[None]]
+
+# Unclear identity answers tolerated before we treat the confirm as rejected
+# (safe default: never start a clinical interview on an unverified identity).
+MAX_IDENTITY_RETRIES = 2
 
 INPUT_SAMPLE_RATE = 16_000   # browser worklet sends 16 kHz mono Int16
 OUTPUT_SAMPLE_RATE = 24_000  # frontend playback scheduler expects 24 kHz
@@ -141,7 +146,10 @@ class TurnVoiceService:
         assessment_callback: AssessmentCallback | None = None,
         measurement_callback: MeasurementCallback | None = None,
         options_callback: OptionsCallback | None = None,
+        identity_callback: IdentityCallback | None = None,
     ) -> None:
+        from app.services.visit_confirm import needs_history_intake
+
         row = await db_connection.fetchrow(
             "SELECT id, metadata FROM sessions WHERE id = $1", session_id
         )
@@ -150,12 +158,21 @@ class TurnVoiceService:
         metadata = row["metadata"] or {}
         if isinstance(metadata, str):
             metadata = json.loads(metadata)
-        patient_name = (metadata.get("visit") or {}).get("patient_name")
+        visit_meta = metadata.get("visit") or {}
+        patient_name = visit_meta.get("patient_name")
 
         self._sessions[session_id] = {
             "language": language,
             # From the linked HIS visit; personalizes the spoken greeting.
             "patient_name": patient_name,
+            # Spoken identity gate: a linked, not-yet-confirmed name means the
+            # call opens with "you are {name}, right?" and no clinical turn
+            # runs until the patient confirms (or the kiosk falls back).
+            "awaiting_identity": bool(patient_name)
+            and not bool(visit_meta.get("name_confirmed")),
+            "identity_attempts": 0,
+            "needs_history": needs_history_intake(metadata),
+            "identity_cb": identity_callback,
             "db_connection": db_connection,
             "db_pool": db_pool,
             "transcript_cb": transcript_callback,
@@ -287,11 +304,19 @@ class TurnVoiceService:
 
         if not session["greeted"]:
             session["greeted"] = True
-            greeting = templates.greeting_line(
-                session.get("patient_name"), session["language"]
-            )
-            async for chunk in self._speak_line(session_id, session, greeting):
-                yield chunk
+            if session.get("awaiting_identity"):
+                ask = templates.confirm_name_ask(
+                    session["patient_name"], session["language"]
+                )
+                async for chunk in self._speak_line(session_id, session, ask):
+                    yield chunk
+                await self._push_identity_options(session_id, session)
+            else:
+                greeting = templates.greeting_line(
+                    session.get("patient_name"), session["language"]
+                )
+                async for chunk in self._speak_line(session_id, session, greeting):
+                    yield chunk
 
         while not session["ended"] and not session["pipeline_failed"]:
             await session["turn_event"].wait()
@@ -387,6 +412,15 @@ class TurnVoiceService:
         language = session["language"]
         await self._push_transcript(session, "user", transcript)
 
+        # Identity gate: while unconfirmed, answers (spoken or tapped chips)
+        # are classified as yes/no — the triage pipeline never runs.
+        if session.get("awaiting_identity"):
+            async for chunk in self._handle_identity_turn(
+                session_id, session, transcript
+            ):
+                yield chunk
+            return
+
         turn_started = time.monotonic()
         try:
             reply, final_payload = await self._run_turn(
@@ -456,6 +490,118 @@ class TurnVoiceService:
                 except Exception:
                     logger.exception("assessment_cb failed for %s", session_id)
             logger.info("Turn voice assessment complete for %s", session_id)
+
+    # ------------------------------------------------------------------
+    # Spoken VN identity gate
+    # ------------------------------------------------------------------
+
+    async def _push_identity_options(
+        self, session_id: str, session: dict[str, Any]
+    ) -> None:
+        """Tappable ใช่/ไม่ใช่ chips under the spoken confirm question."""
+        options_cb: OptionsCallback | None = session.get("options_cb")
+        if options_cb is None:
+            return
+        options = templates.YES_NO_OPTIONS.get(
+            session["language"], templates.YES_NO_OPTIONS["en"]
+        )
+        try:
+            await options_cb({"options": [dict(o) for o in options]})
+        except Exception:
+            logger.exception("identity options_cb failed for %s", session_id)
+
+    async def _apply_identity_decision(
+        self, session: dict[str, Any], session_id: str, decision: str
+    ):
+        from app.services.visit_confirm import apply_confirm_decision
+
+        db_pool = session.get("db_pool")
+        if db_pool is not None:
+            async with db_pool.acquire() as connection:
+                return await apply_confirm_decision(connection, session_id, decision)
+        return await apply_confirm_decision(
+            session["db_connection"], session_id, decision
+        )
+
+    async def _fire_identity(
+        self, session_id: str, session: dict[str, Any], payload: dict[str, Any]
+    ) -> None:
+        identity_cb: IdentityCallback | None = session.get("identity_cb")
+        if identity_cb is None:
+            return
+        try:
+            await identity_cb(payload)
+        except Exception:
+            logger.exception("identity_cb failed for %s", session_id)
+
+    async def _handle_identity_turn(
+        self, session_id: str, session: dict[str, Any], transcript: str
+    ) -> AsyncIterator[bytes]:
+        """Classify a confirm-name answer and speak/signal the outcome.
+
+        yes → mark confirmed and either continue into the intake greeting
+        (same call) or hand off to the history form; no → unlink the visit,
+        tell the patient to re-enter their VN, and signal the kiosk to end
+        the call; unclear → re-ask up to MAX_IDENTITY_RETRIES times, then
+        treat as rejected (never interview an unverified identity).
+        """
+        from app.services.screening.nlu_yesno import classify_yes_no
+        from app.services.visit_confirm import NoVisitLinkedError
+
+        language = session["language"]
+        decision = classify_yes_no(transcript)
+        if decision in ("uncertain", "other"):
+            session["identity_attempts"] += 1
+            if session["identity_attempts"] < MAX_IDENTITY_RETRIES:
+                retry = templates.confirm_name_ask(
+                    session["patient_name"], language, retry=True
+                )
+                async for chunk in self._speak_line(session_id, session, retry):
+                    yield chunk
+                await self._push_identity_options(session_id, session)
+                return
+            decision = "no"
+
+        try:
+            outcome = await self._apply_identity_decision(
+                session, session_id, decision
+            )
+        except NoVisitLinkedError:
+            # Link vanished mid-confirm (e.g. REST unlink raced us) — treat
+            # as rejected so the kiosk returns to VN entry.
+            outcome = None
+        except Exception:
+            logger.exception("identity decision persist failed for %s", session_id)
+            outcome = None
+
+        if decision == "yes" and outcome is not None:
+            session["awaiting_identity"] = False
+            needs_history = bool(session.get("needs_history"))
+            if needs_history:
+                # The kiosk ends this call and shows the history form; drop
+                # any further audio until it does.
+                session["disposed"] = True
+                line = templates.CONFIRM_NAME_HISTORY_NEXT[language]
+            else:
+                line = templates.greeting_line(session.get("patient_name"), language)
+            async for chunk in self._speak_line(session_id, session, line):
+                yield chunk
+            await self._fire_identity(
+                session_id,
+                session,
+                {"kind": "confirmed", "needs_history": needs_history},
+            )
+            return
+
+        # decision == "no", exhausted retries, or persistence failure. The
+        # kiosk ends the call and returns to VN entry; ignore further audio.
+        session["awaiting_identity"] = False
+        session["disposed"] = True
+        async for chunk in self._speak_line(
+            session_id, session, templates.CONFIRM_NAME_REJECTED[language]
+        ):
+            yield chunk
+        await self._fire_identity(session_id, session, {"kind": "rejected"})
 
     async def _run_turn(
         self,

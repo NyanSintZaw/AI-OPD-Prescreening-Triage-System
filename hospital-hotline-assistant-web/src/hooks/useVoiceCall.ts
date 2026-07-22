@@ -50,6 +50,16 @@ export interface UseVoiceCallOptions {
   /** Fired when the engine attaches tappable quick-reply chips
    *  (``question_options`` frame). */
   onQuestionOptions?: (options: Array<{ id: string; label: string }>) => void;
+  /** Fired after the spoken VN name-confirm resolves (``identity`` frame).
+   *  Delivered only once the spoken line's audio has drained, so the kiosk
+   *  can transition (back to VN entry / to the history form) without
+   *  cutting the AI off mid-sentence. */
+  onIdentity?: (payload: VoiceIdentityPayload) => void;
+}
+
+export interface VoiceIdentityPayload {
+  kind: 'confirmed' | 'rejected';
+  needsHistory: boolean;
 }
 
 export interface VoiceEmergencyPayload {
@@ -315,12 +325,18 @@ export function useVoiceCall(options: UseVoiceCallOptions): UseVoiceCallApi {
   const assessmentCommittedRef = useRef(false);
   const onMeasurementRef = useRef(options.onMeasurementRequest);
   const onQuestionOptionsRef = useRef(options.onQuestionOptions);
+  const onIdentityRef = useRef(options.onIdentity);
+  // Identity outcome mirrors the assessment's drain-then-commit dance: the
+  // frame lands before the spoken line finishes playing, and the kiosk must
+  // not yank the screen away mid-sentence.
+  const pendingIdentityRef = useRef<VoiceIdentityPayload | null>(null);
 
   languageRef.current = language;
   sessionIdRef.current = sessionId;
   onAssessmentCompleteRef.current = onAssessmentComplete;
   onMeasurementRef.current = options.onMeasurementRequest;
   onQuestionOptionsRef.current = options.onQuestionOptions;
+  onIdentityRef.current = options.onIdentity;
 
   const commitAssessment = useCallback(() => {
     if (assessmentCommittedRef.current) return;
@@ -331,6 +347,17 @@ export function useVoiceCall(options: UseVoiceCallOptions): UseVoiceCallApi {
     if (payload.reply) setLastReply(payload.reply);
     try {
       onAssessmentCompleteRef.current?.(payload);
+    } catch {
+      // best-effort
+    }
+  }, []);
+
+  const commitIdentity = useCallback(() => {
+    const payload = pendingIdentityRef.current;
+    if (!payload) return;
+    pendingIdentityRef.current = null;
+    try {
+      onIdentityRef.current?.(payload);
     } catch {
       // best-effort
     }
@@ -458,8 +485,10 @@ export function useVoiceCall(options: UseVoiceCallOptions): UseVoiceCallApi {
             }
           }
           speakingTimerRef.current = null;
-          // The final reply's audio has drained — safe to reveal the slip.
+          // The final reply's audio has drained — safe to reveal the slip
+          // or apply a pending identity transition.
           commitAssessment();
+          commitIdentity();
           if (pendingAutoEndRef.current) {
             tryScheduleAutoEnd();
           }
@@ -468,7 +497,7 @@ export function useVoiceCall(options: UseVoiceCallOptions): UseVoiceCallApi {
     };
     playbackRef.current = queue;
     return queue;
-  }, [updateState, tryScheduleAutoEnd, commitAssessment]);
+  }, [updateState, tryScheduleAutoEnd, commitAssessment, commitIdentity]);
 
   const schedulePlaybackChunk = useCallback(
     (data: ArrayBuffer) => {
@@ -813,6 +842,19 @@ export function useVoiceCall(options: UseVoiceCallOptions): UseVoiceCallApi {
             }
             return;
           }
+          case 'identity': {
+            const raw = message as { kind?: string; needs_history?: boolean };
+            pendingIdentityRef.current = {
+              kind: raw.kind === 'rejected' ? 'rejected' : 'confirmed',
+              needsHistory: Boolean(raw.needs_history),
+            };
+            const queue = playbackRef.current;
+            if (!speakerEnabledRef.current || !queue || queue.scheduledCount === 0) {
+              // Nothing will drain — deliver now.
+              commitIdentity();
+            }
+            return;
+          }
           default:
             return;
         }
@@ -826,7 +868,7 @@ export function useVoiceCall(options: UseVoiceCallOptions): UseVoiceCallApi {
         void data.arrayBuffer().then((buf) => schedulePlaybackChunk(buf));
       }
     },
-    [schedulePlaybackChunk, tryScheduleAutoEnd, commitAssessment],
+    [schedulePlaybackChunk, tryScheduleAutoEnd, commitAssessment, commitIdentity],
   );
 
   // ----- Lifecycle: start / end ----------------------------------------
@@ -888,6 +930,7 @@ export function useVoiceCall(options: UseVoiceCallOptions): UseVoiceCallApi {
     pendingAutoEndRef.current = false;
     pendingAssessmentRef.current = null;
     assessmentCommittedRef.current = false;
+    pendingIdentityRef.current = null;
     if (autoEndTimerRef.current !== null) {
       window.clearTimeout(autoEndTimerRef.current);
       autoEndTimerRef.current = null;

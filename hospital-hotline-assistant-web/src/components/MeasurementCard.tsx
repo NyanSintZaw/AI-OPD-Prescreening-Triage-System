@@ -14,6 +14,12 @@ export interface MeasurementCardProps {
    *  patient-utterance-shaped string the caller should send as the next
    *  conversation turn (e.g. ``"37.2 °C"``, ``"BP 118/76"``). */
   onSubmit: (continuationText: string) => void | Promise<void>;
+  /** Fired when a first crisis BP reading opened the 15-minute rest window:
+   *  the assessment pauses and the patient is told to rest and come back
+   *  (the reading is provisional — no conversation turn is sent). Also fired
+   *  from the resting screen's "I'll come back" button. When omitted, the
+   *  card falls back to an inline resting countdown. */
+  onRest?: (secondsRemaining: number) => void;
   onCancel?: () => void;
   disabled?: boolean;
 }
@@ -37,11 +43,12 @@ const inRange = (n: number, min: number, max: number) => n >= min && n <= max;
  * vitals the engine can request: temperature, blood pressure (machine or
  * manual), and weight+height together.
  */
-export function MeasurementCard({ vital, onSubmit, onCancel, disabled }: MeasurementCardProps) {
+export function MeasurementCard({ vital, onSubmit, onRest, onCancel, disabled }: MeasurementCardProps) {
   const { t } = useTranslation();
   const { sessionId } = useSessionStorage();
   const [saving, setSaving] = useState(false);
   const [errorKey, setErrorKey] = useState<string | null>(null);
+  const [restSeconds, setRestSeconds] = useState<number | null>(null);
 
   const [tempValue, setTempValue] = useState('');
 
@@ -59,6 +66,7 @@ export function MeasurementCard({ vital, onSubmit, onCancel, disabled }: Measure
   useEffect(() => {
     setSaving(false);
     setErrorKey(null);
+    setRestSeconds(null);
     setTempValue('');
     setSbpChoice('unset');
     setSystolic('');
@@ -70,6 +78,34 @@ export function MeasurementCard({ vital, onSubmit, onCancel, disabled }: Measure
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [vital]);
 
+  // Poll rest status when asking for BP so a crisis timer from an earlier
+  // reading (possibly in a prior kiosk visit for the same HN) blocks remeasure.
+  useEffect(() => {
+    if (vital !== 'sbp' || !sessionId) return;
+    let cancelled = false;
+    const tick = async () => {
+      try {
+        const status = await api.getBpRestStatus(sessionId);
+        if (cancelled) return;
+        if (status.resting && status.seconds_remaining > 0) {
+          setRestSeconds(status.seconds_remaining);
+          setErrorKey('vitalsErrResting');
+        } else {
+          setRestSeconds(null);
+          setErrorKey((prev) => (prev === 'vitalsErrResting' ? null : prev));
+        }
+      } catch {
+        /* ignore — measurement still possible if status check fails */
+      }
+    };
+    void tick();
+    const id = window.setInterval(() => void tick(), 5000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(id);
+    };
+  }, [vital, sessionId]);
+
   // The cuff hook resolved a reading — auto-fill the (still editable)
   // fields, same as the pre-conversation vitals gate used to.
   useEffect(() => {
@@ -79,7 +115,7 @@ export function MeasurementCard({ vital, onSubmit, onCancel, disabled }: Measure
     if (cuff.reading.pulse_bpm != null) setPulse(String(cuff.reading.pulse_bpm));
   }, [cuff.reading]);
 
-  const busy = saving || Boolean(disabled);
+  const busy = saving || Boolean(disabled) || (vital === 'sbp' && restSeconds != null && restSeconds > 0);
 
   const submitTemp = async () => {
     const value = parseNum(tempValue);
@@ -132,7 +168,7 @@ export function MeasurementCard({ vital, onSubmit, onCancel, disabled }: Measure
     setErrorKey(null);
     try {
       if (sessionId) {
-        await api.updateSessionVitals(sessionId, {
+        const resp = await api.updateSessionVitals(sessionId, {
           systolic: sys,
           diastolic: dia,
           pulse_bpm: pul,
@@ -140,9 +176,38 @@ export function MeasurementCard({ vital, onSubmit, onCancel, disabled }: Measure
           source: fromDevice ? 'device' : 'manual',
           reading_id: fromDevice ? cuff.reading?.reading_id ?? undefined : undefined,
         });
+        if (resp.bp_recheck?.required) {
+          // Crisis reading → 15-minute rest before re-measuring. Do NOT send
+          // the provisional numbers into the conversation; pause instead.
+          setSaving(false);
+          const secs = resp.bp_recheck.seconds_remaining;
+          if (onRest) {
+            onRest(secs);
+          } else {
+            setRestSeconds(secs);
+            setErrorKey('vitalsErrResting');
+          }
+          return;
+        }
       }
     } catch {
-      // Non-fatal: the conversation can continue without the write-back.
+      // Could be a 409 (active rest window) — check before falling through,
+      // so a blocked reading never leaks into the conversation as a turn.
+      if (sessionId) {
+        try {
+          const status = await api.getBpRestStatus(sessionId);
+          if (status.resting && status.seconds_remaining > 0) {
+            setSaving(false);
+            setRestSeconds(status.seconds_remaining);
+            setErrorKey('vitalsErrResting');
+            return;
+          }
+        } catch {
+          /* status check failed — continue below */
+        }
+      }
+      // Otherwise non-fatal: the conversation can continue without the
+      // write-back.
     } finally {
       setSaving(false);
     }
@@ -182,23 +247,8 @@ export function MeasurementCard({ vital, onSubmit, onCancel, disabled }: Measure
     </button>
   );
 
-  // Patient declines the reading (cuff busy, in a hurry, …). The question is
-  // already marked asked engine-side, so a plain continuation turn moves the
-  // interview on without the measurement.
-  const skipMeasurement = async () => {
-    setErrorKey(null);
-    await onSubmit(t('measureSkipPhrase'));
-  };
-  const skipBtn = (
-    <button
-      type="button"
-      className="text-btn location-prompt-skip"
-      onClick={() => void skipMeasurement()}
-      disabled={busy}
-    >
-      {t('measureSkip')}
-    </button>
-  );
+  // Measurements the engine asks for are required (it only asks when the
+  // interview needs them) — there is deliberately no skip control.
 
   if (vital === 'temp') {
     return (
@@ -232,12 +282,41 @@ export function MeasurementCard({ vital, onSubmit, onCancel, disabled }: Measure
           </button>
           {cancelBtn}
         </div>
-        {errorKey && <p className="error-text">{t(errorKey)}</p>}
+        {errorKey && (
+          <p className="error-text">
+            {errorKey === 'vitalsErrResting'
+              ? t(errorKey, {
+                  minutes: Math.max(1, Math.ceil((restSeconds ?? 60) / 60)),
+                })
+              : t(errorKey)}
+          </p>
+        )}
       </div>
     );
   }
 
   if (vital === 'sbp') {
+    if (restSeconds != null && restSeconds > 0) {
+      const minutes = Math.max(1, Math.ceil(restSeconds / 60));
+      return (
+        <div className="measurement-prompt-card">
+          <p className="measurement-prompt-title">{t('measureRestTitle')}</p>
+          <p className="error-text">{t('vitalsErrResting', { minutes })}</p>
+          <p className="measurement-prompt-subtitle muted">{t('measureRestHint')}</p>
+          {onRest && (
+            <button
+              type="button"
+              className="primary-btn"
+              onClick={() => onRest(restSeconds)}
+            >
+              {t('measureRestLeave')}
+            </button>
+          )}
+          {cancelBtn}
+        </div>
+      );
+    }
+
     if (sbpChoice === 'unset') {
       return (
         <div className="measurement-prompt-card">
@@ -259,7 +338,6 @@ export function MeasurementCard({ vital, onSubmit, onCancel, disabled }: Measure
             >
               {t('measurementEnterManually')}
             </button>
-            {skipBtn}
             {cancelBtn}
           </div>
         </div>
@@ -309,7 +387,15 @@ export function MeasurementCard({ vital, onSubmit, onCancel, disabled }: Measure
               />
             </label>
           </div>
-          {errorKey && <p className="error-text">{t(errorKey)}</p>}
+          {errorKey && (
+          <p className="error-text">
+            {errorKey === 'vitalsErrResting'
+              ? t(errorKey, {
+                  minutes: Math.max(1, Math.ceil((restSeconds ?? 60) / 60)),
+                })
+              : t(errorKey)}
+          </p>
+        )}
           <div className="measurement-card-actions">
             <button
               type="button"
@@ -448,7 +534,15 @@ export function MeasurementCard({ vital, onSubmit, onCancel, disabled }: Measure
               />
             </label>
           </div>
-          {errorKey && <p className="error-text">{t(errorKey)}</p>}
+          {errorKey && (
+          <p className="error-text">
+            {errorKey === 'vitalsErrResting'
+              ? t(errorKey, {
+                  minutes: Math.max(1, Math.ceil((restSeconds ?? 60) / 60)),
+                })
+              : t(errorKey)}
+          </p>
+        )}
           <div className="measurement-card-actions">
             <button
               type="button"
@@ -533,7 +627,15 @@ export function MeasurementCard({ vital, onSubmit, onCancel, disabled }: Measure
             />
           </label>
         </div>
-        {errorKey && <p className="error-text">{t(errorKey)}</p>}
+        {errorKey && (
+          <p className="error-text">
+            {errorKey === 'vitalsErrResting'
+              ? t(errorKey, {
+                  minutes: Math.max(1, Math.ceil((restSeconds ?? 60) / 60)),
+                })
+              : t(errorKey)}
+          </p>
+        )}
         <div className="measurement-card-actions">
           <button
             type="button"
@@ -543,7 +645,6 @@ export function MeasurementCard({ vital, onSubmit, onCancel, disabled }: Measure
           >
             {saving ? t('loading') : t('measurementConfirm')}
           </button>
-          {skipBtn}
           {cancelBtn}
         </div>
       </div>

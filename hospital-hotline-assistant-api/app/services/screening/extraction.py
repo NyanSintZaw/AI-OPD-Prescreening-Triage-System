@@ -89,6 +89,14 @@ def _catalog_lines(criteria: ScreeningCriteria, state: ScreeningState) -> list[s
         "severe_respiratory_distress", "chest_pain", "active_bleeding",
         "blue_lips", "pale_cold_sweaty", "suicidal_ideation", "pregnancy",
     })
+    # …and the symptoms patients most often volunteer in an opener, so a
+    # first message like "fever but no cough" can record BOTH sides before
+    # any complaint template is selected (live E2E finding, July 22: the
+    # bounded vocabulary silently dropped the negated finding).
+    wanted.update({
+        "fever", "cough", "sore_throat", "runny_nose", "ear_pain",
+        "headache", "abdominal_pain", "vomiting", "diarrhea", "dysuria",
+    })
 
     lines = []
     for fid in sorted(wanted):
@@ -166,7 +174,11 @@ Rules:
   findings the question wording mentioned in passing.
 - Explicit negations the patient volunteers anywhere in the message ("no fever
   though", "no trouble breathing", "แต่ไม่มีไข้", "หายใจปกติดี") -> those findings
-  with state "absent" — including in the very first message.
+  with state "absent" — including in the very first message. This applies to
+  "X but no Y" sentences too: "I've had a fever since yesterday but no cough"
+  -> fever "present" AND cough "absent"; "มีไข้ แต่ไม่ไอ ไม่เจ็บคอ" -> fever
+  "present", cough "absent", sore_throat "absent". Never drop the negated
+  finding just because the sentence also reports a positive one.
 - A bare affirmation ("yes", "ใช่", "มี") of a pending question that checks exactly
   ONE finding -> that finding id with state "present".
 - A bare affirmation of a pending question that checks SEVERAL findings:

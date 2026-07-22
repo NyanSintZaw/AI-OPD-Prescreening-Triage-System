@@ -6,6 +6,7 @@ import type {
   AssessmentReviewApproveRequest,
   AssessmentReviewCorrectRequest,
   AssessmentReviewOut,
+  BpRestStatusOut,
   BloodPressureFetchResponse,
   BpDeviceStatusOut,
   BpPairRequest,
@@ -36,14 +37,20 @@ import type {
   HisVisitDetail,
   HisVisitsResponse,
   HisVisitDetailResponse,
+  HisPatientsResponse,
   AdminManagedUser,
   AdminUserCreateRequest,
   AdminUserUpdateRequest,
   LinkVisitRequest,
   LinkVisitResponse,
+  ConfirmVisitNameRequest,
+  ConfirmVisitNameResponse,
+  PatientHistoryIntakeRequest,
+  PatientHistoryIntakeResponse,
   KioskStats,
   RoutingRuleOut,
   RoutingFeedbackOut,
+  SessionByVisitOut,
   SessionCreate,
   SessionLocationUpdate,
   SessionOut,
@@ -134,10 +141,31 @@ export const api = {
 
   getSession: (sessionId: string) => request<SessionOut>(`/sessions/${sessionId}`),
 
+  /** Most recent active session linked to this hospital visit (VN), if any. */
+  getSessionByVisit: (visitId: string) =>
+    request<SessionByVisitOut>(`/sessions/by-visit/${encodeURIComponent(visitId)}`),
+
   linkVisit: (sessionId: string, visitId: string) =>
     request<LinkVisitResponse>(`/sessions/${sessionId}/link-visit`, {
       method: 'POST',
       body: JSON.stringify({ visit_id: visitId } satisfies LinkVisitRequest),
+    }),
+
+  unlinkVisit: (sessionId: string) =>
+    request<SessionOut>(`/sessions/${sessionId}/link-visit`, {
+      method: 'DELETE',
+    }),
+
+  confirmVisitName: (sessionId: string, payload: ConfirmVisitNameRequest) =>
+    request<ConfirmVisitNameResponse>(`/sessions/${sessionId}/confirm-visit-name`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+
+  savePatientHistory: (sessionId: string, payload: PatientHistoryIntakeRequest) =>
+    request<PatientHistoryIntakeResponse>(`/sessions/${sessionId}/patient-history`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
     }),
 
   updateSession: (sessionId: string, payload: SessionUpdate) =>
@@ -375,8 +403,21 @@ export const api = {
       body: JSON.stringify({ session_id: sessionId ?? null, timeout_seconds: timeoutSeconds }),
     }),
 
+  getBpRestStatus: (sessionId?: string | null) => {
+    const q = sessionId ? `?session_id=${encodeURIComponent(sessionId)}` : '';
+    return request<BpRestStatusOut>(`/vitals/blood-pressure/rest-status${q}`);
+  },
+
   updateSessionVitals: (sessionId: string, payload: SessionVitalsUpdate) =>
-    request<{ session_id: string; vitals: Record<string, unknown> }>(
+    request<{
+      session_id: string;
+      vitals: Record<string, unknown>;
+      /** Present when this (first) crisis reading opened a 15-minute rest
+       *  window: the patient rests and re-measures before the assessment
+       *  continues — the reading itself is provisional. */
+      bp_recheck?: { required: boolean; rest_until: string; seconds_remaining: number };
+      bp_rest_until?: string;
+    }>(
       `/sessions/${sessionId}/vitals`,
       { method: 'PUT', body: JSON.stringify(payload) },
     ),
@@ -419,6 +460,8 @@ export const api = {
 
   getHisVisit: (visitId: string) =>
     request<HisVisitDetailResponse>(`/admin/his/visits/${visitId}`),
+
+  getHisPatients: () => request<HisPatientsResponse>('/admin/his/patients'),
 
   getHisConnection: () => request<HisConnection>('/admin/his/connection'),
 

@@ -115,6 +115,11 @@ export function useBpCuffWatch(sessionId?: string | null): UseBpCuffWatchResult 
         try {
           const result = await api.fetchBloodPressure(sessionId);
           if (watchTokenRef.current !== token) return;
+          if (result.status === 'resting') {
+            setErrorKey('vitalsErrResting');
+            setStatus('error');
+            return;
+          }
           if (result.status === 'ok' && result.measured_at) {
             const measuredMs = new Date(result.measured_at).getTime();
             if (measuredMs >= anchor - CLOCK_SKEW_MS) {
@@ -143,6 +148,11 @@ export function useBpCuffWatch(sessionId?: string | null): UseBpCuffWatchResult 
         try {
           const result = await api.watchBloodPressure(sessionId, WATCH_CALL_TIMEOUT_S);
           if (watchTokenRef.current !== token) return;
+          if (result.status === 'resting') {
+            setErrorKey('vitalsErrResting');
+            setStatus('error');
+            return;
+          }
           if (result.status === 'ok' && result.measured_at) {
             const measuredMs = new Date(result.measured_at).getTime();
             if (measuredMs >= anchor - CLOCK_SKEW_MS) {

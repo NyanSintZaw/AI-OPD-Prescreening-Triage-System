@@ -20,6 +20,7 @@ export interface ChatAssessment {
     confidence?: number;
     name?: string;
     code?: string;
+    navLine?: string | null;
   };
   emergency?: {
     triggerId?: string;
@@ -55,7 +56,7 @@ export interface ChatAssessment {
 
 export function toAssessment(
   payload: ChatResponsePayload,
-  departmentInfo: Map<string, { name: string; code: string }>,
+  departmentInfo: Map<string, { name: string; code: string; navLine?: string | null }>,
 ): ChatAssessment {
   const deptId = payload.department?.department_id;
   return {
@@ -73,6 +74,7 @@ export function toAssessment(
           confidence: payload.department?.confidence,
           name: departmentInfo.get(deptId)?.name,
           code: departmentInfo.get(deptId)?.code,
+          navLine: departmentInfo.get(deptId)?.navLine ?? null,
         }
       : undefined,
     emergency: payload.emergency
@@ -167,7 +169,8 @@ export function useChat(sessionId: string | null, language: AppLanguage) {
           d.id, 
           {
             name: language === 'th' ? d.name_th ?? d.name_en : d.name_en,
-            code: d.code
+            code: d.code,
+            navLine: language === 'th' ? d.nav_line_th : d.nav_line_en,
           }
         ]),
       );
@@ -202,7 +205,8 @@ export function useChat(sessionId: string | null, language: AppLanguage) {
                 d.id,
                 {
                   name: language === 'th' ? d.name_th ?? d.name_en : d.name_en,
-                  code: d.code
+                  code: d.code,
+                  navLine: language === 'th' ? d.nav_line_th : d.nav_line_en,
                 }
               ]),
             );
@@ -326,7 +330,8 @@ export function useChat(sessionId: string | null, language: AppLanguage) {
                     d.id,
                     {
                       name: language === 'th' ? d.name_th ?? d.name_en : d.name_en,
-                      code: d.code
+                      code: d.code,
+                      navLine: language === 'th' ? d.nav_line_th : d.nav_line_en,
                     }
                   ]),
                 );

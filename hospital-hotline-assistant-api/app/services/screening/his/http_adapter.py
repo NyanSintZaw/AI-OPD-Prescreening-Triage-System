@@ -14,9 +14,30 @@ from typing import Any
 
 import httpx
 
-from .adapter import VisitInfo
+from .adapter import PatientHistory, VisitInfo
 
 logger = logging.getLogger(__name__)
+
+
+def _parse_patient_history(patient: dict[str, Any] | None) -> PatientHistory | None:
+    """Parse the ``visit_payload()``-nested ``"patient"`` object (mock HIS's
+    ``GET /api/visits/{id}``) into a ``PatientHistory``. None when the HIS
+    doesn't support/return HN-level data."""
+    if not patient:
+        return None
+    history = patient.get("history") or {}
+    last_vitals = patient.get("last_vitals") or {}
+    return PatientHistory(
+        is_first_time=bool(patient.get("is_first_time", True)),
+        smoking_alcohol=history.get("smoking_alcohol"),
+        allergies=history.get("allergies"),
+        chronic_conditions=history.get("chronic_conditions"),
+        past_surgeries=history.get("past_surgeries"),
+        family_history=history.get("family_history"),
+        last_weight_kg=last_vitals.get("weight"),
+        last_height_cm=last_vitals.get("height"),
+        vitals_measured_at=last_vitals.get("measured_at"),
+    )
 
 
 def _age_from_birthdate(birthdate: str | None) -> int | None:
@@ -75,13 +96,17 @@ class HttpHisAdapter:
         birthdate = data.get("birthdate")
         return VisitInfo(
             visit_id=data.get("visit_id", visit_id),
-            patient_id=data.get("hn"),
+            # Prefer "hn" (the field name we standardized on in the mock
+            # HIS); fall back to "hnx" in case the real hospital HIS export
+            # only carries that name (see docs/his-integration.md §6.1).
+            patient_id=data.get("hn") or data.get("hnx"),
             patient_name=data.get("patient_name"),
             is_active=True,
             birthdate=birthdate,
             age_years=_age_from_birthdate(birthdate),
             vitals=data.get("vitals") or {},
             appointment=bool(data.get("appointment")),
+            patient_history=_parse_patient_history(data.get("patient")),
             raw=data,
         )
 
@@ -102,6 +127,19 @@ class HttpHisAdapter:
             logger.warning(
                 "[HIS] push_referral visit=%s → %s",
                 visit_id,
+                None if resp is None else resp.status_code,
+            )
+            return False
+        return True
+
+    async def push_patient_history(self, hn: str, history: dict[str, Any]) -> bool:
+        resp = await self._request(
+            "PUT", f"/api/patients/{hn}/history", json=history
+        )
+        if resp is None or resp.status_code != 200:
+            logger.warning(
+                "[HIS] push_patient_history hn=%s → %s",
+                hn,
                 None if resp is None else resp.status_code,
             )
             return False

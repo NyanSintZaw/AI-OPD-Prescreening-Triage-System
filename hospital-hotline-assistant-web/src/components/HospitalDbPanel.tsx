@@ -2,7 +2,12 @@ import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { api } from '../api';
 import { getAdminRole } from '../api/client';
-import type { HisConnection, HisVisitDetail, HisVisitSummary } from '../api/types';
+import type {
+  HisConnection,
+  HisPatientSummary,
+  HisVisitDetail,
+  HisVisitSummary,
+} from '../api/types';
 
 function ageFromBirthdate(birthdate: string | null): string {
   if (!birthdate) return '—';
@@ -194,8 +199,11 @@ export function HospitalDbPanel() {
   const { t } = useTranslation();
   const [conn, setConn] = useState<HisConnection | null>(null);
   const [available, setAvailable] = useState(true);
+  const [view, setView] = useState<'vn' | 'hn'>('vn');
   const [visits, setVisits] = useState<HisVisitSummary[]>([]);
+  const [patients, setPatients] = useState<HisPatientSummary[]>([]);
   const [selected, setSelected] = useState<HisVisitDetail | null>(null);
+  const [selectedHn, setSelectedHn] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -208,11 +216,13 @@ export function HospitalDbPanel() {
       if (!connection.connected) {
         setAvailable(false);
         setVisits([]);
+        setPatients([]);
         return;
       }
-      const res = await api.getHisVisits();
+      const [res, pats] = await Promise.all([api.getHisVisits(), api.getHisPatients()]);
       setAvailable(res.available);
       setVisits(res.visits);
+      setPatients(pats.available ? pats.patients : []);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -237,6 +247,8 @@ export function HospitalDbPanel() {
     await loadVisits();
     if (selected) await openVisit(selected.visit_id);
   };
+
+  const selectedPatient = patients.find((p) => p.hn === selectedHn) ?? null;
 
   return (
     <div className="hdb-panel">
@@ -264,6 +276,113 @@ export function HospitalDbPanel() {
       ) : loading ? (
         <p className="muted">{t('loading')}</p>
       ) : (
+        <>
+          <div className="hdb-view-tabs" role="tablist">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={view === 'vn'}
+              className={`hdb-view-tab ${view === 'vn' ? 'active' : ''}`}
+              onClick={() => setView('vn')}
+            >
+              {t('hdbTabVisits', { count: visits.length })}
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={view === 'hn'}
+              className={`hdb-view-tab ${view === 'hn' ? 'active' : ''}`}
+              onClick={() => setView('hn')}
+            >
+              {t('hdbTabPatients', { count: patients.length })}
+            </button>
+          </div>
+
+          {view === 'hn' ? (
+        <div className="hdb-body">
+          <div className="hdb-list">
+            <table className="hdb-table">
+              <thead>
+                <tr>
+                  <th>{t('hdbHn')}</th>
+                  <th>{t('hdbPatientName')}</th>
+                  <th>{t('hdbAge')}</th>
+                  <th>{t('hdbVisitCount')}</th>
+                  <th>{t('hdbStatus')}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {patients.map((p) => (
+                  <tr
+                    key={p.hn}
+                    className={selectedHn === p.hn ? 'active' : ''}
+                    onClick={() => setSelectedHn(p.hn)}
+                  >
+                    <td><code>{p.hn}</code></td>
+                    <td>{p.patient_name?.trim() || '—'}</td>
+                    <td>{ageFromBirthdate(p.birthdate)}</td>
+                    <td>{p.visit_count}</td>
+                    <td>
+                      <span
+                        className={`hdb-status ${p.is_first_time ? 'hdb-status-registered' : 'hdb-status-routed'}`}
+                      >
+                        {p.is_first_time ? t('hdbFirstTime') : t('hdbReturning')}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {selectedPatient && (
+            <div className="hdb-detail">
+              <div className="hdb-detail-head">
+                <code>{selectedPatient.hn}</code>
+                <span
+                  className={`hdb-status ${selectedPatient.is_first_time ? 'hdb-status-registered' : 'hdb-status-routed'}`}
+                >
+                  {selectedPatient.is_first_time ? t('hdbFirstTime') : t('hdbReturning')}
+                </span>
+              </div>
+
+              <h4>{t('hdbGroupRegistered')}</h4>
+              <Field label={t('hdbPatientName')} value={selectedPatient.patient_name} />
+              <Field label={t('hdbBirthdate')} value={selectedPatient.birthdate} />
+              <Field label={t('hdbVisitCount')} value={selectedPatient.visit_count} />
+
+              <h4>{t('hdbGroupHistory')}</h4>
+              <Field
+                label={t('hdbSmokingAlcohol')}
+                value={selectedPatient.history.smoking_alcohol}
+                stage="1"
+              />
+              <Field label={t('hdbAllergies')} value={selectedPatient.history.allergies} stage="1" />
+              <Field
+                label={t('hdbChronicConditions')}
+                value={selectedPatient.history.chronic_conditions}
+                stage="1"
+              />
+              <Field
+                label={t('hdbPastSurgeries')}
+                value={selectedPatient.history.past_surgeries}
+                stage="1"
+              />
+              <Field
+                label={t('hdbFamilyHistory')}
+                value={selectedPatient.history.family_history}
+                stage="1"
+              />
+              <Field label={t('hdbHistoryRecordedAt')} value={selectedPatient.history.recorded_at} />
+
+              <h4>{t('hdbGroupLastVitals')}</h4>
+              <Field label={t('hdbWeight')} value={selectedPatient.last_vitals.weight} />
+              <Field label={t('hdbHeight')} value={selectedPatient.last_vitals.height} />
+              <Field label={t('hdbVitalsMeasuredAt')} value={selectedPatient.last_vitals.measured_at} />
+            </div>
+          )}
+        </div>
+          ) : (
         <div className="hdb-body">
           <div className="hdb-list">
             <table className="hdb-table">
@@ -331,6 +450,8 @@ export function HospitalDbPanel() {
             </div>
           )}
         </div>
+          )}
+        </>
       )}
     </div>
   );

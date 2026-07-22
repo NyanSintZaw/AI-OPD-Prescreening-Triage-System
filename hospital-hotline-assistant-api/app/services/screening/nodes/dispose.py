@@ -10,21 +10,13 @@ from __future__ import annotations
 from dataclasses import asdict
 
 from ..rules.disposition import DispositionResult, decide
+from ..chief_complaint import format_chief_complaint_summary
 from .base import GraphDeps, GraphState
 
 
 def _summary(state) -> str:
-    parts = []
-    if state.chief_complaint:
-        parts.append(state.chief_complaint)
-    present = [fid for fid, f in state.findings.items() if f.state == "present"]
-    if present:
-        parts.append("findings: " + ", ".join(sorted(present)))
-    for slot in ("onset", "duration", "location"):
-        value = state.slots.get(slot)
-        if value:
-            parts.append(f"{slot}: {value}")
-    return "; ".join(parts) or "no structured findings collected"
+    """Nurse-facing chief complaint as a natural-language sentence."""
+    return format_chief_complaint_summary(state)
 
 
 def build_classification(state, disposition: DispositionResult) -> dict:

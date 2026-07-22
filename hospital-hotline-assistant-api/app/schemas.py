@@ -84,6 +84,25 @@ class LinkVisitResponse(BaseModel):
     age_years: int | None = None
     appointment: bool = False
     has_his_vitals: bool = False
+    is_first_time: bool = False
+    hn: str | None = None
+
+
+class PatientHistoryIntakeRequest(BaseModel):
+    """First-time-patient structured history collected at the booth."""
+
+    smoking_alcohol: str | None = Field(default=None, max_length=500)
+    allergies: str | None = Field(default=None, max_length=500)
+    chronic_conditions: str | None = Field(default=None, max_length=500)
+    past_surgeries: str | None = Field(default=None, max_length=500)
+    family_history: str | None = Field(default=None, max_length=500)
+
+
+class PatientHistoryIntakeResponse(BaseModel):
+    saved: bool
+    pushed_to_his: bool
+    is_first_time: bool = False
+    hn: str | None = None
 
 
 class BpFetchRequest(BaseModel):
@@ -115,6 +134,7 @@ class BloodPressureFetchResponse(BaseModel):
         "timeout",
         "no_records",
         "not_seen",
+        "resting",
         "error",
     ]
     systolic: int | None = None
@@ -126,6 +146,19 @@ class BloodPressureFetchResponse(BaseModel):
     body_movement: bool | None = None
     message: str | None = None
     reading_id: UUID | None = None
+    rest_until: datetime | None = None
+    seconds_remaining: int | None = None
+
+
+class BpRestStatusOut(BaseModel):
+    """Whether this patient/visit must wait before another BP reading."""
+
+    resting: bool
+    rest_until: datetime | None = None
+    seconds_remaining: int = 0
+    reason: str | None = None
+    hn: str | None = None
+    visit_id: str | None = None
 
 
 class BpDeviceStatusOut(BaseModel):
@@ -184,6 +217,44 @@ class SessionOut(BaseModel):
     metadata: dict[str, Any]
 
 
+class ConfirmVisitNameRequest(BaseModel):
+    """Patient response to \"Is this you, {name}?\" after link-visit.
+
+    Provide either ``confirmed`` (button) or ``text`` (typed/spoken natural
+    language). When ``text`` is set, the shared yes/no classifier decides.
+    """
+
+    confirmed: bool | None = None
+    text: str | None = Field(default=None, max_length=200)
+
+
+class ConfirmVisitNameResponse(BaseModel):
+    """Outcome of the VN name-confirm step."""
+
+    decision: Literal["yes", "no", "uncertain", "other"]
+    name_confirmed: bool
+    unlinked: bool = False
+    patient_name: str | None = None
+
+
+class SessionByVisitOut(BaseModel):
+    """Result of looking up a recent session by hospital visit ID (VN).
+
+    ``found=False`` when no same-day session is linked to this VN — the
+    client should create a new session and call ``link-visit``. When
+    ``found=True``, ``status`` says what the kiosk should offer: ``active``
+    → continue or start over; ``completed`` → start over / reprint slip.
+    """
+
+    found: bool
+    visit_id: str
+    session: SessionOut | None = None
+    status: str | None = None
+    patient_name: str | None = None
+    name_confirmed: bool = False
+    needs_history_intake: bool = False
+
+
 class MessageCreate(BaseModel):
     role: MessageRole
     input_mode: InputMode | None = None
@@ -231,6 +302,12 @@ class DepartmentOut(BaseModel):
     description_en: str | None = None
     description_th: str | None = None
     is_active: bool
+    floor: str | None = None
+    room: str | None = None
+    nav_hint_en: str | None = None
+    nav_hint_th: str | None = None
+    nav_line_en: str | None = None
+    nav_line_th: str | None = None
 
 
 class RoutingRuleOut(BaseModel):

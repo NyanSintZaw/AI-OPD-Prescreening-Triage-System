@@ -7,6 +7,7 @@ import re
 from time import perf_counter
 
 from ..extraction import ExtractionResult, build_extraction_prompt
+from ..nlu_yesno import BARE_AFFIRMATION, BARE_DENIAL, BARE_UNCERTAINTY, UNC_CORE_RE
 from ..rules.question_policy import get_template
 from ..state import OLDCARTS_SLOTS, Finding
 from ..vitals import FEVER_TEMP_C, apply_objective_findings
@@ -15,44 +16,6 @@ from .base import GraphDeps, GraphState, ainvoke_with_timeout
 logger = logging.getLogger(__name__)
 
 MAX_EXTRACTION_FAILURES = 2
-
-# Sequence of affirmation tokens; Thai polite particles join without spaces
-# ("ใช่ค่ะ" = ใช่ + ค่ะ), so the separator is optional.
-_AFF_TOKEN = r"(?:yes|yeah|yep|sure|ok|okay|ใช่|มี|ครับผม|ครับ|ค่ะ|คะ)"
-_BARE_AFFIRMATION = re.compile(
-    rf"^\s*{_AFF_TOKEN}(?:[\s,.!]*{_AFF_TOKEN})*[\s,.!]*$",
-    re.IGNORECASE,
-)
-
-# Bare denials — plain "no" answers and the standard denial chips. A bare
-# denial can only answer the question that was asked (see
-# strip_unscoped_denial); richer sentences pass through untouched.
-_NEG_CORE = (
-    r"(?:no|nope|none(?:\s+of\s+(?:these|those))?|not\s+really|"
-    r"no\s+other\s+symptoms?|nothing(?:\s+else)?|i\s+feel\s+(?:completely\s+)?(?:fine|ok(?:ay)?)|"
-    r"ไม่ใช่|ไม่มีอาการ(?:เหล่านี้|อื่น)?|ไม่มี|ไม่|เปล่า)"
-)
-_NEG_RIDER = r"(?:ครับผม|ครับ|ค่ะ|คะ|นะ|เลย|แล้ว|จ้ะ|จ้า|เพิ่มเติม|เพิ่ม)"
-_NEG_TOKEN = rf"(?:{_NEG_CORE}|{_NEG_RIDER})"
-_BARE_DENIAL = re.compile(
-    rf"^\s*{_NEG_TOKEN}(?:[\s,.!]*{_NEG_TOKEN})*[\s,.!]*$", re.IGNORECASE
-)
-
-# Bare uncertainty ("not sure", "ไม่แน่ใจเลยครับ") — carries no clinical
-# information at all; findings must stay unknown so the question re-asks.
-_UNC_CORE = (
-    r"(?:not\s+sure|don'?t\s+know|dunno|no\s+idea|maybe|perhaps|possibly|unsure|"
-    r"ไม่(?:ค่อย)?แน่ใจ|ไม่รู้|ไม่ทราบ|อาจจะ)"
-)
-_UNC_RIDER = (
-    r"(?:honestly|really|i'?m|i\s+am|i|about\s+that|"
-    rf"มั้ง|จริง\s?ๆ|เหมือนกัน|{_NEG_RIDER})"
-)
-_UNC_TOKEN = rf"(?:{_UNC_CORE}|{_UNC_RIDER})"
-_BARE_UNCERTAINTY = re.compile(
-    rf"^\s*{_UNC_TOKEN}(?:[\s,.!?]*{_UNC_TOKEN})*[\s,.!?]*$", re.IGNORECASE
-)
-_UNC_CORE_RE = re.compile(_UNC_CORE, re.IGNORECASE)
 
 
 def _pending_question(state, criteria):
@@ -90,7 +53,7 @@ def strip_ambiguous_affirmation(result: ExtractionResult, pending, user_text: st
         or pending.kind != "red_flag"
         or pending.id == "uq_breathing"
         or len(pending.finding_ids) <= 1
-        or not _BARE_AFFIRMATION.match(user_text)
+        or not BARE_AFFIRMATION.match(user_text)
     ):
         return
     ambiguous = set(pending.finding_ids)
@@ -104,7 +67,7 @@ def strip_uncertain_answer(result: ExtractionResult, user_text: str) -> None:
     recorded all three GI-bleed red-flag findings as absent for
     "ไม่แน่ใจเลยครับ". Findings must stay unknown so the policy re-asks."""
 
-    if _BARE_UNCERTAINTY.match(user_text) and _UNC_CORE_RE.search(user_text):
+    if BARE_UNCERTAINTY.match(user_text) and UNC_CORE_RE.search(user_text):
         result.finding_updates = []
         result.slot_updates = {}
 
@@ -115,7 +78,7 @@ def strip_unscoped_denial(result: ExtractionResult, pending, user_text: str) -> 
     to the fever-associated question flipped fever (established on turn 1,
     37.9 °C measured) to absent, changing the triage level."""
 
-    if pending is None or not _BARE_DENIAL.match(user_text):
+    if pending is None or not BARE_DENIAL.match(user_text):
         return
     allowed = set(pending.finding_ids)
     result.finding_updates = [

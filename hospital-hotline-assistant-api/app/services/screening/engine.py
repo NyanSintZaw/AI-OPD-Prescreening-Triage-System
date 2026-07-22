@@ -21,6 +21,7 @@ from .nodes.base import GraphDeps
 from .persistence import InMemoryStateStore, StateStore
 from .state import ScreeningState, TurnOutput
 from .vitals import apply_objective_findings, normalize_vitals
+from .history_findings import apply_history_findings
 
 logger = logging.getLogger(__name__)
 
@@ -192,6 +193,9 @@ class ScreeningTriageEngine:
         if vitals:
             state.vitals.update(vitals)
         apply_objective_findings(state)
+        history = turn_context.get("patient_history")
+        if isinstance(history, dict):
+            apply_history_findings(state, history)
 
     def _new_state(self, session_id: str, language: str, input_mode: str) -> ScreeningState:
         return ScreeningState(

@@ -5,11 +5,14 @@ Run (from hospital-his-mock/):
     uv run uvicorn his_mock.main:app --port 8001
 
 Environment:
-    HIS_MOCK_DB_PATH    SQLite file (default ./his_mock.db)
-    HIS_MOCK_DATA_PATH  hospital CSV export to seed from when the DB is
-                        empty (kept OUT of git); falls back to the
-                        committed synthetic sample_visits.csv
-    HIS_MOCK_API_KEY    required in the X-API-Key header (default demo-his-key)
+    HIS_MOCK_DB_PATH             SQLite file (default ./his_mock.db)
+    HIS_MOCK_DATA_PATH           hospital visits CSV export to seed from when
+                                 the DB is empty (kept OUT of git); falls back
+                                 to the committed synthetic sample_visits.csv
+    HIS_MOCK_PATIENTS_DATA_PATH  hospital patients (HN) CSV export to seed
+                                 from when the DB is empty; falls back to the
+                                 committed synthetic sample_patients.csv
+    HIS_MOCK_API_KEY             required in the X-API-Key header (default demo-his-key)
 """
 
 from __future__ import annotations
@@ -23,10 +26,17 @@ from typing import Any
 from fastapi import Depends, FastAPI, Header, HTTPException, Request
 from pydantic import BaseModel, Field
 
-from .database import connect, parse_pressure, seed_from_csv
+from .database import (
+    backfill_patients_from_visits,
+    connect,
+    parse_pressure,
+    seed_from_csv,
+    seed_patients_from_csv,
+)
 
 PACKAGE_DIR = Path(__file__).resolve().parent
 SAMPLE_CSV = PACKAGE_DIR.parent / "sample_visits.csv"
+SAMPLE_PATIENTS_CSV = PACKAGE_DIR.parent / "sample_patients.csv"
 
 # The station identity the hospital would assign our booth. The department
 # string is the hospital's real OPD screening unit from their export.
@@ -66,6 +76,25 @@ class FollowUpIn(BaseModel):
 class ResetIn(BaseModel):
     # When empty/omitted, every visit is reset to its pre-registration state.
     visit_ids: list[str] = Field(default_factory=list)
+    # Demo repeatability: resetting visits normally leaves patient (HN)
+    # history alone, since it's meant to carry across visits. Set this to
+    # also wipe the affected patients' history/last-vitals fields back to
+    # "first-time patient" so the history-intake flow can be re-demoed.
+    reset_history: bool = False
+
+
+class PatientHistoryIn(BaseModel):
+    smoking_alcohol: str | None = None
+    allergies: str | None = None
+    chronic_conditions: str | None = None
+    past_surgeries: str | None = None
+    family_history: str | None = None
+
+
+class PatientVitalsIn(BaseModel):
+    # Booth vitals naming, matching PrescreenIn.vitals's weight_kg/height_cm.
+    weight_kg: float | None = None
+    height_cm: float | None = None
 
 
 # Every screening column our system writes back; a reset NULLs these, leaving
@@ -79,6 +108,15 @@ _RESET_COLUMNS = (
     "second_location_id", "second_location_name", "second_location_department",
 )
 _RESET_SET_CLAUSE = ", ".join(f"{col} = NULL" for col in _RESET_COLUMNS)
+
+# Patient (HN) history/last-vitals columns cleared by ``reset_history=True`` —
+# puts a patient back into "first-time" state (``history_recorded_at`` NULL).
+_PATIENT_RESET_COLUMNS = (
+    "smoking_alcohol", "allergies", "chronic_conditions", "past_surgeries",
+    "family_history", "history_recorded_at", "last_weight", "last_height",
+    "vitals_measured_at",
+)
+_PATIENT_RESET_SET_CLAUSE = ", ".join(f"{col} = NULL" for col in _PATIENT_RESET_COLUMNS)
 
 
 def _vitals_to_columns(vitals: dict[str, Any] | None) -> dict[str, Any]:
@@ -142,6 +180,16 @@ def build_app(db_path: str | Path | None = None) -> FastAPI:
                 conn, source, pre_registration_only=not real_source
             )
             print(f"[his-mock] seeded {count} visits from {source}")
+    if conn.execute("SELECT COUNT(*) FROM patients").fetchone()[0] == 0:
+        patients_source = (
+            os.environ.get("HIS_MOCK_PATIENTS_DATA_PATH", "") or str(SAMPLE_PATIENTS_CSV)
+        )
+        if Path(patients_source).exists():
+            count = seed_patients_from_csv(conn, patients_source)
+            print(f"[his-mock] seeded {count} patients from {patients_source}")
+    # Any visit whose hnx has no patient row yet (e.g. a real export whose
+    # HNs aren't in the patients CSV) gets a bare, first-time record.
+    backfill_patients_from_visits(conn)
     app.state.db = conn
 
     def get_db(request: Request) -> sqlite3.Connection:
@@ -155,15 +203,51 @@ def build_app(db_path: str | Path | None = None) -> FastAPI:
             return "screened"
         return "registered"
 
-    def visit_payload(row: sqlite3.Row) -> dict[str, Any]:
+    def fetch_patient(db: sqlite3.Connection, hn: str) -> sqlite3.Row | None:
+        return db.execute("SELECT * FROM patients WHERE hn = ?", (hn,)).fetchone()
+
+    def patient_payload(row: sqlite3.Row) -> dict[str, Any]:
+        return {
+            "hn": row["hn"],
+            "patient_name": row["patient_name"],
+            "birthdate": row["birthdate"],
+            # A patient with no recorded history yet is first-time — the
+            # booth should collect it before the symptom interview.
+            "is_first_time": row["history_recorded_at"] is None,
+            "history": {
+                "smoking_alcohol": row["smoking_alcohol"],
+                "allergies": row["allergies"],
+                "chronic_conditions": row["chronic_conditions"],
+                "past_surgeries": row["past_surgeries"],
+                "family_history": row["family_history"],
+                "recorded_at": row["history_recorded_at"],
+            },
+            "last_vitals": {
+                "weight": row["last_weight"],
+                "height": row["last_height"],
+                "measured_at": row["vitals_measured_at"],
+            },
+        }
+
+    def visit_payload(row: sqlite3.Row, db: sqlite3.Connection) -> dict[str, Any]:
         systolic, diastolic = parse_pressure(row["pressure"])
+        patient_row = fetch_patient(db, row["hnx"]) if row["hnx"] else None
         return {
             "visit_id": row["visit_id"],
             "hnx": row["hnx"],
+            # Alias of ``hnx`` under the field name a real hospital HIS
+            # export may use (see docs/his-integration.md §6.1) — read
+            # either from the app side.
+            "hn": row["hnx"],
             "patient_name": row["patient_name"],
             "appointment": bool(row["appointment"]),
             "birthdate": row["birthdate"],
             "screening_status": _screening_status(row),
+            # HN master record (history + last-known vitals) so a single
+            # GET gives the triage app everything it needs in one round
+            # trip; null when the HN is entirely unknown (shouldn't happen
+            # once backfill_patients_from_visits has run).
+            "patient": patient_payload(patient_row) if patient_row else None,
             # Vitals as the export carries them (raw pressure) plus a parsed
             # split for convenience.
             "vitals": {
@@ -247,7 +331,7 @@ def build_app(db_path: str | Path | None = None) -> FastAPI:
 
     @app.get("/api/visits/{visit_id}", dependencies=[Depends(require_api_key)])
     def get_visit(visit_id: str, db: sqlite3.Connection = Depends(get_db)):
-        return visit_payload(fetch_visit(db, visit_id))
+        return visit_payload(fetch_visit(db, visit_id), db)
 
     @app.post(
         "/api/visits/{visit_id}/prescreen",
@@ -413,7 +497,7 @@ def build_app(db_path: str | Path | None = None) -> FastAPI:
             (payload.follow_up.strip() or None, visit_id),
         )
         db.commit()
-        return visit_payload(fetch_visit(db, visit_id))
+        return visit_payload(fetch_visit(db, visit_id), db)
 
     @app.get(
         "/api/visits/{visit_id}/prescreen",
@@ -426,6 +510,98 @@ def build_app(db_path: str | Path | None = None) -> FastAPI:
         if row is None:
             raise HTTPException(status_code=404, detail="No prescreen result")
         return prescreen_payload(row)
+
+    @app.get("/api/patients", dependencies=[Depends(require_api_key)])
+    def list_patients(db: sqlite3.Connection = Depends(get_db)):
+        """List all HN master records with their visit counts — powers the
+        admin dashboard's 'Hospital DB' HN tab."""
+        rows = db.execute("SELECT * FROM patients ORDER BY hn").fetchall()
+        counts = dict(
+            db.execute(
+                "SELECT hnx, COUNT(*) FROM visits WHERE hnx IS NOT NULL GROUP BY hnx"
+            ).fetchall()
+        )
+        return {
+            "patients": [
+                {**patient_payload(r), "visit_count": counts.get(r["hn"], 0)}
+                for r in rows
+            ]
+        }
+
+    @app.get("/api/patients/{hn}", dependencies=[Depends(require_api_key)])
+    def get_patient(hn: str, db: sqlite3.Connection = Depends(get_db)):
+        """HN master record: demographics + history + last-known vitals.
+
+        ``is_first_time`` is ``true`` iff ``history_recorded_at`` is NULL —
+        the signal the booth uses to decide whether to run the first-time
+        patient history intake.
+        """
+        row = fetch_patient(db, hn)
+        if row is None:
+            raise HTTPException(status_code=404, detail="Patient not found")
+        return patient_payload(row)
+
+    @app.put(
+        "/api/patients/{hn}/history",
+        dependencies=[Depends(require_api_key)],
+    )
+    def update_patient_history(
+        hn: str,
+        payload: PatientHistoryIn,
+        db: sqlite3.Connection = Depends(get_db),
+    ):
+        """Record first-time-patient history collected at the booth.
+
+        Upserts the full history (no partial-field merge, matching this
+        service's other write-back endpoints) and stamps
+        ``history_recorded_at`` — from this point on the patient is no
+        longer first-time, on this visit and any future one."""
+        if fetch_patient(db, hn) is None:
+            raise HTTPException(status_code=404, detail="Patient not found")
+        db.execute(
+            """
+            UPDATE patients SET
+                smoking_alcohol = ?, allergies = ?, chronic_conditions = ?,
+                past_surgeries = ?, family_history = ?,
+                history_recorded_at = datetime('now')
+            WHERE hn = ?
+            """,
+            (
+                payload.smoking_alcohol,
+                payload.allergies,
+                payload.chronic_conditions,
+                payload.past_surgeries,
+                payload.family_history,
+                hn,
+            ),
+        )
+        db.commit()
+        return patient_payload(fetch_patient(db, hn))
+
+    @app.put(
+        "/api/patients/{hn}/vitals",
+        dependencies=[Depends(require_api_key)],
+    )
+    def update_patient_vitals(
+        hn: str,
+        payload: PatientVitalsIn,
+        db: sqlite3.Connection = Depends(get_db),
+    ):
+        """Record the most recent booth weight/height for this HN, so a
+        future visit's booth can decide to skip re-asking within the
+        recency window."""
+        if fetch_patient(db, hn) is None:
+            raise HTTPException(status_code=404, detail="Patient not found")
+        db.execute(
+            """
+            UPDATE patients SET
+                last_weight = ?, last_height = ?, vitals_measured_at = datetime('now')
+            WHERE hn = ?
+            """,
+            (payload.weight_kg, payload.height_cm, hn),
+        )
+        db.commit()
+        return patient_payload(fetch_patient(db, hn))
 
     @app.post("/api/admin/reset", dependencies=[Depends(require_api_key)])
     def reset_visits(
@@ -442,14 +618,36 @@ def build_app(db_path: str | Path | None = None) -> FastAPI:
         With ``visit_ids`` it resets only those; otherwise it resets every
         visit. Note: against a completed real export (``HIS_MOCK_DATA_PATH``)
         this also clears the export's screening fields — it is a demo/test tool.
+
+        Patient (HN) history is left alone by default, since it's meant to
+        carry across visits — pass ``reset_history: true`` to also wipe the
+        affected patients' history/last-vitals back to "first-time" so that
+        flow can be re-demoed against the same synthetic HNs.
         """
         visit_ids = list(payload.visit_ids) if payload else []
+        reset_history = bool(payload and payload.reset_history)
         if visit_ids:
             placeholders = ",".join("?" for _ in visit_ids)
             db.execute(
                 f"DELETE FROM prescreen_results WHERE visit_id IN ({placeholders})",
                 visit_ids,
             )
+            if reset_history:
+                hns = [
+                    r["hnx"]
+                    for r in db.execute(
+                        f"SELECT DISTINCT hnx FROM visits WHERE visit_id IN ({placeholders})",
+                        visit_ids,
+                    )
+                    if r["hnx"]
+                ]
+                if hns:
+                    hn_placeholders = ",".join("?" for _ in hns)
+                    db.execute(
+                        f"UPDATE patients SET {_PATIENT_RESET_SET_CLAUSE} "
+                        f"WHERE hn IN ({hn_placeholders})",
+                        hns,
+                    )
             db.execute(
                 f"UPDATE visits SET {_RESET_SET_CLAUSE} WHERE visit_id IN ({placeholders})",
                 visit_ids,
@@ -457,6 +655,8 @@ def build_app(db_path: str | Path | None = None) -> FastAPI:
             affected = visit_ids
         else:
             db.execute("DELETE FROM prescreen_results")
+            if reset_history:
+                db.execute(f"UPDATE patients SET {_PATIENT_RESET_SET_CLAUSE}")
             db.execute(f"UPDATE visits SET {_RESET_SET_CLAUSE}")
             affected = [r["visit_id"] for r in db.execute("SELECT visit_id FROM visits")]
         db.commit()

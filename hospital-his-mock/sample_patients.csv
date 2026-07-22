@@ -1,0 +1,9 @@
+hn,patient_name,birthdate,smoking_alcohol,allergies,chronic_conditions,past_surgeries,family_history,history_recorded_at,last_weight,last_height,vitals_measured_at
+09900001,สมชาย ใจดี,1985-03-12,smokes ~5 cigarettes/day; drinks socially on weekends,None known,Hypertension (diagnosed 2019),Appendectomy (2010),Father: hypertension; Mother: diabetes,2026-07-05 09:15:00,72.5,172,2026-07-05 09:10:00
+09900002,สมหญิง รักษาดี,1958-07-01,Non-smoker; occasional alcohol,Penicillin (rash),Type 2 diabetes; hyperlipidemia,Cholecystectomy (2015),Mother: diabetes; Sister: hypertension,2026-06-28 14:20:00,65.0,158,2026-06-28 14:15:00
+09900003,น้ำใส ใจเย็น,2018-05-20,,,,,,,,,
+09900004,Waraporn Srisuk,1992-11-30,,,,,,,,,
+09900005,ประเสริฐ สุขสม,1948-02-14,Smokes 1 pack/day for 40 years; no alcohol,Shellfish (hives),COPD; coronary artery disease,CABG (2012),Father: heart disease; died age 65,2025-09-05 08:40:00,58.0,165,2025-09-05 08:35:00
+09900006,Anucha Thongdee,2001-09-09,,,,,,,,,
+09900007,มาลี วงศ์สว่าง,1975-06-18,Non-smoker; non-drinker,Sulfa drugs (anaphylaxis); dust mites,Asthma,None,Mother: asthma,2026-07-12 11:05:00,60.0,160,2026-07-12 11:00:00
+09900008,ภูมิ รักเรียน,2020-01-05,,,,,,,,,

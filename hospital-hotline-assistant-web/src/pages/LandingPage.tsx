@@ -72,6 +72,32 @@ export function LandingPage() {
     }
 
     try {
+      const trimmedVisit = visitId.trim();
+      if (trimmedVisit) {
+        try {
+          const existing = await api.getSessionByVisit(trimmedVisit);
+          if (existing.found && existing.session) {
+            setSessionId(existing.session.id);
+            setLanguage(existing.session.language);
+            if (existing.patient_name) {
+              setStoredPatientName(existing.patient_name);
+              // Hotline has no name-confirm step of its own — confirm here
+              // so the voice bridge's spoken identity gate (a kiosk flow)
+              // doesn't fire mid-call. Best-effort.
+              if (!existing.name_confirmed) {
+                void api
+                  .confirmVisitName(existing.session.id, { confirmed: true })
+                  .catch(() => undefined);
+              }
+            }
+            navigate(mode === 'call' ? '/call' : '/chat');
+            return;
+          }
+        } catch {
+          /* fall through to create + link */
+        }
+      }
+
       const session = await api.createSession({
         language,
         user_agent: navigator.userAgent,
@@ -81,12 +107,15 @@ export function LandingPage() {
       // Link the hospital visit if the patient typed/scanned a visit ID at
       // the booth. Best-effort: an unknown or failed link never blocks the
       // patient — they continue anonymously.
-      const trimmedVisit = visitId.trim();
       if (trimmedVisit) {
         try {
           const linked = await api.linkVisit(session.id, trimmedVisit);
           if (linked.patient_name) {
             setStoredPatientName(linked.patient_name);
+            // See above — hotline flow confirms implicitly.
+            void api
+              .confirmVisitName(session.id, { confirmed: true })
+              .catch(() => undefined);
           }
         } catch {
           /* continue anonymously */
