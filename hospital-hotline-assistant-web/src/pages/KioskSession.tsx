@@ -9,6 +9,7 @@ import { Stepper, type KioskStep } from '../components/kiosk/Stepper';
 import { LanguageSelect } from '../components/kiosk/LanguageSelect';
 import { VisitIdCapture } from '../components/kiosk/VisitIdCapture';
 import { ConversationStage } from '../components/kiosk/ConversationStage';
+import { VrmAvatar } from '../components/kiosk/VrmAvatar';
 import { RecommendationCard } from '../components/RecommendationCard';
 import { toAssessment, type ChatAssessment } from '../hooks/useChat';
 import { useLanguage, useSessionStorage, setStoredPatientName } from '../hooks/useSession';
@@ -296,6 +297,13 @@ export function KioskSession() {
               <ConversationStage
                 language={language}
                 state={voiceCall.state}
+                avatar={
+                  <VrmAvatar
+                    state={voiceCall.state}
+                    getLevel={voiceCall.getOutputLevel}
+                    getFeatures={voiceCall.getOutputFeatures}
+                  />
+                }
                 lastReply={voiceCall.lastReply}
                 lastTranscript={voiceCall.lastTranscript}
                 replyOptions={replyOptions}

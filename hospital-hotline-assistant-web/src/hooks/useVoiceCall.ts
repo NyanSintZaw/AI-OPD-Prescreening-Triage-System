@@ -98,6 +98,15 @@ export interface UseVoiceCallApi {
   setMuted: (muted: boolean) => void;
   toggleSpeaker: () => void;
   setSpeakerEnabled: (enabled: boolean) => void;
+  /** Instantaneous loudness (0..1) of the assistant's voice playback.
+   *  Stable identity, safe to poll from a rAF loop (returns 0 unless
+   *  state is 'speaking'). Drives the avatar's mouth. */
+  getOutputLevel: () => number;
+  /** Loudness plus the normalized spectral centroid (0..1, low = dark
+   *  rounded vowels, high = bright wide vowels) of the assistant's voice.
+   *  Same identity/rAF guarantees as getOutputLevel; centroid is 0.5
+   *  whenever there is no signal. Drives vowel-shaped lip sync. */
+  getOutputFeatures: () => { level: number; centroid: number };
 }
 
 const voiceFeatureEnabled = import.meta.env.VITE_ENABLE_VOICE === 'true';
@@ -264,6 +273,9 @@ function pcm16ToAudioBuffer(
 
 interface PlaybackQueueRef {
   ctx: AudioContext;
+  /** All buffer sources route through this tap so UI (avatar lip sync)
+   *  can read the live output level without touching the audio path. */
+  analyser: AnalyserNode;
   nextStartTime: number;
   scheduledCount: number;
   onIdle: () => void;
@@ -427,8 +439,14 @@ export function useVoiceCall(options: UseVoiceCallOptions): UseVoiceCallApi {
     if (ctx.state === 'suspended') {
       void ctx.resume().catch(() => undefined);
     }
+    // Small FFT keeps the per-frame RMS read cheap; sources connect to the
+    // analyser, the analyser to the speakers, so playback is unaffected.
+    const analyser = ctx.createAnalyser();
+    analyser.fftSize = 256;
+    analyser.connect(ctx.destination);
     const queue: PlaybackQueueRef = {
       ctx,
+      analyser,
       nextStartTime: 0,
       scheduledCount: 0,
       onIdle: () => {
@@ -515,7 +533,7 @@ export function useVoiceCall(options: UseVoiceCallOptions): UseVoiceCallApi {
       const startAt = Math.max(queue.ctx.currentTime + 0.02, queue.nextStartTime);
       const src = queue.ctx.createBufferSource();
       src.buffer = buffer;
-      src.connect(queue.ctx.destination);
+      src.connect(queue.analyser);
       src.start(startAt);
       queue.nextStartTime = startAt + buffer.duration;
       queue.scheduledCount += 1;
@@ -568,6 +586,60 @@ export function useVoiceCall(options: UseVoiceCallOptions): UseVoiceCallApi {
       speakingTimerRef.current = null;
     }
   }, []);
+
+  // Scratch buffer reused across getOutputLevel calls so a 60 fps rAF
+  // consumer doesn't allocate every frame.
+  const levelBufRef = useRef<Uint8Array<ArrayBuffer> | null>(null);
+
+  const getOutputLevel = useCallback((): number => {
+    const queue = playbackRef.current;
+    if (!queue || stateRef.current !== 'speaking') return 0;
+    const { analyser } = queue;
+    let buf = levelBufRef.current;
+    if (!buf || buf.length !== analyser.fftSize) {
+      buf = new Uint8Array(analyser.fftSize);
+      levelBufRef.current = buf;
+    }
+    analyser.getByteTimeDomainData(buf);
+    let sum = 0;
+    for (let i = 0; i < buf.length; i++) {
+      const v = (buf[i] - 128) / 128;
+      sum += v * v;
+    }
+    // Conversational speech RMS rarely exceeds ~0.3, so scale up so a
+    // normal voice spans most of 0..1 for the mouth animation.
+    return Math.min(1, Math.sqrt(sum / buf.length) * 3.5);
+  }, []);
+
+  // Second scratch buffer for the frequency-domain read.
+  const freqBufRef = useRef<Uint8Array<ArrayBuffer> | null>(null);
+
+  const getOutputFeatures = useCallback((): { level: number; centroid: number } => {
+    const level = getOutputLevel();
+    const queue = playbackRef.current;
+    if (!queue || level <= 0) return { level: 0, centroid: 0.5 };
+    const { analyser } = queue;
+    let buf = freqBufRef.current;
+    if (!buf || buf.length !== analyser.frequencyBinCount) {
+      buf = new Uint8Array(analyser.frequencyBinCount);
+      freqBufRef.current = buf;
+    }
+    analyser.getByteFrequencyData(buf);
+    // Spectral centroid across the speech band (~190 Hz – 3.8 kHz at the
+    // 24 kHz playback rate / fftSize 256 → bins 2..40). Rounded vowels
+    // (う/お) sit low, open あ mid, wide い/え high.
+    const lo = 2;
+    const hi = Math.min(40, buf.length - 1);
+    let energy = 0;
+    let weighted = 0;
+    for (let i = lo; i <= hi; i++) {
+      energy += buf[i];
+      weighted += i * buf[i];
+    }
+    if (energy < 1) return { level, centroid: 0.5 };
+    const centroid = (weighted / energy - lo) / (hi - lo);
+    return { level, centroid: Math.min(1, Math.max(0, centroid)) };
+  }, [getOutputLevel]);
 
   // ----- Mic capture (browser → server) --------------------------------
 
@@ -1201,5 +1273,7 @@ export function useVoiceCall(options: UseVoiceCallOptions): UseVoiceCallApi {
     setMuted,
     toggleSpeaker,
     setSpeakerEnabled,
+    getOutputLevel,
+    getOutputFeatures,
   };
 }

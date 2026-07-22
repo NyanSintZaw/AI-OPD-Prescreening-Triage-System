@@ -42,12 +42,12 @@ interface ConversationStageProps {
   /** False once the assessment is wrapping up — hides the interrupt button. */
   canInterrupt?: boolean;
   /**
-   * Future lip-synced avatar. Render the avatar component here (video /
-   * canvas / WebGL — children auto-fill the tile via CSS) and it replaces
-   * the orb placeholder inside the reserved stage with no layout changes.
-   * The stage also carries a stable DOM id (#kiosk-avatar-slot) for
+   * The assistant's synced avatar (NurseAvatar today; video / canvas /
+   * WebGL children also auto-fill the tile via CSS). Replaces the orb
+   * placeholder inside the reserved stage with no layout changes. The
+   * stage also carries a stable DOM id (#kiosk-avatar-slot) for
    * imperative mounting. Drive sync from the same `state` prop
-   * (listening / thinking / speaking) that animates the orb today.
+   * (listening / thinking / speaking) that animates the orb fallback.
    */
   avatar?: ReactNode;
 }
