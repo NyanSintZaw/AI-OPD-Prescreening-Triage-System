@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { api } from '../api';
 import type { AppLanguage } from '../i18n/resources';
 import { useBpCuffWatch } from '../hooks/useBpCuffWatch';
+import { useScaleWatch } from '../hooks/useScaleWatch';
 import { useSessionStorage } from '../hooks/useSession';
 
 export interface MeasurementCardProps {
@@ -25,6 +26,7 @@ export interface MeasurementCardProps {
 }
 
 type SbpChoice = 'unset' | 'machine' | 'manual';
+type WeightChoice = 'unset' | 'machine' | 'manual';
 
 const parseNum = (v: string): number | undefined => {
   const n = Number.parseFloat(v);
@@ -58,8 +60,10 @@ export function MeasurementCard({ vital, onSubmit, onRest, onCancel, disabled }:
   const [pulse, setPulse] = useState('');
   const cuff = useBpCuffWatch(sessionId);
 
+  const [weightChoice, setWeightChoice] = useState<WeightChoice>('unset');
   const [weightKg, setWeightKg] = useState('');
   const [heightCm, setHeightCm] = useState('');
+  const scale = useScaleWatch();
 
   // Reset all local state whenever the engine asks for a different vital
   // (or re-asks for the same one on a later turn).
@@ -72,9 +76,11 @@ export function MeasurementCard({ vital, onSubmit, onRest, onCancel, disabled }:
     setSystolic('');
     setDiastolic('');
     setPulse('');
+    setWeightChoice('unset');
     setWeightKg('');
     setHeightCm('');
     cuff.reset();
+    scale.reset();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [vital]);
 
@@ -114,6 +120,14 @@ export function MeasurementCard({ vital, onSubmit, onRest, onCancel, disabled }:
     if (cuff.reading.diastolic != null) setDiastolic(String(cuff.reading.diastolic));
     if (cuff.reading.pulse_bpm != null) setPulse(String(cuff.reading.pulse_bpm));
   }, [cuff.reading]);
+
+  // The scale hook resolved a reading — auto-fill the (still editable)
+  // weight field; height is not on the scale and stays manual.
+  useEffect(() => {
+    if (scale.reading?.weight_kg != null) {
+      setWeightKg(String(scale.reading.weight_kg));
+    }
+  }, [scale.reading]);
 
   const busy = saving || Boolean(disabled) || (vital === 'sbp' && restSeconds != null && restSeconds > 0);
 
@@ -594,10 +608,116 @@ export function MeasurementCard({ vital, onSubmit, onRest, onCancel, disabled }:
   }
 
   if (vital === 'weight') {
+    if (weightChoice === 'unset') {
+      return (
+        <div className="measurement-prompt-card">
+          <p className="measurement-prompt-title">{t('measurementWeightChooseTitle')}</p>
+          <div className="measurement-card-choice-row">
+            <button
+              type="button"
+              className="secondary-btn"
+              onClick={() => {
+                setWeightChoice('machine');
+                void scale.startWatching();
+              }}
+              disabled={busy}
+            >
+              {t('measurementUseScale')}
+            </button>
+            <button
+              type="button"
+              className="secondary-btn"
+              onClick={() => setWeightChoice('manual')}
+              disabled={busy}
+            >
+              {t('measurementEnterManually')}
+            </button>
+            {cancelBtn}
+          </div>
+        </div>
+      );
+    }
+
+    if (weightChoice === 'machine' && scale.status === 'watching') {
+      return (
+        <div className="measurement-prompt-card">
+          {scale.stage === 'step-on' ? (
+            <>
+              <p className="measurement-prompt-title vitals-press-start">
+                {t('scaleWatchStepOn')}
+              </p>
+              <p className="measurement-prompt-subtitle muted">{t('scaleWatchStepOnHint')}</p>
+            </>
+          ) : (
+            <>
+              <p className="measurement-prompt-title">{t('scaleWatchMeasuring')}</p>
+              <p className="measurement-prompt-subtitle muted">{t('scaleWatchMeasuringHint')}</p>
+            </>
+          )}
+          <div className="vitals-progress">
+            <div className="vitals-progress-bar" />
+          </div>
+          <div className="measurement-card-actions">
+            <button
+              type="button"
+              className="text-btn location-prompt-skip"
+              onClick={() => {
+                scale.cancel();
+                setWeightChoice('manual');
+              }}
+            >
+              {t('vitalsEnterManually')}
+            </button>
+            {cancelBtn}
+          </div>
+        </div>
+      );
+    }
+
+    if (weightChoice === 'machine' && scale.status === 'error') {
+      return (
+        <div className="measurement-prompt-card">
+          <p className="measurement-prompt-title">{t('vitalsErrorTitle')}</p>
+          <p className="error-text">{t(scale.errorKey ?? 'vitalsErrGeneric')}</p>
+          <div className="measurement-card-actions">
+            <button
+              type="button"
+              className="primary-btn"
+              onClick={() => void scale.startWatching(true)}
+            >
+              {t('vitalsRetry')}
+            </button>
+            <button
+              type="button"
+              className="secondary-btn"
+              onClick={() => {
+                scale.reset();
+                setWeightChoice('manual');
+              }}
+            >
+              {t('vitalsEnterManually')}
+            </button>
+            {cancelBtn}
+          </div>
+        </div>
+      );
+    }
+
+    const fromScale = weightChoice === 'machine' && scale.reading != null;
     return (
       <div className="measurement-prompt-card">
         <p className="measurement-prompt-title">{t('measurementWeightTitle')}</p>
-        <p className="measurement-prompt-subtitle muted">{t('measurementWeightHint')}</p>
+        {fromScale ? (
+          <p className="measurement-prompt-subtitle muted">
+            {t('scaleWeightReceived')}
+            {scale.reading?.measured_at &&
+              ` ${t('vitalsMeasuredAt', {
+                time: new Date(scale.reading.measured_at).toLocaleTimeString(),
+              })}`}
+          </p>
+        ) : (
+          <p className="measurement-prompt-subtitle muted">{t('measurementWeightHint')}</p>
+        )}
         <div className="vitals-form-grid cols-2">
           <label className="vitals-extra-field">
             <span>{t('vitalsWeight')}</span>
@@ -610,7 +730,7 @@ export function MeasurementCard({ vital, onSubmit, onRest, onCancel, disabled }:
               value={weightKg}
               onChange={(e) => setWeightKg(e.target.value)}
               disabled={busy}
-              autoFocus
+              autoFocus={!fromScale}
             />
           </label>
           <label className="vitals-extra-field">
@@ -624,6 +744,7 @@ export function MeasurementCard({ vital, onSubmit, onRest, onCancel, disabled }:
               value={heightCm}
               onChange={(e) => setHeightCm(e.target.value)}
               disabled={busy}
+              autoFocus={fromScale}
             />
           </label>
         </div>
@@ -644,6 +765,31 @@ export function MeasurementCard({ vital, onSubmit, onRest, onCancel, disabled }:
             disabled={busy || !weightKg.trim() || !heightCm.trim()}
           >
             {saving ? t('loading') : t('measurementConfirm')}
+          </button>
+          {fromScale && (
+            <button
+              type="button"
+              className="text-btn location-prompt-skip"
+              onClick={() => {
+                setWeightKg('');
+                scale.reset();
+                void scale.startWatching();
+              }}
+              disabled={busy}
+            >
+              {t('vitalsMeasureAgain')}
+            </button>
+          )}
+          <button
+            type="button"
+            className="text-btn location-prompt-skip"
+            onClick={() => {
+              scale.cancel();
+              setWeightChoice('unset');
+            }}
+            disabled={busy}
+          >
+            {t('vitalsBack')}
           </button>
           {cancelBtn}
         </div>

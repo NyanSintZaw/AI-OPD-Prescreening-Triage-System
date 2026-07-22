@@ -31,6 +31,15 @@ class Settings(BaseSettings):
     bp_omblepy_dir: str | None = None
     bp_python_bin: str | None = None
     bp_fetch_timeout_seconds: int = 120
+    # Omron weight scale (repo-root omscale/). "file" reads the latest-json
+    # published by the omscale sync daemon (the scale can't be read directly
+    # from macOS); "subprocess" runs omscale.py over BLE like omblepy.
+    scale_read_mode: str = "file"
+    scale_device_mac: str | None = None
+    scale_user_slot: int | None = None
+    scale_omscale_dir: str | None = None
+    scale_python_bin: str | None = None
+    scale_fetch_timeout_seconds: int = 120
     embed_model: str = "intfloat/multilingual-e5-small"
     triage_manual_path: str = "app/data/triage_manual.pdf"
     pgvector_table: str = "triage_knowledge"

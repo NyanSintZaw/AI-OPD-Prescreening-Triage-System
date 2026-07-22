@@ -432,6 +432,16 @@ export interface BloodPressureFetchResponse {
   seconds_remaining?: number | null;
 }
 
+export type WeightScaleFetchStatus = Exclude<BloodPressureFetchStatus, 'resting'>;
+
+export interface WeightScaleFetchResponse {
+  status: WeightScaleFetchStatus;
+  weight_kg: number | null;
+  measured_at: string | null;
+  is_recent: boolean | null;
+  message: string | null;
+}
+
 export interface BpRestStatusOut {
   resting: boolean;
   rest_until: string | null;

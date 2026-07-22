@@ -38,6 +38,10 @@ from app.services.blood_pressure import (
     BloodPressureFetchError,
     BloodPressureService,
 )
+from app.services.weight_scale import (
+    WeightScaleFetchError,
+    WeightScaleService,
+)
 from app.services.google_stt import GoogleSttClient
 from app.services.google_tts import GoogleTtsClient
 from app.services.notification_service import MockNotificationService
@@ -87,6 +91,8 @@ from app.schemas import (
     BpPairRequest,
     BpPairResponse,
     BpScanResponse,
+    ScaleWatchRequest,
+    WeightScaleFetchResponse,
     MessageCreate,
     MessageOut,
     RoutingRuleOut,
@@ -146,6 +152,8 @@ async def lifespan(app: FastAPI):
     app.state.model_prewarm_task = asyncio.create_task(triage_engine.prewarm())
     # Kiosk-side Omron cuff reader (omblepy subprocess wrapper).
     app.state.bp_service = BloodPressureService()
+    # Kiosk-side Omron weight scale reader (omscale file/subprocess wrapper).
+    app.state.scale_service = WeightScaleService()
     try:
         yield
     finally:
@@ -1204,6 +1212,61 @@ async def watch_blood_pressure(
     return await _persist_and_build_bp_response(
         bp_service, connection, reading, session_id
     )
+
+
+def _build_scale_response(
+    scale_service: WeightScaleService, reading
+) -> WeightScaleFetchResponse:
+    return WeightScaleFetchResponse(
+        status="ok",
+        weight_kg=reading.weight_kg,
+        measured_at=reading.measured_at,
+        is_recent=scale_service.is_recent(reading),
+    )
+
+
+@app.post("/vitals/weight-scale/fetch", response_model=WeightScaleFetchResponse)
+async def fetch_weight_scale(request: Request):
+    """Return the Omron scale's newest weight measurement.
+
+    Reads the sync daemon's latest-json (or runs omscale.py over BLE,
+    depending on SCALE_READ_MODE). Always returns 200 with a ``status``
+    field so the kiosk UI can branch on failure modes. The kiosk decides
+    freshness client-side against its measurement anchor; the reading is
+    only written to the session when the patient confirms it.
+    """
+    scale_service: WeightScaleService = request.app.state.scale_service
+    try:
+        reading = await scale_service.fetch_latest()
+    except WeightScaleFetchError as exc:
+        return WeightScaleFetchResponse(status=exc.code, message=str(exc))
+    except Exception as exc:  # noqa: BLE001 — surface as structured error
+        logger.exception("Unexpected omscale failure")
+        return WeightScaleFetchResponse(status="error", message=str(exc))
+    return _build_scale_response(scale_service, reading)
+
+
+@app.post("/vitals/weight-scale/watch", response_model=WeightScaleFetchResponse)
+async def watch_weight_scale(
+    request: Request,
+    payload: ScaleWatchRequest | None = None,
+):
+    """Long-poll: wait for the scale to deliver a new measurement, then
+    return it immediately.
+
+    Returns status ``not_seen`` when nothing new appeared within
+    ``timeout_seconds`` so the kiosk can re-arm without any dead time.
+    """
+    scale_service: WeightScaleService = request.app.state.scale_service
+    timeout = payload.timeout_seconds if payload else 25.0
+    try:
+        reading = await scale_service.watch_and_fetch(timeout)
+    except WeightScaleFetchError as exc:
+        return WeightScaleFetchResponse(status=exc.code, message=str(exc))
+    except Exception as exc:  # noqa: BLE001 — surface as structured error
+        logger.exception("Unexpected scale watch failure")
+        return WeightScaleFetchResponse(status="error", message=str(exc))
+    return _build_scale_response(scale_service, reading)
 
 
 @app.get("/admin/bp-device", response_model=BpDeviceStatusOut)

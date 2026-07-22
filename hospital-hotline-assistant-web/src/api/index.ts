@@ -8,6 +8,7 @@ import type {
   AssessmentReviewOut,
   BpRestStatusOut,
   BloodPressureFetchResponse,
+  WeightScaleFetchResponse,
   BpDeviceStatusOut,
   BpPairRequest,
   BpPairResponse,
@@ -401,6 +402,22 @@ export const api = {
     request<BloodPressureFetchResponse>('/vitals/blood-pressure/watch', {
       method: 'POST',
       body: JSON.stringify({ session_id: sessionId ?? null, timeout_seconds: timeoutSeconds }),
+    }),
+
+  // ── Vitals (weight scale kiosk) ────────────────────────────────────────────
+  fetchWeightScale: () =>
+    request<WeightScaleFetchResponse>('/vitals/weight-scale/fetch', {
+      method: 'POST',
+      body: JSON.stringify({}),
+    }),
+
+  /** Long-poll: resolves as soon as the scale delivers a new measurement,
+   *  or with status 'not_seen' after timeoutSeconds so the caller can
+   *  re-arm. */
+  watchWeightScale: (timeoutSeconds = 25) =>
+    request<WeightScaleFetchResponse>('/vitals/weight-scale/watch', {
+      method: 'POST',
+      body: JSON.stringify({ timeout_seconds: timeoutSeconds }),
     }),
 
   getBpRestStatus: (sessionId?: string | null) => {

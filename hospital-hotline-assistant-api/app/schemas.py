@@ -150,6 +150,35 @@ class BloodPressureFetchResponse(BaseModel):
     seconds_remaining: int | None = None
 
 
+class ScaleWatchRequest(BaseModel):
+    """Body for the scale long-poll: wait up to ``timeout_seconds`` for a
+    new measurement to sync, then return it."""
+
+    timeout_seconds: float = Field(default=25, ge=5, le=45)
+
+
+class WeightScaleFetchResponse(BaseModel):
+    """Result of a kiosk-side omscale fetch. ``status`` is always set;
+    the reading fields are only present when ``status == "ok"``."""
+
+    status: Literal[
+        "ok",
+        "busy",
+        "not_configured",
+        "device_not_found",
+        "pairing_error",
+        "wrong_device",
+        "timeout",
+        "no_records",
+        "not_seen",
+        "error",
+    ]
+    weight_kg: float | None = None
+    measured_at: datetime | None = None
+    is_recent: bool | None = None
+    message: str | None = None
+
+
 class BpRestStatusOut(BaseModel):
     """Whether this patient/visit must wait before another BP reading."""
 
