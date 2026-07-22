@@ -70,11 +70,8 @@ def greeting_line(name: str | None, language: str) -> str:
 # any symptoms are discussed. Answers are classified by nlu_yesno; "no" ends
 # the call and sends the patient back to the VN entry screen.
 CONFIRM_NAME_ASK = {
-    "en": (
-        "Hello! Before we begin, let me confirm — you are {name}, "
-        "is that right?"
-    ),
-    "th": "สวัสดีค่ะ ขอยืนยันก่อนเริ่มนะคะ คุณคือ {name} ใช่ไหมคะ",
+    "en": "Hello! You are {name}, is that right?",
+    "th": "สวัสดีค่ะ คุณคือ {name} ใช่ไหมคะ",
 }
 
 CONFIRM_NAME_RETRY = {
