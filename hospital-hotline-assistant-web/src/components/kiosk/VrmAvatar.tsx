@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useReducedMotion } from 'framer-motion';
 import type { VoiceCallState } from '../../hooks/useVoiceCall';
+import { AiOrb } from './AiOrb';
 import { NurseAvatar } from './NurseAvatar';
 
 type AvatarPose = 'idle' | 'listening' | 'thinking' | 'speaking';
@@ -34,6 +35,25 @@ function toPose(state: VoiceCallState | 'idle'): AvatarPose {
 }
 
 const MODEL_URL = '/avatar/nurse.vrm';
+
+// The model is ~15 MB and the dev server streams it slowly — fetch it
+// exactly once per page and share the bytes between the early prefetch
+// (KioskSession kicks this off during language select) and the actual
+// avatar mount, which parses from the buffer instead of re-downloading.
+let modelBytesPromise: Promise<ArrayBuffer> | null = null;
+export function preloadAvatarModel(): Promise<ArrayBuffer> {
+  if (!modelBytesPromise) {
+    modelBytesPromise = fetch(MODEL_URL).then((res) => {
+      if (!res.ok) throw new Error(`avatar model ${res.status}`);
+      return res.arrayBuffer();
+    });
+    // A failed download shouldn't poison every later attempt.
+    modelBytesPromise.catch(() => {
+      modelBytesPromise = null;
+    });
+  }
+  return modelBytesPromise;
+}
 
 // ── Pose targets ─────────────────────────────────────────────────────────
 // Euler XYZ (radians) per normalized humanoid bone. The normalized rig is
@@ -128,6 +148,29 @@ const LISTEN_OVERRIDES: Record<ListenPhase, PoseTargets> = {
   },
 };
 
+// ── Thinking behavior loop ───────────────────────────────────────────────
+// ponder: head tilted up-left, slow sway, wandering gaze, hmm-pucker.
+// read: glances down as if consulting notes below the frame — bowed head,
+//   eyes scanning left-right along invisible lines of text.
+type ThinkPhase = 'ponder' | 'read';
+
+const THINK_OVERRIDES: Record<ThinkPhase, PoseTargets> = {
+  ponder: {},
+  read: {
+    neck: [0.2, 0, 0],
+    head: [0.3, 0.03, 0],
+  },
+};
+
+const READ_AFTER_MIN = 4; // s of pondering before she checks her notes
+const READ_AFTER_VAR = 3;
+const READ_LEN_MIN = 2.5; // s spent reading
+const READ_LEN_VAR = 1.5;
+
+// Speaking opens with smiling (happy-closed) eyes + a small head tilt
+// before settling into the normal speaking face.
+const SPEAK_SMILE_LEN = 1.1;
+
 const JOT_AFTER_MIN = 5.5; // s of continuous listening before she jots
 const JOT_AFTER_VAR = 2.5;
 const JOT_LEN_MIN = 2.4; // s spent jotting
@@ -154,11 +197,12 @@ const ZERO: Vec3 = [0, 0, 0];
 // Where she looks, expressed as an offset from the head in world space
 // (x right, y up, z toward the camera). On the patient almost always;
 // down while jotting, up-left while thinking.
-const LOOK_OFFSETS: Record<AvatarPose | 'jot', Vec3> = {
+const LOOK_OFFSETS: Record<AvatarPose | 'jot' | 'read', Vec3> = {
   idle: [0, -0.05, 1.4],
   listening: [0.05, -0.06, 1.3],
   jot: [0.1, -0.6, 0.7],
   thinking: [-0.4, 0.45, 1.1],
+  read: [0.05, -0.6, 0.7],
   speaking: [0, -0.02, 1.4],
 };
 
@@ -235,9 +279,10 @@ export function VrmAvatar({ state, getLevel, getFeatures }: VrmAvatarProps) {
         key.position.set(0.4, 1.2, 1.5);
         scene.add(key);
 
+        const modelBytes = await preloadAvatarModel();
         const loader = new GLTFLoader();
         loader.register((parser) => new VRMLoaderPlugin(parser));
-        const gltf = await loader.loadAsync(MODEL_URL);
+        const gltf = await loader.parseAsync(modelBytes, '/avatar/');
         const vrm = gltf.userData.vrm;
         if (!vrm) throw new Error('not a VRM');
         if (disposed) {
@@ -358,6 +403,7 @@ export function VrmAvatar({ state, getLevel, getFeatures }: VrmAvatarProps) {
         // phase so headless screenshots can capture each one.
         const devParams = new URLSearchParams(window.location.search);
         const pinnedPhase = devParams.get('phase') as ListenPhase | null;
+        const pinnedThink = devParams.get('tphase') as ThinkPhase | null;
         // Dev-only: ?snap=1 makes the pose solver converge instantly so
         // headless screenshots (which run only a few rAF frames under
         // virtual time) capture the settled pose instead of a transition.
@@ -373,6 +419,10 @@ export function VrmAvatar({ state, getLevel, getFeatures }: VrmAvatarProps) {
         let reassureUntil = 0;
         let nextNodAt = 0;
         let nodStart = -10;
+        let thinkPhase: ThinkPhase = 'ponder';
+        let nextReadAt = 0;
+        let readUntil = 0;
+        let speakEnteredAt = -10;
 
         const tick = () => {
           const now = performance.now();
@@ -389,10 +439,13 @@ export function VrmAvatar({ state, getLevel, getFeatures }: VrmAvatarProps) {
 
           // ── Listening behavior loop: attentive → jot → reassure ────────
           if (pose !== prevPose) {
+            if (pose === 'speaking') speakEnteredAt = t;
             prevPose = pose;
             listenPhase = 'attentive';
             nextJotAt = t + JOT_AFTER_MIN + Math.random() * JOT_AFTER_VAR;
             nextNodAt = t + 2 + Math.random() * 2;
+            thinkPhase = 'ponder';
+            nextReadAt = t + READ_AFTER_MIN + Math.random() * READ_AFTER_VAR;
           }
           if (pose === 'listening' && !still) {
             if (listenPhase === 'attentive' && t >= nextJotAt) {
@@ -408,7 +461,23 @@ export function VrmAvatar({ state, getLevel, getFeatures }: VrmAvatarProps) {
             }
           }
           const phase: ListenPhase = pinnedPhase ?? listenPhase;
-          const overrides = pose === 'listening' ? LISTEN_OVERRIDES[phase] : undefined;
+          // Thinking alternates: ponder ⇄ glance down to read her notes.
+          if (pose === 'thinking' && !still) {
+            if (thinkPhase === 'ponder' && t >= nextReadAt) {
+              thinkPhase = 'read';
+              readUntil = t + READ_LEN_MIN + Math.random() * READ_LEN_VAR;
+            } else if (thinkPhase === 'read' && t >= readUntil) {
+              thinkPhase = 'ponder';
+              nextReadAt = t + READ_AFTER_MIN + Math.random() * READ_AFTER_VAR;
+            }
+          }
+          const tphase: ThinkPhase = pinnedThink ?? thinkPhase;
+          const overrides =
+            pose === 'listening'
+              ? LISTEN_OVERRIDES[phase]
+              : pose === 'thinking'
+                ? THINK_OVERRIDES[tphase]
+                : undefined;
           const targets = POSES[pose];
 
           for (const bkey of BONE_KEYS) {
@@ -442,13 +511,21 @@ export function VrmAvatar({ state, getLevel, getFeatures }: VrmAvatarProps) {
               }
               if (pose === 'speaking' && bkey === 'head') {
                 tx += lip * 0.05 + Math.sin(t * 4.2) * 0.012 * lip;
+                // Opening flourish: a friendly tilt while the smiling eyes
+                // greet the patient, easing away as she gets going.
+                const smileT = (t - speakEnteredAt) / SPEAK_SMILE_LEN;
+                if (smileT < 1) tz += Math.sin(smileT * Math.PI) * 0.12;
               }
-              if (pose === 'thinking' && bkey === 'head') {
+              if (pose === 'thinking' && tphase === 'ponder' && bkey === 'head') {
                 // Pondering: a slow side-to-side sway plus a gentle pitch
                 // drift, like weighing the options.
                 tz += Math.sin(t * 0.55) * 0.035;
                 ty += Math.sin(t * 0.38 + 1.2) * 0.05;
                 tx += Math.sin(t * 0.47 + 0.5) * 0.02;
+              }
+              if (pose === 'thinking' && tphase === 'read' && bkey === 'head') {
+                // Reading: tiny pitch bob, like following lines of text.
+                tx += Math.sin(t * 0.9) * 0.012;
               }
               if (pose === 'thinking' && bkey === 'neck') {
                 tz += Math.sin(t * 0.55) * 0.015;
@@ -467,10 +544,22 @@ export function VrmAvatar({ state, getLevel, getFeatures }: VrmAvatarProps) {
           for (const f of fingerBones) f.node!.rotation.set(0, 0, fingerCurl * f.factor);
 
           // Eyes: glide the look target toward the pose's offset. While
-          // thinking the gaze wanders slowly left-right, searching for the
-          // words.
-          const off = LOOK_OFFSETS[pose === 'listening' && phase === 'jot' ? 'jot' : pose];
-          const wander = pose === 'thinking' && !still ? Math.sin(t * 0.27) * 0.35 : 0;
+          // pondering the gaze wanders slowly, searching for the words;
+          // while reading it scans quicker, tracking lines of text.
+          const off =
+            LOOK_OFFSETS[
+              pose === 'listening' && phase === 'jot'
+                ? 'jot'
+                : pose === 'thinking' && tphase === 'read'
+                  ? 'read'
+                  : pose
+            ];
+          const wander =
+            pose !== 'thinking' || still
+              ? 0
+              : tphase === 'read'
+                ? Math.sin(t * 1.1) * 0.15
+                : Math.sin(t * 0.27) * 0.35;
           lookTarget.position.x += ((off[0] + wander) * propScale - lookTarget.position.x) * k;
           lookTarget.position.y += (headPos.y + off[1] * propScale - lookTarget.position.y) * k;
           lookTarget.position.z += (off[2] * propScale - lookTarget.position.z) * k;
@@ -506,8 +595,9 @@ export function VrmAvatar({ state, getLevel, getFeatures }: VrmAvatarProps) {
             const w = wSum > 1e-4 ? (vowelW[i] / wSum) * open : 0;
             em?.setValue?.(VOWEL_BANDS[i][0], w);
           }
-          // Pondering "hmm": a soft pucker while she thinks.
-          if (pose === 'thinking') {
+          // Pondering "hmm": a soft pucker while she thinks (not while
+          // reading — reading gets a neutral, focused mouth).
+          if (pose === 'thinking' && tphase === 'ponder') {
             em?.setValue?.('ou', 0.16 + (still ? 0 : Math.sin(t * 0.8) * 0.05));
           }
 
@@ -544,7 +634,9 @@ export function VrmAvatar({ state, getLevel, getFeatures }: VrmAvatarProps) {
                 : phase === 'jot'
                   ? 0.08
                   : HAPPY_TARGETS.listening
-              : HAPPY_TARGETS[pose];
+              : pose === 'speaking' && t - speakEnteredAt < SPEAK_SMILE_LEN
+                ? 0.85 // smiling eyes greet the answer before settling in
+                : HAPPY_TARGETS[pose];
           const ke = still || snap ? 1 : 1 - Math.exp(-5 * dt);
           happy += (happyTarget - happy) * ke;
           surprised += ((pose === 'thinking' ? 0.12 : 0) - surprised) * ke;
@@ -593,7 +685,20 @@ export function VrmAvatar({ state, getLevel, getFeatures }: VrmAvatarProps) {
       role="img"
       aria-label={`assistant ${state}`}
     >
-      {!ready && <NurseAvatar state={state} getLevel={getLevel} />}
+      {/* While the model loads, the themed orb pulses in the tile — never
+          the 2D nurse (she's reserved for hard failure only). */}
+      {!ready && (
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            display: 'grid',
+            placeItems: 'center',
+          }}
+        >
+          <AiOrb state={state} size={124} />
+        </div>
+      )}
       <div
         ref={hostRef}
         style={{
