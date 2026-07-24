@@ -31,6 +31,7 @@ import asyncpg
 from app.services.triage_service import TriageService
 
 from . import templates
+from .viseme_track import build_viseme_track
 
 logger = logging.getLogger(__name__)
 
@@ -41,6 +42,7 @@ MeasurementCallback = Callable[[dict], Awaitable[None]]
 OptionsCallback = Callable[[dict], Awaitable[None]]
 IdentityCallback = Callable[[dict], Awaitable[None]]
 ResumeCallback = Callable[[dict], Awaitable[None]]
+VisemeCallback = Callable[[dict], Awaitable[None]]
 
 # Unclear identity answers tolerated before we treat the confirm as rejected
 # (safe default: never start a clinical interview on an unverified identity).
@@ -152,6 +154,7 @@ class TurnVoiceService:
         options_callback: OptionsCallback | None = None,
         identity_callback: IdentityCallback | None = None,
         resume_callback: ResumeCallback | None = None,
+        viseme_callback: VisemeCallback | None = None,
         resume_prompt: str | None = None,
     ) -> None:
         from app.services.visit_confirm import needs_history_intake
@@ -192,6 +195,7 @@ class TurnVoiceService:
             "assessment_cb": assessment_callback,
             "measurement_cb": measurement_callback,
             "options_cb": options_callback,
+            "viseme_cb": viseme_callback,
             "buffer": bytearray(),
             "turn_event": asyncio.Event(),
             # Client-driven mic gate (mute / unmute / end_of_turn — the
@@ -851,6 +855,22 @@ class TurnVoiceService:
             # still sees the reply even if they can't hear it.
             logger.exception("TTS failed for %s", session_id)
             return
+        # Vowel timeline for avatar lip sync — sent before the line's audio
+        # so the client can anchor it to the first scheduled chunk.
+        viseme_cb: VisemeCallback | None = session.get("viseme_cb")
+        if viseme_cb is not None and audio:
+            duration_s = len(audio) / (OUTPUT_SAMPLE_RATE * 2)
+            try:
+                await viseme_cb(
+                    {
+                        "visemes": build_viseme_track(
+                            text, duration_s, session["language"]
+                        ),
+                        "duration": round(duration_s, 3),
+                    }
+                )
+            except Exception:
+                logger.debug("viseme_cb failed (likely client closed)")
         for offset in range(0, len(audio), TTS_CHUNK_BYTES):
             yield audio[offset:offset + TTS_CHUNK_BYTES]
 

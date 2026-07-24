@@ -122,10 +122,25 @@ export interface UseVoiceCallApi {
    *  state is 'speaking'). Drives the avatar's mouth. */
   getOutputLevel: () => number;
   /** Loudness plus the normalized spectral centroid (0..1, low = dark
-   *  rounded vowels, high = bright wide vowels) of the assistant's voice.
-   *  Same identity/rAF guarantees as getOutputLevel; centroid is 0.5
-   *  whenever there is no signal. Drives vowel-shaped lip sync. */
-  getOutputFeatures: () => { level: number; centroid: number };
+   *  rounded vowels, high = bright wide vowels) of the assistant's voice,
+   *  plus — when the server sent a text-timed viseme track for the line
+   *  currently playing — the exact vowel scheduled at this instant
+   *  (null between words / when no track). Same identity/rAF guarantees
+   *  as getOutputLevel. Drives vowel-shaped lip sync. */
+  getOutputFeatures: () => { level: number; centroid: number; vowel: VisemeName | null };
+}
+
+/** VRM mouth-shape names as sent in the server's viseme_track frames. */
+export type VisemeName = 'aa' | 'ih' | 'ou' | 'ee' | 'oh';
+
+interface ActiveVisemeTrack {
+  visemes: Array<{ t: number; v: string }>;
+  duration: number;
+  /** AudioContext time at which the line's first chunk starts playing;
+   *  null until that chunk is scheduled. */
+  anchor: number | null;
+  /** Monotonic playhead index (tracks only ever advance). */
+  idx: number;
 }
 
 const voiceFeatureEnabled = import.meta.env.VITE_ENABLE_VOICE === 'true';
@@ -412,6 +427,10 @@ export function useVoiceCall(options: UseVoiceCallOptions): UseVoiceCallApi {
   // until the next turn starts, so barge-in doesn't fight arriving PCM.
   const discardPlaybackRef = useRef(false);
 
+  // Text-timed vowel timeline for the line currently playing (avatar lip
+  // sync). Replaced whenever the server sends the next line's track.
+  const visemeTrackRef = useRef<ActiveVisemeTrack | null>(null);
+
   const wsRef = useRef<WebSocket | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const inputCtxRef = useRef<AudioContext | null>(null);
@@ -594,6 +613,11 @@ export function useVoiceCall(options: UseVoiceCallOptions): UseVoiceCallApi {
         return;
       }
       const startAt = Math.max(queue.ctx.currentTime + 0.02, queue.nextStartTime);
+      // The viseme track for a line always arrives just before that
+      // line's audio — the first chunk scheduled after it anchors the
+      // timeline to the AudioContext clock.
+      const track = visemeTrackRef.current;
+      if (track && track.anchor === null) track.anchor = startAt;
       const src = queue.ctx.createBufferSource();
       src.buffer = buffer;
       src.connect(queue.analyser);
@@ -677,10 +701,32 @@ export function useVoiceCall(options: UseVoiceCallOptions): UseVoiceCallApi {
   // Second scratch buffer for the frequency-domain read.
   const freqBufRef = useRef<Uint8Array<ArrayBuffer> | null>(null);
 
-  const getOutputFeatures = useCallback((): { level: number; centroid: number } => {
+  const getOutputFeatures = useCallback((): {
+    level: number;
+    centroid: number;
+    vowel: VisemeName | null;
+  } => {
     const level = getOutputLevel();
     const queue = playbackRef.current;
-    if (!queue || level <= 0) return { level: 0, centroid: 0.5 };
+    // Text-timed vowel for this exact instant, when a track is playing.
+    let vowel: VisemeName | null = null;
+    const track = visemeTrackRef.current;
+    if (queue && track && track.anchor !== null) {
+      const elapsed = queue.ctx.currentTime - track.anchor;
+      if (elapsed >= 0 && elapsed <= track.duration + 0.25) {
+        while (
+          track.idx + 1 < track.visemes.length &&
+          track.visemes[track.idx + 1].t <= elapsed
+        ) {
+          track.idx += 1;
+        }
+        const entry = track.visemes[track.idx];
+        if (entry && entry.t <= elapsed && entry.v !== 'sil') {
+          vowel = entry.v as VisemeName;
+        }
+      }
+    }
+    if (!queue || level <= 0) return { level: 0, centroid: 0.5, vowel: null };
     const { analyser } = queue;
     let buf = freqBufRef.current;
     if (!buf || buf.length !== analyser.frequencyBinCount) {
@@ -699,9 +745,9 @@ export function useVoiceCall(options: UseVoiceCallOptions): UseVoiceCallApi {
       energy += buf[i];
       weighted += i * buf[i];
     }
-    if (energy < 1) return { level, centroid: 0.5 };
+    if (energy < 1) return { level, centroid: 0.5, vowel };
     const centroid = (weighted / energy - lo) / (hi - lo);
-    return { level, centroid: Math.min(1, Math.max(0, centroid)) };
+    return { level, centroid: Math.min(1, Math.max(0, centroid)), vowel };
   }, [getOutputLevel]);
 
   // ----- Mic capture (browser → server) --------------------------------
@@ -977,6 +1023,24 @@ export function useVoiceCall(options: UseVoiceCallOptions): UseVoiceCallApi {
             }
             return;
           }
+          case 'viseme_track': {
+            // Vowel timeline for the next spoken line (avatar lip sync);
+            // anchored when that line's first audio chunk is scheduled.
+            const raw = message as {
+              visemes?: Array<{ t: number; v: string }>;
+              duration?: number;
+            };
+            visemeTrackRef.current =
+              Array.isArray(raw.visemes) && raw.visemes.length > 0
+                ? {
+                    visemes: raw.visemes,
+                    duration: Number(raw.duration) || 0,
+                    anchor: null,
+                    idx: 0,
+                  }
+                : null;
+            return;
+          }
           default:
             return;
         }
@@ -1002,6 +1066,7 @@ export function useVoiceCall(options: UseVoiceCallOptions): UseVoiceCallApi {
     commitAssessment();
     activeRef.current = false;
     discardPlaybackRef.current = false;
+    visemeTrackRef.current = null;
     pendingAutoEndRef.current = false;
     setAutoEnding(false);
     if (autoEndTimerRef.current !== null) {
@@ -1219,6 +1284,7 @@ export function useVoiceCall(options: UseVoiceCallOptions): UseVoiceCallApi {
   const interrupt = useCallback(() => {
     if (!activeRef.current || stateRef.current !== 'speaking') return;
     discardPlaybackRef.current = true;
+    visemeTrackRef.current = null; // barge-in — don't leave a stuck mouth
     teardownPlayback();
     if (mutedRef.current) {
       mutedRef.current = false;

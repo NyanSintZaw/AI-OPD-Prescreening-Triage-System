@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
-import { useReducedMotion } from 'framer-motion';
+import { motion, useReducedMotion } from 'framer-motion';
+import { useTranslation } from 'react-i18next';
 import type { VoiceCallState } from '../../hooks/useVoiceCall';
-import { AiOrb } from './AiOrb';
 import { NurseAvatar } from './NurseAvatar';
 
 type AvatarPose = 'idle' | 'listening' | 'thinking' | 'speaking';
@@ -12,10 +12,99 @@ interface VrmAvatarProps {
    *  blendshape while speaking. Must be identity-stable per render
    *  (useVoiceCall.getOutputLevel). */
   getLevel?: () => number;
-  /** Loudness + spectral centroid — enables vowel-shaped (A/I/U/E/O)
-   *  lip sync (useVoiceCall.getOutputFeatures). Falls back to getLevel
-   *  (openness-only `aa`) when absent. */
-  getFeatures?: () => { level: number; centroid: number };
+  /** Loudness + spectral centroid + (when the server sent a text-timed
+   *  viseme track) the exact vowel scheduled right now — enables
+   *  vowel-shaped (A/I/U/E/O) lip sync (useVoiceCall.getOutputFeatures).
+   *  Falls back to getLevel (openness-only `aa`) when absent. */
+  getFeatures?: () => { level: number; centroid: number; vowel?: string | null };
+}
+
+/**
+ * Loading screen shown in the avatar tile while the VRM downloads and
+ * parses: a softly pulsing circle with a real download-progress ring and
+ * a bilingual caption. Replaces the old bare orb per user feedback.
+ */
+function AvatarLoading() {
+  const { t } = useTranslation();
+  const reduce = useReducedMotion();
+  const [progress, setProgress] = useState(0);
+  useEffect(() => subscribeAvatarLoadProgress(setProgress), []);
+
+  const R = 52;
+  const C = 2 * Math.PI * R;
+  const pct = Math.round(progress * 100);
+
+  return (
+    <div
+      style={{
+        position: 'absolute',
+        inset: 0,
+        display: 'grid',
+        placeItems: 'center',
+      }}
+    >
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14 }}>
+        <motion.div
+          animate={reduce ? undefined : { scale: [1, 1.05, 1] }}
+          transition={{ duration: 2.2, repeat: Infinity, ease: 'easeInOut' }}
+          style={{
+            width: 128,
+            height: 128,
+            borderRadius: '50%',
+            display: 'grid',
+            placeItems: 'center',
+            background:
+              'radial-gradient(circle at 38% 32%, var(--k-primary-tint, #dfe5f7), transparent 75%)',
+          }}
+        >
+          <svg width={128} height={128} viewBox="0 0 128 128">
+            <circle
+              cx={64}
+              cy={64}
+              r={R}
+              fill="none"
+              stroke="var(--k-primary-tint-border, #b9c3e6)"
+              strokeWidth={7}
+              opacity={0.5}
+            />
+            <circle
+              cx={64}
+              cy={64}
+              r={R}
+              fill="none"
+              stroke="var(--k-primary, #3f4e87)"
+              strokeWidth={7}
+              strokeLinecap="round"
+              strokeDasharray={C}
+              strokeDashoffset={C * (1 - Math.max(0.02, progress))}
+              transform="rotate(-90 64 64)"
+              style={{ transition: 'stroke-dashoffset 300ms ease' }}
+            />
+            <text
+              x={64}
+              y={70}
+              textAnchor="middle"
+              fontSize={24}
+              fontWeight={700}
+              fill="var(--k-primary, #3f4e87)"
+            >
+              {pct > 0 ? `${pct}%` : '…'}
+            </text>
+          </svg>
+        </motion.div>
+        <span
+          style={{
+            fontSize: 15,
+            fontWeight: 600,
+            color: 'var(--k-ink-soft, #5a6584)',
+            textAlign: 'center',
+          }}
+        >
+          {t('kioskAvatarLoading')}
+        </span>
+      </div>
+    </div>
+  );
 }
 
 function toPose(state: VoiceCallState | 'idle'): AvatarPose {
@@ -40,16 +129,58 @@ const MODEL_URL = '/avatar/nurse.vrm';
 // exactly once per page and share the bytes between the early prefetch
 // (KioskSession kicks this off during language select) and the actual
 // avatar mount, which parses from the buffer instead of re-downloading.
+// Download progress (0..1) feeds the loading screen.
 let modelBytesPromise: Promise<ArrayBuffer> | null = null;
+let modelLoadProgress = 0;
+const progressSubs = new Set<(p: number) => void>();
+
+function setModelProgress(p: number) {
+  modelLoadProgress = p;
+  for (const cb of progressSubs) cb(p);
+}
+
+/** Subscribe to the model download progress (0..1; called immediately
+ *  with the current value). Returns the unsubscribe function. */
+export function subscribeAvatarLoadProgress(cb: (p: number) => void): () => void {
+  cb(modelLoadProgress);
+  progressSubs.add(cb);
+  return () => progressSubs.delete(cb);
+}
+
 export function preloadAvatarModel(): Promise<ArrayBuffer> {
   if (!modelBytesPromise) {
-    modelBytesPromise = fetch(MODEL_URL).then((res) => {
+    modelBytesPromise = (async () => {
+      const res = await fetch(MODEL_URL);
       if (!res.ok) throw new Error(`avatar model ${res.status}`);
-      return res.arrayBuffer();
-    });
+      const total = Number(res.headers.get('content-length')) || 0;
+      if (!res.body) {
+        const buf = await res.arrayBuffer();
+        setModelProgress(1);
+        return buf;
+      }
+      const reader = res.body.getReader();
+      const chunks: Uint8Array[] = [];
+      let loaded = 0;
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        chunks.push(value);
+        loaded += value.byteLength;
+        if (total > 0) setModelProgress(Math.min(0.999, loaded / total));
+      }
+      const out = new Uint8Array(loaded);
+      let offset = 0;
+      for (const chunk of chunks) {
+        out.set(chunk, offset);
+        offset += chunk.byteLength;
+      }
+      setModelProgress(1);
+      return out.buffer;
+    })();
     // A failed download shouldn't poison every later attempt.
     modelBytesPromise.catch(() => {
       modelBytesPromise = null;
+      setModelProgress(0);
     });
   }
   return modelBytesPromise;
@@ -569,11 +700,19 @@ export function VrmAvatar({ state, getLevel, getFeatures }: VrmAvatarProps) {
           // the five VRM visemes with overlapping bands.
           let level = 0;
           let centroidTarget = 0.5;
+          // Text-timed vowels snap fast; the acoustic fallback stays lazy.
+          let centroidRate = 12;
           if (pose === 'speaking' && !still) {
             const feats = getFeaturesRef.current?.();
             if (feats) {
               level = feats.level;
-              if (level > 0.02) centroidTarget = feats.centroid;
+              const hinted = feats.vowel ? VOWEL_CENTROIDS[feats.vowel] : undefined;
+              if (hinted !== undefined) {
+                centroidTarget = hinted;
+                centroidRate = 22;
+              } else if (level > 0.02) {
+                centroidTarget = feats.centroid;
+              }
             } else {
               level = getLevelRef.current?.() ?? 0;
             }
@@ -583,7 +722,7 @@ export function VrmAvatar({ state, getLevel, getFeatures }: VrmAvatarProps) {
             if (pose === 'speaking') level = Math.max(level, 0.6);
           }
           lip += (level - lip) * (1 - Math.exp(-dt * (level > lip ? 26 : 8)));
-          centroidSm += (centroidTarget - centroidSm) * (1 - Math.exp(-dt * 12));
+          centroidSm += (centroidTarget - centroidSm) * (1 - Math.exp(-dt * centroidRate));
           // The VRoid `happy` expression already opens the mouth into a
           // grin — while the smile is strong (speaking-entry flourish,
           // reassure) the vowel mouth must yield, or the two stack into a
@@ -689,20 +828,7 @@ export function VrmAvatar({ state, getLevel, getFeatures }: VrmAvatarProps) {
       role="img"
       aria-label={`assistant ${state}`}
     >
-      {/* While the model loads, the themed orb pulses in the tile — never
-          the 2D nurse (she's reserved for hard failure only). */}
-      {!ready && (
-        <div
-          style={{
-            position: 'absolute',
-            inset: 0,
-            display: 'grid',
-            placeItems: 'center',
-          }}
-        >
-          <AiOrb state={state} size={124} />
-        </div>
-      )}
+      {!ready && <AvatarLoading />}
       <div
         ref={hostRef}
         style={{
