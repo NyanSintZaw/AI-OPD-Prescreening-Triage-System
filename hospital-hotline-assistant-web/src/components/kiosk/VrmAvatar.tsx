@@ -333,12 +333,12 @@ export function VrmAvatar({ state, getLevel, getFeatures }: VrmAvatarProps) {
         // arm still produces a bent, natural pose.
         const thinkWrist = new THREE.Vector3();
         if (ikGeom) {
-          // Beside the chin, below the mouth line — near the face without
-          // ever covering it.
+          // Just under the chin — the relaxed finger backs rest against it
+          // (gentler than the raised index-to-cheek, per user feedback).
           const chin = new THREE.Vector3(
-            ikGeom.shoulder.x * 0.85,
-            headPos.y - 0.18 * torso,
-            0.3 * torso,
+            ikGeom.shoulder.x * 0.5,
+            headPos.y - 0.22 * torso,
+            0.32 * torso,
           );
           const toChin = chin.sub(ikGeom.shoulder);
           const maxReach = 0.88 * (ikGeom.upperLen + ikGeom.lowerLen);
@@ -350,16 +350,16 @@ export function VrmAvatar({ state, getLevel, getFeatures }: VrmAvatarProps) {
         // arbitrary way; this rolls the hand so the knuckles face the
         // camera and the fingers curl toward the chin instead of flipping
         // up across the mouth.
-        const IK_FOREARM_TWIST = 0.9;
+        const IK_FOREARM_TWIST = 0.6;
 
         // ── Finger curl ─────────────────────────────────────────────────
         // VRM hands rest flat-open, which reads robotic. A soft curl runs
         // always; thinking deepens it into a loose fist with the index
         // more extended (classic hand-to-chin). [bone, curl factor].
         const FINGER_CHAIN: Array<[string, number]> = [
-          ['rightIndexProximal', 0.35],
-          ['rightIndexIntermediate', 0.45],
-          ['rightIndexDistal', 0.3],
+          ['rightIndexProximal', 0.75],
+          ['rightIndexIntermediate', 0.85],
+          ['rightIndexDistal', 0.6],
           ['rightMiddleProximal', 1.0],
           ['rightMiddleIntermediate', 1.15],
           ['rightMiddleDistal', 0.8],
@@ -627,7 +627,7 @@ export function VrmAvatar({ state, getLevel, getFeatures }: VrmAvatarProps) {
           // Fingers: soft curl everywhere, loose fist (index freer) while
           // the hand is up at the chin. Written every frame — the humanoid
           // resets the normalized rig on update.
-          const curlTarget = pose === 'thinking' ? 1.0 : 0.3;
+          const curlTarget = pose === 'thinking' ? 0.55 : 0.3;
           fingerCurl += (curlTarget - fingerCurl) * k;
           for (const f of fingerBones) f.node!.rotation.set(0, 0, fingerCurl * f.factor);
 
