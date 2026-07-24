@@ -2286,10 +2286,11 @@ async def list_routing_feedback(
 
 
 # ---------------------------------------------------------------------------
-# Voice WebSocket — Gemini Live API bridge
+# Voice WebSocket — turn-based voice bridge (Google STT → screening engine →
+# Google Cloud TTS; no Gemini Live)
 # ---------------------------------------------------------------------------
 #
-# Protocol (see app/services/live_voice_service.py for state details):
+# Protocol (see app/services/screening/voice_bridge.py for state details):
 #
 #   Client → server
 #     bytes                          raw PCM 16-bit 16 kHz mono audio chunk

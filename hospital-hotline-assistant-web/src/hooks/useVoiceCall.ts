@@ -6,7 +6,8 @@ import { takePrewarmedPlaybackContext } from './voicePrewarm';
 
 /**
  * Continuous voice-call hook backed by the backend's
- * `WS /ws/voice/{session_id}` Gemini Live API bridge.
+ * `WS /ws/voice/{session_id}` turn-based voice bridge (Google STT →
+ * screening engine → Google Cloud TTS; no Gemini Live).
  *
  * Flow:
  *   1. ``start()`` opens the WebSocket, requests the mic, and pipes raw PCM
@@ -135,12 +136,13 @@ const voiceFeatureEnabled = import.meta.env.VITE_ENABLE_VOICE === 'true';
 // actually flowing in both directions.
 const voiceDebugEnabled = import.meta.env.VITE_VOICE_DEBUG === 'true';
 
-// PCM rates: Gemini Live wants 16 kHz mono input, sends 24 kHz mono output.
+// PCM rates: the voice bridge takes 16 kHz mono input (Google STT) and
+// sends 24 kHz mono output (Google Cloud TTS).
 const INPUT_SAMPLE_RATE = 16000;
 const OUTPUT_SAMPLE_RATE = 24000;
 
 // How long after the last server-sent audio chunk before we flip the UI
-// back from "speaking" to "listening". Gemini Live tends to send tightly
+// back from "speaking" to "listening". TTS audio arrives in tightly
 // packed bursts followed by gaps; a small grace period prevents the orb
 // from flickering between states mid-utterance.
 const SPEAKING_IDLE_GRACE_MS = 250;
