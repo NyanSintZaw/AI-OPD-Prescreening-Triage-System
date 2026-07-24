@@ -42,6 +42,28 @@ def _to_float(value: Any) -> float | None:
         return None
 
 
+# Standard clinical fever threshold; the criteria's own severity cutoffs
+# (e.g. ≥38.5 in triage tuples) still decide how MUCH it matters.
+FEVER_TEMP_C = 37.8
+
+
+def apply_objective_findings(state) -> None:
+    """Derive findings from measured vitals so instrument evidence beats chat
+    extraction (a booth thermometer at 37.9 °C means fever, whatever the
+    patient later says in passing)."""
+    from .state import Finding  # local import: state.py imports nothing from here
+
+    temp = state.vitals.get("temp")
+    if temp is not None and float(temp) >= FEVER_TEMP_C:
+        existing = state.findings.get("fever")
+        if existing is None or existing.state != "present":
+            state.findings["fever"] = Finding(
+                state="present",
+                value=f"measured {float(temp):.1f}C",
+                source_turn=state.turn_count,
+            )
+
+
 def normalize_vitals(raw: Mapping[str, Any] | None) -> dict[str, float]:
     """Return canonical numeric vitals, dropping unusable/absent values.
 

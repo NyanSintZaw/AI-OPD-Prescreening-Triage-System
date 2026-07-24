@@ -1,7 +1,13 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { api } from '../api';
-import type { HisVisitDetail, HisVisitSummary } from '../api/types';
+import { getAdminRole } from '../api/client';
+import type {
+  HisConnection,
+  HisPatientSummary,
+  HisVisitDetail,
+  HisVisitSummary,
+} from '../api/types';
 
 function ageFromBirthdate(birthdate: string | null): string {
   if (!birthdate) return '—';
@@ -28,11 +34,176 @@ function Field({ label, value, stage }: { label: string; value: unknown; stage?:
   );
 }
 
+/** Connection setup / status for the hospital DB — the demo's "the hospital
+ *  plugs its database into our system" moment. Two fields for now: endpoint
+ *  and a display name that becomes the panel title. */
+function ConnectionCard({
+  conn,
+  onConnected,
+}: {
+  conn: HisConnection | null;
+  onConnected: (next: HisConnection) => void;
+}) {
+  const { t } = useTranslation();
+  const canEdit = getAdminRole() === 'super_admin';
+  const connected = Boolean(conn?.connected);
+  const [open, setOpen] = useState(!connected);
+  const [endpoint, setEndpoint] = useState(conn?.endpoint ?? 'http://localhost:8001');
+  const [name, setName] = useState(conn?.name ?? '');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [confirmDisconnect, setConfirmDisconnect] = useState(false);
+
+  // Keep the collapsed/expanded state in sync when the connection loads.
+  useEffect(() => {
+    setOpen(!connected);
+    if (conn?.endpoint) setEndpoint(conn.endpoint);
+    if (conn?.name) setName(conn.name);
+  }, [connected, conn?.endpoint, conn?.name]);
+
+  const connect = async () => {
+    if (!endpoint.trim() || !name.trim()) {
+      setError(t('hdbConnRequired'));
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    try {
+      const next = await api.updateHisConnection({
+        endpoint: endpoint.trim(),
+        name: name.trim(),
+      });
+      onConnected(next);
+      setOpen(false);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const disconnect = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      const next = await api.disconnectHisConnection();
+      setConfirmDisconnect(false);
+      onConnected(next);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className={`hdb-connection ${connected ? 'connected' : 'disconnected'}`}>
+      <div className="hdb-connection-status">
+        <span className={`hdb-conn-dot ${connected ? 'ok' : 'off'}`} aria-hidden="true" />
+        <span className="hdb-conn-text">
+          {connected
+            ? t('hdbConnConnected', {
+                endpoint: conn?.endpoint ?? '',
+                count: conn?.visit_count ?? 0,
+              })
+            : t('hdbConnNotConnected')}
+        </span>
+        {connected && canEdit && (
+          <>
+            <button type="button" className="text-btn" onClick={() => setOpen((v) => !v)}>
+              {t('hdbConnChange')}
+            </button>
+            <button
+              type="button"
+              className="text-btn users-danger"
+              onClick={() => setConfirmDisconnect(true)}
+              disabled={busy}
+            >
+              {t('hdbConnDisconnect')}
+            </button>
+          </>
+        )}
+      </div>
+
+      {confirmDisconnect && (
+        <div className="hdb-modal-backdrop" role="presentation">
+          <div className="hdb-modal" role="alertdialog" aria-modal="true">
+            <h3>{t('hdbConnDisconnectTitle')}</h3>
+            <p className="muted">{t('hdbConnDisconnectBody', { name: conn?.name ?? '' })}</p>
+            {error && <p className="error-text">{error}</p>}
+            <div className="hdb-modal-actions">
+              <button
+                type="button"
+                className="secondary-btn users-danger"
+                onClick={() => void disconnect()}
+                disabled={busy}
+              >
+                {busy ? t('loading') : t('hdbConnDisconnectConfirm')}
+              </button>
+              <button
+                type="button"
+                className="text-btn"
+                onClick={() => setConfirmDisconnect(false)}
+                disabled={busy}
+              >
+                {t('usersCancel')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {conn?.message && !connected && <p className="error-text">{conn.message}</p>}
+
+      {open && canEdit && (
+        <div className="hdb-connection-form">
+          <label className="vitals-extra-field">
+            <span>{t('hdbConnEndpoint')}</span>
+            <input
+              type="url"
+              placeholder="http://localhost:8001"
+              value={endpoint}
+              onChange={(e) => setEndpoint(e.target.value)}
+              disabled={busy}
+            />
+          </label>
+          <label className="vitals-extra-field">
+            <span>{t('hdbConnName')}</span>
+            <input
+              type="text"
+              placeholder={t('hdbConnNamePlaceholder')}
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              disabled={busy}
+              maxLength={120}
+            />
+          </label>
+          <button
+            type="button"
+            className="primary-btn"
+            onClick={() => void connect()}
+            disabled={busy || !endpoint.trim() || !name.trim()}
+          >
+            {busy ? t('hdbConnConnecting') : t('hdbConnConnect')}
+          </button>
+          {error && <p className="error-text">{error}</p>}
+        </div>
+      )}
+      {open && !canEdit && !connected && (
+        <p className="muted">{t('hdbConnAskAdmin')}</p>
+      )}
+    </div>
+  );
+}
+
 export function HospitalDbPanel() {
   const { t } = useTranslation();
+  const [conn, setConn] = useState<HisConnection | null>(null);
   const [available, setAvailable] = useState(true);
+  const [view, setView] = useState<'vn' | 'hn'>('vn');
   const [visits, setVisits] = useState<HisVisitSummary[]>([]);
+  const [patients, setPatients] = useState<HisPatientSummary[]>([]);
   const [selected, setSelected] = useState<HisVisitDetail | null>(null);
+  const [selectedHn, setSelectedHn] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -40,9 +211,18 @@ export function HospitalDbPanel() {
     setLoading(true);
     setError(null);
     try {
-      const res = await api.getHisVisits();
+      const connection = await api.getHisConnection();
+      setConn(connection);
+      if (!connection.connected) {
+        setAvailable(false);
+        setVisits([]);
+        setPatients([]);
+        return;
+      }
+      const [res, pats] = await Promise.all([api.getHisVisits(), api.getHisPatients()]);
       setAvailable(res.available);
       setVisits(res.visits);
+      setPatients(pats.available ? pats.patients : []);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -68,11 +248,13 @@ export function HospitalDbPanel() {
     if (selected) await openVisit(selected.visit_id);
   };
 
+  const selectedPatient = patients.find((p) => p.hn === selectedHn) ?? null;
+
   return (
     <div className="hdb-panel">
       <div className="hdb-header">
         <div>
-          <h2>{t('hdbTitle')}</h2>
+          <h2>{conn?.connected && conn.name ? conn.name : t('hdbTitle')}</h2>
           <p className="muted">{t('hdbSubtitle')}</p>
         </div>
         <button type="button" className="secondary-btn" onClick={() => void refresh()}>
@@ -80,13 +262,127 @@ export function HospitalDbPanel() {
         </button>
       </div>
 
+      <ConnectionCard
+        conn={conn}
+        onConnected={() => void loadVisits()}
+      />
+
       {error && <p className="error-text">{error}</p>}
 
       {!available ? (
-        <p className="muted hdb-unavailable">{t('hdbUnavailable')}</p>
+        !loading && !conn?.connected ? null : (
+          <p className="muted hdb-unavailable">{t('hdbUnavailable')}</p>
+        )
       ) : loading ? (
         <p className="muted">{t('loading')}</p>
       ) : (
+        <>
+          <div className="hdb-view-tabs" role="tablist">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={view === 'vn'}
+              className={`hdb-view-tab ${view === 'vn' ? 'active' : ''}`}
+              onClick={() => setView('vn')}
+            >
+              {t('hdbTabVisits', { count: visits.length })}
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={view === 'hn'}
+              className={`hdb-view-tab ${view === 'hn' ? 'active' : ''}`}
+              onClick={() => setView('hn')}
+            >
+              {t('hdbTabPatients', { count: patients.length })}
+            </button>
+          </div>
+
+          {view === 'hn' ? (
+        <div className="hdb-body">
+          <div className="hdb-list">
+            <table className="hdb-table">
+              <thead>
+                <tr>
+                  <th>{t('hdbHn')}</th>
+                  <th>{t('hdbPatientName')}</th>
+                  <th>{t('hdbAge')}</th>
+                  <th>{t('hdbVisitCount')}</th>
+                  <th>{t('hdbStatus')}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {patients.map((p) => (
+                  <tr
+                    key={p.hn}
+                    className={selectedHn === p.hn ? 'active' : ''}
+                    onClick={() => setSelectedHn(p.hn)}
+                  >
+                    <td><code>{p.hn}</code></td>
+                    <td>{p.patient_name?.trim() || '—'}</td>
+                    <td>{ageFromBirthdate(p.birthdate)}</td>
+                    <td>{p.visit_count}</td>
+                    <td>
+                      <span
+                        className={`hdb-status ${p.is_first_time ? 'hdb-status-registered' : 'hdb-status-routed'}`}
+                      >
+                        {p.is_first_time ? t('hdbFirstTime') : t('hdbReturning')}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {selectedPatient && (
+            <div className="hdb-detail">
+              <div className="hdb-detail-head">
+                <code>{selectedPatient.hn}</code>
+                <span
+                  className={`hdb-status ${selectedPatient.is_first_time ? 'hdb-status-registered' : 'hdb-status-routed'}`}
+                >
+                  {selectedPatient.is_first_time ? t('hdbFirstTime') : t('hdbReturning')}
+                </span>
+              </div>
+
+              <h4>{t('hdbGroupRegistered')}</h4>
+              <Field label={t('hdbPatientName')} value={selectedPatient.patient_name} />
+              <Field label={t('hdbBirthdate')} value={selectedPatient.birthdate} />
+              <Field label={t('hdbVisitCount')} value={selectedPatient.visit_count} />
+
+              <h4>{t('hdbGroupHistory')}</h4>
+              <Field
+                label={t('hdbSmokingAlcohol')}
+                value={selectedPatient.history.smoking_alcohol}
+                stage="1"
+              />
+              <Field label={t('hdbAllergies')} value={selectedPatient.history.allergies} stage="1" />
+              <Field
+                label={t('hdbChronicConditions')}
+                value={selectedPatient.history.chronic_conditions}
+                stage="1"
+              />
+              <Field
+                label={t('hdbPastSurgeries')}
+                value={selectedPatient.history.past_surgeries}
+                stage="1"
+              />
+              <Field
+                label={t('hdbFamilyHistory')}
+                value={selectedPatient.history.family_history}
+                stage="1"
+              />
+              <Field label={t('hdbHistoryRecordedAt')} value={selectedPatient.history.recorded_at} />
+
+              <h4>{t('hdbGroupLastVitals')}</h4>
+              <Field label={t('hdbWeight')} value={selectedPatient.last_vitals.weight} />
+              <Field label={t('hdbHeight')} value={selectedPatient.last_vitals.height} />
+              <Field label={t('hdbVitalsMeasuredAt')} value={selectedPatient.last_vitals.measured_at} />
+            </div>
+          )}
+        </div>
+          ) : (
         <div className="hdb-body">
           <div className="hdb-list">
             <table className="hdb-table">
@@ -154,6 +450,8 @@ export function HospitalDbPanel() {
             </div>
           )}
         </div>
+          )}
+        </>
       )}
     </div>
   );

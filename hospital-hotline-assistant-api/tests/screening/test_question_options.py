@@ -42,6 +42,8 @@ def _state(**kwargs) -> ScreeningState:
         chief_complaint="sore throat",
         age_years=33.0,
         # resolve red flags + BP so the next unresolved question is nt_onset
+        # (BP is always asked now — no age gate — so seed a measured reading)
+        vitals={"sbp": 118.0, "dbp": 76.0},
         findings={
             "dyspnea": Finding(state="absent"),
             "severe_respiratory_distress": Finding(state="absent"),

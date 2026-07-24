@@ -35,6 +35,7 @@ export function SlipPage() {
   const language = getStoredLanguage();
   const [session, setSession] = useState<SessionOut | null>(null);
   const [departmentName, setDepartmentName] = useState<string | null>(null);
+  const [navLine, setNavLine] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -74,8 +75,14 @@ export function SlipPage() {
           setDepartmentName(
             language === 'th' ? dept.name_th || dept.name_en : dept.name_en,
           );
+          setNavLine(
+            language === 'th'
+              ? dept.nav_line_th || null
+              : dept.nav_line_en || null,
+          );
         } else if (deptCode) {
           setDepartmentName(deptCode);
+          setNavLine(null);
         }
       } catch {
         if (!cancelled) setError(t('slipLoadError'));
@@ -146,6 +153,12 @@ export function SlipPage() {
           <dt>{t('slipDepartment')}</dt>
           <dd>{departmentName || '—'}</dd>
         </div>
+        {navLine && (
+          <div>
+            <dt>{t('slipNavInstruction')}</dt>
+            <dd className="slip-nav-line">{navLine}</dd>
+          </div>
+        )}
         <div>
           <dt>{t('slipTimestamp')}</dt>
           <dd>{stamped}</dd>

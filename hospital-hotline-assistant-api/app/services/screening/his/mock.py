@@ -10,7 +10,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from .adapter import VisitInfo
+from .adapter import PatientHistory, VisitInfo
 
 logger = logging.getLogger(__name__)
 
@@ -23,6 +23,7 @@ class MockHisAdapter:
             visit_id=visit_id.strip(),
             is_active=True,
             patient_name="Mock Patient",
+            patient_history=PatientHistory(is_first_time=True),
             raw={"source": "mock"},
         )
 
@@ -31,6 +32,10 @@ class MockHisAdapter:
 
     async def push_referral(self, referral: dict[str, Any]) -> bool:
         logger.info("[MockHIS] stage-1 referral push: %s", referral)
+        return True
+
+    async def push_patient_history(self, hn: str, history: dict[str, Any]) -> bool:
+        logger.info("[MockHIS] patient history push hn=%s history=%s", hn, history)
         return True
 
     async def push_follow_up(self, visit_id: str, follow_up: str) -> bool:

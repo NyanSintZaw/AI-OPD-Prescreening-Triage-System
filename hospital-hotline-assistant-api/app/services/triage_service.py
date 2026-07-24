@@ -103,14 +103,28 @@ def _turn_context(metadata: dict[str, Any]) -> dict[str, Any] | None:
     gate runs, so e.g. a cuff reading of 84/53 fires the danger-vitals rule
     on turn 1.
     """
+    from app.services.screening.history_findings import history_dict_from_metadata
+
     ctx: dict[str, Any] = {}
     visit = metadata.get("visit") or {}
     age = visit.get("age_years")
     if isinstance(age, (int, float)) and age >= 0:
         ctx["age_years"] = age
-    vitals = metadata.get("vitals") or {}
+    patient_name = str(visit.get("patient_name") or "").strip()
+    if patient_name:
+        ctx["patient_name"] = patient_name
+    vitals = dict(metadata.get("vitals") or {})
+    if vitals.pop("bp_recheck_pending", None):
+        # The reading that opened a rest window is provisional: the patient
+        # rests 15 minutes and re-measures; only the confirmatory reading may
+        # drive the danger-vital rules. Other vitals still flow.
+        for key in ("systolic", "diastolic", "sbp", "dbp", "map", "pressure"):
+            vitals.pop(key, None)
     if vitals:
         ctx["vitals"] = vitals
+    history = history_dict_from_metadata(metadata)
+    if history:
+        ctx["patient_history"] = history
     return ctx or None
 
 

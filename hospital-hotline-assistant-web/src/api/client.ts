@@ -38,6 +38,19 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   });
 
   if (!response.ok) {
+    // Admin tokens are in-memory on the backend and vanish on restart. A 401
+    // while we HAD a token means the session is stale — clear it and send
+    // staff back to the right login instead of silently empty panels.
+    if (response.status === 401 && token && typeof window !== 'undefined') {
+      const path = window.location.pathname;
+      if (path.startsWith('/admin') || path.startsWith('/nurse')) {
+        setAdminSession(null, null);
+        window.location.assign(
+          path.startsWith('/admin') ? '/login/admin' : '/login/nurse',
+        );
+        throw new Error('Session expired — please log in again');
+      }
+    }
     let detail = response.statusText;
     try {
       const body = (await response.json()) as ApiError;

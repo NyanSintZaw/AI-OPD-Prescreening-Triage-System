@@ -75,6 +75,12 @@ export interface DepartmentOut {
   description_en: string | null;
   description_th: string | null;
   is_active: boolean;
+  floor?: string | null;
+  room?: string | null;
+  nav_hint_en?: string | null;
+  nav_hint_th?: string | null;
+  nav_line_en?: string | null;
+  nav_line_th?: string | null;
 }
 
 export interface RoutingRuleOut {
@@ -408,6 +414,7 @@ export type BloodPressureFetchStatus =
   | 'timeout'
   | 'no_records'
   | 'not_seen'
+  | 'resting'
   | 'error';
 
 export interface BloodPressureFetchResponse {
@@ -421,6 +428,17 @@ export interface BloodPressureFetchResponse {
   body_movement: boolean | null;
   message: string | null;
   reading_id?: string | null;
+  rest_until?: string | null;
+  seconds_remaining?: number | null;
+}
+
+export interface BpRestStatusOut {
+  resting: boolean;
+  rest_until: string | null;
+  seconds_remaining: number;
+  reason: string | null;
+  hn: string | null;
+  visit_id: string | null;
 }
 
 export interface SessionVitalsUpdate {
@@ -489,6 +507,70 @@ export interface HisVisitDetailResponse {
   visit: HisVisitDetail | null;
 }
 
+/** HN master record row from the hospital DB (admin Database → HN tab). */
+export interface HisPatientSummary {
+  hn: string;
+  patient_name: string | null;
+  birthdate: string | null;
+  is_first_time: boolean;
+  history: {
+    smoking_alcohol: string | null;
+    allergies: string | null;
+    chronic_conditions: string | null;
+    past_surgeries: string | null;
+    family_history: string | null;
+    recorded_at: string | null;
+  };
+  last_vitals: {
+    weight: number | null;
+    height: number | null;
+    measured_at: string | null;
+  };
+  visit_count: number;
+}
+
+export interface HisPatientsResponse {
+  available: boolean;
+  patients: HisPatientSummary[];
+}
+
+export interface HisConnection {
+  mode: 'mock' | 'http';
+  endpoint: string | null;
+  /** Display name shown as the Hospital Database panel title. */
+  name: string;
+  connected: boolean;
+  visit_count?: number | null;
+  message?: string | null;
+}
+
+export interface HisConnectionUpdate {
+  endpoint: string;
+  name: string;
+}
+
+export interface AdminManagedUser {
+  id: string;
+  email: string;
+  full_name: string | null;
+  role: 'super_admin' | 'admin' | 'viewer';
+  is_active: boolean;
+  last_login_at: string | null;
+  created_at: string;
+}
+
+export interface AdminUserCreateRequest {
+  email: string;
+  full_name: string;
+  password: string;
+}
+
+export interface AdminUserUpdateRequest {
+  full_name?: string;
+  password?: string;
+  is_active?: boolean;
+}
+
 export interface LinkVisitResponse {
   linked: boolean;
   visit_id: string;
@@ -496,6 +578,47 @@ export interface LinkVisitResponse {
   age_years?: number | null;
   appointment?: boolean;
   has_his_vitals?: boolean;
+  is_first_time?: boolean;
+  hn?: string | null;
+}
+
+/** Lookup an in-progress session already linked to this hospital visit (VN). */
+export interface SessionByVisitOut {
+  found: boolean;
+  visit_id: string;
+  session?: SessionOut | null;
+  /** 'active' → offer continue/start-over; 'completed' → start-over/reprint. */
+  status?: string | null;
+  patient_name?: string | null;
+  name_confirmed?: boolean;
+  needs_history_intake?: boolean;
+}
+
+export interface ConfirmVisitNameRequest {
+  confirmed?: boolean | null;
+  text?: string | null;
+}
+
+export interface ConfirmVisitNameResponse {
+  decision: 'yes' | 'no' | 'uncertain' | 'other';
+  name_confirmed: boolean;
+  unlinked: boolean;
+  patient_name?: string | null;
+}
+
+export interface PatientHistoryIntakeRequest {
+  smoking_alcohol?: string | null;
+  allergies?: string | null;
+  chronic_conditions?: string | null;
+  past_surgeries?: string | null;
+  family_history?: string | null;
+}
+
+export interface PatientHistoryIntakeResponse {
+  saved: boolean;
+  pushed_to_his: boolean;
+  is_first_time: boolean;
+  hn?: string | null;
 }
 
 // ── Kiosk home / attract-screen stats ─────────────────────────────────────────

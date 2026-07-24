@@ -26,8 +26,19 @@ SILENT_CHUNK = b"\x00\x00" * 640  # 40 ms of digital silence
 # ── fakes ─────────────────────────────────────────────────────────────────────
 
 class FakeConn:
+    """Stateful sessions row: holds metadata so the identity gate's
+    apply_confirm_decision reads/writes something real."""
+
+    def __init__(self, metadata: dict | None = None) -> None:
+        self.metadata = dict(metadata or {})
+
     async def fetchrow(self, query, *args):
-        return {"id": args[0], "metadata": {}}
+        return {"id": args[0], "metadata": dict(self.metadata)}
+
+    async def execute(self, query, *args):
+        if "UPDATE sessions" in query:
+            self.metadata = dict(args[1])
+        return "UPDATE 1"
 
 
 class FakeStt:
@@ -96,11 +107,18 @@ def final_turn(reply: str = "Please proceed to the Emergency Department.") -> li
 
 
 class Harness:
-    def __init__(self, language: str = "en") -> None:
+    def __init__(
+        self,
+        language: str = "en",
+        metadata: dict | None = None,
+        resume_prompt: str | None = None,
+    ) -> None:
+        self.resume_prompt = resume_prompt
         self.language = language
         self.stt = FakeStt()
         self.tts = FakeTts()
         self.triage = FakeTriageService()
+        self.conn = FakeConn(metadata)
         self.service = TurnVoiceService(
             triage_service=self.triage,  # duck-typed
             stt_client=self.stt,
@@ -109,6 +127,9 @@ class Harness:
         self.transcripts: list[tuple[str, str]] = []
         self.emergencies: list[dict] = []
         self.assessments: list[dict] = []
+        self.identities: list[dict] = []
+        self.resumes: list[dict] = []
+        self.options: list[dict] = []
         self.chunks: list[bytes] = []
         self._task: asyncio.Task | None = None
 
@@ -122,13 +143,26 @@ class Harness:
         async def on_assessment(payload: dict) -> None:
             self.assessments.append(payload)
 
+        async def on_identity(payload: dict) -> None:
+            self.identities.append(payload)
+
+        async def on_resume(payload: dict) -> None:
+            self.resumes.append(payload)
+
+        async def on_options(payload: dict) -> None:
+            self.options.append(payload)
+
         await self.service.connect(
             SESSION_ID,
             self.language,
-            FakeConn(),
+            self.conn,
             transcript_callback=on_transcript,
             emergency_callback=on_emergency,
             assessment_callback=on_assessment,
+            options_callback=on_options,
+            identity_callback=on_identity,
+            resume_callback=on_resume,
+            resume_prompt=self.resume_prompt,
         )
 
         async def consume() -> None:
@@ -506,5 +540,269 @@ async def test_thai_voice_turn_uses_thai_language_end_to_end():
         assert harness.triage.contents == ["เจ็บแน่นหน้าอก"]
         # every TTS call for this session spoke Thai
         assert all(call["language"] == "th" for call in harness.tts.calls)
+    finally:
+        await harness.stop()
+
+
+# ── spoken VN identity gate ───────────────────────────────────────────────────
+
+PATIENT = "Waraporn Srisuk"
+
+
+def identity_harness(language: str = "en", *, first_time: bool = False) -> Harness:
+    metadata: dict = {
+        "visit": {"visit_id": "990000000000000004", "patient_name": PATIENT},
+    }
+    if first_time:
+        metadata["patient_history"] = {"is_first_time": True}
+    return Harness(language=language, metadata=metadata)
+
+
+async def test_identity_gate_greets_with_confirm_ask_and_chips():
+    harness = identity_harness()
+    await harness.start()
+    try:
+        await harness.wait_until(lambda: harness.chunks and harness.options)
+        assert harness.transcripts[0] == (
+            "agent",
+            templates.confirm_name_ask(PATIENT, "en"),
+        )
+        labels = [o["label"] for o in harness.options[0]["options"]]
+        assert labels == ["Yes", "No"]
+    finally:
+        await harness.stop()
+
+
+async def test_identity_yes_confirms_and_continues_into_intake():
+    harness = identity_harness()
+    await harness.start()
+    try:
+        await harness.wait_until(lambda: harness.chunks)
+        harness.stt.transcripts.append("yes that's me")
+        await harness.speak_turn()
+        await harness.wait_until(lambda: harness.identities)
+
+        assert harness.identities == [{"kind": "confirmed", "needs_history": False}]
+        assert harness.conn.metadata["visit"]["name_confirmed"] is True
+        # Same call continues straight into the intake greeting.
+        assert (
+            "agent",
+            templates.greeting_line(PATIENT, "en"),
+        ) in harness.transcripts
+        # The clinical pipeline never ran for the identity turn.
+        assert harness.triage.contents == []
+    finally:
+        await harness.stop()
+
+
+async def test_identity_no_unlinks_and_signals_rejected_thai():
+    harness = identity_harness(language="th")
+    await harness.start()
+    try:
+        await harness.wait_until(lambda: harness.chunks)
+        harness.stt.transcripts.append("ไม่ใช่ค่ะ คนละคน")
+        await harness.speak_turn()
+        await harness.wait_until(lambda: harness.identities)
+
+        assert harness.identities == [{"kind": "rejected"}]
+        assert "visit" not in harness.conn.metadata
+        assert (
+            "agent",
+            templates.CONFIRM_NAME_REJECTED["th"],
+        ) in harness.transcripts
+
+        # Rejected → further audio is ignored, no clinical turn ever runs.
+        harness.stt.transcripts.append("มีไข้ค่ะ")
+        await harness.speak_turn()
+        await asyncio.sleep(0.1)
+        assert harness.triage.contents == []
+    finally:
+        await harness.stop()
+
+
+async def test_identity_chip_tap_no_via_injected_button_turn():
+    harness = identity_harness(language="th")
+    await harness.start()
+    try:
+        await harness.wait_until(lambda: harness.chunks)
+        harness.service.inject_text_turn(SESSION_ID, "ไม่", "button")
+        await harness.wait_until(lambda: harness.identities)
+        assert harness.identities == [{"kind": "rejected"}]
+        assert "visit" not in harness.conn.metadata
+    finally:
+        await harness.stop()
+
+
+async def test_identity_unclear_retries_once_then_rejects():
+    harness = identity_harness()
+    await harness.start()
+    try:
+        await harness.wait_until(lambda: harness.chunks)
+        harness.stt.transcripts.append("banana banana")
+        await harness.speak_turn()
+        await harness.wait_until(
+            lambda: (
+                "agent",
+                templates.confirm_name_ask(PATIENT, "en", retry=True),
+            )
+            in harness.transcripts
+        )
+        # Link still intact after one unclear answer.
+        assert "visit" in harness.conn.metadata
+
+        harness.stt.transcripts.append("what is the weather")
+        await harness.speak_turn()
+        await harness.wait_until(lambda: harness.identities)
+        assert harness.identities == [{"kind": "rejected"}]
+        assert "visit" not in harness.conn.metadata
+    finally:
+        await harness.stop()
+
+
+async def test_identity_yes_first_time_hands_off_to_history_form():
+    harness = identity_harness(first_time=True)
+    await harness.start()
+    try:
+        await harness.wait_until(lambda: harness.chunks)
+        harness.stt.transcripts.append("yes")
+        await harness.speak_turn()
+        await harness.wait_until(lambda: harness.identities)
+
+        assert harness.identities == [{"kind": "confirmed", "needs_history": True}]
+        assert harness.conn.metadata["visit"]["name_confirmed"] is True
+        assert (
+            "agent",
+            templates.CONFIRM_NAME_HISTORY_NEXT["en"],
+        ) in harness.transcripts
+        # The kiosk ends the call for the form; no clinical turn ran.
+        assert harness.triage.contents == []
+    finally:
+        await harness.stop()
+
+
+# ── spoken resume gate (continue vs start over) ───────────────────────────────
+
+
+def resume_harness(status: str = "active", *, confirmed: bool = True,
+                   language: str = "th") -> Harness:
+    return Harness(
+        language=language,
+        metadata={
+            "visit": {
+                "visit_id": "990000000000000007",
+                "patient_name": "มาลี วงศ์สว่าง",
+                "name_confirmed": confirmed,
+            },
+        },
+        resume_prompt=status,
+    )
+
+
+async def test_resume_gate_asks_before_anything_else():
+    harness = resume_harness()
+    await harness.start()
+    try:
+        await harness.wait_until(lambda: harness.chunks)
+        assert harness.transcripts[0] == (
+            "agent",
+            templates.resume_ask("มาลี วงศ์สว่าง", "th", "active"),
+        )
+    finally:
+        await harness.stop()
+
+
+async def test_resume_continue_flows_into_intake():
+    harness = resume_harness()
+    await harness.start()
+    try:
+        await harness.wait_until(lambda: harness.chunks)
+        harness.stt.transcripts.append("ทำต่อค่ะ")
+        await harness.speak_turn()
+        await harness.wait_until(lambda: harness.resumes)
+        assert harness.resumes == [{"kind": "continue", "needs_history": False}]
+        # ack + the normal intake greeting followed in the SAME call
+        assert (
+            "agent",
+            templates.RESUME_ACK_CONTINUE["th"],
+        ) in harness.transcripts
+        assert (
+            "agent",
+            templates.greeting_line("มาลี วงศ์สว่าง", "th"),
+        ) in harness.transcripts
+        assert harness.triage.contents == []
+    finally:
+        await harness.stop()
+
+
+async def test_resume_continue_unconfirmed_chains_identity_gate():
+    harness = resume_harness(confirmed=False)
+    await harness.start()
+    try:
+        await harness.wait_until(lambda: harness.chunks)
+        harness.stt.transcripts.append("continue")
+        await harness.speak_turn()
+        await harness.wait_until(lambda: harness.resumes)
+        # after "continue", the same call asks the identity confirm
+        await harness.wait_until(
+            lambda: ("agent", templates.confirm_name_ask("มาลี วงศ์สว่าง", "th"))
+            in harness.transcripts
+        )
+        harness.stt.transcripts.append("ใช่ค่ะ")
+        await harness.speak_turn()
+        await harness.wait_until(lambda: harness.identities)
+        assert harness.identities[0]["kind"] == "confirmed"
+    finally:
+        await harness.stop()
+
+
+async def test_resume_start_over_signals_kiosk():
+    harness = resume_harness()
+    await harness.start()
+    try:
+        await harness.wait_until(lambda: harness.chunks)
+        harness.stt.transcripts.append("เริ่มใหม่ค่ะ")
+        await harness.speak_turn()
+        await harness.wait_until(lambda: harness.resumes)
+        assert harness.resumes == [{"kind": "start_over"}]
+        # further audio ignored while the kiosk relinks
+        harness.stt.transcripts.append("มีไข้ค่ะ")
+        await harness.speak_turn()
+        await asyncio.sleep(0.1)
+        assert harness.triage.contents == []
+    finally:
+        await harness.stop()
+
+
+async def test_resume_completed_yes_no_variant():
+    harness = resume_harness(status="completed")
+    await harness.start()
+    try:
+        await harness.wait_until(lambda: harness.chunks)
+        assert harness.transcripts[0] == (
+            "agent",
+            templates.resume_ask("มาลี วงศ์สว่าง", "th", "completed"),
+        )
+        harness.stt.transcripts.append("ไม่ค่ะ")
+        await harness.speak_turn()
+        await harness.wait_until(lambda: harness.resumes)
+        assert harness.resumes == [{"kind": "decline"}]
+    finally:
+        await harness.stop()
+
+
+async def test_resume_unclear_twice_falls_back_to_buttons():
+    harness = resume_harness()
+    await harness.start()
+    try:
+        await harness.wait_until(lambda: harness.chunks)
+        harness.stt.transcripts.append("อากาศดีนะ")
+        await harness.speak_turn()
+        await harness.wait_until(
+            lambda: ("agent", templates.RESUME_RETRY["th"]) in harness.transcripts
+        )
+        harness.stt.transcripts.append("หิวข้าว")
+        await harness.speak_turn()
+        await harness.wait_until(lambda: harness.resumes)
+        assert harness.resumes == [{"kind": "decline"}]
     finally:
         await harness.stop()

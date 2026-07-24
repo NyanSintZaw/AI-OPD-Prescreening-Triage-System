@@ -25,7 +25,6 @@ import {
 } from '@phosphor-icons/react';
 import { KioskFrame } from '../components/kiosk/KioskFrame';
 import { AiOrb } from '../components/kiosk/AiOrb';
-import { HospitalMapViewer } from '../components/HospitalMapViewer';
 import { useLanguage } from '../hooks/useSession';
 import { useKioskStats } from '../hooks/useKioskStats';
 import { prewarmVoiceCall } from '../hooks/voicePrewarm';
@@ -75,6 +74,18 @@ export function KioskHome() {
     return () => clearInterval(timer);
   }, [reduce]);
   const adIdx = tick % AD_KEYS.length;
+
+  // The wayfinder's Back button posts carenav:back from inside the iframe.
+  useEffect(() => {
+    const onMessage = (event: MessageEvent) => {
+      if (event.origin !== window.location.origin) return;
+      if ((event.data as { type?: string } | null)?.type === 'carenav:back') {
+        setShowMap(false);
+      }
+    };
+    window.addEventListener('message', onMessage);
+    return () => window.removeEventListener('message', onMessage);
+  }, []);
 
   const start = () => {
     // Anchor mic permission + audio playback to this tap so the assistant's
@@ -378,8 +389,12 @@ export function KioskHome() {
               {t('kioskClose')}
             </button>
           </div>
-          <div className="k-overlay-body">
-            <HospitalMapViewer />
+          <div className="k-overlay-body k-overlay-body-map">
+            <iframe
+              src={`/hospital-map/index.html?lang=${language}`}
+              className="k-map-frame"
+              title={t('kioskViewMap')}
+            />
           </div>
         </div>
       )}

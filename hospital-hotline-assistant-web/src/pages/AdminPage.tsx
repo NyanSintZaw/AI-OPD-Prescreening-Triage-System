@@ -6,7 +6,7 @@ import {
   type ConversationSummaryOut,
   type MessageOut,
 } from '../api';
-import { getAdminEmail, getAdminToken } from '../api/client';
+import { getAdminEmail, getAdminRole, getAdminToken } from '../api/client';
 import { Layout } from '../components/Layout';
 import { MessageBubble } from '../components/MessageBubble';
 import { BpDeviceManager } from '../components/BpDeviceManager';
@@ -14,10 +14,18 @@ import { OutbreakSurveillance } from '../components/OutbreakSurveillance';
 import { TriageManualUpload } from '../components/TriageManualUpload';
 import { CriteriaManager } from '../components/CriteriaManager';
 import { HospitalDbPanel } from '../components/HospitalDbPanel';
+import { UserManagementPanel } from '../components/UserManagementPanel';
 import { useLanguage } from '../hooks/useSession';
 import type { SessionStatus, SeverityLevel } from '../api/types';
 
-type AdminTab = 'sessions' | 'surveillance' | 'triage-manual' | 'criteria' | 'bp-device' | 'hospital-db';
+type AdminTab =
+  | 'sessions'
+  | 'surveillance'
+  | 'triage-manual'
+  | 'criteria'
+  | 'bp-device'
+  | 'hospital-db'
+  | 'users';
 
 const AUTO_REFRESH_INTERVAL_MS = 30_000;
 const SEVERITY_FILTERS: Array<{ id: 'all' | SeverityLevel; tone: string }> = [
@@ -288,14 +296,6 @@ export function AdminPage() {
           </p>
         )}
 
-        <div className="kpi-grid">
-          <KpiCard label={t('adminKpiTotal')} value={stats.total} tone="neutral" />
-          <KpiCard label={t('adminKpiEmergency')} value={stats.emergency} tone="emergency" />
-          <KpiCard label={t('adminKpiUrgent')} value={stats.urgent} tone="urgent" />
-          <KpiCard label={t('adminKpiAlertsSent')} value={stats.alerted} tone="alert" />
-          <KpiCard label={t('adminKpiActive')} value={stats.active} tone="active" />
-        </div>
-
         {/* Tab bar */}
         <div className="admin-tab-bar" role="tablist">
           <button
@@ -352,13 +352,37 @@ export function AdminPage() {
           >
             🏥 {t('hospitalDbTab')}
           </button>
+          {getAdminRole() === 'super_admin' && (
+            <button
+              type="button"
+              role="tab"
+              aria-selected={activeTab === 'users'}
+              className={`admin-tab-btn ${activeTab === 'users' ? 'active' : ''}`}
+              onClick={() => setActiveTab('users')}
+            >
+              👥 {t('usersTab')}
+            </button>
+          )}
         </div>
 
-        {activeTab === 'surveillance' && <OutbreakSurveillance />}
+        {activeTab === 'surveillance' && (
+          <>
+            {/* Overview cards live on the Dashboard tab only. */}
+            <div className="kpi-grid">
+              <KpiCard label={t('adminKpiTotal')} value={stats.total} tone="neutral" />
+              <KpiCard label={t('adminKpiEmergency')} value={stats.emergency} tone="emergency" />
+              <KpiCard label={t('adminKpiUrgent')} value={stats.urgent} tone="urgent" />
+              <KpiCard label={t('adminKpiAlertsSent')} value={stats.alerted} tone="alert" />
+              <KpiCard label={t('adminKpiActive')} value={stats.active} tone="active" />
+            </div>
+            <OutbreakSurveillance />
+          </>
+        )}
         {activeTab === 'triage-manual' && <TriageManualUpload />}
         {activeTab === 'criteria' && <CriteriaManager />}
         {activeTab === 'bp-device' && <BpDeviceManager />}
         {activeTab === 'hospital-db' && <HospitalDbPanel />}
+        {activeTab === 'users' && <UserManagementPanel />}
 
         {activeTab === 'sessions' && (
           <>

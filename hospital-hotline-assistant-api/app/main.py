@@ -29,6 +29,7 @@ from app.database import create_pool, get_connection, record_to_dict, records_to
 from app.services import TriageService
 from app.services.surveillance_extractor import extract_and_save as surveillance_extract
 from app.services.admin_auth import (
+    hash_password_sha256,
     issue_admin_token,
     validate_admin_token,
     verify_password,
@@ -49,6 +50,11 @@ from app.schemas import (
     ConversationSummaryOut,
     AdminLoginRequest,
     AdminLoginResponse,
+    AdminUserCreate,
+    AdminUserManageOut,
+    AdminUserUpdate,
+    HisConnectionOut,
+    HisConnectionUpdate,
     AdminUserOut,
     DepartmentOut,
     DepartmentRecommendationCreate,
@@ -69,16 +75,22 @@ from app.schemas import (
     FollowUpQuestionOut,
     LinkVisitRequest,
     LinkVisitResponse,
+    ConfirmVisitNameRequest,
+    ConfirmVisitNameResponse,
+    PatientHistoryIntakeRequest,
+    PatientHistoryIntakeResponse,
     BloodPressureFetchResponse,
     BpDeviceStatusOut,
     BpFetchRequest,
     BpWatchRequest,
+    BpRestStatusOut,
     BpPairRequest,
     BpPairResponse,
     BpScanResponse,
     MessageCreate,
     MessageOut,
     RoutingRuleOut,
+    SessionByVisitOut,
     SessionCreate,
     SessionLocationUpdate,
     SessionOut,
@@ -300,6 +312,123 @@ async def admin_login(
         ),
     )
 
+
+# ── Nurse account management (admin → User Settings) ────────────────────────
+# Nurses ARE admin_users rows with role 'admin' (the /nurse portal role).
+# Only those rows are manageable here — super_admin/viewer accounts are not
+# touchable from the UI.
+
+async def _fetch_manageable_user(
+    connection: asyncpg.Connection, user_id: UUID
+) -> asyncpg.Record:
+    row = await connection.fetchrow(
+        "SELECT * FROM admin_users WHERE id = $1", user_id
+    )
+    if row is None:
+        raise HTTPException(status_code=404, detail="User not found")
+    if row["role"] != "admin":
+        raise HTTPException(
+            status_code=403, detail="Only nurse accounts can be managed here"
+        )
+    return row
+
+
+def _manage_user_out(row: asyncpg.Record) -> AdminUserManageOut:
+    return AdminUserManageOut(
+        id=row["id"],
+        email=row["email"],
+        full_name=row["full_name"],
+        role=row["role"],
+        is_active=row["is_active"],
+        last_login_at=row["last_login_at"],
+        created_at=row["created_at"],
+    )
+
+
+@app.get("/admin/users", response_model=list[AdminUserManageOut])
+async def admin_list_users(
+    connection: asyncpg.Connection = Depends(get_connection),
+    _admin_user: dict = Depends(require_roles("super_admin")),
+):
+    rows = await connection.fetch(
+        """
+        SELECT * FROM admin_users
+        WHERE role = 'admin'
+        ORDER BY created_at DESC
+        """
+    )
+    return [_manage_user_out(row) for row in rows]
+
+
+@app.post(
+    "/admin/users",
+    response_model=AdminUserManageOut,
+    status_code=status.HTTP_201_CREATED,
+)
+async def admin_create_user(
+    payload: AdminUserCreate,
+    connection: asyncpg.Connection = Depends(get_connection),
+    _admin_user: dict = Depends(require_roles("super_admin")),
+):
+    email = payload.email.strip().lower()
+    if "@" not in email:
+        raise HTTPException(status_code=422, detail="Invalid email address")
+    existing = await connection.fetchval(
+        "SELECT 1 FROM admin_users WHERE LOWER(email) = $1", email
+    )
+    if existing:
+        raise HTTPException(status_code=409, detail="An account with this email already exists")
+    row = await connection.fetchrow(
+        """
+        INSERT INTO admin_users (email, password_hash, full_name, role, is_active)
+        VALUES ($1, $2, $3, 'admin', TRUE)
+        RETURNING *
+        """,
+        email,
+        hash_password_sha256(payload.password),
+        payload.full_name.strip(),
+    )
+    return _manage_user_out(row)
+
+
+@app.patch("/admin/users/{user_id}", response_model=AdminUserManageOut)
+async def admin_update_user(
+    user_id: UUID,
+    payload: AdminUserUpdate,
+    connection: asyncpg.Connection = Depends(get_connection),
+    _admin_user: dict = Depends(require_roles("super_admin")),
+):
+    await _fetch_manageable_user(connection, user_id)
+    row = await connection.fetchrow(
+        """
+        UPDATE admin_users SET
+            full_name = COALESCE($2, full_name),
+            password_hash = COALESCE($3, password_hash),
+            is_active = COALESCE($4, is_active),
+            updated_at = NOW()
+        WHERE id = $1
+        RETURNING *
+        """,
+        user_id,
+        payload.full_name.strip() if payload.full_name else None,
+        hash_password_sha256(payload.password) if payload.password else None,
+        payload.is_active,
+    )
+    return _manage_user_out(row)
+
+
+@app.delete("/admin/users/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def admin_delete_user(
+    user_id: UUID,
+    connection: asyncpg.Connection = Depends(get_connection),
+    _admin_user: dict = Depends(require_roles("super_admin")),
+):
+    """Hard delete a nurse account. Review history survives — reviewer FKs
+    are ON DELETE SET NULL, so signed reviews just show a blank reviewer."""
+    await _fetch_manageable_user(connection, user_id)
+    await connection.execute("DELETE FROM admin_users WHERE id = $1", user_id)
+
+
 @app.post("/sessions", response_model=SessionOut, status_code=status.HTTP_201_CREATED)
 async def create_session(payload: SessionCreate, connection: asyncpg.Connection = Depends(get_connection)):
     record = await connection.fetchrow(
@@ -354,6 +483,11 @@ async def link_visit(
         return LinkVisitResponse(linked=False, visit_id=payload.visit_id)
 
     metadata = dict(session_row["metadata"] or {})
+    # Re-linking (e.g. after a rejected name confirm): never carry the
+    # previous patient's HIS prefill into the new link.
+    from app.services.visit_confirm import strip_his_prefill
+
+    strip_his_prefill(metadata)
     metadata["visit"] = {
         "visit_id": info.visit_id,
         "hn": info.patient_id,
@@ -362,7 +496,20 @@ async def link_visit(
         "age_years": info.age_years,
         "appointment": info.appointment,
         "linked_at": datetime.now(timezone.utc).isoformat(),
+        "name_confirmed": False,
     }
+    if info.patient_history is not None:
+        metadata["patient_history"] = {
+            "is_first_time": info.patient_history.is_first_time,
+            "smoking_alcohol": info.patient_history.smoking_alcohol,
+            "allergies": info.patient_history.allergies,
+            "chronic_conditions": info.patient_history.chronic_conditions,
+            "past_surgeries": info.patient_history.past_surgeries,
+            "family_history": info.patient_history.family_history,
+            "last_weight_kg": info.patient_history.last_weight_kg,
+            "last_height_cm": info.patient_history.last_height_cm,
+            "vitals_measured_at": info.patient_history.vitals_measured_at,
+        }
     # Seed session vitals with anything the HIS already holds; a later cuff
     # reading or manual entry overrides these.
     his_vitals = {k: v for k, v in (info.vitals or {}).items() if v is not None}
@@ -371,6 +518,13 @@ async def link_visit(
         merged.update(his_vitals)
         merged.setdefault("source", "his")
         metadata["vitals"] = merged
+    # Skip asking weight/height when HN has a recent measurement on file.
+    from app.services.screening.weight_height import merge_recent_weight_height_into_vitals
+
+    metadata["vitals"] = merge_recent_weight_height_into_vitals(
+        dict(metadata.get("vitals") or {}),
+        info.patient_history,
+    )
     await connection.execute(
         "UPDATE sessions SET metadata = $2::jsonb WHERE id = $1",
         session_id,
@@ -399,7 +553,193 @@ async def link_visit(
         age_years=info.age_years,
         appointment=info.appointment,
         has_his_vitals=bool(his_vitals),
+        is_first_time=bool(
+            info.patient_history.is_first_time if info.patient_history else True
+        ),
+        hn=info.patient_id,
     )
+
+
+@app.get("/sessions/by-visit/{visit_id}", response_model=SessionByVisitOut)
+async def get_session_by_visit(
+    visit_id: str,
+    connection: asyncpg.Connection = Depends(get_connection),
+):
+    """Return the most recent active session linked to this hospital visit (VN).
+
+    Used by the kiosk before creating a new session: if the patient hung up
+    or walked away mid-interview and re-enters the same VN, resume the prior
+    session (screening engine state is already in Postgres).
+    """
+    from app.services.session_resume import find_active_session_by_visit_id
+    from app.services.visit_confirm import needs_history_intake
+
+    cleaned = visit_id.strip()
+    if not cleaned:
+        return SessionByVisitOut(found=False, visit_id=visit_id)
+
+    record = await find_active_session_by_visit_id(connection, cleaned)
+    if record is None:
+        return SessionByVisitOut(found=False, visit_id=cleaned)
+
+    session = record_to_dict(record)
+    visit_meta = (session.get("metadata") or {}).get("visit") or {}
+    patient_name = visit_meta.get("patient_name")
+    needs_history = needs_history_intake(session.get("metadata"))
+    return SessionByVisitOut(
+        found=True,
+        visit_id=cleaned,
+        session=session,
+        status=str(session.get("status") or "") or None,
+        patient_name=patient_name if isinstance(patient_name, str) else None,
+        name_confirmed=bool(visit_meta.get("name_confirmed")),
+        needs_history_intake=needs_history,
+    )
+
+
+@app.post(
+    "/sessions/{session_id}/patient-history",
+    response_model=PatientHistoryIntakeResponse,
+)
+async def save_patient_history(
+    session_id: UUID,
+    payload: PatientHistoryIntakeRequest,
+    request: Request,
+    connection: asyncpg.Connection = Depends(get_connection),
+):
+    """Persist first-time-patient history to session metadata and the HIS HN.
+
+    Gated for booth intake after name confirmation. Writes through
+    ``HisAdapter.push_patient_history`` so returning visits see the data.
+    """
+    session_row = await connection.fetchrow(
+        "SELECT metadata FROM sessions WHERE id = $1", session_id
+    )
+    if session_row is None:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    metadata = dict(session_row["metadata"] or {})
+    visit = dict(metadata.get("visit") or {})
+    hn = visit.get("hn") if isinstance(visit.get("hn"), str) else None
+
+    history_payload = {
+        "smoking_alcohol": payload.smoking_alcohol,
+        "allergies": payload.allergies,
+        "chronic_conditions": payload.chronic_conditions,
+        "past_surgeries": payload.past_surgeries,
+        "family_history": payload.family_history,
+    }
+    # Drop empty strings so HIS "none" semantics stay clean.
+    history_payload = {
+        k: (v.strip() if isinstance(v, str) else v)
+        for k, v in history_payload.items()
+        if v is not None and str(v).strip()
+    }
+
+    existing = dict(metadata.get("patient_history") or {})
+    existing.update(history_payload)
+    existing["is_first_time"] = False
+    existing["intake_complete"] = True
+    existing["recorded_at"] = datetime.now(timezone.utc).isoformat()
+    metadata["patient_history"] = existing
+    await connection.execute(
+        "UPDATE sessions SET metadata = $2::jsonb WHERE id = $1",
+        session_id,
+        metadata,
+    )
+
+    pushed = False
+    if hn:
+        adapter = request.app.state.his_adapter
+        try:
+            pushed = bool(await adapter.push_patient_history(hn, history_payload))
+        except Exception:  # noqa: BLE001 — booth must continue even if HIS is down
+            logger.exception("Failed to push patient history to HIS hn=%s", hn)
+
+    return PatientHistoryIntakeResponse(
+        saved=True,
+        pushed_to_his=pushed,
+        is_first_time=False,
+        hn=hn,
+    )
+
+
+@app.delete("/sessions/{session_id}/link-visit", response_model=SessionOut)
+async def unlink_visit(
+    session_id: UUID,
+    connection: asyncpg.Connection = Depends(get_connection),
+):
+    """Clear the linked hospital visit so the patient can re-enter a VN.
+
+    Used when name confirmation fails (\"Is this you?\" → No). Does not delete
+    the session or screening state — drops ``metadata.visit`` plus any
+    HIS-derived prefill (history, HIS-sourced vitals) of the wrong patient.
+    """
+    from app.services.visit_confirm import strip_his_prefill
+
+    session_row = await connection.fetchrow(
+        "SELECT metadata FROM sessions WHERE id = $1", session_id
+    )
+    if session_row is None:
+        raise HTTPException(status_code=404, detail="Session not found")
+    metadata = dict(session_row["metadata"] or {})
+    metadata.pop("visit", None)
+    strip_his_prefill(metadata)
+    record = await connection.fetchrow(
+        "UPDATE sessions SET metadata = $2::jsonb WHERE id = $1 RETURNING *",
+        session_id,
+        metadata,
+    )
+    return record_to_dict(record)
+
+
+@app.post(
+    "/sessions/{session_id}/confirm-visit-name",
+    response_model=ConfirmVisitNameResponse,
+)
+async def confirm_visit_name(
+    session_id: UUID,
+    payload: ConfirmVisitNameRequest,
+    connection: asyncpg.Connection = Depends(get_connection),
+):
+    """Confirm or reject the HIS patient name after link-visit.
+
+    Buttons send ``confirmed=true/false``; typed/spoken replies send ``text``
+    and are classified by the shared yes/no NLU. A ``no`` decision unlinks the
+    visit so the kiosk can re-prompt for VN.
+    """
+    from app.services.screening.nlu_yesno import classify_yes_no
+    from app.services.visit_confirm import (
+        NoVisitLinkedError,
+        apply_confirm_decision,
+    )
+
+    if payload.confirmed is True:
+        decision: str = "yes"
+    elif payload.confirmed is False:
+        decision = "no"
+    elif payload.text and payload.text.strip():
+        decision = classify_yes_no(payload.text)
+    else:
+        raise HTTPException(
+            status_code=400,
+            detail="Provide confirmed=true/false or a non-empty text reply",
+        )
+
+    try:
+        outcome = await apply_confirm_decision(connection, session_id, decision)
+    except ValueError:
+        raise HTTPException(status_code=404, detail="Session not found")
+    except NoVisitLinkedError:
+        raise HTTPException(status_code=400, detail="No visit linked to this session")
+
+    return ConfirmVisitNameResponse(
+        decision=outcome.decision,  # type: ignore[arg-type]
+        name_confirmed=outcome.name_confirmed,
+        unlinked=outcome.unlinked,
+        patient_name=outcome.patient_name,
+    )
+
 
 @app.get("/sessions/{session_id}", response_model=SessionOut)
 async def get_session(session_id: UUID, connection: asyncpg.Connection = Depends(get_connection)):
@@ -542,6 +882,14 @@ async def update_session_vitals(
     (text chat and live voice) can factor it into the assessment.
     Called by the vitals gate UI after a cuff fetch or manual entry.
     """
+    from app.services.bp_rest import (
+        get_active_rest,
+        has_prior_window,
+        is_hypertensive_crisis,
+        open_rest_window,
+        resolve_windows_for,
+    )
+
     session_row = await connection.fetchrow(
         "SELECT metadata FROM sessions WHERE id = $1", session_id
     )
@@ -549,8 +897,41 @@ async def update_session_vitals(
         raise HTTPException(status_code=404, detail="Session not found")
 
     metadata = dict(session_row["metadata"] or {})
+    visit = dict(metadata.get("visit") or {})
+    hn = visit.get("hn") if isinstance(visit.get("hn"), str) else None
+    visit_id = visit.get("visit_id") if isinstance(visit.get("visit_id"), str) else None
+
+    rest = await get_active_rest(connection, hn=hn, visit_id=visit_id)
+    if rest.resting:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={
+                "code": "bp_resting",
+                "message": (
+                    f"Please rest before remeasuring "
+                    f"({rest.seconds_remaining}s remaining)."
+                ),
+                "rest_until": rest.rest_until.isoformat() if rest.rest_until else None,
+                "seconds_remaining": rest.seconds_remaining,
+            },
+        )
+
+    # First crisis reading for this patient → open the 15-minute rest window
+    # and flag the reading pending-recheck so the rules engine does NOT
+    # dispose on it (white-coat/exertion effect — the meeting flow is rest,
+    # re-measure, then decide). A patient who already had a window gets the
+    # post-rest confirmatory reading instead: it flows to the engine as-is.
+    crisis = is_hypertensive_crisis(payload.systolic, payload.diastolic)
+    recheck_pending = False
+    rest_until = None
+    if crisis and (hn or visit_id) and not await has_prior_window(
+        connection, hn=hn, visit_id=visit_id
+    ):
+        recheck_pending = True
+
     # Preserve any patient-typed vitals from a prior call on this session.
     existing_vitals = dict(metadata.get("vitals") or {})
+    existing_vitals.pop("bp_recheck_pending", None)
     vitals = {
         **existing_vitals,
         "systolic": payload.systolic,
@@ -560,6 +941,8 @@ async def update_session_vitals(
         "source": payload.source,
         "recorded_at": datetime.now(timezone.utc).isoformat(),
     }
+    if recheck_pending:
+        vitals["bp_recheck_pending"] = True
     if payload.weight_kg is not None:
         vitals["weight_kg"] = payload.weight_kg
     if payload.height_cm is not None:
@@ -572,18 +955,22 @@ async def update_session_vitals(
         session_id,
         metadata,
     )
+    if not recheck_pending and (hn or visit_id):
+        # Any reading outside a live window closes the recheck loop.
+        await resolve_windows_for(connection, hn=hn, visit_id=visit_id)
 
     # Keep the durable bp_readings row in sync: link the row created at
     # fetch time when we have its id, otherwise store this (e.g. manual)
     # reading now.
-    if payload.reading_id is not None:
+    reading_id = payload.reading_id
+    if reading_id is not None:
         await connection.execute(
             "UPDATE bp_readings SET session_id = $2 WHERE id = $1",
-            payload.reading_id,
+            reading_id,
             session_id,
         )
     else:
-        await _store_bp_reading(
+        reading_id = await _store_bp_reading(
             connection,
             session_id=session_id,
             systolic=payload.systolic,
@@ -592,7 +979,25 @@ async def update_session_vitals(
             measured_at=payload.measured_at,
             source=payload.source,
         )
-    return {"session_id": str(session_id), "vitals": vitals}
+
+    if recheck_pending:
+        rest_until = await open_rest_window(
+            connection,
+            hn=hn,
+            visit_id=visit_id,
+            reading_id=reading_id,
+        )
+
+    out: dict = {"session_id": str(session_id), "vitals": vitals}
+    if rest_until is not None:
+        seconds = max(0, int((rest_until - datetime.now(timezone.utc)).total_seconds()))
+        out["bp_rest_until"] = rest_until.isoformat()
+        out["bp_recheck"] = {
+            "required": True,
+            "rest_until": rest_until.isoformat(),
+            "seconds_remaining": seconds,
+        }
+    return out
 
 
 # Canonical rules-engine vital -> the raw metadata key normalize_vitals reads.
@@ -634,6 +1039,64 @@ async def update_session_measurement(
     return {"session_id": str(session_id), "vitals": vitals}
 
 
+@app.get("/vitals/blood-pressure/rest-status", response_model=BpRestStatusOut)
+async def get_bp_rest_status(
+    session_id: UUID | None = Query(default=None),
+    hn: str | None = Query(default=None),
+    visit_id: str | None = Query(default=None),
+    connection: asyncpg.Connection = Depends(get_connection),
+):
+    """Whether this patient must wait before another BP measurement."""
+    from app.services.bp_rest import get_active_rest
+
+    resolved_hn = hn
+    resolved_visit = visit_id
+    if session_id is not None:
+        session_row = await connection.fetchrow(
+            "SELECT metadata FROM sessions WHERE id = $1", session_id
+        )
+        if session_row is None:
+            raise HTTPException(status_code=404, detail="Session not found")
+        visit = (session_row["metadata"] or {}).get("visit") or {}
+        if not resolved_hn and isinstance(visit.get("hn"), str):
+            resolved_hn = visit["hn"]
+        if not resolved_visit and isinstance(visit.get("visit_id"), str):
+            resolved_visit = visit["visit_id"]
+
+    status_out = await get_active_rest(
+        connection, hn=resolved_hn, visit_id=resolved_visit
+    )
+    return BpRestStatusOut(**status_out.as_dict())
+
+
+async def _session_rest_block(
+    connection: asyncpg.Connection, session_id: UUID | None
+) -> BloodPressureFetchResponse | None:
+    """Return a ``resting`` fetch response when an active rest window blocks BP."""
+    from app.services.bp_rest import get_active_rest
+
+    if session_id is None:
+        return None
+    session_row = await connection.fetchrow(
+        "SELECT metadata FROM sessions WHERE id = $1", session_id
+    )
+    if session_row is None:
+        return None
+    visit = (session_row["metadata"] or {}).get("visit") or {}
+    hn = visit.get("hn") if isinstance(visit.get("hn"), str) else None
+    visit_id = visit.get("visit_id") if isinstance(visit.get("visit_id"), str) else None
+    rest = await get_active_rest(connection, hn=hn, visit_id=visit_id)
+    if not rest.resting:
+        return None
+    mins = max(1, (rest.seconds_remaining + 59) // 60)
+    return BloodPressureFetchResponse(
+        status="resting",
+        message=f"Please rest about {mins} more minute(s) before remeasuring blood pressure.",
+        rest_until=rest.rest_until,
+        seconds_remaining=rest.seconds_remaining,
+    )
+
+
 @app.post("/vitals/blood-pressure/fetch", response_model=BloodPressureFetchResponse)
 async def fetch_blood_pressure(
     request: Request,
@@ -650,6 +1113,11 @@ async def fetch_blood_pressure(
     the patient decides to continue — so the measurement survives even if
     they cancel the voice/chat flow right after measuring.
     """
+    session_id = payload.session_id if payload else None
+    blocked = await _session_rest_block(connection, session_id)
+    if blocked is not None:
+        return blocked
+
     bp_service: BloodPressureService = request.app.state.bp_service
     try:
         reading = await bp_service.fetch_latest()
@@ -660,7 +1128,7 @@ async def fetch_blood_pressure(
         return BloodPressureFetchResponse(status="error", message=str(exc))
 
     return await _persist_and_build_bp_response(
-        bp_service, connection, reading, payload.session_id if payload else None
+        bp_service, connection, reading, session_id
     )
 
 
@@ -718,6 +1186,11 @@ async def watch_blood_pressure(
     ``not_seen`` when nothing appeared within ``timeout_seconds`` so the
     kiosk can re-arm without any dead time.
     """
+    session_id = payload.session_id if payload else None
+    blocked = await _session_rest_block(connection, session_id)
+    if blocked is not None:
+        return blocked
+
     bp_service: BloodPressureService = request.app.state.bp_service
     timeout = payload.timeout_seconds if payload else 25.0
     try:
@@ -729,7 +1202,7 @@ async def watch_blood_pressure(
         return BloodPressureFetchResponse(status="error", message=str(exc))
 
     return await _persist_and_build_bp_response(
-        bp_service, connection, reading, payload.session_id if payload else None
+        bp_service, connection, reading, session_id
     )
 
 
@@ -1057,10 +1530,34 @@ async def answer_follow_up_question(
 
 @app.get("/departments", response_model=list[DepartmentOut])
 async def list_departments(connection: asyncpg.Connection = Depends(get_connection)):
+    from app.services.screening import templates as screening_templates
+
     records = await connection.fetch(
         "SELECT * FROM departments WHERE is_active = TRUE ORDER BY name_en ASC"
     )
-    return records_to_dicts(records)
+    out: list[dict] = []
+    for record in records:
+        row = dict(record)
+        name_en = row.get("name_en") or row.get("code") or ""
+        name_th = row.get("name_th") or name_en
+        floor = row.get("floor")
+        room = row.get("room")
+        row["nav_line_en"] = screening_templates.nav_line(
+            name_en,
+            language="en",
+            floor=floor,
+            room=room,
+            nav_hint=row.get("nav_hint_en"),
+        )
+        row["nav_line_th"] = screening_templates.nav_line(
+            name_th,
+            language="th",
+            floor=floor,
+            room=room,
+            nav_hint=row.get("nav_hint_th"),
+        )
+        out.append(row)
+    return out
 
 @app.get("/routing-rules", response_model=list[RoutingRuleOut])
 async def list_routing_rules(connection: asyncpg.Connection = Depends(get_connection)):
@@ -1399,6 +1896,121 @@ async def _his_proxy_get(path: str) -> dict | None:
     return None
 
 
+async def _probe_his_endpoint(endpoint: str) -> tuple[bool, int | None, str | None]:
+    """Try the visits listing on a candidate HIS endpoint. Returns
+    (connected, visit_count, error_message)."""
+    headers = {"X-API-Key": settings.his_api_key} if settings.his_api_key else {}
+    url = f"{endpoint.rstrip('/')}/api/visits"
+    try:
+        async with httpx.AsyncClient(timeout=3.0) as client:
+            resp = await client.get(url, headers=headers)
+    except httpx.HTTPError as exc:
+        return False, None, f"Could not reach the database endpoint: {exc}"
+    if resp.status_code == 401:
+        return False, None, "The database rejected our API key (401)."
+    if resp.status_code != 200:
+        return False, None, f"The database answered with status {resp.status_code}."
+    try:
+        visits = resp.json().get("visits", [])
+    except ValueError:
+        return False, None, "The endpoint did not return the expected data."
+    return True, len(visits), None
+
+
+def _his_connection_payload(
+    connected: bool, visit_count: int | None, message: str | None
+) -> HisConnectionOut:
+    return HisConnectionOut(
+        mode="http" if settings.his_mode == "http" else "mock",
+        endpoint=settings.his_base_url if settings.his_mode == "http" else None,
+        name=settings.his_display_name,
+        connected=connected,
+        visit_count=visit_count,
+        message=message,
+    )
+
+
+@app.get("/admin/his/connection", response_model=HisConnectionOut)
+async def admin_his_connection(
+    _admin_user: dict = Depends(require_roles("super_admin", "admin", "viewer")),
+):
+    """Current hospital-DB connection state for the Database Settings tab."""
+    if settings.his_mode != "http" or not settings.his_base_url:
+        return _his_connection_payload(False, None, None)
+    connected, count, message = await _probe_his_endpoint(settings.his_base_url)
+    return _his_connection_payload(connected, count, message)
+
+
+@app.put("/admin/his/connection", response_model=HisConnectionOut)
+async def admin_his_connect(
+    payload: HisConnectionUpdate,
+    request: Request,
+    _admin_user: dict = Depends(require_roles("super_admin")),
+):
+    """Establish (or change) the hospital-DB connection from the admin page.
+
+    Probes the endpoint first — an unreachable endpoint is rejected without
+    saving, so the demo can never end up pointed at a dead database. On
+    success the adapter is swapped live (no restart) and the config is
+    persisted to .env.
+    """
+    from app.services.env_persist import persist_env_keys
+    from app.services.screening.his import HttpHisAdapter
+
+    endpoint = payload.endpoint.strip().rstrip("/")
+    if not endpoint.startswith(("http://", "https://")):
+        raise HTTPException(
+            status_code=422, detail="Endpoint must start with http:// or https://"
+        )
+    connected, count, message = await _probe_his_endpoint(endpoint)
+    if not connected:
+        raise HTTPException(status_code=422, detail=message or "Connection failed")
+
+    settings.his_mode = "http"
+    settings.his_base_url = endpoint
+    settings.his_display_name = payload.name.strip()
+    request.app.state.his_adapter = HttpHisAdapter(
+        base_url=endpoint,
+        api_key=settings.his_api_key,
+        timeout=settings.his_timeout_seconds,
+    )
+    try:
+        persist_env_keys({
+            "HIS_MODE": "http",
+            "HIS_BASE_URL": endpoint,
+            "HIS_DISPLAY_NAME": settings.his_display_name,
+        })
+    except OSError:
+        logger.exception("HIS connection applied but failed to persist .env")
+    logger.info(
+        "HIS connection established by admin: %s (%s)", endpoint, settings.his_display_name
+    )
+    return _his_connection_payload(True, count, None)
+
+
+@app.delete("/admin/his/connection", response_model=HisConnectionOut)
+async def admin_his_disconnect(
+    request: Request,
+    _admin_user: dict = Depends(require_roles("super_admin")),
+):
+    """Disconnect the hospital DB: back to the mock adapter, persisted.
+
+    HIS_BASE_URL is kept in .env so reconnecting pre-fills the last endpoint;
+    only the mode flips. Booth flows keep working (mock accepts every visit,
+    write-backs are logged instead of sent)."""
+    from app.services.env_persist import persist_env_keys
+    from app.services.screening.his import MockHisAdapter
+
+    settings.his_mode = "mock"
+    request.app.state.his_adapter = MockHisAdapter()
+    try:
+        persist_env_keys({"HIS_MODE": "mock"})
+    except OSError:
+        logger.exception("HIS disconnect applied but failed to persist .env")
+    logger.info("HIS connection disconnected by admin")
+    return _his_connection_payload(False, None, None)
+
+
 @app.get("/admin/his/visits")
 async def admin_his_visits(
     _admin_user: dict = Depends(require_roles("super_admin", "admin", "viewer")),
@@ -1418,6 +2030,19 @@ async def admin_his_visit_detail(
     if data is None:
         return {"available": False, "visit": None}
     return {"available": True, "visit": data}
+
+
+@app.get("/admin/his/patients")
+async def admin_his_patients(
+    _admin_user: dict = Depends(require_roles("super_admin", "admin", "viewer")),
+):
+    """HN master records from the connected hospital DB — the admin
+    Database tab's patient (HN) view. Each row already carries the full
+    history + last-vitals payload, so no per-patient detail proxy is needed."""
+    data = await _his_proxy_get("/api/patients")
+    if data is None:
+        return {"available": False, "patients": []}
+    return {"available": True, **data}
 
 
 @app.get("/kiosk/stats")
@@ -1694,6 +2319,10 @@ async def voice_call(websocket: WebSocket, session_id: str):
     live_voice_service = websocket.app.state.live_voice_service  # TurnVoiceService
     requested_language = websocket.query_params.get("language", "en")
     language = requested_language if requested_language in {"en", "th"} else "en"
+    # Kiosk found a same-day session for this VN: open the call with the
+    # spoken continue-vs-start-over gate ('active' | 'completed').
+    raw_resume = websocket.query_params.get("resume_prompt")
+    resume_prompt = raw_resume if raw_resume in {"active", "completed"} else None
 
     # Callbacks forward turn transcripts + emergency banner triggers to the
     # frontend over the WS. ``send_*`` may raise if the client closed the
@@ -1746,6 +2375,28 @@ async def voice_call(websocket: WebSocket, session_id: str):
                 session_id,
             )
 
+    async def push_identity(payload: dict) -> None:
+        # {"kind": "confirmed"|"rejected", "needs_history": bool} — the
+        # spoken VN name-confirm outcome; the kiosk transitions on it.
+        try:
+            await websocket.send_json({"type": "identity", **payload})
+        except Exception:
+            logger.debug(
+                "Failed to push identity outcome to %s (likely client closed)",
+                session_id,
+            )
+
+    async def push_resume(payload: dict) -> None:
+        # {"kind": "continue"|"start_over"|"decline", ...} — the spoken
+        # continue-vs-start-over outcome; the kiosk transitions on it.
+        try:
+            await websocket.send_json({"type": "resume_choice", **payload})
+        except Exception:
+            logger.debug(
+                "Failed to push resume outcome to %s (likely client closed)",
+                session_id,
+            )
+
     async with pool.acquire() as conn:
         try:
             await live_voice_service.connect(
@@ -1758,6 +2409,9 @@ async def voice_call(websocket: WebSocket, session_id: str):
                 assessment_callback=push_assessment,
                 measurement_callback=push_measurement,
                 options_callback=push_options,
+                identity_callback=push_identity,
+                resume_callback=push_resume,
+                resume_prompt=resume_prompt,
             )
         except ValueError as exc:
             await websocket.close(code=1008, reason=str(exc))

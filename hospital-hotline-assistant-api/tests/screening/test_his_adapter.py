@@ -13,6 +13,7 @@ import pytest
 from app.services.screening.his import (
     HttpHisAdapter,
     MockHisAdapter,
+    PatientHistory,
     his_department_name,
 )
 from app.services.screening.his.http_adapter import _age_from_birthdate
@@ -48,7 +49,9 @@ async def test_mock_adapter_validate_and_writes():
     assert await mock.validate_visit("") is None
     info = await mock.validate_visit("V123")
     assert info is not None and info.visit_id == "V123"
+    assert info.patient_history is not None and info.patient_history.is_first_time is True
     assert await mock.push_referral({"visit_id": "V123"}) is True
+    assert await mock.push_patient_history("HN1", {"smoking_alcohol": "none"}) is True
     assert await mock.confirm_routing(
         "V123", department="OPD", confirmed_by="nurse", rerouted=False
     ) is True
@@ -67,6 +70,26 @@ def _fake_his_handler():
                 "visit_id": "V1", "hn": "HN1", "birthdate": "1980-05-01",
                 "appointment": True,
                 "vitals": {"systolic": 120, "diastolic": 80},
+                "patient": {
+                    "hn": "HN1",
+                    "is_first_time": False,
+                    "history": {
+                        "smoking_alcohol": "smokes daily",
+                        "allergies": "penicillin",
+                        "chronic_conditions": "hypertension",
+                        "past_surgeries": None,
+                        "family_history": "father: diabetes",
+                    },
+                    "last_vitals": {
+                        "weight": 70.5, "height": 171, "measured_at": "2025-01-01",
+                    },
+                },
+            })
+        if request.method == "GET" and path == "/api/visits/V2":
+            # Visit with no nested patient object at all (e.g. an HIS that
+            # doesn't support HN-level history yet).
+            return httpx.Response(200, json={
+                "visit_id": "V2", "hn": "HN2", "birthdate": "1990-01-01",
             })
         if request.method == "GET" and path == "/api/visits/MISSING":
             return httpx.Response(404, json={"detail": "not found"})
@@ -77,6 +100,9 @@ def _fake_his_handler():
         if request.method == "PUT" and path == "/api/visits/V1/routing":
             state["routing"] = json.loads(request.content)
             return httpx.Response(200, json={"status": "confirmed"})
+        if request.method == "PUT" and path == "/api/patients/HN1/history":
+            state["patient_history"] = json.loads(request.content)
+            return httpx.Response(200, json={"hn": "HN1", "is_first_time": False})
         if request.method == "GET" and path == "/api/departments":
             return httpx.Response(200, json={"departments": ["แผนก ER (อุบัติเหตุและฉุกเฉิน)"]})
         return httpx.Response(500)
@@ -99,6 +125,38 @@ async def test_http_validate_visit_returns_age_and_vitals():
     assert info.age_years and info.age_years > 40
     assert info.vitals["systolic"] == 120
     assert info.appointment is True
+
+
+async def test_http_validate_visit_parses_nested_patient_history():
+    handler, _ = _fake_his_handler()
+    adapter = _adapter_with(handler)
+    info = await adapter.validate_visit("V1")
+    assert info is not None
+    history = info.patient_history
+    assert isinstance(history, PatientHistory)
+    assert history.is_first_time is False
+    assert history.smoking_alcohol == "smokes daily"
+    assert history.chronic_conditions == "hypertension"
+    assert history.last_weight_kg == 70.5
+    assert history.last_height_cm == 171
+    assert history.vitals_measured_at == "2025-01-01"
+
+
+async def test_http_validate_visit_without_patient_object_is_none():
+    handler, _ = _fake_his_handler()
+    adapter = _adapter_with(handler)
+    info = await adapter.validate_visit("V2")
+    assert info is not None
+    assert info.patient_id == "HN2"
+    assert info.patient_history is None
+
+
+async def test_http_push_patient_history():
+    handler, state = _fake_his_handler()
+    adapter = _adapter_with(handler)
+    ok = await adapter.push_patient_history("HN1", {"smoking_alcohol": "quit 2020"})
+    assert ok is True
+    assert state["patient_history"]["smoking_alcohol"] == "quit 2020"
 
 
 async def test_http_validate_visit_unknown_returns_none():
@@ -143,5 +201,6 @@ async def test_http_tolerates_transport_errors():
     adapter = HttpHisAdapter(base_url="http://his", api_key="k", client=client)
     assert await adapter.validate_visit("V1") is None
     assert await adapter.push_referral({"visit_id": "V1"}) is False
+    assert await adapter.push_patient_history("HN1", {"smoking_alcohol": "x"}) is False
     assert await adapter.confirm_routing("V1", department="d", confirmed_by="n") is False
     assert await adapter.get_departments() == []

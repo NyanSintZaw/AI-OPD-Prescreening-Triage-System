@@ -46,6 +46,43 @@ Runtime: ~12–18 minutes for all five.
 6. *(Optional)* In **Admin → 📋 Triage Manual**, upload the manual PDF so spoken
    explanations cite real manual phrasing. Decisions work without it.
 
+### Connecting the hospital database (admin → Database Settings)
+
+The hospital-DB connection is established **from the admin UI**, not by editing
+config — that's part of the demo story ("the hospital plugs its database into
+our system"). One-time setup, and a good opening beat for the staff window:
+
+1. Log in at `/admin` as the super admin (`ops.admin@mfu.local` / `admin1234`)
+   and open **⚙ Database Settings**.
+2. If no database is connected you'll see the **connection card** with two
+   fields:
+   - **Database endpoint** — for the demo this is the mock HIS container:
+     `http://localhost:8001`
+   - **Display name** — whatever the hospital calls it, e.g.
+     **"MFU Hospital Database"**. This becomes the panel title.
+3. Tap **Establish connection**. The backend **probes the endpoint first**
+   (fetches the visit list with the configured API key); a dead or wrong
+   endpoint is rejected with an error and **nothing is saved** — you can't
+   demo against a broken connection by accident. On success the panel title
+   changes to your display name and the visit table loads.
+
+**How it's handled / persistence:** the connection is applied **live** (the
+booth's visit lookups and write-backs switch immediately, no restart) and is
+**persisted to the backend `.env`** (`HIS_MODE`, `HIS_BASE_URL`,
+`HIS_DISPLAY_NAME`) — so yes, it survives restarts. Set it up once before the
+demo and it stays. The API key is not in the UI (two fields only, per design):
+it lives in the backend `.env` as `HIS_API_KEY` and must match the mock's
+`HIS_MOCK_API_KEY` (both default to `demo-his-key`).
+
+**Disconnecting:** when connected, the card shows a **Disconnect** action
+(super admin only) with a confirmation pop-up. Disconnecting switches the
+system back to the built-in mock adapter — booth screening keeps working
+(every visit is accepted, write-backs are logged instead of sent), but visit
+lookups by name/age and HIS write-backs stop until you reconnect. The last
+endpoint is remembered, so reconnecting pre-fills it. Nurses and viewers see
+the connection status read-only; only the super admin can connect, change, or
+disconnect.
+
 ### Reset between rehearsals
 
 After a run, a visit is left `screened`/`routed`. To demo the same IDs again,

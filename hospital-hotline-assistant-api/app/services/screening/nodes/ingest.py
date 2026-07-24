@@ -7,21 +7,15 @@ import re
 from time import perf_counter
 
 from ..extraction import ExtractionResult, build_extraction_prompt
+from ..nlu_yesno import BARE_AFFIRMATION, BARE_DENIAL, BARE_UNCERTAINTY, UNC_CORE_RE
 from ..rules.question_policy import get_template
 from ..state import OLDCARTS_SLOTS, Finding
+from ..vitals import FEVER_TEMP_C, apply_objective_findings
 from .base import GraphDeps, GraphState, ainvoke_with_timeout
 
 logger = logging.getLogger(__name__)
 
 MAX_EXTRACTION_FAILURES = 2
-
-# Sequence of affirmation tokens; Thai polite particles join without spaces
-# ("ใช่ค่ะ" = ใช่ + ค่ะ), so the separator is optional.
-_AFF_TOKEN = r"(?:yes|yeah|yep|sure|ok|okay|ใช่|มี|ครับผม|ครับ|ค่ะ|คะ)"
-_BARE_AFFIRMATION = re.compile(
-    rf"^\s*{_AFF_TOKEN}(?:[\s,.!]*{_AFF_TOKEN})*[\s,.!]*$",
-    re.IGNORECASE,
-)
 
 
 def _pending_question(state, criteria):
@@ -59,13 +53,72 @@ def strip_ambiguous_affirmation(result: ExtractionResult, pending, user_text: st
         or pending.kind != "red_flag"
         or pending.id == "uq_breathing"
         or len(pending.finding_ids) <= 1
-        or not _BARE_AFFIRMATION.match(user_text)
+        or not BARE_AFFIRMATION.match(user_text)
     ):
         return
     ambiguous = set(pending.finding_ids)
     result.finding_updates = [
         u for u in result.finding_updates if u.id not in ambiguous
     ]
+
+
+def strip_uncertain_answer(result: ExtractionResult, user_text: str) -> None:
+    """"Not sure" / "ไม่แน่ใจ" answers nothing — observed live (th): the model
+    recorded all three GI-bleed red-flag findings as absent for
+    "ไม่แน่ใจเลยครับ". Findings must stay unknown so the policy re-asks."""
+
+    if BARE_UNCERTAINTY.match(user_text) and UNC_CORE_RE.search(user_text):
+        result.finding_updates = []
+        result.slot_updates = {}
+
+
+def strip_unscoped_denial(result: ExtractionResult, pending, user_text: str) -> None:
+    """A bare denial answers only the question that was asked. Models extend
+    it to findings merely mentioned in the paraphrase — observed live: "No"
+    to the fever-associated question flipped fever (established on turn 1,
+    37.9 °C measured) to absent, changing the triage level."""
+
+    if pending is None or not BARE_DENIAL.match(user_text):
+        return
+    allowed = set(pending.finding_ids)
+    result.finding_updates = [
+        u for u in result.finding_updates if u.id in allowed
+    ]
+
+
+_ASCII_RE = re.compile(r"^[\x00-\x7f]+$")
+
+
+def _keyword_category(user_text: str, criteria) -> str | None:
+    """Deterministic net under the LLM's category choice: when extraction
+    yields no usable category, match the utterance against the criteria's own
+    keyword lists (observed live: en "kinda dizzy, room was spining" went to
+    generic, skipping the BEFAST stroke screen the th run got). Unique
+    best-scoring category wins; ties or zero hits stay unresolved."""
+
+    low = user_text.lower()
+    scores: list[tuple[int, str]] = []
+    for template in criteria.complaint_templates:
+        if template.category == "generic":
+            continue
+        hits = 0
+        for keyword in [*template.keywords_en, *template.keywords_th]:
+            keyword = keyword.lower().strip()
+            if not keyword:
+                continue
+            if _ASCII_RE.match(keyword):
+                if re.search(rf"\b{re.escape(keyword)}\b", low):
+                    hits += 1
+            elif keyword in user_text:
+                hits += 1
+        if hits:
+            scores.append((hits, template.category))
+    scores.sort(reverse=True)
+    if not scores:
+        return None
+    if len(scores) > 1 and scores[1][0] == scores[0][0]:
+        return None  # tie — don't guess
+    return scores[0][1]
 
 
 def _closest_category(raw: str, known: set[str]) -> str | None:
@@ -87,7 +140,7 @@ def _closest_category(raw: str, known: set[str]) -> str | None:
     return scores[0][1]
 
 
-def _apply(state, criteria, result: ExtractionResult) -> None:
+def _apply(state, criteria, result: ExtractionResult, user_text: str = "") -> None:
     turn = state.turn_count
     if result.chief_complaint and not state.chief_complaint:
         state.chief_complaint = result.chief_complaint
@@ -102,9 +155,24 @@ def _apply(state, criteria, result: ExtractionResult) -> None:
         )
         if category and not state.complaint_category:
             state.complaint_category = category
+    # Keyword net: a missing or generic category is upgraded when the
+    # utterance matches exactly one category's criteria keywords, so the
+    # specific red-flag screen (e.g. BEFAST) runs.
+    if user_text and state.complaint_category in (None, "", "generic"):
+        keyword_category = _keyword_category(user_text, criteria)
+        if keyword_category:
+            state.complaint_category = keyword_category
 
+    measured_temp = state.vitals.get("temp")
     for update in result.finding_updates:
         if update.id in criteria.finding_catalog:
+            if (
+                update.id == "fever"
+                and update.state == "absent"
+                and measured_temp is not None
+                and float(measured_temp) >= FEVER_TEMP_C
+            ):
+                continue  # the booth thermometer outranks chat extraction
             state.findings[update.id] = Finding(
                 state=update.state, value=update.value, source_turn=turn,
             )
@@ -122,6 +190,7 @@ def _apply(state, criteria, result: ExtractionResult) -> None:
         state.slots.setdefault("severity", str(result.distress_score))
     if result.temperature_c is not None and 30 <= result.temperature_c <= 45:
         state.vitals["temp"] = float(result.temperature_c)
+    apply_objective_findings(state)
 
 
 def make_ingest_node(deps: GraphDeps):
@@ -155,21 +224,36 @@ def make_ingest_node(deps: GraphDeps):
             except Exception:
                 logger.exception("extraction attempt %d failed", attempt)
         latency_ms = int((perf_counter() - started) * 1000)
-        audit.append({
-            "call_site": "extraction", "latency_ms": latency_ms, "ok": result is not None,
-        })
 
         if result is None:
+            audit.append({
+                "call_site": "extraction", "latency_ms": latency_ms, "ok": False,
+            })
             state.extraction_failures += 1
             if state.extraction_failures >= MAX_EXTRACTION_FAILURES:
                 state.phase = "escalated_to_nurse"
             return {"s": state, "audit": audit}
 
         state.extraction_failures = 0
-        strip_ambiguous_affirmation(
-            result, _pending_question(state, criteria), user_text
-        )
-        _apply(state, criteria, result)
+        pending = _pending_question(state, criteria)
+        raw_findings = [(u.id, u.state) for u in result.finding_updates]
+        strip_uncertain_answer(result, user_text)
+        strip_unscoped_denial(result, pending, user_text)
+        strip_ambiguous_affirmation(result, pending, user_text)
+        kept = {u.id for u in result.finding_updates}
+        audit.append({
+            "call_site": "extraction", "latency_ms": latency_ms, "ok": True,
+            "extracted": {
+                "category": result.complaint_category,
+                "findings": [
+                    {"id": fid, "state": st, **({} if fid in kept else {"dropped": True})}
+                    for fid, st in raw_findings
+                ],
+                "slots": dict(result.slot_updates),
+                "age_years": result.age_years,
+            },
+        })
+        _apply(state, criteria, result, user_text)
         if result.wants_human:
             state.phase = "escalated_to_nurse"
         else:

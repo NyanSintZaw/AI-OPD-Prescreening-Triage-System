@@ -96,8 +96,9 @@ export function CallPage() {
               d.id,
               {
                 name: language === 'th' ? d.name_th ?? d.name_en : d.name_en,
-                code: d.code
-              }
+                code: d.code,
+                navLine: language === 'th' ? d.nav_line_th : d.nav_line_en,
+              },
             ]),
           );
           const next = toAssessment(payload, deptMap);
@@ -106,6 +107,15 @@ export function CallPage() {
           setPendingDisplayAssessment(toAssessment(payload, new Map()));
         }
       })();
+    },
+    onIdentity: (payload) => {
+      // Safety net: the hotline auto-confirms at link time, but if the
+      // spoken identity gate ever fires and the caller rejects the name,
+      // don't continue an interview on the wrong record.
+      if (payload.kind === 'rejected') {
+        void voiceCall.end();
+        navigate('/patient');
+      }
     },
   });
 

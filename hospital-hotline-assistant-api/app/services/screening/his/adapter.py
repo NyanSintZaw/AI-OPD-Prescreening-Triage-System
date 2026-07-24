@@ -13,6 +13,29 @@ from typing import Any, Protocol
 
 
 @dataclass(frozen=True)
+class PatientHistory:
+    """HN-level history + last-known vitals, joined from the HIS's patient
+    (master) record — carried across visits, unlike per-visit vitals.
+
+    ``is_first_time`` mirrors the HIS's ``history_recorded_at IS NULL``:
+    true means the booth should run the first-time-patient history intake
+    before the symptom interview. The free-text fields are for chart/nurse
+    display only; nothing here feeds the rules engine directly yet (§5.5 of
+    the backend/AI plan — future phase).
+    """
+
+    is_first_time: bool
+    smoking_alcohol: str | None = None
+    allergies: str | None = None
+    chronic_conditions: str | None = None
+    past_surgeries: str | None = None
+    family_history: str | None = None
+    last_weight_kg: float | None = None
+    last_height_cm: float | None = None
+    vitals_measured_at: str | None = None  # ISO timestamp, HIS-side
+
+
+@dataclass(frozen=True)
 class VisitInfo:
     visit_id: str
     patient_id: str | None = None
@@ -22,6 +45,7 @@ class VisitInfo:
     age_years: int | None = None          # computed from birthdate when available
     vitals: dict[str, Any] = field(default_factory=dict)  # HIS-recorded vitals
     appointment: bool = False
+    patient_history: "PatientHistory | None" = None
     raw: dict[str, Any] | None = None
 
 
@@ -39,6 +63,11 @@ class HisAdapter(Protocol):
     async def push_referral(self, referral: dict[str, Any]) -> bool:
         """Stage 1: send the AI booth's pending pre-screening referral to
         the HIS (recommended department, complaint, vitals, reasons)."""
+
+    async def push_patient_history(self, hn: str, history: dict[str, Any]) -> bool:
+        """Persist first-time-patient history (smoking/alcohol, allergies,
+        chronic conditions, past surgeries, family history) onto the HN
+        master record, so it carries forward to future visits."""
 
     async def push_follow_up(self, visit_id: str, follow_up: str) -> bool:
         """Record the patient's own follow-up question/concern on the visit

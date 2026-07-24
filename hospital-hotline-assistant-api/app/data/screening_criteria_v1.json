@@ -1435,6 +1435,60 @@
         "สูบบุหรี่"
       ],
       "is_risk_factor": true
+    },
+    "alcohol_use": {
+      "label_en": "Alcohol use",
+      "label_th": "ดื่มแอลกอฮอล์",
+      "synonyms_en": [
+        "drinks alcohol",
+        "alcohol drinker"
+      ],
+      "synonyms_th": [
+        "ดื่มเหล้า",
+        "ดื่มสุรา"
+      ],
+      "is_risk_factor": true
+    },
+    "allergy_history": {
+      "label_en": "Known allergy (medication, food, or other)",
+      "label_th": "มีประวัติแพ้ (ยา อาหาร หรืออื่น ๆ)",
+      "synonyms_en": [
+        "allergic to",
+        "drug allergy",
+        "food allergy"
+      ],
+      "synonyms_th": [
+        "แพ้ยา",
+        "แพ้อาหาร",
+        "ประวัติแพ้"
+      ],
+      "is_risk_factor": true
+    },
+    "past_surgery_history": {
+      "label_en": "Past surgical history",
+      "label_th": "มีประวัติการผ่าตัด",
+      "synonyms_en": [
+        "previous surgery",
+        "had surgery"
+      ],
+      "synonyms_th": [
+        "เคยผ่าตัด",
+        "ประวัติผ่าตัด"
+      ],
+      "is_risk_factor": true
+    },
+    "family_history_chronic": {
+      "label_en": "Family history of chronic or significant disease",
+      "label_th": "มีประวัติโรคเรื้อรังหรือโรคสำคัญในครอบครัว",
+      "synonyms_en": [
+        "family history",
+        "runs in the family"
+      ],
+      "synonyms_th": [
+        "ประวัติครอบครัว",
+        "โรคในครอบครัว"
+      ],
+      "is_risk_factor": true
     }
   },
   "level1_criteria": [
@@ -4460,8 +4514,7 @@
           "vital": "sbp",
           "text_en": "Please measure your blood pressure now — you can use the machine beside you or type the numbers.",
           "text_th": "กรุณาวัดความดันโลหิตตอนนี้ — ใช้เครื่องข้างตัวคุณหรือพิมพ์ตัวเลขก็ได้",
-          "priority": 7,
-          "min_age_years": 60
+          "priority": 7
         }
       ]
     },
@@ -4600,8 +4653,7 @@
           "vital": "sbp",
           "text_en": "Please measure your blood pressure now — you can use the machine beside you or type the numbers.",
           "text_th": "กรุณาวัดความดันโลหิตตอนนี้ — ใช้เครื่องข้างตัวคุณหรือพิมพ์ตัวเลขก็ได้",
-          "priority": 7,
-          "min_age_years": 60
+          "priority": 7
         }
       ]
     },
@@ -4714,8 +4766,7 @@
           "vital": "sbp",
           "text_en": "Please measure your blood pressure now — you can use the machine beside you or type the numbers.",
           "text_th": "กรุณาวัดความดันโลหิตตอนนี้ — ใช้เครื่องข้างตัวคุณหรือพิมพ์ตัวเลขก็ได้",
-          "priority": 7,
-          "min_age_years": 60
+          "priority": 7
         }
       ]
     },
@@ -5146,8 +5197,7 @@
           "vital": "sbp",
           "text_en": "Please measure your blood pressure now — you can use the machine beside you or type the numbers.",
           "text_th": "กรุณาวัดความดันโลหิตตอนนี้ — ใช้เครื่องข้างตัวคุณหรือพิมพ์ตัวเลขก็ได้",
-          "priority": 7,
-          "min_age_years": 60
+          "priority": 7
         }
       ]
     },
@@ -5338,8 +5388,7 @@
           "vital": "sbp",
           "text_en": "Please measure your blood pressure now — you can use the machine beside you or type the numbers.",
           "text_th": "กรุณาวัดความดันโลหิตตอนนี้ — ใช้เครื่องข้างตัวคุณหรือพิมพ์ตัวเลขก็ได้",
-          "priority": 7,
-          "min_age_years": 60
+          "priority": 7
         }
       ]
     },
@@ -5475,8 +5524,7 @@
           "vital": "sbp",
           "text_en": "Please measure your blood pressure now — you can use the machine beside you or type the numbers.",
           "text_th": "กรุณาวัดความดันโลหิตตอนนี้ — ใช้เครื่องข้างตัวคุณหรือพิมพ์ตัวเลขก็ได้",
-          "priority": 7,
-          "min_age_years": 60
+          "priority": 7
         }
       ]
     }

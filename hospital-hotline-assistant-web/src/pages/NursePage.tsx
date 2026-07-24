@@ -40,6 +40,7 @@ export function NursePage() {
   const { language, setLanguage } = useLanguage();
   const [activeTab, setActiveTab] = useState<NurseTab>('reviews');
   const [reviewFilter, setReviewFilter] = useState<ReviewFilter>('all');
+  const [deptFilter, setDeptFilter] = useState<string>('all');
   const [reviews, setReviews] = useState<AssessmentReviewOut[]>([]);
   const [feedbackRows, setFeedbackRows] = useState<RoutingFeedbackOut[]>([]);
   const [departments, setDepartments] = useState<DepartmentOut[]>([]);
@@ -185,11 +186,20 @@ export function NursePage() {
 
   const filteredReviews = useMemo(() => {
     const key = slipSearchKey(slipQuery);
-    if (!key) return reviews;
-    return reviews.filter((review) =>
-      slipSearchKey(slipCode(review.session_id)).includes(key),
-    );
-  }, [reviews, slipQuery]);
+    return reviews.filter((review) => {
+      if (key && !slipSearchKey(slipCode(review.session_id)).includes(key)) {
+        return false;
+      }
+      if (deptFilter !== 'all') {
+        // Where the patient actually goes: nurse-confirmed when present,
+        // otherwise the AI-proposed department.
+        const effectiveDept =
+          review.confirmed_department_id ?? review.proposed_department_id;
+        if (effectiveDept !== deptFilter) return false;
+      }
+      return true;
+    });
+  }, [reviews, slipQuery, deptFilter]);
 
   const complaintPreview = (review: AssessmentReviewOut) =>
     review.chief_complaint ?? review.ai_chief_complaint ?? '—';
@@ -278,6 +288,19 @@ export function NursePage() {
               </button>
             ))}
           </div>
+          <select
+            className="nurse-dept-filter"
+            value={deptFilter}
+            onChange={(e) => setDeptFilter(e.target.value)}
+            aria-label={t('nurseDeptFilterLabel')}
+          >
+            <option value="all">{t('nurseDeptFilterAll')}</option>
+            {departments.map((d) => (
+              <option key={d.id} value={d.id}>
+                {language === 'th' ? d.name_th ?? d.name_en : d.name_en}
+              </option>
+            ))}
+          </select>
         </div>}
 
         {/* ── Review cards ── */}

@@ -66,6 +66,105 @@ def greeting_line(name: str | None, language: str) -> str:
     return VOICE_GREETING.get(language, VOICE_GREETING["en"])
 
 
+# Spoken VN identity gate — the call opens by confirming the HIS name before
+# any symptoms are discussed. Answers are classified by nlu_yesno; "no" ends
+# the call and sends the patient back to the VN entry screen.
+CONFIRM_NAME_ASK = {
+    "en": "Hello! You are {name}, is that right?",
+    "th": "สวัสดีค่ะ คุณคือ {name} ใช่ไหมคะ",
+}
+
+CONFIRM_NAME_RETRY = {
+    "en": (
+        "Sorry, I didn't catch that. Are you {name}? "
+        "Please say yes or no, or tap a button on the screen."
+    ),
+    "th": (
+        "ขอโทษค่ะ ขอถามอีกครั้งนะคะ คุณคือ {name} ใช่หรือไม่คะ "
+        "ตอบว่าใช่หรือไม่ใช่ หรือแตะปุ่มบนหน้าจอได้เลยค่ะ"
+    ),
+}
+
+CONFIRM_NAME_REJECTED = {
+    "en": (
+        "I'm sorry for the mix-up. Please enter your correct visit number "
+        "on the screen."
+    ),
+    "th": "ขอโทษค่ะ รบกวนกรอกหมายเลข visit ที่ถูกต้องบนหน้าจออีกครั้งนะคะ",
+}
+
+CONFIRM_NAME_HISTORY_NEXT = {
+    "en": (
+        "Thank you. Before we talk about today's symptoms, please answer a "
+        "few health questions on the screen."
+    ),
+    "th": (
+        "ขอบคุณค่ะ ก่อนเริ่มคุยเรื่องอาการ "
+        "รบกวนกรอกข้อมูลสุขภาพเพิ่มเติมบนหน้าจอนะคะ"
+    ),
+}
+
+
+def confirm_name_ask(name: str, language: str, *, retry: bool = False) -> str:
+    table = CONFIRM_NAME_RETRY if retry else CONFIRM_NAME_ASK
+    return table.get(language, table["en"]).format(name=name.strip())
+
+
+# Spoken resume gate — the same VN has a same-day session; ask continue vs
+# start over (unfinished) or start-over yes/no (already completed) before
+# anything else happens in the call.
+RESUME_ASK_ACTIVE = {
+    "en": (
+        "Welcome back{name}! You have an unfinished assessment — "
+        "would you like to continue it, or start over?"
+    ),
+    "th": (
+        "ยินดีต้อนรับกลับค่ะ{name} คุณมีการประเมินที่ยังไม่เสร็จ "
+        "ต้องการทำต่อ หรือเริ่มใหม่คะ"
+    ),
+}
+
+RESUME_ASK_DONE = {
+    "en": (
+        "Hello again{name}! Your assessment today is already complete. "
+        "Would you like to start a new one?"
+    ),
+    "th": (
+        "สวัสดีอีกครั้งค่ะ{name} การประเมินของคุณวันนี้เสร็จสิ้นแล้ว "
+        "ต้องการเริ่มการประเมินใหม่ไหมคะ"
+    ),
+}
+
+RESUME_RETRY = {
+    "en": 'Sorry, I didn\'t catch that — please say "continue" or "start over", or tap a button.',
+    "th": "ขอโทษค่ะ พูดว่า “ทำต่อ” หรือ “เริ่มใหม่” หรือแตะปุ่มบนหน้าจอได้เลยค่ะ",
+}
+
+RESUME_ACK_CONTINUE = {
+    "en": "Great — let's continue where we left off.",
+    "th": "ได้ค่ะ ทำต่อจากเดิมกันเลยนะคะ",
+}
+
+RESUME_ACK_STARTOVER = {
+    "en": "Alright — let's start fresh.",
+    "th": "ได้ค่ะ เริ่มกันใหม่นะคะ",
+}
+
+RESUME_ACK_DECLINE = {
+    "en": "No problem — you can choose from the screen.",
+    "th": "ได้ค่ะ เลือกจากหน้าจอได้เลยนะคะ",
+}
+
+
+def resume_ask(name: str | None, language: str, status: str) -> str:
+    table = RESUME_ASK_DONE if status == "completed" else RESUME_ASK_ACTIVE
+    polite = polite_name(name, language)
+    name_part = ""
+    if polite:
+        name_part = f", {polite}" if language == "en" else f" {polite}"
+    return table.get(language, table["en"]).format(name=name_part)
+
+
 FOLLOW_UP_OFFER = {
     "en": (
         "Before you go — is there anything you'd like to ask or tell the doctor? "
@@ -91,6 +190,41 @@ FOLLOW_UP_CLOSE = {
     "en": "Alright — please proceed to {department}. Take care.",
     "th": "ได้ค่ะ กรุณาไปที่{department}นะคะ ดูแลตัวเองด้วยนะคะ",
 }
+
+FOLLOW_UP_ACK_NAMED = {
+    "en": "Got it, {name} — I've noted that for the doctor. Please proceed to {department}.",
+    "th": "รับทราบค่ะ {name} ดิฉันจดไว้ให้คุณหมอแล้ว กรุณาไปที่{department}นะคะ",
+}
+
+FOLLOW_UP_CLOSE_NAMED = {
+    "en": "Alright, {name} — please proceed to {department}. Take care.",
+    "th": "ได้ค่ะ {name} กรุณาไปที่{department}นะคะ ดูแลตัวเองด้วยนะคะ",
+}
+
+
+def polite_name(name: str | None, language: str) -> str | None:
+    """Address form of the HIS-recorded name for mid-conversation mentions:
+    given name only, with the Thai honorific ('สมชาย ใจดี' -> 'คุณสมชาย',
+    'Waraporn Srisuk' -> 'Waraporn'). None when no name is linked."""
+    parts = (name or "").strip().split()
+    if not parts:
+        return None
+    given = parts[0]
+    return f"คุณ{given}" if language == "th" else given
+
+
+def follow_up_ack(name: str | None, department: str, language: str) -> str:
+    polite = polite_name(name, language)
+    if polite:
+        return FOLLOW_UP_ACK_NAMED[language].format(name=polite, department=department)
+    return FOLLOW_UP_ACK[language].format(department=department)
+
+
+def follow_up_close(name: str | None, department: str, language: str) -> str:
+    polite = polite_name(name, language)
+    if polite:
+        return FOLLOW_UP_CLOSE_NAMED[language].format(name=polite, department=department)
+    return FOLLOW_UP_CLOSE[language].format(department=department)
 
 # Closing chip on per-finding red-flag choices; the extractor maps it to
 # "all of the pending question's findings absent".
@@ -142,3 +276,61 @@ def department_display(code: str, language: str) -> str:
     if entry is None:
         return code
     return entry.get(language) or entry["en"]
+
+
+_ORDINALS_EN = {
+    "1": "1st",
+    "2": "2nd",
+    "3": "3rd",
+    "4": "4th",
+    "5": "5th",
+}
+
+
+def _floor_label_en(floor: str) -> str:
+    key = floor.strip()
+    ordinal = _ORDINALS_EN.get(key, f"{key}th" if key.isdigit() else key)
+    if key.isdigit() or key in _ORDINALS_EN:
+        return f"{ordinal} Floor"
+    return floor
+
+
+def nav_line(
+    department_name: str,
+    *,
+    language: str,
+    floor: str | None = None,
+    room: str | None = None,
+    nav_hint: str | None = None,
+) -> str:
+    """Short slip / recommendation wayfinding sentence.
+
+    Prefer an explicit ``nav_hint``; otherwise compose department + floor
+    (and optional room), e.g. *"Please proceed to the ENT Clinic, 3rd Floor."*
+    """
+    name = (department_name or "").strip() or "the clinic"
+    hint = (nav_hint or "").strip()
+    if hint:
+        return hint
+
+    floor_s = (floor or "").strip() or None
+    room_s = (room or "").strip() or None
+
+    if language == "th":
+        parts = [f"กรุณาไปที่{name}"]
+        if floor_s:
+            parts.append(f"ชั้น {floor_s}")
+        if room_s:
+            parts.append(f"ห้อง {room_s}")
+        return " ".join(parts)
+
+    # English: "Please proceed to the {name}, {Nth} Floor."
+    # Avoid doubling "the" when the name already starts with it / OPD.
+    display = name if name.lower().startswith(("the ", "opd")) else f"the {name}"
+    if floor_s and room_s:
+        return f"Please proceed to {display}, {_floor_label_en(floor_s)}, room {room_s}."
+    if floor_s:
+        return f"Please proceed to {display}, {_floor_label_en(floor_s)}."
+    if room_s:
+        return f"Please proceed to {display}, room {room_s}."
+    return f"Please proceed to {display}."

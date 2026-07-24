@@ -20,7 +20,8 @@ from .graph import build_screening_graph
 from .nodes.base import GraphDeps
 from .persistence import InMemoryStateStore, StateStore
 from .state import ScreeningState, TurnOutput
-from .vitals import normalize_vitals
+from .vitals import apply_objective_findings, normalize_vitals
+from .history_findings import apply_history_findings
 
 logger = logging.getLogger(__name__)
 
@@ -185,9 +186,16 @@ class ScreeningTriageEngine:
         if isinstance(age, (int, float)) and age >= 0:
             state.age_years = float(age)
             state.age_asked = True  # never ask — the HIS gave it to us
+        patient_name = str(turn_context.get("patient_name") or "").strip()
+        if patient_name:
+            state.patient_name = patient_name
         vitals = normalize_vitals(turn_context.get("vitals"))
         if vitals:
             state.vitals.update(vitals)
+        apply_objective_findings(state)
+        history = turn_context.get("patient_history")
+        if isinstance(history, dict):
+            apply_history_findings(state, history)
 
     def _new_state(self, session_id: str, language: str, input_mode: str) -> ScreeningState:
         return ScreeningState(

@@ -234,6 +234,161 @@ async def test_reset_requires_api_key(client):
     assert resp.status_code == 401
 
 
+async def test_visit_payload_includes_hn_and_nested_patient(client):
+    """§4.1: visit_payload emits both hnx and hn, plus the joined patient
+    (HN master record) so a single GET gives the app everything it needs."""
+    visit = (await client.get(f"/api/visits/{VISIT}", headers=HEADERS)).json()
+    assert visit["hn"] == visit["hnx"] == "09900001"
+    assert visit["patient"]["hn"] == "09900001"
+    # 09900001 is seeded as a returning patient in sample_patients.csv.
+    assert visit["patient"]["is_first_time"] is False
+    assert visit["patient"]["history"]["chronic_conditions"]
+    assert visit["patient"]["last_vitals"]["weight"] == 72.5
+
+
+async def test_get_patient_returning_vs_first_time(client):
+    returning = (await client.get("/api/patients/09900001", headers=HEADERS)).json()
+    assert returning["is_first_time"] is False
+    assert returning["history"]["recorded_at"]
+    assert returning["last_vitals"]["height"] == 172
+
+    first_time = (await client.get("/api/patients/09900003", headers=HEADERS)).json()
+    assert first_time["is_first_time"] is True
+    assert first_time["history"]["recorded_at"] is None
+    assert first_time["history"]["chronic_conditions"] is None
+    assert first_time["last_vitals"]["weight"] is None
+
+
+async def test_list_patients(client):
+    resp = await client.get("/api/patients", headers=HEADERS)
+    assert resp.status_code == 200
+    patients = resp.json()["patients"]
+    by_hn = {p["hn"]: p for p in patients}
+    # Every seeded visit's HN has a master record (backfill guarantees it).
+    assert "09900001" in by_hn and "09900003" in by_hn
+    returning = by_hn["09900001"]
+    assert returning["is_first_time"] is False
+    assert returning["history"]["chronic_conditions"]
+    assert returning["visit_count"] >= 1
+    assert by_hn["09900003"]["is_first_time"] is True
+
+
+async def test_list_patients_requires_api_key(client):
+    resp = await client.get("/api/patients")
+    assert resp.status_code == 401
+
+
+async def test_get_unknown_patient_404(client):
+    resp = await client.get("/api/patients/does-not-exist", headers=HEADERS)
+    assert resp.status_code == 404
+
+
+async def test_get_patient_requires_api_key(client):
+    resp = await client.get("/api/patients/09900001")
+    assert resp.status_code == 401
+
+
+async def test_first_visit_history_captured_then_returning(client):
+    """Golden path: a first-time patient's booth-collected history is
+    written back and immediately flips is_first_time to False, and
+    persists on a later lookup (simulating a second visit)."""
+    hn = "09900003"
+    before = (await client.get(f"/api/patients/{hn}", headers=HEADERS)).json()
+    assert before["is_first_time"] is True
+
+    resp = await client.put(
+        f"/api/patients/{hn}/history",
+        headers=HEADERS,
+        json={
+            "smoking_alcohol": "Non-smoker; no alcohol",
+            "allergies": "None known",
+            "chronic_conditions": "None",
+            "past_surgeries": "None",
+            "family_history": "Father: hypertension",
+        },
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["is_first_time"] is False
+    assert body["history"]["family_history"] == "Father: hypertension"
+    assert body["history"]["recorded_at"]
+
+    # A later lookup (as if from a second visit) sees the same history and
+    # no longer treats the patient as first-time.
+    after = (await client.get(f"/api/patients/{hn}", headers=HEADERS)).json()
+    assert after["is_first_time"] is False
+    assert after["history"]["allergies"] == "None known"
+
+
+async def test_update_patient_vitals_recorded_for_next_visit(client):
+    hn = "09900004"
+    resp = await client.put(
+        f"/api/patients/{hn}/vitals",
+        headers=HEADERS,
+        json={"weight_kg": 55.5, "height_cm": 160},
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["last_vitals"]["weight"] == 55.5
+    assert body["last_vitals"]["height"] == 160
+    assert body["last_vitals"]["measured_at"]
+
+    fetched = (await client.get(f"/api/patients/{hn}", headers=HEADERS)).json()
+    assert fetched["last_vitals"]["weight"] == 55.5
+
+
+async def test_history_and_vitals_write_require_api_key(client):
+    assert (await client.put(
+        "/api/patients/09900001/history", json={"smoking_alcohol": "x"}
+    )).status_code == 401
+    assert (await client.put(
+        "/api/patients/09900001/vitals", json={"weight_kg": 1}
+    )).status_code == 401
+
+
+async def test_write_history_for_unknown_patient_404(client):
+    resp = await client.put(
+        "/api/patients/does-not-exist/history",
+        headers=HEADERS,
+        json={"smoking_alcohol": "x"},
+    )
+    assert resp.status_code == 404
+
+
+async def test_reset_visit_leaves_history_alone_by_default(client):
+    """reset_history defaults false: resetting a visit must not wipe the
+    HN's carried-forward history — it's meant to persist across visits."""
+    await client.post("/api/admin/reset", headers=HEADERS, json={"visit_ids": [VISIT]})
+    patient = (await client.get("/api/patients/09900001", headers=HEADERS)).json()
+    assert patient["is_first_time"] is False
+    assert patient["history"]["chronic_conditions"]
+
+
+async def test_reset_with_reset_history_wipes_affected_patient(client):
+    resp = await client.post(
+        "/api/admin/reset",
+        headers=HEADERS,
+        json={"visit_ids": [VISIT], "reset_history": True},
+    )
+    assert resp.status_code == 200
+    patient = (await client.get("/api/patients/09900001", headers=HEADERS)).json()
+    assert patient["is_first_time"] is True
+    assert patient["history"]["chronic_conditions"] is None
+    assert patient["last_vitals"]["weight"] is None
+    # Unaffected patient (different visit) keeps its history.
+    other = (await client.get("/api/patients/09900002", headers=HEADERS)).json()
+    assert other["is_first_time"] is False
+
+
+async def test_reset_all_with_reset_history_wipes_every_patient(client):
+    await client.post(
+        "/api/admin/reset", headers=HEADERS, json={"reset_history": True}
+    )
+    for hn in ("09900001", "09900002", "09900005", "09900007"):
+        patient = (await client.get(f"/api/patients/{hn}", headers=HEADERS)).json()
+        assert patient["is_first_time"] is True
+
+
 async def test_list_visits_reports_status(client):
     resp = await client.get("/api/visits", headers=HEADERS)
     assert resp.status_code == 200

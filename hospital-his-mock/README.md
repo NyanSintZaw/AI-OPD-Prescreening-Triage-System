@@ -34,9 +34,18 @@ is blank. Then our system fills the blanks in two stages:
 - **`sample_visits.csv`** — a small, fully **synthetic** set of demo visits
   loaded in **pre-registration state** (only the registration fields filled).
   Committed so the demo runs with no real data.
+- **`sample_patients.csv`** — the matching HN (patient) master records for
+  those visits' `hnx` values: demographics + booth-collected history
+  (smoking/alcohol, allergies, chronic conditions, past surgeries, family
+  history) + last-known weight/height. A blank `history_recorded_at` is a
+  **first-time** patient; a filled one is **returning**. Half the sample is
+  seeded each way so the demo shows both paths. Any visit whose `hnx` isn't
+  in this CSV (e.g. a real export) gets a bare, first-time patient record
+  auto-created on startup.
 - **Real hospital exports stay out of git** (`.gitignore` blocks `Prescreen*.csv`
   and `*.db`). Point the loader at one with `HIS_MOCK_DATA_PATH` — a real export
-  loads complete rows; the synthetic sample loads pre-registration.
+  loads complete rows; the synthetic sample loads pre-registration. A matching
+  real patients export can be pointed to with `HIS_MOCK_PATIENTS_DATA_PATH`.
 
 ## Run
 
@@ -81,16 +90,21 @@ All endpoints require `X-API-Key` (default `demo-his-key`, override with
 | Method | Path | Purpose |
 |---|---|---|
 | GET | `/api/visits` | List all visits with `screening_status` (registered/screened/routed) — powers the admin Hospital DB tab |
-| GET | `/api/visits/{visit_id}` | Full visit row (demographics + any filled screening fields); booth reads this after the patient types their visit ID |
+| GET | `/api/visits/{visit_id}` | Full visit row (demographics + any filled screening fields) plus a nested `patient` object (HN history + last-known vitals) and both `hnx`/`hn` keys; booth reads this after the patient types their visit ID |
 | POST | `/api/visits/{visit_id}/prescreen` | **Stage 1**: write booth measurements + booth location; hold dept/complaint/reason pending |
 | PUT | `/api/visits/{visit_id}/routing` | **Stage 2**: nurse confirms/reroutes → publish narrative + second_location |
 | GET | `/api/visits/{visit_id}/prescreen` | Read the held/finalized prescreen record |
+| GET | `/api/patients/{hn}` | HN master record: demographics, history, last-known vitals, `is_first_time` |
+| PUT | `/api/patients/{hn}/history` | Record booth-collected history (smoking/alcohol, allergies, chronic conditions, surgeries, family history); stamps `history_recorded_at` |
+| PUT | `/api/patients/{hn}/vitals` | Record last-known weight/height (`weight_kg`/`height_cm`) so a future visit can skip re-asking |
 | GET | `/api/departments` | Distinct department names known to the HIS |
+| POST | `/api/admin/reset` | Reset visits to pre-registration; pass `reset_history: true` to also wipe the affected patients' history back to first-time |
 
 ## Config
 
 | Env | Default | Meaning |
 |---|---|---|
 | `HIS_MOCK_DB_PATH` | `his_mock.db` | SQLite file |
-| `HIS_MOCK_DATA_PATH` | _(unset)_ | CSV to seed from when the DB is empty; falls back to `sample_visits.csv` |
+| `HIS_MOCK_DATA_PATH` | _(unset)_ | Visits CSV to seed from when the DB is empty; falls back to `sample_visits.csv` |
+| `HIS_MOCK_PATIENTS_DATA_PATH` | _(unset)_ | Patients CSV to seed from when the DB is empty; falls back to `sample_patients.csv` |
 | `HIS_MOCK_API_KEY` | `demo-his-key` | required in `X-API-Key` |

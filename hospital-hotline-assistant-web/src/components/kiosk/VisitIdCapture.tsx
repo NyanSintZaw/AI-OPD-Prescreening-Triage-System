@@ -19,6 +19,9 @@ interface VisitIdCaptureProps {
   notFound: boolean;
   /** True when the last link attempt failed to reach the HIS (network/server error). */
   linkError: boolean;
+  /** True when the patient rejected the spoken name confirmation — show a
+   *  "that wasn't you, please re-enter your visit number" hint. */
+  identityRejected?: boolean;
 }
 
 // The HIS visit_id is an 18-digit numeric string (confirmed from
@@ -54,6 +57,7 @@ export function VisitIdCapture({
   linking,
   notFound,
   linkError,
+  identityRejected = false,
 }: VisitIdCaptureProps) {
   const { t } = useTranslation();
   const [tab, setTab] = useState<Tab>('type');
@@ -190,6 +194,9 @@ export function VisitIdCapture({
           {formatError && <p className="k-error">{t('kioskVisitInvalidFormat')}</p>}
           {!formatError && notFound && !linking && <p className="k-error">{t('kioskVisitNotFound')}</p>}
           {!formatError && linkError && !linking && <p className="k-error">{t('kioskVisitLinkError')}</p>}
+          {!formatError && identityRejected && !notFound && !linkError && !linking && (
+            <p className="k-error">{t('kioskVisitWrongName')}</p>
+          )}
 
           {/* Hidden wedge-scanner sink — always mounted so hardware scans work. */}
           <input

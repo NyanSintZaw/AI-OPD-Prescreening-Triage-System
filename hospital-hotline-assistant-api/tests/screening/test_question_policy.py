@@ -167,15 +167,26 @@ def test_bp_always_asked_for_chest_pain(criteria):
     assert q is not None and q.id == "cp_bp" and q.vital == "sbp"
 
 
-def test_bp_skipped_for_ear_under_60(criteria):
+def test_bp_always_asked_for_ear_under_60(criteria):
+    """Meeting 2026-07-17: vitals always recorded — BP is no longer age-gated."""
     findings = {
         "dyspnea": "absent", "severe_respiratory_distress": "absent",
         "facial_droop": "absent", "foreign_body_ent_24h": "absent",
     }
-    q = next_question(criteria, inputs(
-        category="ear", findings=findings, age_years=45.0,
-    ))
-    assert q is None or q.id != "ear_bp"
+    seen = set()
+    found = None
+    for _ in range(20):
+        q = next_question(criteria, inputs(
+            category="ear", findings=findings, age_years=45.0, asked=seen,
+            answered_slots={"onset", "duration", "severity"},
+        ))
+        if q is None:
+            break
+        if q.id == "ear_bp":
+            found = q
+            break
+        seen.add(q.id)
+    assert found is not None and found.vital == "sbp"
 
 
 def test_bp_asked_for_ear_age_60_plus(criteria):
@@ -199,16 +210,25 @@ def test_bp_asked_for_ear_age_60_plus(criteria):
     assert found is not None and found.vital == "sbp"
 
 
-def test_bp_skipped_when_age_unknown_on_age_gated(criteria):
+def test_bp_asked_when_age_unknown(criteria):
     findings = {
         "dyspnea": "absent", "severe_respiratory_distress": "absent",
         "facial_droop": "absent", "foreign_body_ent_24h": "absent",
     }
-    q = next_question(criteria, inputs(
-        category="ear", findings=findings, age_known=False,
-    ))
-    # age unknown -> ear_bp resolved/skipped; age question comes first instead
-    assert q is not None and q.id == "uq_age"
+    seen = {"uq_age"}
+    found = None
+    for _ in range(20):
+        q = next_question(criteria, inputs(
+            category="ear", findings=findings, age_known=False, asked=seen,
+            answered_slots={"onset", "duration", "severity"},
+        ))
+        if q is None:
+            break
+        if q.id == "ear_bp":
+            found = q
+            break
+        seen.add(q.id)
+    assert found is not None and found.vital == "sbp"
 
 
 def test_pre_disposition_holds_completeness(criteria):
