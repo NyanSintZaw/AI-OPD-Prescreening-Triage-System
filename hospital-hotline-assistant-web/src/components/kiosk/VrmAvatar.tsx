@@ -525,6 +525,9 @@ export function VrmAvatar({ state, getLevel, getFeatures }: VrmAvatarProps) {
         let lip = 0;
         let happy = 0.12;
         let surprised = 0;
+        // Speaking-entry "smiling eyes" strength (drives the eyelids, not
+        // the mouth — the happy preset's mouth reads as a vertical gape).
+        let flourish = 0;
         let nextBlinkAt = 2 + Math.random() * 3;
         let blinkPhase: 'open' | 'closing' | 'opening' = 'open';
         let blinkT = 0;
@@ -766,10 +769,15 @@ export function VrmAvatar({ state, getLevel, getFeatures }: VrmAvatarProps) {
                 doubleBlink = false;
               }
             }
-            em?.setValue?.('blink', blinkValue);
+            // Smiling-eyes flourish rides the same eyelid channel: the
+            // lids close into warm arcs without touching the mouth.
+            em?.setValue?.('blink', Math.min(1, Math.max(blinkValue, flourish * 0.7)));
           }
           // Expressions cross-fade smoothly: warm by default, beaming for
           // the post-jot reassure moment, a hint of wonder while thinking.
+          const inFlourish =
+            pose === 'speaking' && !still && t - speakEnteredAt < SPEAK_SMILE_LEN;
+          flourish += ((inFlourish ? 1 : 0) - flourish) * (1 - Math.exp(-dt * 10));
           const happyTarget =
             pose === 'listening'
               ? phase === 'reassure'
@@ -777,8 +785,8 @@ export function VrmAvatar({ state, getLevel, getFeatures }: VrmAvatarProps) {
                 : phase === 'jot'
                   ? 0.08
                   : HAPPY_TARGETS.listening
-              : pose === 'speaking' && t - speakEnteredAt < SPEAK_SMILE_LEN
-                ? 0.85 // smiling eyes greet the answer before settling in
+              : inFlourish
+                ? 0.3 // warm cheeks only — the eyes carry the smile
                 : HAPPY_TARGETS[pose];
           const ke = still || snap ? 1 : 1 - Math.exp(-5 * dt);
           happy += (happyTarget - happy) * ke;
