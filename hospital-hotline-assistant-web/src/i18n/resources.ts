@@ -147,7 +147,6 @@ export const resources = {
       kioskResultSubtitle: 'Here is where to go next',
       kioskResultPrint: 'Print my slip',
       kioskResultFinish: 'Finish',
-      kioskResultThanks: 'Thank you — take care!',
       // Idle / reset
       kioskIdleTitle: 'Are you still there?',
       kioskIdleBody: 'This session will restart soon for the next visitor.',
@@ -906,7 +905,6 @@ export const resources = {
       kioskResultSubtitle: 'นี่คือจุดที่คุณต้องไปต่อ',
       kioskResultPrint: 'พิมพ์ใบของฉัน',
       kioskResultFinish: 'เสร็จสิ้น',
-      kioskResultThanks: 'ขอบคุณค่ะ ดูแลสุขภาพด้วยนะคะ',
       // Idle / reset
       kioskIdleTitle: 'คุณยังอยู่ไหม?',
       kioskIdleBody: 'ระบบจะเริ่มใหม่สำหรับผู้รับบริการรายถัดไปในไม่ช้า',

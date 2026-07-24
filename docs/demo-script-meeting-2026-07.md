@@ -65,7 +65,7 @@ saying "no" in natural language sends them back to re-enter the VN.
 | 2 | ⌨ Enter the **wrong** VN `990000000000000002` | — | Confirm screen: **"คุณคือ สมหญิง รักษาดี ใช่ไหม?"** with ใช่/ไม่ใช่ buttons **and** a free-text box |
 | 3 | ⌨ Type in the text box: **`ไม่ใช่ครับ คนละคน`** | — | Classified as "no" → visit **unlinked**, kiosk returns to VN entry ("please re-check your number") |
 | 4 | ⌨ Enter the **correct** VN `990000000000000001` | — | "คุณคือ สมชาย ใจดี ใช่ไหม?" |
-| 5 | ⌨ Type: **`ใช่ครับผม`** (don't use the button — show natural language works) | — | Confirmed → continues (สมชาย is returning, so no history form) → conversation starts |
+| 5 | ⌨ Type: **`ใช่ครับผม`** (don't use the button — show natural language works) | — | Confirmed → continues (สมชาย is returning, so no history questions) → conversation starts |
 
 **Tell the audience:** the reply is classified by the same bilingual NLU the
 interview uses — "no, wrong person", "ไม่ใช่ค่ะ", "yes that's me" all work; an
@@ -126,26 +126,26 @@ complaint together trigger the pre-eclampsia rule.
 | # | Step | Speak / type | Expected |
 |---|---|---|---|
 | 1 | Language: **English** → VN `990000000000000004` | — | "Are you **Waraporn Srisuk**?" |
-| 2 | Tap **Yes** | — | **History intake form appears** (first-time only — สมชาย never saw it) |
-| 3 | ⌨ Fill the 5 fields: | | |
-|   | · Smoking / alcohol | **`Non-smoker, occasional wine`** | |
-|   | · Allergies | **`Penicillin — rash`** | |
-|   | · Chronic conditions | **`High blood pressure since 2023`** | |
-|   | · Past surgeries | **`None`** | |
-|   | · Family history | **`Mother has diabetes`** | Save → pushed to the hospital DB (HN record) |
-| 4 | Conversation starts | 🎙 **"I'm seven months pregnant and I've had a bad headache since this morning."** | Pregnancy + headache extracted; `hypertension_history` already present **from the form she just filled** |
+| 2 | Tap **Yes** (or say it) | — | AI: *"Since this is your first visit, I have a few quick health questions first"* — **asked one by one in the same call** (first-time only — สมชาย never heard them). Each question shows suggested-answer chips. |
+| 3 | Answer the 5 spoken questions: | | |
+|   | · Smoke / drink alcohol? | 🎙 **"No, just occasional wine"** | (or tap a chip) |
+|   | · Allergies? | 🎙 **"Penicillin — I get a rash"** | |
+|   | · Chronic conditions? | 🎙 **"High blood pressure since 2023"** | (chips: None · Diabetes · High blood pressure · Heart disease) |
+|   | · Ever had surgery? | Tap **None** | |
+|   | · Family history? | Tap **Diabetes** | AI: *"Thank you, that's all recorded"* → answers pushed to the hospital DB (HN record) |
+| 4 | Interview continues in the same call | 🎙 **"I'm seven months pregnant and I've had a bad headache since this morning."** | Pregnancy + headache extracted; `hypertension_history` already present **from the answers she just spoke** |
 | 5 | — | — | **Emergency banner** — pregnancy + hypertension history = suspected pre-eclampsia, forced level 2, routed to Emergency. Staff notified. |
 
 **Tell the audience:** the rules engine decided this, not the LLM — rule
 `tt_pregnancy_hypertension` (MFU criteria, cited in the nurse trace) fires on
 `pregnancy` + `hypertension_history`. Without the history intake she'd have
-been an ordinary headache interview; the form she filled 60 seconds ago
+been an ordinary headache interview; the history she spoke 60 seconds ago
 changed her triage.
 
 **Show in admin → Database → Patients (HN):** hit Refresh — Waraporn's badge
 flipped **First-time → Returning**, all 5 history answers now on her HN
-record. Re-enter her VN later: no form (she's known now). Nurse portal shows
-the allergy ("Penicillin — rash") on the review.
+record. Re-enter her VN later: no history questions (she's known now). Nurse
+portal shows the allergy answer on the review.
 
 ---
 
@@ -159,12 +159,12 @@ restarting; weight/height **is** asked when the HN measurement is too old.
 
 | # | Step | Speak | Expected |
 |---|---|---|---|
-| 1 | Thai → VN `990000000000000005` → confirm **"ใช่ครับ"** | — | Conversation starts (returning patient — no history form) |
+| 1 | Thai → VN `990000000000000005` → confirm **"ใช่ครับ"** | — | Conversation starts (returning patient — no history questions) |
 | 2 | Greeting | 🎙 **"ปวดท้องมาตั้งแต่เมื่อคืนครับ"** | Abdominal template; questions begin |
 | 3 | Answer 1–2 questions | 🎙 e.g. **"ปวดแถวลิ้นปี่ครับ"** | — |
 | 4 | **Walk away** — tap **Exit** → confirm, or just let the idle timer reset | — | Kiosk returns to attract screen. *Tell audience: session is still alive in the database.* |
 | 5 | (Optional beat) another patient could use the booth now | — | — |
-| 6 | ประเสริฐ returns: Thai → **same VN** `…005` | — | Kiosk finds his unfinished assessment and asks: **"ทำการประเมินต่อ หรือ เริ่มใหม่?"** — tap **ทำต่อ** → jumps straight back into the conversation; earlier answers intact. (Re-entering the VN of a *finished* assessment instead offers start-over + reprint slip.) |
+| 6 | ประเสริฐ returns: Thai → **same VN** `…005` | 🎙 **"ใช่ครับ"** | Kiosk finds his unfinished assessment. The AI **confirms identity first** ("คุณคือ ประเสริฐ… ใช่ไหมคะ" — a stranger typing his VN gets bounced here), *then* asks **"ต้องการทำต่อ หรือเริ่มใหม่คะ"** — say **"ทำต่อ"** or tap → jumps straight back into the conversation; earlier answers intact. (Re-entering the VN of a *finished* assessment instead offers start-over + reprint slip.) |
 | 7 | Finish the interview | 🎙 keep answering; BP when asked, e.g. **`135/82`** | — |
 | 8 | **Weight/height IS asked this time** | ⌨ type e.g. **`58` / `165`** | *Point out the contrast with S2: his last measurement is from Sep 2025 — older than 90 days — so the booth re-measures* |
 | 9 | Dispose + decline follow-up | 🎙 **"ไม่มีแล้วครับ"** | Slip with navigation line |
@@ -190,9 +190,9 @@ crisis.
 | 2 | Greeting | 🎙 **"เวียนหัว มึน ๆ มาตั้งแต่เช้าค่ะ"** | Headache/dizziness template; BEFAST stroke questions — answer 🎙 **"ไม่มีค่ะ"** to each |
 | 3 | BP request | ⌨ type **`190` / `115`**, pulse `96` | **Rest-first flow**: the reading is treated as provisional (white-coat effect) — kiosk shows *"ความดันโลหิตสูง — กรุณานั่งพักก่อนค่ะ"* with the 15-minute instruction, the call ends politely, and the assessment is saved. No emergency yet, no conversation turn with the numbers. |
 | 4 | Try to re-measure immediately (re-enter her VN → Continue → BP) | — | **Blocked**: rest countdown ("นั่งพักอีก XX นาที") with an "I'll come back" button. The window is keyed to **HN 09900007** |
-| 5 | **Prove it's per-patient:** English → VN `990000000000000006` (Anucha, first-time — breeze through/skip the form) | 🎙 **"I have a sore throat."** …measure BP normally e.g. **`121/78`** | Anucha measures freely — the booth is not locked, only มาลี is |
+| 5 | **Prove it's per-patient:** English → VN `990000000000000006` (Anucha, first-time — tap the chips to breeze through the 5 spoken history questions) | 🎙 **"I have a sore throat."** …measure BP normally e.g. **`121/78`** | Anucha measures freely — the booth is not locked, only มาลี is |
 | 6 | "15 minutes later" (demo shortcut — run in a terminal): | `psql "$DATABASE_URL" -c "UPDATE bp_rest_windows SET rest_until = now() WHERE resolved_at IS NULL;"` | Window expired |
-| 7 | มาลี re-enters VN `…007` | — | Kiosk offers **"ทำการประเมินต่อ / เริ่มใหม่"** — tap Continue; the interview resumes; re-measure ⌨ **`142/88`** → proceeds normally to disposition |
+| 7 | มาลี re-enters VN `…007` | 🎙 **"ใช่ค่ะ"** then **"ทำต่อ"** | AI confirms her name first, then offers **"ทำต่อ หรือเริ่มใหม่"**; the interview resumes; re-measure ⌨ **`142/88`** → proceeds normally to disposition |
 | 8 | (Optional strong close) repeat with a still-high confirmatory reading, e.g. `192/118` | — | Now — and only now — the reading drives the rules: **level-2 emergency** (`dv_adult_bp_crisis`), staff alerted. Rest once, then decide. |
 
 **Tell the audience:** the first out-of-range reading buys the patient a

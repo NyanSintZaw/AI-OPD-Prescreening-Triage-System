@@ -93,21 +93,106 @@ CONFIRM_NAME_REJECTED = {
     "th": "ขอโทษค่ะ รบกวนกรอกหมายเลข visit ที่ถูกต้องบนหน้าจออีกครั้งนะคะ",
 }
 
-CONFIRM_NAME_HISTORY_NEXT = {
-    "en": (
-        "Thank you. Before we talk about today's symptoms, please answer a "
-        "few health questions on the screen."
-    ),
-    "th": (
-        "ขอบคุณค่ะ ก่อนเริ่มคุยเรื่องอาการ "
-        "รบกวนกรอกข้อมูลสุขภาพเพิ่มเติมบนหน้าจอนะคะ"
-    ),
-}
-
-
 def confirm_name_ask(name: str, language: str, *, retry: bool = False) -> str:
     table = CONFIRM_NAME_RETRY if retry else CONFIRM_NAME_ASK
     return table.get(language, table["en"]).format(name=name.strip())
+
+
+# Spoken first-time history intake — asked one question at a time in the same
+# call right after the identity confirm (like the vitals rail). Answers are
+# free speech or a tapped chip; chip labels are deliberately phrases that
+# ``history_findings``'s keyword mapper already understands.
+HISTORY_INTRO = {
+    "en": (
+        "Thank you. Since this is your first visit, I have a few quick "
+        "health questions first."
+    ),
+    "th": (
+        "ขอบคุณค่ะ เนื่องจากเป็นการมาครั้งแรก "
+        "ขอสอบถามข้อมูลสุขภาพสั้น ๆ ก่อนนะคะ"
+    ),
+}
+
+HISTORY_QUESTIONS: list[dict] = [
+    {
+        "field": "smoking_alcohol",
+        "en": "Do you smoke, or drink alcohol?",
+        "th": "คุณสูบบุหรี่หรือดื่มแอลกอฮอล์ไหมคะ",
+        "options": {
+            "en": ["Neither", "Smoke", "Drink alcohol", "Both smoke and drink"],
+            "th": ["ไม่สูบไม่ดื่ม", "สูบบุหรี่", "ดื่มแอลกอฮอล์", "ทั้งสูบและดื่ม"],
+        },
+    },
+    {
+        "field": "allergies",
+        "en": "Do you have any drug or food allergies?",
+        "th": "คุณมีประวัติแพ้ยาหรือแพ้อาหารไหมคะ",
+        "options": {
+            "en": ["None"],
+            "th": ["ไม่มี"],
+        },
+    },
+    {
+        "field": "chronic_conditions",
+        "en": (
+            "Do you have any chronic conditions, such as diabetes, "
+            "high blood pressure, or heart disease?"
+        ),
+        "th": "คุณมีโรคประจำตัวไหมคะ เช่น เบาหวาน ความดันสูง หรือโรคหัวใจ",
+        "options": {
+            "en": ["None", "Diabetes", "High blood pressure", "Heart disease"],
+            "th": ["ไม่มี", "เบาหวาน", "ความดันสูง", "โรคหัวใจ"],
+        },
+    },
+    {
+        "field": "past_surgeries",
+        "en": "Have you ever had surgery?",
+        "th": "คุณเคยผ่าตัดไหมคะ",
+        "options": {
+            "en": ["None"],
+            "th": ["ไม่เคย"],
+        },
+    },
+    {
+        "field": "family_history",
+        "en": (
+            "Does anyone in your family have chronic diseases, such as "
+            "diabetes, high blood pressure, or heart disease?"
+        ),
+        "th": "คนในครอบครัวมีโรคประจำตัว เช่น เบาหวาน ความดันสูง หรือโรคหัวใจไหมคะ",
+        "options": {
+            "en": ["None", "Diabetes", "High blood pressure", "Heart disease"],
+            "th": ["ไม่มี", "เบาหวาน", "ความดันสูง", "โรคหัวใจ"],
+        },
+    },
+]
+
+HISTORY_RETRY = {
+    "en": (
+        "Sorry, I didn't catch that. You can answer briefly, or tap an "
+        "option on the screen."
+    ),
+    "th": "ขอโทษค่ะ ไม่ได้ยินชัดเจน ตอบสั้น ๆ หรือแตะตัวเลือกบนหน้าจอได้เลยค่ะ",
+}
+
+# Closes the intake and asks for the chief complaint in one line — the
+# post-history stand-in for ``greeting_line`` (re-greeting would be odd
+# mid-call).
+HISTORY_DONE_ASK = {
+    "en": "Thank you, that's all recorded. Now, what symptoms bring you in today?",
+    "th": "ขอบคุณค่ะ บันทึกข้อมูลเรียบร้อยแล้ว แล้ววันนี้มีอาการอะไรให้ช่วยดูแลคะ",
+}
+
+
+def history_question(index: int, language: str) -> str:
+    entry = HISTORY_QUESTIONS[index]
+    return entry.get(language) or entry["en"]
+
+
+def history_options(index: int, language: str) -> list[dict[str, str]]:
+    options = HISTORY_QUESTIONS[index]["options"]
+    labels = options.get(language) or options["en"]
+    return [{"id": label, "label": label} for label in labels]
 
 
 # Spoken resume gate — the same VN has a same-day session; ask continue vs

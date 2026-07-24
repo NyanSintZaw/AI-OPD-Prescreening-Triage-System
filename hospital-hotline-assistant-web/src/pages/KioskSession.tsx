@@ -152,19 +152,22 @@ export function KioskSession() {
         setNotFound(false);
         setLinkError(false);
         setIdentityRejected(true);
+        if (resumeOffer) {
+          // Wrong person on the resume chooser: abandon the old session —
+          // it belongs to the real patient and must not be adopted here.
+          runSessionRef.current = null;
+          setSessionId(null);
+          setResumeOffer(null);
+        }
         setPhase('visit');
         return;
       }
+      // Confirmed: the same call keeps going — the resume question (chooser
+      // stays up), the spoken history intake, or the intake greeting. The
+      // bridge clears/pushes its own chips; don't wipe them here.
       if (payload.needsHistory) {
-        // Confirmed, but the first-time history form comes before the
-        // interview: end this call; saving the form restarts it.
-        void voiceCall.end();
-        startedRef.current = false;
-        setReplyOptions([]);
         setNeedsHistory(true);
-        setPhase('history');
       }
-      // Confirmed without history: the same call continues into intake.
     },
     onResumeChoice: (payload) => {
       // Spoken outcome of the continue-vs-start-over gate (drain-committed).
@@ -176,17 +179,10 @@ export function KioskSession() {
           setPatientName(offer.patientName);
           setStoredPatientName(offer.patientName);
         }
-        if (payload.needsHistory) {
-          // Bridge handed off to the history form; the call is done.
-          void voiceCall.end();
-          startedRef.current = false;
-          setNeedsHistory(true);
-          setPhase('history');
-        } else {
-          // Same call keeps going (identity gate or intake already speaking).
-          setNeedsHistory(offer.needsHistory);
-          setPhase('conversation');
-        }
+        // Same call keeps going — the spoken history intake (first-timers)
+        // or the interview is already speaking; no form, no restart.
+        setNeedsHistory(payload.needsHistory);
+        setPhase('conversation');
         return;
       }
       if (payload.kind === 'start_over') {
@@ -609,6 +605,25 @@ export function KioskSession() {
                 ? t('kioskResumeDoneLead')
                 : t('kioskResumeLead')}
             </p>
+            {replyOptions.length > 0 && (
+              <div className="k-answers">
+                {/* Spoken identity-confirm chips (ใช่/ไม่ใช่) while the AI
+                    asks "you are {name}, right?" before the resume choice. */}
+                {replyOptions.map((opt) => (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    className="k-chip"
+                    onClick={() => {
+                      setReplyOptions([]);
+                      voiceCall.tapReply(opt.label);
+                    }}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            )}
             <div className="k-result-actions">
               {resumeOffer.status !== 'completed' && (
                 <button
