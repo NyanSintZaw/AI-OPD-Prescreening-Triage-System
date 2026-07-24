@@ -85,18 +85,14 @@ const POSES: Record<AvatarPose, PoseTargets> = {
     neck: [0.05, 0.05, 0.02],
     head: [0.07, 0.1, 0.06],
   },
+  // Hands-free by design: every hand gesture we tried read wrong from the
+  // fixed head-on kiosk camera. Thinking is pure head acting — thoughtful
+  // tilt, eyes drifting upward, slow pondering sway (additive in tick).
   thinking: {
     ...ARMS_RELAXED,
     spine: [0.02, 0, 0],
-    neck: [-0.06, -0.08, -0.02],
-    head: [-0.12, -0.14, -0.08],
-    rightShoulder: [0, 0, 0.1],
-    // Upper/lower arm serve only as the IK fallback + slerp seed; the
-    // raised arm itself is solved by the 2-bone IK in the tick loop.
-    rightUpperArm: [0.75, 0.05, 1.2],
-    rightLowerArm: [0, -2.15, 0],
-    // Relaxed inward curl so the hand doesn't read as a flat open palm.
-    rightHand: [0.35, -0.25, -0.3],
+    neck: [-0.05, -0.09, -0.03],
+    head: [-0.1, -0.16, -0.1],
   },
   speaking: {
     ...ARMS_RELAXED,
@@ -285,77 +281,10 @@ export function VrmAvatar({ state, getLevel, getFeatures }: VrmAvatarProps) {
         camera.position.set(0, centerY, dist);
         camera.lookAt(0, centerY, 0);
 
-        // ── Right-arm 2-bone IK geometry (rest pose, world space) ───────
-        // Euler guessing kept folding the raised arm behind the body; the
-        // IK solver instead places the wrist at an explicit point in front
-        // of the chin with the elbow pulled toward a forward-down pole, so
-        // the arm can only fold in front of the torso.
-        const ikGeom = (() => {
-          const ua = vrm.humanoid?.getRawBoneNode?.('rightUpperArm');
-          const la = vrm.humanoid?.getRawBoneNode?.('rightLowerArm');
-          const ha = vrm.humanoid?.getRawBoneNode?.('rightHand');
-          const nua = vrm.humanoid?.getNormalizedBoneNode?.('rightUpperArm');
-          const nla = vrm.humanoid?.getNormalizedBoneNode?.('rightLowerArm');
-          if (!ua || !la || !ha || !nua || !nla) return null;
-          const s = new THREE.Vector3();
-          const e = new THREE.Vector3();
-          const w = new THREE.Vector3();
-          ua.getWorldPosition(s);
-          la.getWorldPosition(e);
-          ha.getWorldPosition(w);
-          const upperLen = s.distanceTo(e);
-          const lowerLen = e.distanceTo(w);
-          if (upperLen < 1e-4 || lowerLen < 1e-4) return null;
-          // Rest world orientations of the NORMALIZED bones (identity in
-          // the model's own frame, but the whole scene may be rotated —
-          // e.g. the 180° VRM0 flip). Solved goals are built in world axes
-          // and must be conjugated through these, otherwise every rotation
-          // applies mirrored and the arm swings out behind the body.
-          const qParentU = new THREE.Quaternion();
-          const qRestU = new THREE.Quaternion();
-          const qRestL = new THREE.Quaternion();
-          (nua.parent ?? nua).getWorldQuaternion(qParentU);
-          nua.getWorldQuaternion(qRestU);
-          nla.getWorldQuaternion(qRestL);
-          return {
-            shoulder: s.clone(),
-            upperLen,
-            lowerLen,
-            restUpperDir: e.clone().sub(s).normalize(),
-            restLowerDir: w.clone().sub(e).normalize(),
-            qParentUInv: qParentU.clone().invert(),
-            qRestU: qRestU.clone(),
-            qRestL: qRestL.clone(),
-          };
-        })();
-        // Wrist rests just in front of the chin, on her right side; the
-        // pole pulls the elbow down-forward. Reach-capped so a short chibi
-        // arm still produces a bent, natural pose.
-        const thinkWrist = new THREE.Vector3();
-        if (ikGeom) {
-          // Just under the chin — the relaxed finger backs rest against it
-          // (gentler than the raised index-to-cheek, per user feedback).
-          const chin = new THREE.Vector3(
-            ikGeom.shoulder.x * 0.5,
-            headPos.y - 0.22 * torso,
-            0.32 * torso,
-          );
-          const toChin = chin.sub(ikGeom.shoulder);
-          const maxReach = 0.88 * (ikGeom.upperLen + ikGeom.lowerLen);
-          if (toChin.length() > maxReach) toChin.setLength(maxReach);
-          thinkWrist.copy(ikGeom.shoulder).add(toChin);
-        }
-        const ikPole = new THREE.Vector3(-0.3, -0.8, 0.5).normalize();
-        // Twist about the forearm axis: IK aiming leaves the palm facing an
-        // arbitrary way; this rolls the hand so the knuckles face the
-        // camera and the fingers curl toward the chin instead of flipping
-        // up across the mouth.
-        const IK_FOREARM_TWIST = 0.6;
-
         // ── Finger curl ─────────────────────────────────────────────────
-        // VRM hands rest flat-open, which reads robotic. A soft curl runs
-        // always; thinking deepens it into a loose fist with the index
-        // more extended (classic hand-to-chin). [bone, curl factor].
+        // VRM hands rest flat-open, which reads robotic. A soft natural
+        // curl runs at all times (hands live below the frame).
+        // [bone, curl factor].
         const FINGER_CHAIN: Array<[string, number]> = [
           ['rightIndexProximal', 0.75],
           ['rightIndexIntermediate', 0.85],
@@ -380,63 +309,6 @@ export function VrmAvatar({ state, getLevel, getFeatures }: VrmAvatarProps) {
           factor,
         })).filter((f) => f.node);
         let fingerCurl = 0.3;
-        // Scratch for the per-frame solve (no per-frame allocation).
-        const vDir = new THREE.Vector3();
-        const vBend = new THREE.Vector3();
-        const vN = new THREE.Vector3();
-        const vElbow = new THREE.Vector3();
-        const vTmp = new THREE.Vector3();
-        const qUpperGoal = new THREE.Quaternion();
-        const qLowerGoal = new THREE.Quaternion();
-        const qScratch = new THREE.Quaternion();
-        const qTwist = new THREE.Quaternion();
-        const ikQUpper = new THREE.Quaternion();
-        const ikQLower = new THREE.Quaternion();
-        let ikWasActive = false;
-        /** Solve the 2-bone chain toward `target`; writes qUpperGoal (local
-         *  ≈ world, ancestors are near-identity) and qLowerGoal (local). */
-        const solveRightArm = (target: InstanceType<typeof THREE.Vector3>) => {
-          if (!ikGeom) return false;
-          vDir.copy(target).sub(ikGeom.shoulder);
-          const d = Math.min(
-            Math.max(vDir.length(), 1e-3),
-            ikGeom.upperLen + ikGeom.lowerLen - 1e-4,
-          );
-          vDir.normalize();
-          // Bend direction: perpendicular to the shoulder→target axis, on
-          // the pole side.
-          vN.crossVectors(vDir, ikPole);
-          if (vN.lengthSq() < 1e-6) vN.set(0, 0, 1);
-          vN.normalize();
-          vBend.crossVectors(vN, vDir).normalize();
-          const cosA =
-            (ikGeom.upperLen * ikGeom.upperLen + d * d - ikGeom.lowerLen * ikGeom.lowerLen) /
-            (2 * ikGeom.upperLen * d);
-          const a = Math.acos(Math.min(1, Math.max(-1, cosA)));
-          vElbow
-            .copy(ikGeom.shoulder)
-            .addScaledVector(vDir, Math.cos(a) * ikGeom.upperLen)
-            .addScaledVector(vBend, Math.sin(a) * ikGeom.upperLen);
-          // Upper arm world-axis rotation: rest dir → shoulder-to-elbow.
-          vTmp.copy(vElbow).sub(ikGeom.shoulder).normalize();
-          qScratch.setFromUnitVectors(ikGeom.restUpperDir, vTmp); // qU_world
-          // Local = parentWorld⁻¹ · qU_world · restWorld.
-          qUpperGoal.copy(ikGeom.qParentUInv).multiply(qScratch).multiply(ikGeom.qRestU);
-          // Upper arm's new world orientation, for the forearm's parent.
-          const qUpperWorldNew = qScratch.clone().multiply(ikGeom.qRestU);
-          // Forearm world-axis rotation: rest dir → elbow-to-wrist, then a
-          // controlled roll about the new forearm axis for palm direction.
-          vTmp.copy(ikGeom.shoulder).addScaledVector(vDir, d).sub(vElbow).normalize();
-          qScratch.setFromUnitVectors(ikGeom.restLowerDir, vTmp); // qL_world
-          qTwist.setFromAxisAngle(vTmp, IK_FOREARM_TWIST);
-          qScratch.premultiply(qTwist);
-          qLowerGoal
-            .copy(qUpperWorldNew)
-            .invert()
-            .multiply(qScratch)
-            .multiply(ikGeom.qRestL);
-          return true;
-        };
 
         // ── Look-at target (eyes)
         const lookTarget = new THREE.Object3D();
@@ -539,12 +411,7 @@ export function VrmAvatar({ state, getLevel, getFeatures }: VrmAvatarProps) {
           const overrides = pose === 'listening' ? LISTEN_OVERRIDES[phase] : undefined;
           const targets = POSES[pose];
 
-          // The raised thinking arm is solved by IK; those two bones skip
-          // the Euler path while it is active.
-          const ikActive = pose === 'thinking' && !!ikGeom;
-
           for (const bkey of BONE_KEYS) {
-            if (ikActive && (bkey === 'rightUpperArm' || bkey === 'rightLowerArm')) continue;
             const node = bones[bkey];
             const target = overrides?.[bkey] ?? targets[bkey] ?? ZERO;
             if (!node) continue;
@@ -577,7 +444,14 @@ export function VrmAvatar({ state, getLevel, getFeatures }: VrmAvatarProps) {
                 tx += lip * 0.05 + Math.sin(t * 4.2) * 0.012 * lip;
               }
               if (pose === 'thinking' && bkey === 'head') {
-                tz += Math.sin(t * 0.55) * 0.02;
+                // Pondering: a slow side-to-side sway plus a gentle pitch
+                // drift, like weighing the options.
+                tz += Math.sin(t * 0.55) * 0.035;
+                ty += Math.sin(t * 0.38 + 1.2) * 0.05;
+                tx += Math.sin(t * 0.47 + 0.5) * 0.02;
+              }
+              if (pose === 'thinking' && bkey === 'neck') {
+                tz += Math.sin(t * 0.55) * 0.015;
               }
             }
             r.x += (tx - r.x) * k;
@@ -586,54 +460,18 @@ export function VrmAvatar({ state, getLevel, getFeatures }: VrmAvatarProps) {
             node.rotation.set(r.x, r.y, r.z);
           }
 
-          // ── IK application + smooth handoff with the Euler path ────────
-          if (ikActive) {
-            const ua = bones.rightUpperArm as unknown as {
-              quaternion: InstanceType<typeof THREE.Quaternion>;
-            } | null;
-            const la = bones.rightLowerArm as unknown as {
-              quaternion: InstanceType<typeof THREE.Quaternion>;
-            } | null;
-            if (ua && la && solveRightArm(thinkWrist)) {
-              if (!ikWasActive) {
-                // Entering IK: start the slerp from the Euler pose so the
-                // arm glides up instead of popping.
-                ikQUpper.setFromEuler(
-                  new THREE.Euler(cur.rightUpperArm.x, cur.rightUpperArm.y, cur.rightUpperArm.z),
-                );
-                ikQLower.setFromEuler(
-                  new THREE.Euler(cur.rightLowerArm.x, cur.rightLowerArm.y, cur.rightLowerArm.z),
-                );
-              }
-              ikQUpper.slerp(qUpperGoal, k);
-              ikQLower.slerp(qLowerGoal, k);
-              ua.quaternion.copy(ikQUpper);
-              la.quaternion.copy(ikQLower);
-            }
-          } else if (ikWasActive) {
-            // Leaving IK: hand the current orientation back to the Euler
-            // solver so it eases down from where the arm actually is.
-            const e = new THREE.Euler().setFromQuaternion(ikQUpper, 'XYZ');
-            cur.rightUpperArm.x = e.x;
-            cur.rightUpperArm.y = e.y;
-            cur.rightUpperArm.z = e.z;
-            e.setFromQuaternion(ikQLower, 'XYZ');
-            cur.rightLowerArm.x = e.x;
-            cur.rightLowerArm.y = e.y;
-            cur.rightLowerArm.z = e.z;
-          }
-          ikWasActive = ikActive;
-
-          // Fingers: soft curl everywhere, loose fist (index freer) while
-          // the hand is up at the chin. Written every frame — the humanoid
-          // resets the normalized rig on update.
-          const curlTarget = pose === 'thinking' ? 0.55 : 0.3;
-          fingerCurl += (curlTarget - fingerCurl) * k;
+          // Fingers: constant soft natural curl (hands live below frame).
+          // Written every frame — the humanoid resets the normalized rig
+          // on update.
+          fingerCurl += (0.3 - fingerCurl) * k;
           for (const f of fingerBones) f.node!.rotation.set(0, 0, fingerCurl * f.factor);
 
-          // Eyes: glide the look target toward the pose's offset.
+          // Eyes: glide the look target toward the pose's offset. While
+          // thinking the gaze wanders slowly left-right, searching for the
+          // words.
           const off = LOOK_OFFSETS[pose === 'listening' && phase === 'jot' ? 'jot' : pose];
-          lookTarget.position.x += (off[0] * propScale - lookTarget.position.x) * k;
+          const wander = pose === 'thinking' && !still ? Math.sin(t * 0.27) * 0.35 : 0;
+          lookTarget.position.x += ((off[0] + wander) * propScale - lookTarget.position.x) * k;
           lookTarget.position.y += (headPos.y + off[1] * propScale - lookTarget.position.y) * k;
           lookTarget.position.z += (off[2] * propScale - lookTarget.position.z) * k;
 
@@ -667,6 +505,10 @@ export function VrmAvatar({ state, getLevel, getFeatures }: VrmAvatarProps) {
           for (let i = 0; i < VOWEL_BANDS.length; i++) {
             const w = wSum > 1e-4 ? (vowelW[i] / wSum) * open : 0;
             em?.setValue?.(VOWEL_BANDS[i][0], w);
+          }
+          // Pondering "hmm": a soft pucker while she thinks.
+          if (pose === 'thinking') {
+            em?.setValue?.('ou', 0.16 + (still ? 0 : Math.sin(t * 0.8) * 0.05));
           }
 
           // Blink state machine (skipped under reduced motion).
