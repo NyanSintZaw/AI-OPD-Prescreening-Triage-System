@@ -584,7 +584,11 @@ export function VrmAvatar({ state, getLevel, getFeatures }: VrmAvatarProps) {
           }
           lip += (level - lip) * (1 - Math.exp(-dt * (level > lip ? 26 : 8)));
           centroidSm += (centroidTarget - centroidSm) * (1 - Math.exp(-dt * 12));
-          const open = Math.min(1, lip * 1.5);
+          // The VRoid `happy` expression already opens the mouth into a
+          // grin — while the smile is strong (speaking-entry flourish,
+          // reassure) the vowel mouth must yield, or the two stack into a
+          // huge gape.
+          const open = Math.min(1, lip * 1.5) * (1 - Math.min(1, happy) * 0.7);
           let wSum = 0;
           for (let i = 0; i < VOWEL_BANDS.length; i++) {
             const [, center, width] = VOWEL_BANDS[i];
