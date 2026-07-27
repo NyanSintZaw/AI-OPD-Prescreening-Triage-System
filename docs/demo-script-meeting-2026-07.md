@@ -178,8 +178,8 @@ restarting; weight/height **is** asked when the HN measurement is too old.
 | 3 | Answer 1–2 questions | 🎙 e.g. **"ปวดแถวลิ้นปี่ครับ"** | — |
 | 4 | **Walk away** — tap **Exit** → confirm, or just let the idle timer reset | — | Kiosk returns to attract screen. *Tell audience: session is still alive in the database.* |
 | 5 | (Optional beat) another patient could use the booth now | — | — |
-| 6 | ประเสริฐ returns: Thai → **same VN** `…005` | — | ⚠ **Order check — this is the fix.** The AI asks **identity first**: *"คุณคือ ประเสริฐ… ใช่ไหมคะ"* with ใช่/ไม่ใช่ chips on the chooser screen. It must **not** open with "welcome back, continue or start over?" |
-| 7 | Confirm it's him | 🎙 **"ใช่ครับ"** | *Only now* comes **"ต้องการทำต่อ หรือเริ่มใหม่คะ"** — say **"ทำต่อ"** or tap the button → jumps straight back into the conversation; earlier answers intact. (Re-entering the VN of a *finished* assessment instead offers start-over + reprint slip.) |
+| 6 | ประเสริฐ returns: Thai → **same VN** `…005` | — | ⚠ **Order check — this is the fix.** The kiosk goes straight to the **conversation screen** (no separate chooser for an unfinished assessment) and the AI asks **identity first**: *"คุณคือ ประเสริฐ… ใช่ไหมคะ"* with **only** the ใช่/ไม่ใช่ chips — never four choices at once. |
+| 7 | Confirm it's him | 🎙 **"ใช่ครับ"** | *Only now* the **ทำการประเมินต่อ / เริ่มใหม่ chips** appear and the AI asks **"ต้องการทำต่อ หรือเริ่มใหม่คะ"** — say **"ทำต่อ"** or tap. Same call throughout (no reconnect, no freeze), and ⚠ **the interview resumes at its pending question** — the next line must be the abdominal-pain question he left off at, NOT "what symptoms bring you in today?". (Re-entering the VN of a *finished* assessment does NOT reopen anything: the kiosk shows a "prescreening already complete" notice with one button back to VN entry, and auto-returns there after ~15 s.) |
 | 8 | Finish the interview | 🎙 keep answering; BP when asked, e.g. **`135/82`** | — |
 | 9 | **Weight/height IS asked this time** | ⌨ type e.g. **`58` / `165`** | *Point out the contrast with S2: his last measurement is from Sep 2025 — older than 90 days — so the booth re-measures* |
 | 10 | Dispose + decline follow-up | 🎙 **"ไม่มีแล้วครับ"** | Slip with navigation line, then the single closing farewell (same check as S2 step 7) |
@@ -232,7 +232,7 @@ crisis.
 | 4 | Try to re-measure immediately (re-enter her VN → Continue → BP) | — | **Blocked**: rest countdown ("นั่งพักอีก XX นาที") with an "I'll come back" button. The window is keyed to **HN 09900007** |
 | 5 | **Prove it's per-patient:** English → VN `990000000000000006` (Anucha, first-time — tap the chips to breeze through the 5 spoken history questions) | 🎙 **"I have a sore throat."** …measure BP normally e.g. **`121/78`** | Anucha measures freely — the booth is not locked, only มาลี is |
 | 6 | "15 minutes later" (demo shortcut — run in a terminal): | `psql "$DATABASE_URL" -c "UPDATE bp_rest_windows SET rest_until = now() WHERE resolved_at IS NULL;"` | Window expired |
-| 7 | มาลี re-enters VN `…007` | 🎙 **"ใช่ค่ะ"** then **"ทำต่อ"** | AI confirms her name first, then offers **"ทำต่อ หรือเริ่มใหม่"**; the interview resumes; re-measure ⌨ **`142/88`** → proceeds normally to disposition |
+| 7 | มาลี re-enters VN `…007` | 🎙 **"ใช่ค่ะ"** then **"ทำต่อ"** | AI confirms her name first, then offers **"ทำต่อ หรือเริ่มใหม่"**; ⚠ the interview resumes **directly at the BP re-measure** (measurement card re-opens — no restart, no re-asking her symptoms); ⌨ **`142/88`** → proceeds normally to disposition |
 | 8 | (Optional strong close) repeat with a still-high confirmatory reading, e.g. `192/118` | — | Now — and only now — the reading drives the rules: **level-2 emergency** (`dv_adult_bp_crisis`), staff alerted. Rest once, then decide. |
 
 **Tell the audience:** the first out-of-range reading buys the patient a
@@ -294,8 +294,10 @@ Individual pieces, if you need finer control:
   produced level 2 via `tt_pregnancy_hypertension`, routed to Emergency, with
   a personalized emergency reply. Speak it close to verbatim; still do one
   dry run on demo day (LLM extraction is the one non-deterministic link).
-- Speak in complete short sentences and pause; the booth ends your turn after
-  ~2.5 s of silence.
+- **Turn taking is button-first**: speak (watch your words stream in the
+  caption), then tap **"I'm finished speaking"** — the tap sends exactly what
+  was captured. Silence auto-detect still exists but only as a safety net
+  (~8 s) for patients who never tap; it cannot race a normal tap.
 - If STT garbles an answer, the engine re-asks red-flag questions exactly
   once — just answer again.
 - "ไม่แน่ใจ" on any question is deliberately *not* recorded as no — the

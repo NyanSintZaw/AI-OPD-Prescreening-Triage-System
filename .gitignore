@@ -65,3 +65,7 @@ ds-bundle/
 
 # per-developer Claude Code settings (permissions differ per machine)
 .claude/settings.local.json
+
+# local E2E voice-test workspace (Playwright scripts, TTS-generated audio,
+# screenshots) — the plan lives in docs/e2e-voice-test-plan.md
+e2e/
