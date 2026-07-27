@@ -12,6 +12,9 @@ dist
 dist-ssr
 *.local
 
+# Raw avatar frame sources (processed output ships in public/avatar/)
+avatar-raw/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

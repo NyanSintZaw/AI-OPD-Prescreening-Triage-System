@@ -1,5 +1,6 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { AdminPage } from './pages/AdminPage';
+import { AvatarDevPage } from './pages/AvatarDevPage';
 import { KioskHome } from './pages/KioskHome';
 import { KioskSession } from './pages/KioskSession';
 import { LoginPage } from './pages/LoginPage';
@@ -15,6 +16,8 @@ export function App() {
         {/* Kiosk booth — the only patient-facing experience. */}
         <Route path="/kiosk" element={<KioskHome />} />
         <Route path="/kiosk/session" element={<KioskSession />} />
+        {/* Dev-only avatar tuning harness — not linked from any screen. */}
+        <Route path="/kiosk/avatar-dev" element={<AvatarDevPage />} />
         {/* Legacy web patient routes now point at the kiosk. */}
         <Route path="/patient" element={<Navigate to="/kiosk" replace />} />
         <Route path="/chat" element={<Navigate to="/kiosk" replace />} />

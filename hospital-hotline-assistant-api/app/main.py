@@ -2263,10 +2263,11 @@ async def list_routing_feedback(
 
 
 # ---------------------------------------------------------------------------
-# Voice WebSocket — Gemini Live API bridge
+# Voice WebSocket — turn-based voice bridge (Google STT → screening engine →
+# Google Cloud TTS; no Gemini Live)
 # ---------------------------------------------------------------------------
 #
-# Protocol (see app/services/live_voice_service.py for state details):
+# Protocol (see app/services/screening/voice_bridge.py for state details):
 #
 #   Client → server
 #     bytes                          raw PCM 16-bit 16 kHz mono audio chunk
@@ -2374,6 +2375,17 @@ async def voice_call(websocket: WebSocket, session_id: str):
                 session_id,
             )
 
+    async def push_visemes(payload: dict) -> None:
+        # Vowel timeline for the avatar's lip sync — arrives before the
+        # spoken line's audio chunks so the client can anchor it.
+        try:
+            await websocket.send_json({"type": "viseme_track", **payload})
+        except Exception:
+            logger.debug(
+                "Failed to push viseme track to %s (likely client closed)",
+                session_id,
+            )
+
     async with pool.acquire() as conn:
         try:
             await live_voice_service.connect(
@@ -2388,6 +2400,7 @@ async def voice_call(websocket: WebSocket, session_id: str):
                 options_callback=push_options,
                 identity_callback=push_identity,
                 resume_callback=push_resume,
+                viseme_callback=push_visemes,
                 resume_prompt=resume_prompt,
             )
         except ValueError as exc:

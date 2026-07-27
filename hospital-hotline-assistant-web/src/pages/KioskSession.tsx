@@ -11,6 +11,7 @@ import { VisitIdCapture } from '../components/kiosk/VisitIdCapture';
 import { ConfirmNameStep } from '../components/kiosk/ConfirmNameStep';
 import { HistoryIntakeStep, type HistoryIntakeValues } from '../components/kiosk/HistoryIntakeStep';
 import { ConversationStage } from '../components/kiosk/ConversationStage';
+import { VrmAvatar, preloadAvatarModel } from '../components/kiosk/VrmAvatar';
 import { RecommendationCard } from '../components/RecommendationCard';
 import { toAssessment, type ChatAssessment } from '../hooks/useChat';
 import {
@@ -105,6 +106,17 @@ export function KioskSession() {
     runSessionRef.current = null;
     setSessionId(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Warm the 3D avatar while the patient is still picking a language /
+  // entering their VN: pull the three.js modules and the ~15 MB VRM model
+  // (shared in-memory buffer) so the conversation-phase mount is
+  // near-instant instead of showing the loading orb.
+  useEffect(() => {
+    void import('three');
+    void import('three/examples/jsm/loaders/GLTFLoader.js');
+    void import('@pixiv/three-vrm');
+    preloadAvatarModel().catch(() => {});
   }, []);
 
   // ── Voice conversation engine ────────────────────────────────────────────
@@ -725,6 +737,13 @@ export function KioskSession() {
               <ConversationStage
                 language={language}
                 state={voiceCall.state}
+                avatar={
+                  <VrmAvatar
+                    state={voiceCall.state}
+                    getLevel={voiceCall.getOutputLevel}
+                    getFeatures={voiceCall.getOutputFeatures}
+                  />
+                }
                 lastReply={voiceCall.lastReply}
                 lastTranscript={voiceCall.lastTranscript}
                 replyOptions={replyOptions}

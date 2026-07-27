@@ -81,6 +81,7 @@ export const resources = {
       kioskVisitLinkedReady: 'We found your visit. Let’s begin.',
       kioskVisitNotFound: 'We couldn’t find that Visit ID. Please try again or continue without it.',
       kioskVisitWrongName: 'That wasn’t you — please re-enter your correct visit number.',
+      kioskAvatarLoading: 'Preparing your assistant…',
       kioskVisitInvalidFormat:
         'That doesn’t look like a valid Visit ID. It should be the 18-digit number printed on your registration slip — please check and try again.',
       kioskVisitLinkError:
@@ -842,6 +843,7 @@ export const resources = {
       kioskVisitLinkedReady: 'เราพบข้อมูลของคุณแล้ว มาเริ่มกันเลย',
       kioskVisitNotFound: 'ไม่พบรหัสการเข้ารับบริการนี้ กรุณาลองใหม่หรือดำเนินการต่อโดยไม่มีรหัส',
       kioskVisitWrongName: 'ไม่ใช่ชื่อของคุณ กรุณากรอกหมายเลข visit ที่ถูกต้องอีกครั้งค่ะ',
+      kioskAvatarLoading: 'กำลังเตรียมผู้ช่วยพยาบาล…',
       kioskVisitInvalidFormat:
         'รูปแบบรหัสไม่ถูกต้อง รหัสควรเป็นตัวเลข 18 หลักที่พิมพ์อยู่บนใบลงทะเบียนของคุณ กรุณาตรวจสอบแล้วลองใหม่อีกครั้ง',
       kioskVisitLinkError: 'ขณะนี้ระบบไม่สามารถตรวจสอบข้อมูลการเข้ารับบริการของคุณได้ กรุณาลองใหม่อีกครั้งในอีกสักครู่',
