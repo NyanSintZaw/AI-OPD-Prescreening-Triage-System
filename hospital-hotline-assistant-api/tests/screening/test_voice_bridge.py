@@ -31,8 +31,15 @@ class FakeConn:
 
     def __init__(self, metadata: dict | None = None) -> None:
         self.metadata = dict(metadata or {})
+        # Pending-point resume lookups (None → interview not started).
+        self.last_assistant: str | None = None
+        self.screening_state: dict | None = None
 
     async def fetchrow(self, query, *args):
+        if "FROM messages" in query:
+            return {"content": self.last_assistant} if self.last_assistant else None
+        if "FROM screening_sessions" in query:
+            return {"state": self.screening_state} if self.screening_state else None
         return {"id": args[0], "metadata": dict(self.metadata)}
 
     async def execute(self, query, *args):
@@ -143,6 +150,7 @@ class Harness:
         self.identities: list[dict] = []
         self.resumes: list[dict] = []
         self.options: list[dict] = []
+        self.measurements: list[dict] = []
         self.chunks: list[bytes] = []
         self._task: asyncio.Task | None = None
 
@@ -165,6 +173,9 @@ class Harness:
         async def on_options(payload: dict) -> None:
             self.options.append(payload)
 
+        async def on_measurement(payload: dict) -> None:
+            self.measurements.append(payload)
+
         await self.service.connect(
             SESSION_ID,
             self.language,
@@ -175,6 +186,7 @@ class Harness:
             options_callback=on_options,
             identity_callback=on_identity,
             resume_callback=on_resume,
+            measurement_callback=on_measurement,
             resume_prompt=self.resume_prompt,
         )
 
@@ -332,13 +344,88 @@ async def test_noisy_room_raises_gate():
     assert floor * NOISE_GATE_FACTOR > 900  # settled gate ≈ 3.5× the noise
 
 
-async def test_short_buffer_ignored(harness):
+async def test_short_buffer_on_done_speaks_didnt_hear(harness):
+    # An explicit Done tap with no usable audio must ALWAYS answer with
+    # audio: the client sits muted in "thinking" until reply audio drains,
+    # so a silent ignore here freezes the kiosk (live regression 2026-07-27).
     await harness.wait_until(lambda: harness.chunks)
     await harness.service.send_audio(SESSION_ID, LOUD_CHUNK)  # 40 ms < minimum
     harness.service.end_user_turn(SESSION_ID)
-    await asyncio.sleep(0.05)
-    assert harness.stt.calls == []
-    assert all(role == "agent" for role, _ in harness.transcripts)
+    await harness.wait_until(
+        lambda: ("agent", templates.VOICE_DIDNT_HEAR["en"]) in harness.transcripts
+    )
+    assert harness.stt.calls == []  # never reached STT — buffer too short
+
+
+async def test_turn_buffer_slides_and_keeps_quiet_speech(harness):
+    # The buffer is a sliding window: bounded under Google STT's 1-minute
+    # sync limit, but NEVER amplitude-gated — quiet speech (below the gate)
+    # must stay transcribable. Regression: an amplitude-gated trim discarded
+    # whole quiet answers while the browser caption heard them fine.
+    from app.services.screening.voice_bridge import (
+        TURN_BUFFER_KEEP_BYTES,
+        TURN_BUFFER_TRIM_AT_BYTES,
+    )
+
+    await harness.wait_until(lambda: harness.chunks)
+    quiet_speech = b"\x40\x00" * 640  # amplitude 64 — well below the 250 gate
+    for _ in range(50):  # 2 s of quiet speech
+        await harness.service.send_audio(SESSION_ID, quiet_speech)
+    buf = harness.service._sessions[SESSION_ID]["buffer"]
+    assert len(buf) == 50 * len(quiet_speech)  # kept in full, no trim
+
+    # Long idling still stays bounded under the STT limit.
+    big = SILENT_CHUNK * 400  # 16 s per send
+    for _ in range(4):
+        await harness.service.send_audio(SESSION_ID, big)
+    buf = harness.service._sessions[SESSION_ID]["buffer"]
+    assert len(buf) <= TURN_BUFFER_TRIM_AT_BYTES
+    assert len(buf) >= TURN_BUFFER_KEEP_BYTES - len(big)
+
+
+async def test_caption_fallback_when_stt_hears_nothing(harness):
+    # The browser live caption rides the Done tap. If STT returns empty for
+    # the audio (AGC-quiet first utterance), the caption text IS the turn —
+    # what streamed on the patient's screen is always honored.
+    harness.stt.transcripts.append("")
+    harness.triage.turns.append(interview_turn("Since when?"))
+    await harness.wait_until(lambda: harness.chunks)
+
+    await harness.service.send_audio(SESSION_ID, LOUD_CHUNK * 15)
+    harness.service.end_user_turn(SESSION_ID, caption="I have a sore throat")
+    await harness.wait_until(
+        lambda: ("user", "I have a sore throat") in harness.transcripts
+    )
+    assert harness.triage.contents == ["I have a sore throat"]
+
+
+async def test_caption_fallback_on_short_buffer(harness):
+    # Even with no usable audio at all, a caption-bearing Done tap becomes a
+    # real turn instead of "didn't catch that".
+    harness.triage.turns.append(interview_turn("Since when?"))
+    await harness.wait_until(lambda: harness.chunks)
+
+    harness.service.end_user_turn(SESSION_ID, caption="my ear hurts")
+    await harness.wait_until(lambda: ("user", "my ear hurts") in harness.transcripts)
+    assert harness.stt.calls == []  # buffer too short — STT never ran
+    assert (
+        "agent",
+        templates.VOICE_DIDNT_HEAR["en"],
+    ) not in harness.transcripts
+
+
+async def test_done_tap_racing_fallback_is_redundant(harness):
+    # A Done tap landing while a fallback-consumed turn is mid-flight must
+    # NOT be flagged explicit — the follow-up empty pass would speak
+    # "didn't catch that" for an answer that WAS heard.
+    await harness.wait_until(lambda: harness.chunks)
+    session = harness.service._sessions[SESSION_ID]
+    session["processing"] = True
+    harness.service.end_user_turn(SESSION_ID)
+    assert session["explicit_turn"] is False
+    session["processing"] = False
+    harness.service.end_user_turn(SESSION_ID)
+    assert session["explicit_turn"] is True
 
 
 async def test_muted_audio_dropped(harness):
@@ -437,21 +524,34 @@ async def test_interview_turn_keeps_call_open(harness):
     assert harness.service.should_keep_pipeline_open(SESSION_ID)
 
 
-async def test_empty_transcript_speaks_didnt_hear(harness):
-    # First empty turn stays silent (the patient is still gathering their
-    # thoughts); only a second consecutive empty prompts "couldn't hear you".
-    harness.stt.transcripts.append("")
+async def test_empty_transcript_on_done_speaks_didnt_hear(harness):
+    # An explicit Done tap gets the "couldn't hear you" prompt on the FIRST
+    # empty transcript — the client is muted in "thinking" and only reply
+    # audio releases it.
     harness.stt.transcripts.append("")
     await harness.wait_until(lambda: harness.chunks)
-
-    await harness.speak_turn()
-    await harness.wait_until(lambda: len(harness.stt.calls) >= 1)
-    assert ("agent", templates.VOICE_DIDNT_HEAR["en"]) not in harness.transcripts
 
     await harness.speak_turn()
     await harness.wait_until(
         lambda: ("agent", templates.VOICE_DIDNT_HEAR["en"]) in harness.transcripts
     )
+    assert harness.triage.contents == []
+
+
+async def test_empty_transcript_on_silence_fallback_stays_quiet_once(harness):
+    # The passive silence fallback keeps the two-strike grace: the patient is
+    # just gathering their thoughts, and the client never muted itself.
+    harness.stt.transcripts.append("")
+    await harness.wait_until(lambda: harness.chunks)
+
+    await harness.service.send_audio(SESSION_ID, LOUD_CHUNK * 15)
+    n_silence = int(SILENCE_HANG_MS / 40) + 1
+    for _ in range(n_silence):
+        await harness.service.send_audio(SESSION_ID, SILENT_CHUNK)
+
+    await harness.wait_until(lambda: len(harness.stt.calls) >= 1)
+    await asyncio.sleep(0.05)
+    assert ("agent", templates.VOICE_DIDNT_HEAR["en"]) not in harness.transcripts
     assert harness.triage.contents == []
 
 
@@ -902,6 +1002,51 @@ async def test_resume_continue_flows_into_intake():
             templates.greeting_line("มาลี วงศ์สว่าง", "th"),
         ) in harness.transcripts
         assert harness.triage.contents == []
+    finally:
+        await harness.stop()
+
+
+async def test_resume_continue_resumes_pending_question():
+    # "Continue" on a mid-interview session re-speaks the pending question
+    # (and re-opens the measurement card when the engine awaited a reading)
+    # instead of the intake greeting — the greeting read as the assessment
+    # starting over (live report 2026-07-27, BP-rest return).
+    harness = resume_harness()
+    harness.conn.last_assistant = "Please measure your blood pressure now."
+    harness.conn.screening_state = {"awaiting_measurement": "sbp"}
+    await harness.start()
+    try:
+        await confirm_identity_yes(harness)
+        harness.stt.transcripts.append("ทำต่อค่ะ")
+        await harness.speak_turn()
+        await harness.wait_until(lambda: harness.resumes)
+        await harness.wait_until(lambda: harness.measurements)
+        assert (
+            "agent",
+            "Please measure your blood pressure now.",
+        ) in harness.transcripts
+        assert (
+            "agent",
+            templates.greeting_line("มาลี วงศ์สว่าง", "th"),
+        ) not in harness.transcripts
+        assert harness.measurements == [{"vital": "sbp"}]
+    finally:
+        await harness.stop()
+
+
+async def test_resume_ask_pushes_continue_chips():
+    # The spoken continue/start-over question carries tappable chips, so the
+    # choice works on the conversation screen without the separate chooser.
+    harness = resume_harness()
+    await harness.start()
+    try:
+        await confirm_identity_yes(harness)
+        await harness.wait_until(
+            lambda: any(
+                {o["id"] for o in p.get("options", [])} == {"continue", "start_over"}
+                for p in harness.options
+            )
+        )
     finally:
         await harness.stop()
 

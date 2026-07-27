@@ -329,6 +329,18 @@ YES_NO_OPTIONS = {
     ],
 }
 
+# Chips for the spoken continue-vs-start-over question. Labels must keep
+# matching nlu_yesno.classify_resume_choice (and the kiosk chooser buttons).
+RESUME_OPTIONS = {
+    "en": [
+        {"id": "continue", "label": "Continue my assessment"},
+        {"id": "start_over", "label": "Start over"},
+    ],
+    "th": [
+        {"id": "continue", "label": "ทำการประเมินต่อ"},
+        {"id": "start_over", "label": "เริ่มใหม่"},
+    ],
+}
 VOICE_DIDNT_HEAR = {
     "en": "Sorry, I didn't catch that. Could you say it again?",
     "th": "ขอโทษค่ะ ไม่ได้ยินชัดเจน ช่วยพูดอีกครั้งได้ไหมคะ",

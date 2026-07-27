@@ -145,10 +145,10 @@ export const api = {
   getSessionByVisit: (visitId: string) =>
     request<SessionByVisitOut>(`/sessions/by-visit/${encodeURIComponent(visitId)}`),
 
-  linkVisit: (sessionId: string, visitId: string) =>
+  linkVisit: (sessionId: string, visitId: string, preconfirmed = false) =>
     request<LinkVisitResponse>(`/sessions/${sessionId}/link-visit`, {
       method: 'POST',
-      body: JSON.stringify({ visit_id: visitId } satisfies LinkVisitRequest),
+      body: JSON.stringify({ visit_id: visitId, preconfirmed } satisfies LinkVisitRequest),
     }),
 
   unlinkVisit: (sessionId: string) =>

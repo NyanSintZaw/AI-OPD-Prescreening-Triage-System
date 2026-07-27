@@ -16,18 +16,21 @@ from app.config import settings
 logger = logging.getLogger(__name__)
 
 
-# One persona per language, used everywhere Cloud TTS plays back text
-# (chat playback, fallback synthesis). Picked to match the Gemini Live
-# prebuilt voices we use for live calls (`Aoede` en / `Charon` th) so
-# the assistant sounds like the same person across text-mode TTS and
-# voice-mode Live API:
-#   - en: en-US-Neural2-F — warm, calm female. Closer to Aoede than the
-#     older Standard-C voice (which sounded older and more robotic).
-#   - th: th-TH-Neural2-C — natural female Thai neural voice. Better
-#     prosody than Standard-A and pairs with Charon for Thai calls.
+# One persona per language, used everywhere Cloud TTS plays back text.
+# Default is Chirp 3 HD "Leda" — a youthful, warm female available in BOTH
+# th-TH and en-US, so the nurse avatar sounds like the same person in either
+# language. Env-tunable via TTS_VOICE_TH / TTS_VOICE_EN (app.config); the
+# language_code is derived from the voice name's locale prefix.
+
+
+def _voice_entry(name: str) -> dict[str, str]:
+    parts = name.split("-")
+    return {"language_code": "-".join(parts[:2]), "name": name}
+
+
 _VOICE_BY_LANGUAGE: dict[str, dict[str, str]] = {
-    "en": {"language_code": "en-US", "name": "en-US-Neural2-F"},
-    "th": {"language_code": "th-TH", "name": "th-TH-Neural2-C"},
+    "en": _voice_entry(getattr(settings, "tts_voice_en", "en-US-Neural2-F")),
+    "th": _voice_entry(getattr(settings, "tts_voice_th", "th-TH-Neural2-C")),
 }
 
 
@@ -125,8 +128,10 @@ class GoogleTtsClient:
                 else tts.AudioEncoding.MP3
             ),
             "speaking_rate": 1.0,
-            "pitch": 0.0,
         }
+        if "Chirp" not in voice_cfg["name"]:
+            # Chirp/Chirp3-HD voices reject the pitch parameter.
+            config_kwargs["pitch"] = 0.0
         if sample_rate_hertz is not None:
             config_kwargs["sample_rate_hertz"] = sample_rate_hertz
         audio_config = tts.AudioConfig(**config_kwargs)

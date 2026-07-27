@@ -74,7 +74,17 @@ class Settings(BaseSettings):
     #   A too-low gate only costs an occasional empty STT turn, which the
     #   bridge already discards silently.
     # min_turn_audio: drop blips shorter than this.
-    voice_silence_hang_ms: int = 2500
+    # Avatar TTS voices — Chirp 3 HD "Leda" (youthful female) in BOTH
+    # languages so the nurse avatar is the same person in th and en.
+    # Override per-deployment without a code change; any voice from
+    # `list_voices` works (Neural2 fallbacks: th-TH-Neural2-C / en-US-Neural2-F).
+    tts_voice_th: str = "th-TH-Chirp3-HD-Leda"
+    tts_voice_en: str = "en-US-Chirp3-HD-Leda"
+    # Button-first turn taking (product decision 2026-07-27): the patient
+    # ends their turn with "I'm finished speaking". Silence auto-detect is
+    # only a safety net for patients who never tap — long enough that it
+    # can't race a normal tap mid-thought.
+    voice_silence_hang_ms: int = 8000
     voice_speech_amplitude_threshold: int = 250
     voice_noise_gate_factor: float = 3.5
     voice_min_turn_audio_ms: int = 500

@@ -79,8 +79,15 @@ MIN_TURN_AUDIO_MS = getattr(_settings, "voice_min_turn_audio_ms", 500)
 # the EMA ~5 s of room audio to adapt upward before the caller first speaks.
 NOISE_FLOOR_INITIAL = 100.0
 NOISE_FLOOR_ALPHA = 0.05
-# Hard cap so a stuck-open mic cannot buffer unbounded audio (~60 s).
-MAX_TURN_BUFFER_BYTES = 60 * INPUT_SAMPLE_RATE * 2
+# Sliding turn window: keep only the most recent audio. Two constraints:
+# Google's synchronous recognize hard-rejects ≥1 min of audio, and the
+# amplitude gate must NEVER decide what gets transcribed — quiet real-mic
+# speech sits below the gate, so an amplitude-gated trim silently discarded
+# whole answers (live regression 2026-07-27: the browser caption heard the
+# patient, STT got an empty tail). The gate only drives the silence
+# fallback; the buffer itself is amplitude-blind.
+TURN_BUFFER_KEEP_BYTES = 45 * INPUT_SAMPLE_RATE * 2
+TURN_BUFFER_TRIM_AT_BYTES = 50 * INPUT_SAMPLE_RATE * 2
 # One outbound WS frame ≈ 200 ms of 24 kHz Int16 audio.
 TTS_CHUNK_BYTES = OUTPUT_SAMPLE_RATE * 2 // 5
 # Consecutive failed turns before the pipeline gives up and the route
@@ -273,6 +280,9 @@ class TurnVoiceService:
             return
 
         session["buffer"].extend(audio_chunk)
+        buf = session["buffer"]
+        if len(buf) > TURN_BUFFER_TRIM_AT_BYTES:
+            del buf[: len(buf) - TURN_BUFFER_KEEP_BYTES]
 
         # Adaptive speech gate: a quiet booth lowers it toward the configured
         # minimum so AGC-quiet first utterances still register; a noisy booth
@@ -293,8 +303,6 @@ class TurnVoiceService:
                     session["turn_event"].set()
                     return
 
-        if len(session["buffer"]) >= MAX_TURN_BUFFER_BYTES:
-            session["turn_event"].set()
 
     def set_mute(self, session_id: str, muted: bool) -> None:
         session = self._sessions.get(session_id)
@@ -303,13 +311,26 @@ class TurnVoiceService:
         session["muted"] = muted
         logger.info("Session %s mute=%s", session_id, muted)
 
-    def end_user_turn(self, session_id: str) -> None:
+    def end_user_turn(self, session_id: str, caption: str = "") -> None:
         session = self._sessions.get(session_id)
         if session is None:
             raise ValueError("Session not found")
+        # Browser live-caption text for this turn: the STT fallback when the
+        # captured audio transcribes empty (AGC-quiet first utterances) —
+        # what streamed on the patient's screen is always honored.
+        session["turn_caption"] = caption.strip()
         # Mirrors the live protocol: the Send button muted the client
         # already; it auto-unmutes once the agent's reply finishes playing.
         session["muted"] = True
+        # An explicit "Done" tap must ALWAYS produce a spoken reply: the
+        # client sits muted in "thinking" until reply audio drains, so the
+        # silent first-miss grace (meant for the passive silence fallback)
+        # would wedge the kiosk if no audio reached us this turn.
+        # EXCEPT when a turn is already mid-flight: a tap racing the silence
+        # fallback is a redundant ack of the answer being processed — flag
+        # it explicit and the follow-up empty pass would announce "didn't
+        # hear" for a turn that WAS heard (live report 2026-07-27).
+        session["explicit_turn"] = not session["processing"]
         session["turn_event"].set()
 
     def inject_text_turn(
@@ -360,15 +381,16 @@ class TurnVoiceService:
                 async for chunk in self._start_history_gate(session_id, session):
                     yield chunk
             else:
-                greeting = templates.greeting_line(
-                    session.get("patient_name"), session["language"]
-                )
-                async for chunk in self._speak_line(session_id, session, greeting):
+                # Fresh sessions get the greeting; a call reopened on a
+                # mid-interview session re-speaks its pending question.
+                async for chunk in self._speak_pending_point(session_id, session):
                     yield chunk
 
         while not session["ended"] and not session["pipeline_failed"]:
             await session["turn_event"].wait()
             session["turn_event"].clear()
+            explicit = bool(session.pop("explicit_turn", False))
+            caption = str(session.pop("turn_caption", "") or "")
             if session["ended"]:
                 return
             # After disposition the interview is over — the socket stays open
@@ -393,7 +415,9 @@ class TurnVoiceService:
                     ):
                         yield chunk
                 else:
-                    async for chunk in self._process_turn(session_id, session, pcm):
+                    async for chunk in self._process_turn(
+                        session_id, session, pcm, explicit=explicit, caption=caption
+                    ):
                         yield chunk
             finally:
                 session["processing"] = False
@@ -402,10 +426,32 @@ class TurnVoiceService:
                 session["trailing_silence_ms"] = 0.0
 
     async def _process_turn(
-        self, session_id: str, session: dict[str, Any], pcm: bytes
+        self,
+        session_id: str,
+        session: dict[str, Any],
+        pcm: bytes,
+        explicit: bool = False,
+        caption: str = "",
     ) -> AsyncIterator[bytes]:
         language = session["language"]
         if len(pcm) < MIN_TURN_AUDIO_MS * _BYTES_PER_MS:
+            if caption:
+                # No usable audio, but the browser caption transcribed the
+                # patient — honor what streamed on their screen.
+                async for chunk in self._process_transcript(
+                    session_id, session, caption
+                ):
+                    yield chunk
+                return
+            if explicit:
+                # Tapped "Done" but no usable audio arrived (dropped mic
+                # frames, tap without speaking). Reply audio is what releases
+                # the client's muted "thinking" state — going silent here
+                # freezes the kiosk.
+                async for chunk in self._speak_line(
+                    session_id, session, templates.VOICE_DIDNT_HEAR[language]
+                ):
+                    yield chunk
             return
 
         transcript: str | None
@@ -422,6 +468,12 @@ class TurnVoiceService:
             transcript = None
         session["last_stt_ms"] = int((time.monotonic() - stt_started) * 1000)
 
+        if not transcript and caption:
+            # STT heard nothing in the audio (AGC-quiet first utterance, mic
+            # level) but the browser caption transcribed the patient — what
+            # streamed on their screen wins over a deaf recording.
+            transcript = caption
+
         if transcript is None:
             async for chunk in self._speak_line(
                 session_id, session, templates.VOICE_ERROR[language]
@@ -430,10 +482,12 @@ class TurnVoiceService:
             return
         if not transcript:
             # A patient still gathering their thoughts produces an empty
-            # turn. Stay silent on the first miss and just keep listening;
-            # only prompt "sorry, I couldn't hear you" after two in a row.
+            # turn. On the passive silence fallback, stay silent on the
+            # first miss and just keep listening; only prompt after two in
+            # a row. An explicit "Done" tap always gets the prompt — the
+            # client is muted in "thinking" until reply audio plays.
             session["empty_turns"] = session.get("empty_turns", 0) + 1
-            if session["empty_turns"] >= 2:
+            if explicit or session["empty_turns"] >= 2:
                 session["empty_turns"] = 0
                 async for chunk in self._speak_line(
                     session_id, session, templates.VOICE_DIDNT_HEAR[language]
@@ -573,6 +627,75 @@ class TurnVoiceService:
         except Exception:
             logger.exception("resume_cb failed for %s", session_id)
 
+    async def _push_resume_options(
+        self, session_id: str, session: dict[str, Any]
+    ) -> None:
+        """Continue/start-over chips under the spoken resume question. Only
+        the unfinished-session variant exists — a finished assessment never
+        opens a resume call (the kiosk shows the finished notice instead)."""
+        if session.get("resume_status") != "active":
+            return
+        options_cb: OptionsCallback | None = session.get("options_cb")
+        if options_cb is None:
+            return
+        options = templates.RESUME_OPTIONS.get(
+            session["language"], templates.RESUME_OPTIONS["en"]
+        )
+        try:
+            await options_cb({"options": options})
+        except Exception:
+            logger.exception("options_cb failed for %s", session_id)
+
+    async def _speak_pending_point(
+        self, session_id: str, session: dict[str, Any]
+    ) -> AsyncIterator[bytes]:
+        """Resume the interview at its actual pending point.
+
+        "Continue" on a session that already has turns must re-issue the last
+        question (and re-open the measurement card when the engine was
+        waiting on a reading) — a fresh "what brings you in today?" greeting
+        reads as the assessment starting over, even though the engine state
+        was intact all along (live report 2026-07-27, BP-rest return).
+        Falls back to the greeting when the interview hasn't started.
+        """
+        language = session["language"]
+        line: str | None = None
+        vital: str | None = None
+        conn = session.get("db_connection")
+        if conn is not None:
+            try:
+                row = await conn.fetchrow(
+                    "SELECT content FROM messages WHERE session_id = $1::uuid"
+                    " AND role = 'assistant' ORDER BY created_at DESC LIMIT 1",
+                    session_id,
+                )
+                if row:
+                    line = row["content"]
+                srow = await conn.fetchrow(
+                    "SELECT state FROM screening_sessions WHERE session_id = $1::uuid",
+                    session_id,
+                )
+                if srow:
+                    state = srow["state"]
+                    if isinstance(state, str):
+                        state = json.loads(state)
+                    vital = (state or {}).get("awaiting_measurement")
+            except Exception:
+                logger.exception("pending-point lookup failed for %s", session_id)
+                line = None
+                vital = None
+        if not line:
+            line = templates.greeting_line(session.get("patient_name"), language)
+        async for chunk in self._speak_line(session_id, session, line):
+            yield chunk
+        if vital:
+            measurement_cb: MeasurementCallback | None = session.get("measurement_cb")
+            if measurement_cb is not None:
+                try:
+                    await measurement_cb({"vital": vital})
+                except Exception:
+                    logger.exception("measurement_cb failed for %s", session_id)
+
     async def _handle_resume_turn(
         self, session_id: str, session: dict[str, Any], transcript: str
     ) -> AsyncIterator[bytes]:
@@ -607,12 +730,14 @@ class TurnVoiceService:
                     session_id, session, templates.RESUME_RETRY[language]
                 ):
                     yield chunk
+                await self._push_resume_options(session_id, session)
                 return
             decision = "decline"
 
         session["awaiting_resume"] = False
 
         if decision == "continue":
+            await self._clear_options(session_id, session)
             async for chunk in self._speak_line(
                 session_id, session, templates.RESUME_ACK_CONTINUE[language]
             ):
@@ -623,10 +748,9 @@ class TurnVoiceService:
                 async for chunk in self._start_history_gate(session_id, session):
                     yield chunk
             else:
-                greeting = templates.greeting_line(
-                    session.get("patient_name"), language
-                )
-                async for chunk in self._speak_line(session_id, session, greeting):
+                # Pick the interview back up at its pending question or
+                # measurement — never a fresh greeting mid-assessment.
+                async for chunk in self._speak_pending_point(session_id, session):
                     yield chunk
             await self._fire_resume(
                 session_id, session,
@@ -637,6 +761,7 @@ class TurnVoiceService:
         if decision == "start_over":
             # Kiosk retires this session and relinks the VN on a fresh one.
             session["disposed"] = True
+            await self._clear_options(session_id, session)
             async for chunk in self._speak_line(
                 session_id, session, templates.RESUME_ACK_STARTOVER[language]
             ):
@@ -646,6 +771,7 @@ class TurnVoiceService:
 
         # decline: leave the decision to the on-screen buttons.
         session["disposed"] = True
+        await self._clear_options(session_id, session)
         async for chunk in self._speak_line(
             session_id, session, templates.RESUME_ACK_DECLINE[language]
         ):
@@ -763,6 +889,7 @@ class TurnVoiceService:
                 )
                 async for chunk in self._speak_line(session_id, session, ask):
                     yield chunk
+                await self._push_resume_options(session_id, session)
             elif needs_history:
                 # First-time patient: history intake continues in this call.
                 async for chunk in self._start_history_gate(session_id, session):

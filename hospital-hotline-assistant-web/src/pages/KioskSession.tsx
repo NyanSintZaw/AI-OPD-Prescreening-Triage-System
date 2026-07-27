@@ -29,6 +29,7 @@ type Phase =
   | 'language'
   | 'visit'
   | 'resume'
+  | 'finished'
   | 'confirm'
   | 'history'
   | 'hello'
@@ -89,11 +90,23 @@ export function KioskSession() {
   const [confirmExit, setConfirmExit] = useState(false);
   // Same-day session found for the entered VN — patient chooses what to do.
   const [resumeOffer, setResumeOffer] = useState<ResumeOffer | null>(null);
+  // Finished-prescreening notice: name shown on the "already complete" screen.
+  const [finishedName, setFinishedName] = useState<string | null>(null);
+  // The spoken identity gate on a resume call: the continue/start-over
+  // buttons stay hidden until the AI's "you are {name}, right?" is answered
+  // yes — flow by flow, never four buttons at once.
+  const [resumeIdentityConfirmed, setResumeIdentityConfirmed] = useState(false);
+  // A chooser tap was sent into the live call; disable the buttons until the
+  // resume_choice frame lands so a double-tap can't inject two turns.
+  const [resumeChoiceBusy, setResumeChoiceBusy] = useState(false);
   // Crisis BP → 15-minute rest before re-measuring; shows the rest screen.
   const [restMinutes, setRestMinutes] = useState<number | null>(null);
 
   const startedRef = useRef(false);
   const slipRef = useRef(false);
+  // Start-over carries the just-confirmed identity onto the fresh session
+  // (consumed by the conversation auto-start effect before the call opens).
+  const preconfirmRef = useRef(false);
   // The session belonging to THIS kiosk run. A previous run's id may still
   // sit in localStorage (tab closed at the slip screen, reload) — reusing it
   // would leak the previous patient's identity into an anonymous run, so a
@@ -171,18 +184,21 @@ export function KioskSession() {
           setSessionId(null);
           setResumeOffer(null);
         }
+        setResumeIdentityConfirmed(false);
         setPhase('visit');
         return;
       }
       // Confirmed: the same call keeps going — the resume question (chooser
       // stays up), the spoken history intake, or the intake greeting. The
       // bridge clears/pushes its own chips; don't wipe them here.
+      setResumeIdentityConfirmed(true);
       if (payload.needsHistory) {
         setNeedsHistory(true);
       }
     },
     onResumeChoice: (payload) => {
       // Spoken outcome of the continue-vs-start-over gate (drain-committed).
+      setResumeChoiceBusy(false);
       const offer = resumeOffer;
       if (!offer) return;
       if (payload.kind === 'continue') {
@@ -201,9 +217,11 @@ export function KioskSession() {
         void handleResumeStartOver();
         return;
       }
-      // decline / unclear ×2 — the call ends; the on-screen buttons decide.
+      // decline / unclear ×2 — the call ends; fall back to the chooser
+      // screen so the on-screen buttons decide. startedRef stays true: the
+      // chooser must NOT reopen the spoken gate it just gave up on.
       void voiceCall.end();
-      startedRef.current = false;
+      setPhase('resume');
     },
   });
 
@@ -264,7 +282,12 @@ export function KioskSession() {
   const createAndLink = useCallback(
     async (visitId: string) => {
       const id = await ensureSession();
-      const res = await api.linkVisit(id, visitId);
+      // Start-over within the same walk-up: the link itself carries the
+      // already-spoken identity confirmation — atomic, no REST race with
+      // the call opening (a late confirm once let the gate re-arm).
+      const preconfirmed = preconfirmRef.current;
+      preconfirmRef.current = false;
+      const res = await api.linkVisit(id, visitId, preconfirmed);
       if (res.linked) {
         setNeedsHistory(Boolean(res.is_first_time));
         if (res.patient_name) {
@@ -304,24 +327,38 @@ export function KioskSession() {
           const name =
             existing.patient_name ||
             (typeof visitMeta?.patient_name === 'string' ? visitMeta.patient_name : null);
-          // Never silently resume: the patient decides (continue for an
-          // unfinished assessment; start over — or reprint — for a done one).
-          // Adopt the old session id now so the voice call can open on it
-          // and SPEAK the question (start-over re-nulls runSessionRef).
+          const offerStatus = existing.status || existing.session.status || 'active';
+          if (offerStatus === 'completed') {
+            // Finished prescreening cannot be redone. No session adoption,
+            // no call — just the notice, a back button, and a timeout.
+            setFinishedName(name);
+            setPhase('finished');
+            return;
+          }
+          // Never silently resume an unfinished assessment: the patient
+          // decides (continue vs start over). Adopt the old session id now
+          // so the voice call can open on it and SPEAK the question
+          // (start-over re-nulls runSessionRef).
           runSessionRef.current = existing.session.id;
           setSessionId(existing.session.id);
           setLanguage(existing.session.language);
           startedRef.current = false;
+          setResumeIdentityConfirmed(false);
+          setResumeChoiceBusy(false);
           setResumeOffer({
             visitId,
             sessionId: existing.session.id,
-            status: existing.status || existing.session.status || 'active',
+            status: offerStatus,
             patientName: name,
             nameConfirmed: Boolean(existing.name_confirmed),
             needsHistory: Boolean(existing.needs_history_intake),
             language: existing.session.language as AppLanguage,
           });
-          setPhase('resume');
+          // With a mic, the gate (identity → continue/start-over) runs as
+          // chips on the conversation screen — same pipeline as the
+          // interview. The chooser screen remains for no-mic kiosks and as
+          // the spoken gate's decline fallback.
+          setPhase(voiceCall.supported ? 'conversation' : 'resume');
           return;
         }
 
@@ -352,29 +389,36 @@ export function KioskSession() {
 
   const handleResumeStartOver = useCallback(async () => {
     if (!resumeOffer || linking) return;
+    const { visitId, sessionId: oldSessionId, status } = resumeOffer;
     setLinking(true);
     void voiceCall.end();
     startedRef.current = false;
     // The fresh run must never reuse the old session.
     runSessionRef.current = null;
+    // The spoken gate just re-verified this patient — carry the confirmation
+    // to the fresh session so it doesn't ask "are you X?" all over again.
+    preconfirmRef.current = resumeIdentityConfirmed;
+    // Clear the offer BEFORE the new session lands: a stale offer made the
+    // auto-start attach resume_prompt to the fresh session — a phantom
+    // "continue or start over?" whose spoken answer then no-opped on the
+    // cleared offer and froze the kiosk (live report 2026-07-27).
+    setResumeOffer(null);
     try {
-      if (resumeOffer.status === 'active') {
+      if (status === 'active') {
         // Retire the abandoned run so it can't be offered again.
         await api
-          .updateSession(resumeOffer.sessionId, { status: 'reset' })
+          .updateSession(oldSessionId, { status: 'reset' })
           .catch(() => undefined);
       }
-      await createAndLink(resumeOffer.visitId);
-      setResumeOffer(null);
+      await createAndLink(visitId);
     } catch {
       setLinkError(true);
       setPhase('visit');
-      setResumeOffer(null);
     } finally {
       setLinking(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [createAndLink, linking, resumeOffer]);
+  }, [createAndLink, linking, resumeOffer, resumeIdentityConfirmed]);
 
   const handleSkip = useCallback(async () => {
     setLinking(true);
@@ -461,16 +505,38 @@ export function KioskSession() {
     return () => clearTimeout(timer);
   }, [phase, patientName]);
 
+  // ── Finished notice: auto-return to VN entry after a short dwell ────────
+  useEffect(() => {
+    if (phase !== 'finished') return;
+    const timer = setTimeout(() => setPhase('visit'), 15000);
+    return () => clearTimeout(timer);
+  }, [phase]);
+
   // Start the mic pipeline once we enter the conversation phase. A failure
   // (mic denied/busy) flips startFailed so the stage shows a retry screen
   // instead of hanging on "connecting".
   useEffect(() => {
-    if (phase !== 'conversation' || !sessionId || startedRef.current) return;
+    // `linking` gate: during start-over the phase is already 'conversation'
+    // when the fresh session id lands, but the visit (and its carried
+    // identity confirmation) isn't linked yet — starting the call then
+    // would open an anonymous interview.
+    if (phase !== 'conversation' || !sessionId || startedRef.current || linking) return;
     if (!voiceCall.supported) return;
     startedRef.current = true;
-    void voiceCall.start().catch(() => setStartFailed(true));
+    // Only an offer for THIS session opens the spoken resume gate — a stale
+    // offer must never attach resume_prompt to a freshly linked session.
+    // (Identity carry-over rides the link itself — see createAndLink.)
+    const offer =
+      resumeOffer && resumeOffer.sessionId === sessionId ? resumeOffer : null;
+    void voiceCall
+      .start(
+        offer
+          ? { resumePrompt: offer.status === 'completed' ? 'completed' : 'active' }
+          : undefined,
+      )
+      .catch(() => setStartFailed(true));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [phase, sessionId, voiceCall.supported]);
+  }, [phase, sessionId, voiceCall.supported, linking]);
 
   // The resume chooser is spoken too: open the call on the old session with
   // the continue-vs-start-over gate. The on-screen buttons stay live as the
@@ -489,9 +555,17 @@ export function KioskSession() {
 
   const handleRetryVoice = useCallback(() => {
     setStartFailed(false);
-    void voiceCall.start().catch(() => setStartFailed(true));
+    const offer =
+      resumeOffer && resumeOffer.sessionId === sessionId ? resumeOffer : null;
+    void voiceCall
+      .start(
+        offer
+          ? { resumePrompt: offer.status === 'completed' ? 'completed' : 'active' }
+          : undefined,
+      )
+      .catch(() => setStartFailed(true));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [resumeOffer, sessionId]);
 
   // Tear the call down if the component unmounts mid-conversation.
   useEffect(() => {
@@ -636,22 +710,46 @@ export function KioskSession() {
                 ))}
               </div>
             )}
+            {/* Flow by flow: while the spoken identity gate is live, only its
+                ใช่/ไม่ใช่ chips show; continue/start-over appear after "yes".
+                On a dead/absent call the buttons are the only path. */}
+            {(resumeIdentityConfirmed ||
+              !voiceCall.supported ||
+              voiceCall.state === 'idle' ||
+              voiceCall.state === 'error') && (
             <div className="k-result-actions">
               {resumeOffer.status !== 'completed' && (
                 <button
                   type="button"
                   className="k-btn primary xl"
-                  onClick={handleResumeContinue}
-                  disabled={linking}
+                  onClick={() => {
+                    if (voiceCall.state !== 'idle' && voiceCall.state !== 'error') {
+                      // Live call: decide inside it — the bridge answers and
+                      // keeps the same call (tearing it down and restarting
+                      // raced the old socket's teardown and froze the kiosk).
+                      setResumeChoiceBusy(true);
+                      voiceCall.tapReply(t('kioskResumeContinue'));
+                    } else {
+                      handleResumeContinue();
+                    }
+                  }}
+                  disabled={linking || resumeChoiceBusy}
                 >
-                  {t('kioskResumeContinue')}
+                  {resumeChoiceBusy ? t('loading') : t('kioskResumeContinue')}
                 </button>
               )}
               <button
                 type="button"
                 className={`k-btn ${resumeOffer.status === 'completed' ? 'primary xl' : 'secondary'}`}
-                onClick={() => void handleResumeStartOver()}
-                disabled={linking}
+                onClick={() => {
+                  if (voiceCall.state !== 'idle' && voiceCall.state !== 'error') {
+                    setResumeChoiceBusy(true);
+                    voiceCall.tapReply(t('kioskResumeStartOver'));
+                  } else {
+                    void handleResumeStartOver();
+                  }
+                }}
+                disabled={linking || resumeChoiceBusy}
               >
                 {linking ? t('loading') : t('kioskResumeStartOver')}
               </button>
@@ -666,6 +764,7 @@ export function KioskSession() {
                 </button>
               )}
             </div>
+            )}
             <button
               type="button"
               className="text-btn"
@@ -677,6 +776,33 @@ export function KioskSession() {
                 setPhase('visit');
               }}
               disabled={linking}
+            >
+              {t('kioskResumeBack')}
+            </button>
+          </motion.div>
+        )}
+
+        {phase === 'finished' && (
+          <motion.div
+            key="finished"
+            {...phaseTransition}
+            style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16, textAlign: 'center' }}
+          >
+            <motion.span
+              initial={{ scale: 0.6, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ type: 'spring', stiffness: 280, damping: 18, delay: 0.1 }}
+            >
+              <HandHeart size={52} weight="duotone" aria-hidden="true" />
+            </motion.span>
+            <h2 className="k-hello-name">
+              {t('kioskResumeDoneTitle', { name: finishedName ?? t('kioskWelcome') })}
+            </h2>
+            <p className="k-hello-lead">{t('kioskFinishedLead')}</p>
+            <button
+              type="button"
+              className="k-btn primary xl"
+              onClick={() => setPhase('visit')}
             >
               {t('kioskResumeBack')}
             </button>

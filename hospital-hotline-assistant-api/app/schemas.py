@@ -75,6 +75,10 @@ class SessionMeasurementUpdate(BaseModel):
 
 class LinkVisitRequest(BaseModel):
     visit_id: str = Field(..., min_length=1, max_length=64)
+    # Same kiosk walk-up, identity already spoken-confirmed (e.g. start over
+    # relinks on a fresh session): carry the confirmation atomically so the
+    # new call never re-asks "are you {name}?".
+    preconfirmed: bool = False
 
 
 class LinkVisitResponse(BaseModel):

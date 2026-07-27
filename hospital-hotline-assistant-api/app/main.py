@@ -499,7 +499,9 @@ async def link_visit(
         "age_years": info.age_years,
         "appointment": info.appointment,
         "linked_at": datetime.now(timezone.utc).isoformat(),
-        "name_confirmed": False,
+        # Identity is asked once per kiosk walk-up: a relink within the same
+        # run (start over) carries the already-spoken confirmation.
+        "name_confirmed": bool(payload.preconfirmed and info.patient_name),
     }
     if info.patient_history is not None:
         metadata["patient_history"] = {
@@ -2482,7 +2484,10 @@ async def voice_call(websocket: WebSocket, session_id: str):
                     live_voice_service.set_mute(session_id, False)
                     await websocket.send_json({"type": "status", "muted": False})
                 elif msg_type == "end_of_turn":
-                    live_voice_service.end_user_turn(session_id)
+                    live_voice_service.end_user_turn(
+                        session_id,
+                        caption=str(payload.get("caption") or ""),
+                    )
                     continue
                 elif msg_type == "submit_measurement":
                     # The temperature-on-demand popup: the client already

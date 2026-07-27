@@ -20,10 +20,14 @@ from .base import GraphDeps, GraphState
 # least one substantive negative token — a bare "ครับ/ค่ะ" is an affirmation.
 _POLITE = r"(?:ครับผม|ครับ|ค่ะ|คะ|นะ|แล้ว|เลย|จ้ะ|จ้า)"
 _NEG_CORE = (
-    r"(?:no|nope|nothing(?:\s+else)?|none|not\s+really|that'?s\s+all|"
+    r"(?:no|nope|nothing(?:\s+else)?|none|not\s+really|that'?s\s+(?:all|it)|"
+    r"there\s+(?:isn'?t|is\s+not?)\s+anything(?:\s+else)?|"
+    r"there'?s\s+nothing(?:\s+else)?|"
+    r"i\s+(?:don'?t|do\s+not)\s+have\s+any(?:thing)?(?:\s+else)?|"
+    r"(?:i'?m|i\s+am|we'?re)\s+done|nothing\s+to\s+(?:ask|add|tell|say)|"
     r"all\s+good|i'?m\s+(?:good|fine|ok|okay)|no\s+thanks?|thanks|thank\s+you|"
-    r"ไม่มีอะไร(?:จะถาม|เพิ่มเติม)?(?:แล้ว)?|ไม่มี|ไม่ต้องการ|ไม่เป็นไร|ไม่|"
-    r"แค่นี้|พอแล้ว|ขอบคุณ)"
+    r"ไม่มีอะไร(?:จะถาม|จะบอก|เพิ่มเติม)?(?:แล้ว)?|ไม่มี|ไม่ต้องการ|ไม่เป็นไร|ไม่|"
+    r"แค่นี้|พอแล้ว|เสร็จแล้ว|จบแล้ว|ขอบคุณ)"
 )
 _NEG_TOKEN = rf"(?:{_NEG_CORE}|{_POLITE})"
 _AFF_TOKEN = (

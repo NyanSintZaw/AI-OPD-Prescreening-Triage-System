@@ -102,7 +102,7 @@ export interface UseVoiceCallApi {
   autoEnding: boolean;
   start: (opts?: { resumePrompt?: 'active' | 'completed' }) => Promise<void>;
   end: () => Promise<void>;
-  sendTurn: () => void;
+  sendTurn: (captionText?: string) => void;
   /** Barge-in while the assistant is speaking: cut the reply's audio, drop
    *  the rest of its chunks, and go straight back to listening so the
    *  patient can correct a misheard turn. The reply text stays on screen. */
@@ -354,6 +354,10 @@ export function useVoiceCall(options: UseVoiceCallOptions): UseVoiceCallApi {
   // values without having to rebuild on every render.
   const stateRef = useRef<VoiceCallState>('idle');
   const mutedRef = useRef(false);
+  // Turn-scoped capture (product decision 2026-07-27): the mic records ONLY
+  // during the patient's turn. While the avatar speaks or thinks, audio is
+  // dropped — nothing is buffered or replayed. The "Listening" chip and the
+  // live caption mark exactly the window that will be sent.
   const speakerEnabledRef = useRef(true);
   const activeRef = useRef(false);
   const languageRef = useRef(language);
@@ -541,7 +545,10 @@ export function useVoiceCall(options: UseVoiceCallOptions): UseVoiceCallApi {
           if (
             activeRef.current &&
             mutedRef.current &&
-            !pendingAutoEndRef.current
+            !pendingAutoEndRef.current &&
+            // Mid-turn drain (a tap sent while the previous line was still
+            // playing): keep the gate shut until the reply's own drain.
+            stateRef.current !== 'thinking'
           ) {
             mutedRef.current = false;
             setMutedState(false);
@@ -814,6 +821,8 @@ export function useVoiceCall(options: UseVoiceCallOptions): UseVoiceCallApi {
     inputNodeRef.current = node;
 
     node.port.onmessage = (event: MessageEvent<ArrayBuffer>) => {
+      // Not the patient's turn → drop, never buffer (see turn-scoped
+      // capture note above).
       if (!activeRef.current || mutedRef.current) return;
       const ws = wsRef.current;
       if (!ws || ws.readyState !== WebSocket.OPEN) return;
@@ -911,6 +920,15 @@ export function useVoiceCall(options: UseVoiceCallOptions): UseVoiceCallApi {
             // server (or Gemini Live) re-emits the same finalised phrase.
             const accum = transcriptAccumRef.current;
             if (role === 'user') {
+              // The server transcribed a turn. If we still show "listening",
+              // the silence fallback beat the Done tap — close the gate and
+              // flip to thinking NOW so a late tap can't race the in-flight
+              // turn (it used to trigger a spurious "didn't catch that").
+              if (stateRef.current === 'listening' && activeRef.current) {
+                mutedRef.current = true;
+                setMutedState(true);
+                updateState('thinking');
+              }
               accum.user = smartMergeTranscript(accum.user, text);
               setLastTranscript(accum.user);
               accum.agent = '';
@@ -1000,6 +1018,15 @@ export function useVoiceCall(options: UseVoiceCallOptions): UseVoiceCallApi {
               kind: raw.kind === 'rejected' ? 'rejected' : 'confirmed',
               needsHistory: Boolean(raw.needs_history),
             };
+            if (raw.kind !== 'rejected') {
+              // Confirmed: reveal the next step (chooser buttons) right away,
+              // while the spoken question is still playing — a tap during the
+              // speech queues server-side and applies when the line ends.
+              commitIdentity();
+              return;
+            }
+            // Rejected tears the call down — let the "please re-check your
+            // number" line finish playing first (drain-committed).
             const queue = playbackRef.current;
             if (!speakerEnabledRef.current || !queue || queue.scheduledCount === 0) {
               // Nothing will drain — deliver now.
@@ -1017,6 +1044,15 @@ export function useVoiceCall(options: UseVoiceCallOptions): UseVoiceCallApi {
               kind,
               needsHistory: Boolean(raw.needs_history),
             };
+            if (kind === 'continue') {
+              // Move to the assessment screen immediately — the greeting
+              // audio keeps playing there. Waiting for drain left the
+              // patient staring at the chooser through the whole greeting.
+              commitResumeChoice();
+              return;
+            }
+            // start_over / decline end or relink the call — let the spoken
+            // ack finish before the teardown (drain-committed).
             const queue = playbackRef.current;
             if (!speakerEnabledRef.current || !queue || queue.scheduledCount === 0) {
               commitResumeChoice();
@@ -1262,7 +1298,7 @@ export function useVoiceCall(options: UseVoiceCallOptions): UseVoiceCallApi {
 
   // ----- Turn boundary -------------------------------------------------
 
-  const sendTurn = useCallback(() => {
+  const sendTurn = useCallback((captionText?: string) => {
     if (!activeRef.current || mutedRef.current) return;
     discardPlaybackRef.current = false;
     mutedRef.current = true;
@@ -1270,7 +1306,15 @@ export function useVoiceCall(options: UseVoiceCallOptions): UseVoiceCallApi {
     const ws = wsRef.current;
     if (!ws || ws.readyState !== WebSocket.OPEN) return;
     try {
-      ws.send(JSON.stringify({ type: 'end_of_turn' }));
+      // The live caption rides along: if STT hears nothing in the audio
+      // (AGC-quiet first utterance), the server uses the caption instead —
+      // whatever streamed on screen IS the turn, guaranteed.
+      const caption = (captionText || '').trim();
+      ws.send(
+        JSON.stringify(
+          caption ? { type: 'end_of_turn', caption } : { type: 'end_of_turn' },
+        ),
+      );
       updateState('thinking');
     } catch {
       // Keep the local gate closed if the socket is unhealthy.
@@ -1308,6 +1352,9 @@ export function useVoiceCall(options: UseVoiceCallOptions): UseVoiceCallApi {
     const ws = wsRef.current;
     if (!ws || ws.readyState !== WebSocket.OPEN) return;
     discardPlaybackRef.current = false;
+    // Same injected-turn mute cycle as tapReply — see the comment there.
+    mutedRef.current = true;
+    setMutedState(true);
     try {
       ws.send(JSON.stringify({ type: 'submit_measurement', content }));
       if (activeRef.current) updateState('thinking');
@@ -1322,6 +1369,12 @@ export function useVoiceCall(options: UseVoiceCallOptions): UseVoiceCallApi {
     const ws = wsRef.current;
     if (!ws || ws.readyState !== WebSocket.OPEN) return;
     discardPlaybackRef.current = false;
+    // Mirror sendTurn: the server mutes itself for every injected turn, and
+    // the post-reply auto-unmute only fires when the LOCAL gate is closed
+    // too. Without this, a tap left the server muted forever — the next
+    // spoken answer never arrived and the kiosk hung on "thinking".
+    mutedRef.current = true;
+    setMutedState(true);
     try {
       ws.send(JSON.stringify({ type: 'tap_reply', content: text }));
       if (activeRef.current) updateState('thinking');
