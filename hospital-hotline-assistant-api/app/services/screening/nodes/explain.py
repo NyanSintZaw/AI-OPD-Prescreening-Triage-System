@@ -33,8 +33,7 @@ _EXPLAIN_PROMPT = {
         "{name_line}"
         "{urgency_line}"
         "{reference}"
-        "Close warmly (e.g. wish them well). Do NOT ask any medical follow-up; "
-        "a separate system step will offer to note a message for the doctor."
+        "{closing_line}"
     ),
     "th": (
         "คุณเป็นผู้ช่วยคัดกรองของโรงพยาบาล พูดภาษาไทยอย่างอบอุ่นและใจเย็น "
@@ -46,8 +45,34 @@ _EXPLAIN_PROMPT = {
         "{name_line}"
         "{urgency_line}"
         "{reference}"
-        "ปิดท้ายอย่างอบอุ่น ห้ามถามคำถามทางการแพทย์เพิ่ม "
-        "ระบบจะถามเองว่าต้องการฝากข้อความถึงคุณหมอหรือไม่"
+        "{closing_line}"
+    ),
+}
+
+# The farewell belongs to the END of the flow only. Non-emergency
+# explanations are followed by the follow-up offer + the deterministic
+# FOLLOW_UP_CLOSE ("Take care / ดูแลตัวเองด้วยนะคะ"), so a "get well soon"
+# here would duplicate it (user-reported). Emergency explanations ARE the
+# final message (no follow-up step), so they keep the warm close.
+_CLOSING_EMERGENCY = {
+    "en": (
+        "Close warmly (e.g. wish them well). "
+        "Do NOT ask any medical follow-up questions."
+    ),
+    "th": "ปิดท้ายอย่างอบอุ่น ห้ามถามคำถามทางการแพทย์เพิ่ม",
+}
+
+_CLOSING_NON_EMERGENCY = {
+    "en": (
+        "Do NOT say goodbye, wish them well, or add any farewell (no "
+        "\"get well soon\", \"take care\", etc.) — the conversation is not "
+        "over; a separate system step follows. Do NOT ask any medical "
+        "follow-up questions either."
+    ),
+    "th": (
+        "ห้ามกล่าวลา ห้ามอวยพร (เช่น ขอให้หายไว ๆ ดูแลตัวเองนะคะ) "
+        "เพราะการสนทนายังไม่จบ ระบบมีขั้นตอนต่อจากนี้ "
+        "และห้ามถามคำถามทางการแพทย์เพิ่ม"
     ),
 }
 
@@ -113,12 +138,16 @@ def make_explain_node(deps: GraphDeps):
                 except Exception:
                     logger.debug("rag grounding unavailable; explaining without it")
             polite = templates.polite_name(state.patient_name, language)
+            closing = (
+                _CLOSING_EMERGENCY if is_emergency else _CLOSING_NON_EMERGENCY
+            )
             prompt = _EXPLAIN_PROMPT[language].format(
                 summary=classification.get("symptoms_summary") or "-",
                 department=department,
                 name_line=_NAME_LINE[language].format(name=polite) if polite else "",
                 urgency_line=_URGENCY_LINE[language] if is_emergency else "",
                 reference=reference,
+                closing_line=closing[language],
             )
             started = perf_counter()
             ok = False

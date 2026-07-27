@@ -1,0 +1,33 @@
+{
+  "projectId": "75e2737a-cf9d-43d9-bbf1-2972eca75eb4",
+  "shape": "package",
+  "pkg": "hospital-hotline-assistant-web",
+  "globalName": "MfuKiosk",
+  "srcDir": "src",
+  "tsconfig": "tsconfig.json",
+  "tokensGlob": "src/styles/tokens.css",
+  "extraEntries": [
+    "./src/i18n/index.ts",
+    "./src/styles/ds-sync-styles.ts"
+  ],
+  "componentSrcMap": {
+    "ProtectedRoute": null,
+    "QrScanner": null,
+    "App": null,
+    "AdminPage": null,
+    "CallPage": null,
+    "ChatPage": null,
+    "KioskHome": null,
+    "KioskSession": null,
+    "LandingPage": null,
+    "LoginPage": null,
+    "NursePage": null,
+    "SlipPage": null
+  },
+  "entry": "hospital-hotline-assistant-web/dist/index.js",
+  "libOverrides": {
+    "dts.mjs": "*Manager exports here are real React components \u2014 removed the Manager suffix exclusion from isComponentName",
+    "source-kit.mjs": "app repo: exclude main.tsx/App.tsx/pages from the synth entry (createRoot side effect, route screens)"
+  },
+  "readmeHeader": ".design-sync/conventions.md"
+}

@@ -57,3 +57,11 @@ hospital-hotline-assistant-api/app/data/er_triage_five_level_system.json
 omblepy/ubpm.json
 omblepy/user*.csv
 omblepy/backup_user*.csv
+.ds-sync/
+ds-bundle/
+.design-sync/.cache/
+.design-sync/learnings/
+.design-sync/node_modules
+
+# per-developer Claude Code settings (permissions differ per machine)
+.claude/settings.local.json
