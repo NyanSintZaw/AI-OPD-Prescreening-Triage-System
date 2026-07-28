@@ -1743,6 +1743,19 @@ async def get_session_trace(
     }
 
 
+@app.get("/admin/reviews/pending-count")
+async def count_pending_reviews(
+    # Cheap badge feed for the in-app FAB and the desktop widget — the list
+    # route below returns up to 200 fully-joined rows, far too fat to poll.
+    _admin_user: dict = Depends(require_roles("admin", "super_admin", "viewer")),
+    connection: asyncpg.Connection = Depends(get_connection),
+):
+    pending = await connection.fetchval(
+        "SELECT COUNT(*) FROM assessment_reviews WHERE status = 'pending'"
+    )
+    return {"pending": pending or 0}
+
+
 @app.get("/admin/reviews", response_model=list[AssessmentReviewOut])
 async def list_assessment_reviews(
     status: str = "pending",

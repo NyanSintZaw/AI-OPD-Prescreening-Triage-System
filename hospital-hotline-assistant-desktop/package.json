@@ -1,0 +1,32 @@
+{
+  "name": "mfu-triage-widget",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Always-on-top desktop shortcut to the MFU Medical Center triage review queue",
+  "main": "main.js",
+  "scripts": {
+    "prestart": "node scripts/make-icons.js",
+    "start": "electron .",
+    "test": "node test.js",
+    "predist": "node scripts/make-icons.js",
+    "dist": "electron-builder --win nsis"
+  },
+  "devDependencies": {
+    "electron": "^34.0.0",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "th.ac.mfu.mch.triage-widget",
+    "productName": "MFU Triage Reviews",
+    "files": ["main.js", "preload.js", "logic.js", "widget.html", "settings.html", "assets/**"],
+    "win": {
+      "icon": "assets/icon.png",
+      "target": "nsis"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "perMachine": false
+    }
+  }
+}

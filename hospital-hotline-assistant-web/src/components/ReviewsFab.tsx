@@ -11,9 +11,6 @@ const POLL_MS = 60_000;
  * Pending-review count for the badge. Polls only while the button is on
  * screen and the tab is visible.
  */
-// ponytail: counts by fetching the pending rows themselves (LIMIT 200, fat
-// joins). Add GET /admin/reviews/pending-count if this poll ever shows up in
-// the logs.
 function usePendingReviewCount(enabled: boolean): number {
   const [count, setCount] = useState(0);
 
@@ -25,8 +22,8 @@ function usePendingReviewCount(enabled: boolean): number {
     const tick = async () => {
       try {
         if (document.visibilityState === 'visible') {
-          const rows = await api.listAssessmentReviews('pending');
-          if (alive) setCount(rows.length);
+          const { pending } = await api.getPendingReviewCount();
+          if (alive) setCount(pending);
         }
       } catch {
         /* keep the last-known count — a badge must never break the page */

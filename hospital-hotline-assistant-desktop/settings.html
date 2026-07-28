@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'" />
+    <title>Settings</title>
+    <style>
+      :root { --mch-gold: #ba9643; --mch-navy: #213253; --mch-red: #d63933; }
+
+      body {
+        margin: 0;
+        padding: 1.5rem;
+        font-family: 'Segoe UI', system-ui, sans-serif;
+        font-size: 0.9rem;
+        color: var(--mch-navy);
+        background: #f7f7f9;
+      }
+
+      h1 { margin: 0 0 1.25rem; font-size: 1.05rem; }
+
+      label { display: block; margin-bottom: 0.9rem; font-weight: 600; }
+
+      input {
+        width: 100%;
+        margin-top: 0.3rem;
+        padding: 0.5rem 0.6rem;
+        border: 1px solid #c8ccd6;
+        border-radius: 6px;
+        font: inherit;
+      }
+
+      .hint { display: block; margin-top: 0.25rem; font-weight: 400; color: #6b7280; font-size: 0.8rem; }
+
+      button {
+        padding: 0.55rem 1.4rem;
+        border: 0;
+        border-radius: 999px;
+        background: var(--mch-gold);
+        color: #fff;
+        font: inherit;
+        font-weight: 600;
+        cursor: pointer;
+      }
+
+      button:disabled { opacity: 0.6; cursor: default; }
+
+      #status { margin-left: 0.75rem; }
+      #status.error { color: var(--mch-red); }
+      #status.ok { color: #16794c; }
+    </style>
+  </head>
+  <body>
+    <h1>Triage Reviews widget</h1>
+
+    <label>
+      Portal address
+      <input id="serverUrl" type="url" placeholder="https://triage.mch.mfu.ac.th" />
+      <span class="hint">Where the staff portal is served. Include http:// or https://.</span>
+    </label>
+
+    <label>
+      API address
+      <input id="apiUrl" type="url" placeholder="same as portal address" />
+      <span class="hint">Only if the API is on a different host or port than the portal.</span>
+    </label>
+
+    <label>
+      Staff email
+      <input id="email" type="email" placeholder="opd.nurse@mfu.local" />
+    </label>
+
+    <label>
+      Password
+      <input id="password" type="password" placeholder="••••••••" />
+      <span class="hint" id="pwHint">Stored encrypted by Windows on this PC only.</span>
+    </label>
+
+    <button id="save" type="button">Save</button>
+    <span id="status"></span>
+
+    <script>
+      const $ = (id) => document.getElementById(id);
+      const status = $('status');
+
+      window.widget.getSettings().then(({ serverUrl, apiUrl, email, hasPassword }) => {
+        $('serverUrl').value = serverUrl;
+        $('apiUrl').value = apiUrl;
+        $('email').value = email;
+        if (hasPassword) $('pwHint').textContent = 'Saved. Leave blank to keep the current password.';
+      });
+
+      $('save').addEventListener('click', async () => {
+        $('save').disabled = true;
+        status.className = '';
+        status.textContent = 'Checking…';
+        const res = await window.widget.saveSettings({
+          serverUrl: $('serverUrl').value.trim(),
+          apiUrl: $('apiUrl').value.trim(),
+          email: $('email').value.trim(),
+          password: $('password').value,
+        });
+        // Saving verifies against the real API, so the nurse finds out here
+        // rather than by wondering why the pill never shows a number.
+        status.className = res.ok ? 'ok' : 'error';
+        status.textContent = res.ok ? 'Signed in.' : res.error;
+        $('save').disabled = false;
+        if (res.ok) $('password').value = '';
+      });
+    </script>
+  </body>
+</html>

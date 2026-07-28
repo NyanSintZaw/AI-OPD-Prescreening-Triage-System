@@ -6,9 +6,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 AI-assisted hospital hotline triage system for Mae Fah Luang University (MFU) Medical Center. Anonymous patients describe symptoms via text chat or live voice call; an AI agent performs ER Five-Level triage, recommends a department (OPD-first policy), and stores results in Postgres for a nurse-review admin portal and disease-surveillance dashboard.
 
-Monorepo with two subprojects:
+Monorepo with three subprojects:
 - `hospital-hotline-assistant-api/` — FastAPI backend (Python 3.11, managed with **uv**)
 - `hospital-hotline-assistant-web/` — React 19 + Vite + TypeScript SPA
+- `hospital-hotline-assistant-desktop/` — Electron tray widget: an always-on-top pill showing the pending-review count, clicking through to the portal in the default browser
 
 UI languages: Thai (default) and English.
 
@@ -52,6 +53,22 @@ npm run preview
 ```
 
 No lint or test setup exists. Env via `.env` (copy `.env.example`): `VITE_API_BASE_URL`, `VITE_ENABLE_VOICE`, `VITE_FRONTDESK_MODE`, `VITE_VOICE_DEBUG`.
+
+### Desktop widget (`hospital-hotline-assistant-desktop/`)
+
+```bash
+npm install
+npm start          # runs scripts/make-icons.js, then electron .
+npm test           # node test.js — asserts the notify + auth-retry logic
+npm run dist       # NSIS installer into dist/ (Windows)
+```
+
+Not configured by env vars: settings (portal URL, optional separate API URL, staff email, password) live in `%APPDATA%/mfu-triage-widget/config.json`, entered through the widget's own settings window — right-click the pill or use the tray icon. The password is encrypted with Electron's `safeStorage` (Windows DPAPI). `assets/` is generated, never committed.
+
+Two Windows environment gotchas, both one-time and neither a code problem:
+
+- Under OneDrive, `npm install` can leave `node_modules/electron/dist` half-extracted (only `locales`). Fix: `Expand-Archive` the cached zip from `%LOCALAPPDATA%/electron/Cache/*/` into that folder and write `electron.exe` into `node_modules/electron/path.txt`.
+- `npm run dist` fails at `Cannot create symbolic link` while unpacking electron-builder's `winCodeSign` cache, which contains macOS symlinks. Creating symlinks needs a privilege a standard account lacks. Fix: enable Windows **Developer Mode**, or run the build from an elevated terminal. `npm run dist` still produces a working `dist/win-unpacked/` before it fails — only the NSIS installer step is blocked.
 
 ## Architecture
 

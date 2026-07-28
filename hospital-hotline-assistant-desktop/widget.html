@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'" />
+    <title>MFU Triage Reviews</title>
+    <style>
+      /* Mirrors .reviews-fab in the web app's global.css so the desktop pill
+         and the in-page one read as the same control. */
+      :root {
+        --mch-gold: #ba9643;
+        --mch-gold-dark: #705a28;
+        --mch-red: #d63933;
+      }
+
+      * { box-sizing: border-box; }
+
+      html, body {
+        margin: 0;
+        height: 100%;
+        background: transparent;
+        overflow: hidden;
+        font-family: 'Segoe UI', system-ui, sans-serif;
+        cursor: default;
+        user-select: none;
+      }
+
+      body { display: flex; align-items: center; justify-content: center; }
+
+      .pill {
+        position: relative;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        height: 52px;
+        padding: 0 1rem 0 0;
+        border: 1px solid var(--mch-gold-dark);
+        border-radius: 999px;
+        background: var(--mch-gold);
+        color: #fff;
+        font-size: 0.95rem;
+        font-weight: 600;
+        line-height: 1;
+        box-shadow: rgba(0, 0, 0, 0.28) 0 8px 22px -6px;
+      }
+
+      /* Whole-pill dragging would swallow the click, so only this strip moves
+         the window; everything right of it is the button. */
+      .grip {
+        -webkit-app-region: drag;
+        width: 18px;
+        align-self: stretch;
+        border-radius: 999px 0 0 999px;
+        cursor: move;
+        background:
+          radial-gradient(circle at 50% 40%, rgba(255, 255, 255, 0.75) 1.2px, transparent 1.3px),
+          radial-gradient(circle at 50% 60%, rgba(255, 255, 255, 0.75) 1.2px, transparent 1.3px);
+      }
+
+      .open {
+        -webkit-app-region: no-drag;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        height: 100%;
+        border: 0;
+        background: none;
+        padding: 0;
+        color: inherit;
+        font: inherit;
+        cursor: pointer;
+      }
+
+      .open:hover { color: #fff8e6; }
+      .open:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+
+      .badge {
+        position: absolute;
+        top: -6px;
+        right: -4px;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        min-width: 22px;
+        height: 22px;
+        padding: 0 6px;
+        border: 2px solid #fff;
+        border-radius: 999px;
+        background: var(--mch-red);
+        font-size: 0.75rem;
+        font-weight: 700;
+      }
+
+      /* Same double-hop-then-rest cadence as the in-page FAB: motion for ~0.7s
+         of every 4s, so it reads as a notification and not a distraction. */
+      @keyframes nudge {
+        0%, 18%, 100% { transform: translateY(0); }
+        6%  { transform: translateY(-6px); }
+        12% { transform: translateY(-3px); }
+      }
+
+      body.pending .badge { display: inline-flex; }
+      body.pending .pill { animation: nudge 4s ease-in-out infinite; }
+      body.pending .pill:hover { animation: none; }
+
+      body.offline .pill { opacity: 0.55; animation: none; }
+      body.signin .badge { display: none; }
+      body.signin .pill { animation: none; }
+    </style>
+  </head>
+  <body>
+    <div class="pill" title="Open Triage Reviews">
+      <div class="grip" title="Drag to move"></div>
+      <button class="open" type="button" id="open">
+        <svg width="22" height="22" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true">
+          <path d="M200 32h-36.3a48 48 0 0 0-71.4 0H56a16 16 0 0 0-16 16v168a16 16 0 0 0 16 16h144a16 16 0 0 0 16-16V48a16 16 0 0 0-16-16Zm-72 0a24 24 0 0 1 24 24H104a24 24 0 0 1 24-24Zm40 152H88a8 8 0 0 1 0-16h80a8 8 0 0 1 0 16Zm0-32H88a8 8 0 0 1 0-16h80a8 8 0 0 1 0 16Z" />
+        </svg>
+        <span id="label">Reviews</span>
+      </button>
+      <span class="badge" id="badge"></span>
+    </div>
+
+    <script>
+      const label = document.getElementById('label');
+      const badge = document.getElementById('badge');
+
+      document.getElementById('open').addEventListener('click', () => window.widget.openPortal());
+      // No titlebar and no right-click menu otherwise — this is the shortcut
+      // to settings for anyone who does not think to look in the tray.
+      document.addEventListener('contextmenu', (e) => {
+        e.preventDefault();
+        window.widget.openSettings();
+      });
+
+      window.widget.onState(({ status, count = 0 }) => {
+        document.body.className = status === 'signin'
+          ? 'signin'
+          : `${status === 'offline' ? 'offline ' : ''}${count > 0 ? 'pending' : ''}`.trim();
+        label.textContent = status === 'signin' ? 'Sign in' : 'Reviews';
+        badge.textContent = count > 99 ? '99+' : String(count);
+      });
+    </script>
+  </body>
+</html>
