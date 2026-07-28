@@ -4,7 +4,8 @@
     uv run python scripts/reset_demo.py --purge    # additionally DELETE all session data
 
 Default (safe) mode:
-  - marks every ``active`` session ``reset`` so no VN offers "continue"
+  - marks every ``active`` AND ``completed`` session ``reset`` so no VN
+    offers "continue" or shows the finished-prescreening notice
   - clears all BP rest windows
   - resets every mock-HIS visit to its pre-registration state
   - wipes booth-collected history for the seeded FIRST-TIME patients only
@@ -62,10 +63,15 @@ async def main(purge: bool) -> None:
                 result = await conn.execute(stmt)
                 print(f"  {stmt.split(' FROM ')[-1].split(' SET ')[0]:28} {result}")
         else:
+            # Retire completed sessions too: the by-visit lookup matches
+            # ('active', 'completed'), so a leftover completed run kept
+            # showing the "prescreening already complete" notice and blocked
+            # re-testing that VN.
             retired = await conn.execute(
-                "UPDATE sessions SET status = 'reset' WHERE status = 'active'"
+                "UPDATE sessions SET status = 'reset' "
+                "WHERE status IN ('active', 'completed')"
             )
-            print(f"  sessions retired (active → reset): {retired}")
+            print(f"  sessions retired (active/completed → reset): {retired}")
         cleared = await conn.execute("DELETE FROM bp_rest_windows")
         print(f"  bp_rest_windows cleared: {cleared}")
     finally:
