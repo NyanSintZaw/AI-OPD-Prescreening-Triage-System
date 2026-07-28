@@ -156,9 +156,13 @@ class BloodPressureFetchResponse(BaseModel):
 
 class ScaleWatchRequest(BaseModel):
     """Body for the scale long-poll: wait up to ``timeout_seconds`` for a
-    new measurement to sync, then return it."""
+    new measurement to sync, then return it. ``since_sequence`` pins the
+    novelty baseline across repeated calls (a reading that syncs between
+    two long-polls is returned by the next one instead of being silently
+    re-baselined away); omitted → the server baselines its current state."""
 
     timeout_seconds: float = Field(default=25, ge=5, le=45)
+    since_sequence: int | None = None
 
 
 class WeightScaleFetchResponse(BaseModel):
@@ -179,6 +183,9 @@ class WeightScaleFetchResponse(BaseModel):
     ]
     weight_kg: float | None = None
     measured_at: datetime | None = None
+    # The scale's per-user monotonic measurement counter — the reliable
+    # "is this new?" signal (the scale clock resets on battery change).
+    sequence: int | None = None
     is_recent: bool | None = None
     message: str | None = None
 

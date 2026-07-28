@@ -12,6 +12,7 @@ import {
 import type { AppLanguage } from '../../i18n/resources';
 import { VOICE_STALL_ERROR, type VoiceCallState } from '../../hooks/useVoiceCall';
 import { useLiveCaption } from '../../hooks/useLiveCaption';
+import type { UseScaleWatchResult } from '../../hooks/useScaleWatch';
 import { AiOrb } from './AiOrb';
 import { MeasurementCard } from '../MeasurementCard';
 
@@ -37,6 +38,9 @@ interface ConversationStageProps {
   /** Crisis BP opened the 15-minute rest window — pause the session and
    *  send the patient off to rest (see MeasurementCard.onRest). */
   onMeasurementRest?: (secondsRemaining: number) => void;
+  /** Kiosk-level scale watch armed at the weigh-in step — the weight card
+   *  rides it instead of starting its own (see MeasurementCard.scale). */
+  scaleWatch?: UseScaleWatchResult;
   /** Set when the voice pipeline failed to start (mic denied/busy, WS drop). */
   errorText?: string | null;
   hasError?: boolean;
@@ -74,6 +78,7 @@ export function ConversationStage({
   measurementVital,
   onMeasurementSubmit,
   onMeasurementRest,
+  scaleWatch,
   avatar,
   errorText,
   hasError = false,
@@ -257,6 +262,7 @@ export function ConversationStage({
               language={language}
               onSubmit={onMeasurementSubmit}
               onRest={onMeasurementRest}
+              scale={scaleWatch}
             />
           </div>
         ) : (

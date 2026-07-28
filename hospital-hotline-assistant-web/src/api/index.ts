@@ -411,13 +411,16 @@ export const api = {
       body: JSON.stringify({}),
     }),
 
-  /** Long-poll: resolves as soon as the scale delivers a new measurement,
-   *  or with status 'not_seen' after timeoutSeconds so the caller can
-   *  re-arm. */
-  watchWeightScale: (timeoutSeconds = 25) =>
+  /** Long-poll: resolves as soon as the scale delivers a measurement with a
+   *  sequence above sinceSequence (novelty is server-guaranteed), or with
+   *  status 'not_seen' after timeoutSeconds so the caller can re-arm. */
+  watchWeightScale: (timeoutSeconds = 25, sinceSequence?: number | null) =>
     request<WeightScaleFetchResponse>('/vitals/weight-scale/watch', {
       method: 'POST',
-      body: JSON.stringify({ timeout_seconds: timeoutSeconds }),
+      body: JSON.stringify({
+        timeout_seconds: timeoutSeconds,
+        since_sequence: sinceSequence ?? null,
+      }),
     }),
 
   getBpRestStatus: (sessionId?: string | null) => {

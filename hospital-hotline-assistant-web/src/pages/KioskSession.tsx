@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { AnimatePresence, motion } from 'framer-motion';
-import { CheckCircle, HandHeart, HouseLine, PhoneSlash, Printer } from '@phosphor-icons/react';
+import { CheckCircle, Footprints, HandHeart, HouseLine, PhoneSlash, Printer } from '@phosphor-icons/react';
 import { api } from '../api';
 import { KioskFrame } from '../components/kiosk/KioskFrame';
 import { Stepper, type KioskStep } from '../components/kiosk/Stepper';
@@ -21,6 +21,7 @@ import {
   setStoredSessionId,
 } from '../hooks/useSession';
 import { useVoiceCall } from '../hooks/useVoiceCall';
+import { useScaleWatch } from '../hooks/useScaleWatch';
 import { useIdleReset } from '../hooks/useIdleReset';
 import { openPatientSlip } from '../utils/openSlip';
 import type { AppLanguage } from '../i18n/resources';
@@ -33,6 +34,7 @@ type Phase =
   | 'confirm'
   | 'history'
   | 'hello'
+  | 'weigh'
   | 'conversation'
   | 'result';
 
@@ -48,6 +50,10 @@ interface ResumeOffer {
 }
 
 const IDLE_GRACE_SECONDS = 15;
+
+/** Background scale-prefetch deadline: step-on (~20 s) plus the HBF-222T
+ *  daemon's 1–2 min BLE sync, with slack — the interview runs meanwhile. */
+const WEIGH_PREFETCH_DEADLINE_MS = 6 * 60_000;
 
 const phaseTransition = {
   initial: { opacity: 0, x: 32 },
@@ -102,6 +108,9 @@ export function KioskSession() {
   // Crisis BP → 15-minute rest before re-measuring; shows the rest screen.
   const [restMinutes, setRestMinutes] = useState<number | null>(null);
 
+  // Height typed on the weigh-in step (optional, cm).
+  const [weighHeight, setWeighHeight] = useState('');
+
   const startedRef = useRef(false);
   const slipRef = useRef(false);
   // Start-over carries the just-confirmed identity onto the fresh session
@@ -120,6 +129,52 @@ export function KioskSession() {
     setSessionId(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // ── Weight-scale prefetch ────────────────────────────────────────────────
+  // Armed at the weigh-in step; keeps watching in the background while the
+  // interview runs (the HBF-222T daemon needs ~1–2 min to sync a reading).
+  const scale = useScaleWatch();
+  // Sequence of the reading already attached to this run's session — one
+  // attach per measurement, reset per run at the weigh-in step.
+  const attachedSeqRef = useRef<number | null>(null);
+
+  // Entering the weigh-in step starts a fresh watch for THIS patient.
+  useEffect(() => {
+    if (phase !== 'weigh') return;
+    attachedSeqRef.current = null;
+    setWeighHeight('');
+    scale.reset();
+    void scale.startWatching({ deadlineMs: WEIGH_PREFETCH_DEADLINE_MS });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase]);
+
+  // The scale synced a reading — attach it to the session vitals right away
+  // so the next engine turn sees it and skips the weight question entirely.
+  useEffect(() => {
+    const reading = scale.reading;
+    const sid = runSessionRef.current;
+    if (!reading || reading.weight_kg == null || !sid) return;
+    const seq = reading.sequence ?? -1;
+    if (attachedSeqRef.current === seq) return;
+    attachedSeqRef.current = seq;
+    void api
+      .updateSessionMeasurement(sid, { vital: 'weight', value: reading.weight_kg })
+      .catch(() => {
+        // Allow a later reading (or re-render) to retry the attach.
+        attachedSeqRef.current = null;
+      });
+  }, [scale.reading]);
+
+  const handleWeighContinue = useCallback(() => {
+    const sid = runSessionRef.current;
+    const height = Number.parseFloat(weighHeight);
+    if (sid && Number.isFinite(height) && height >= 30 && height <= 272) {
+      void api
+        .updateSessionMeasurement(sid, { vital: 'height', value: height })
+        .catch(() => undefined);
+    }
+    setPhase('conversation');
+  }, [weighHeight]);
 
   // Warm the 3D avatar while the patient is still picking a language /
   // entering their VN: pull the three.js modules and the ~15 MB VRM model
@@ -296,7 +351,9 @@ export function KioskSession() {
           setConfirmUnclear(false);
           // Voice-first: the AI speaks the confirmation in-call; the
           // ConfirmNameStep screen is only for kiosks without a mic.
-          setPhase(voiceCall.supported ? 'conversation' : 'confirm');
+          // Fresh runs weigh in first — the scale's 1–2 min sync then
+          // overlaps the interview instead of blocking its wrap-up.
+          setPhase(voiceCall.supported ? 'weigh' : 'confirm');
         } else {
           setPatientName(null);
           setStoredPatientName(null);
@@ -443,7 +500,7 @@ export function KioskSession() {
       try {
         const res = await api.confirmVisitName(sessionId, payload);
         if (res.decision === 'yes') {
-          setPhase(needsHistory ? 'history' : 'conversation');
+          setPhase(needsHistory ? 'history' : 'weigh');
           return;
         }
         if (res.decision === 'no' || res.unlinked) {
@@ -472,7 +529,7 @@ export function KioskSession() {
       try {
         await api.savePatientHistory(sessionId, values);
         setNeedsHistory(false);
-        setPhase('conversation');
+        setPhase('weigh');
       } catch {
         setHistoryError(true);
       } finally {
@@ -484,7 +541,7 @@ export function KioskSession() {
 
   const handleHistorySkip = useCallback(() => {
     setNeedsHistory(false);
-    setPhase('conversation');
+    setPhase('weigh');
   }, []);
 
   // Crisis BP → 15-minute rest. End the call, show the rest screen; the
@@ -498,10 +555,10 @@ export function KioskSession() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ── Greeting phase (anonymous / skip only): brief beat, then advance ────
+  // ── Greeting phase (anonymous / skip only): brief beat, then weigh-in ───
   useEffect(() => {
     if (phase !== 'hello') return;
-    const timer = setTimeout(() => setPhase('conversation'), patientName ? 3000 : 2200);
+    const timer = setTimeout(() => setPhase('weigh'), patientName ? 3000 : 2200);
     return () => clearTimeout(timer);
   }, [phase, patientName]);
 
@@ -611,7 +668,14 @@ export function KioskSession() {
     // Also armed on the result screen so a walk-away doesn't leave the
     // previous patient's recommendation on display — just with more slack.
     enabled: true,
-    warnAfterMs: phase === 'result' ? 90000 : phase === 'conversation' ? 60000 : 45000,
+    warnAfterMs:
+      // Weigh-in gets the long window too — the patient is on the scale,
+      // not touching the screen.
+      phase === 'result' || phase === 'weigh'
+        ? 90000
+        : phase === 'conversation'
+          ? 60000
+          : 45000,
     graceMs: IDLE_GRACE_SECONDS * 1000,
     onReset: resetToHome,
   });
@@ -620,7 +684,7 @@ export function KioskSession() {
   const step: KioskStep | null =
     phase === 'visit' || phase === 'resume'
       ? 0
-      : phase === 'confirm' || phase === 'history' || phase === 'hello' || phase === 'conversation'
+      : phase === 'confirm' || phase === 'history' || phase === 'hello' || phase === 'weigh' || phase === 'conversation'
         ? 1
         : phase === 'result'
           ? 2
@@ -857,6 +921,50 @@ export function KioskSession() {
           </motion.div>
         )}
 
+        {phase === 'weigh' && (
+          <motion.div key="weigh" {...phaseTransition} className="k-hello">
+            <motion.span
+              className="k-hello-badge"
+              initial={{ scale: 0.6, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ type: 'spring', stiffness: 280, damping: 18, delay: 0.1 }}
+            >
+              <Footprints size={52} weight="duotone" aria-hidden="true" />
+            </motion.span>
+            <h2 className="k-hello-name">{t('kioskWeighTitle')}</h2>
+            <p className="k-hello-lead">{t('kioskWeighLead')}</p>
+            {scale.reading?.weight_kg != null ? (
+              <p className="k-hello-lead" role="status" style={{ fontWeight: 600 }}>
+                <CheckCircle size={22} weight="duotone" aria-hidden="true" style={{ verticalAlign: 'text-bottom' }} />{' '}
+                {t('kioskWeighGot', { kg: scale.reading.weight_kg })}
+              </p>
+            ) : (
+              scale.status === 'watching' && (
+                <p className="k-hello-lead muted" role="status">
+                  {t('kioskWeighWaiting')}
+                </p>
+              )
+            )}
+            <label className="vitals-extra-field" style={{ width: 'min(320px, 100%)' }}>
+              <span>{t('kioskWeighHeight')}</span>
+              <input
+                type="number"
+                inputMode="decimal"
+                min={30}
+                max={272}
+                step={0.1}
+                value={weighHeight}
+                onChange={(e) => setWeighHeight(e.target.value)}
+              />
+            </label>
+            <div className="k-result-actions">
+              <button type="button" className="k-btn primary xl" onClick={handleWeighContinue}>
+                {t('kioskWeighContinue')}
+              </button>
+            </div>
+          </motion.div>
+        )}
+
         {phase === 'conversation' && (
           <motion.div key="conversation" {...phaseTransition} style={{ width: '100%', minHeight: '100%' }}>
             {voiceCall.supported ? (
@@ -888,6 +996,7 @@ export function KioskSession() {
                   voiceCall.submitMeasurement(text);
                 }}
                 onMeasurementRest={handleMeasurementRest}
+                scaleWatch={scale}
                 errorText={voiceCall.error}
                 hasError={startFailed}
                 onRetry={handleRetryVoice}

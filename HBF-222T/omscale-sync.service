@@ -1,0 +1,20 @@
+[Unit]
+Description=Omron scale BLE sync (waits for the scale and downloads new records)
+After=bluetooth.target
+Requires=bluetooth.service
+
+[Service]
+Type=simple
+User=orin_nano
+WorkingDirectory=/home/orin_nano/Downloads/omramin/omblepy
+ExecStart=/usr/bin/python3 /home/orin_nano/Downloads/omramin/omblepy/omscale.py -m 28:FF:B2:77:B9:A2 --daemon
+# --daemon keeps one process scanning continuously; Restart is only a
+# safety net for crashes
+Restart=always
+RestartSec=3
+# don't hammer the log when the scale is simply asleep
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

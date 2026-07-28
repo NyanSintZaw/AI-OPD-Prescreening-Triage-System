@@ -1,16 +1,22 @@
-"""Fetch the latest weight reading from an Omron BLE scale via omscale.
+"""Fetch the latest weight reading from an Omron HBF-222T scale via omscale.
 
 Counterpart of :mod:`app.services.blood_pressure` for the repo-root
-``omscale/`` tool (an Omron body-composition-scale reader in the omblepy
-family). Two read modes, selected by ``SCALE_READ_MODE``:
+``HBF-222T/`` tool (the in-production Omron body-composition-scale sync —
+see ``HBF-222T/README_HBF-222T.md`` for the full data contract; the older
+``omscale/`` folder is the same tool and remains a fallback). Two read
+modes, selected by ``SCALE_READ_MODE``:
 
 ``file`` (default)
     The scale cannot be read directly from macOS (it requires a bonded BLE
-    link CoreBluetooth never completes — see omscale.py's platform note), so
-    a Linux host runs ``omscale.py --daemon`` (``omscale-sync.service``)
-    which syncs every time the scale finishes a measurement and publishes
-    the newest record to ``scale_user{N}_latest.json``. This mode reads /
-    long-polls that file; share or sync it onto the API host.
+    link CoreBluetooth never completes), so a Linux host runs
+    ``omscale.py --daemon`` (``omscale-sync.service``) which syncs every
+    time the scale finishes a measurement and publishes the newest record
+    to ``scale_user{N}_latest.json`` plus an append-only
+    ``scale_user{N}.csv`` history. This mode reads / long-polls those
+    files; share or sync the folder onto the API host. Per the README the
+    latest-json can transiently hold a partial record, so the CSV history
+    doubles as a fallback source, and *new measurement* is detected by the
+    scale-assigned ``sequence`` counter — never file mtime or content.
 
 ``subprocess``
     The API host has working BLE access to the scale (Linux): run the
@@ -23,6 +29,8 @@ family). Two read modes, selected by ``SCALE_READ_MODE``:
 from __future__ import annotations
 
 import asyncio
+import csv
+import io
 import json
 import logging
 import sys
@@ -44,7 +52,9 @@ _LB_TO_KG = 0.45359237
 @dataclass
 class WeightReading:
     weight_kg: float
-    measured_at: datetime
+    # None when the record has no timestamp (partial daemon write) — the
+    # sequence counter, not the clock, is the novelty signal anyway.
+    measured_at: datetime | None
     sequence: int | None = None
 
 
@@ -58,9 +68,14 @@ class WeightScaleFetchError(Exception):
 
 
 def _default_omscale_dir() -> Path:
-    # <repo-root>/omscale, resolved relative to this file:
-    # app/services/weight_scale.py -> hospital-hotline-assistant-api -> repo root
-    return Path(__file__).resolve().parents[3] / "omscale"
+    # Resolved relative to this file: app/services/weight_scale.py ->
+    # hospital-hotline-assistant-api -> repo root. HBF-222T/ is the working
+    # in-production sync; omscale/ is the older copy of the same tool.
+    root = Path(__file__).resolve().parents[3]
+    preferred = root / "HBF-222T"
+    if preferred.is_dir():
+        return preferred
+    return root / "omscale"
 
 
 def _to_kg(weight: float, unit: str | None) -> float:
@@ -71,14 +86,20 @@ def _to_kg(weight: float, unit: str | None) -> float:
 
 def _parse_record(row: dict) -> WeightReading | None:
     """Parse one omscale record dict (all values may be strings — the
-    latest-json file stringifies everything)."""
+    latest-json/CSV stringify everything). A valid weight is required; a
+    missing/blank datetime is tolerated (observed in partial daemon writes,
+    and the scale clock resets on battery change anyway)."""
     try:
         weight = float(row["weight"])
-        measured_at = datetime.strptime(str(row["datetime"]), "%Y-%m-%d %H:%M:%S")
     except (KeyError, TypeError, ValueError):
         return None
     if weight <= 0:
         return None
+    measured_at: datetime | None = None
+    try:
+        measured_at = datetime.strptime(str(row["datetime"]), "%Y-%m-%d %H:%M:%S")
+    except (KeyError, TypeError, ValueError):
+        measured_at = None
     sequence: int | None = None
     try:
         if row.get("sequence") is not None:
@@ -89,6 +110,16 @@ def _parse_record(row: dict) -> WeightReading | None:
         weight_kg=_to_kg(weight, row.get("weightUnit")),
         measured_at=measured_at,
         sequence=sequence,
+    )
+
+
+def _newness_key(reading: WeightReading) -> tuple[int, datetime]:
+    """Sort key for "which record is newest": sequence first (the scale's
+    monotonic counter — the README's documented change signal), timestamp
+    as the tie-breaker."""
+    return (
+        reading.sequence if reading.sequence is not None else -1,
+        reading.measured_at or datetime.min,
     )
 
 
@@ -111,7 +142,7 @@ def parse_result_json(output: str) -> WeightReading | None:
         reading = _parse_record(row)
         if reading is None:
             continue
-        if latest is None or reading.measured_at > latest.measured_at:
+        if latest is None or _newness_key(reading) > _newness_key(latest):
             latest = reading
     return latest
 
@@ -125,6 +156,24 @@ def parse_latest_file(text: str) -> WeightReading | None:
     if not isinstance(row, dict):
         return None
     return _parse_record(row)
+
+
+def parse_history_csv(text: str) -> list[WeightReading]:
+    """Parse a ``scale_user{N}.csv`` history file. Rows with a missing or
+    invalid weight (real-world partial writes look like ``,18,,kg``) are
+    skipped."""
+    readings: list[WeightReading] = []
+    try:
+        rows = list(csv.DictReader(io.StringIO(text)))
+    except csv.Error:
+        return []
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        reading = _parse_record(row)
+        if reading is not None:
+            readings.append(reading)
+    return readings
 
 
 def _classify_subprocess_failure(output: str) -> WeightScaleFetchError:
@@ -191,6 +240,31 @@ class WeightScaleService:
     def _latest_file(self) -> Path:
         return self.omscale_dir / f"scale_user{self._user_slot()}_latest.json"
 
+    def _history_file(self) -> Path:
+        return self.omscale_dir / f"scale_user{self._user_slot()}.csv"
+
+    def _best_record(self) -> WeightReading | None:
+        """Newest valid record across the latest-json AND the CSV history.
+
+        The daemon can leave the latest-json partial (missing weight), in
+        which case the CSV still carries the complete row for the same
+        sequence — so both are read and the newest valid record wins.
+        """
+        candidates: list[WeightReading] = []
+        try:
+            latest = parse_latest_file(self._latest_file().read_text())
+        except OSError:
+            latest = None
+        if latest is not None:
+            candidates.append(latest)
+        try:
+            candidates.extend(parse_history_csv(self._history_file().read_text()))
+        except OSError:
+            pass
+        if not candidates:
+            return None
+        return max(candidates, key=_newness_key)
+
     # ── Fetch ────────────────────────────────────────────────────────────
 
     async def fetch_latest(self) -> WeightReading:
@@ -211,19 +285,13 @@ class WeightScaleService:
                 f"omscale directory not found at {self.omscale_dir}. "
                 "Set SCALE_OMSCALE_DIR.",
             )
-        path = self._latest_file()
-        try:
-            text = path.read_text()
-        except OSError:
-            raise WeightScaleFetchError(
-                "no_records",
-                f"{path.name} not found — the scale has not synced a "
-                "measurement yet. Step on the scale first.",
-            )
-        reading = parse_latest_file(text)
+        reading = self._best_record()
         if reading is None:
             raise WeightScaleFetchError(
-                "no_records", f"{path.name} does not contain a parseable reading."
+                "no_records",
+                f"No parseable reading in {self._latest_file().name} or "
+                f"{self._history_file().name} — the scale has not synced a "
+                "measurement yet. Step on the scale first.",
             )
         return reading
 
@@ -305,44 +373,47 @@ class WeightScaleService:
 
     # ── Watch ────────────────────────────────────────────────────────────
 
-    async def watch_and_fetch(self, timeout_seconds: float) -> WeightReading:
+    async def watch_and_fetch(
+        self, timeout_seconds: float, since_sequence: int | None = None
+    ) -> WeightReading:
         """Wait for a new measurement, then return it.
 
-        ``file`` mode long-polls the daemon-published latest file until its
-        contents change; ``subprocess`` mode listens for the scale's
-        post-measurement BLE broadcast (like the BP cuff) and then fetches.
-        Raises ``not_seen`` when nothing new arrived within
-        ``timeout_seconds`` so the caller can immediately re-arm.
+        ``file`` mode long-polls the daemon-published files until a record
+        with a sequence above the baseline appears (the README's contract:
+        new measurement ⇔ sequence increased); ``subprocess`` mode listens
+        for the scale's post-measurement BLE broadcast (like the BP cuff)
+        and then fetches. ``since_sequence`` pins the baseline across the
+        kiosk's repeated long-poll calls, so a measurement that syncs in
+        the gap between two calls is returned by the next call instead of
+        being silently re-baselined away. Raises ``not_seen`` when nothing
+        new arrived within ``timeout_seconds`` so the caller can
+        immediately re-arm.
         """
         if settings.scale_read_mode == "subprocess":
             return await self._watch_via_ble(timeout_seconds)
-        return await self._watch_file(timeout_seconds)
+        return await self._watch_file(timeout_seconds, since_sequence)
 
-    async def _watch_file(self, timeout_seconds: float) -> WeightReading:
-        path = self._latest_file()
-
-        def _snapshot() -> str | None:
-            try:
-                return path.read_text()
-            except OSError:
-                return None
-
-        baseline = _snapshot()
+    async def _watch_file(
+        self, timeout_seconds: float, since_sequence: int | None = None
+    ) -> WeightReading:
+        baseline = since_sequence
+        if baseline is None:
+            current = self._best_record()
+            baseline = current.sequence if current is not None else None
         deadline = asyncio.get_event_loop().time() + timeout_seconds
         while True:
-            await asyncio.sleep(_FILE_POLL_INTERVAL_S)
-            current = _snapshot()
-            if current is not None and current != baseline:
-                reading = parse_latest_file(current)
-                if reading is not None:
-                    return reading
-                # Mid-write or corrupt — treat as the new baseline and keep
-                # polling; the daemon rewrites the whole file per sync.
-                baseline = current
+            best = self._best_record()
+            if (
+                best is not None
+                and best.sequence is not None
+                and (baseline is None or best.sequence > baseline)
+            ):
+                return best
             if asyncio.get_event_loop().time() >= deadline:
                 raise WeightScaleFetchError(
                     "not_seen", "The scale has not synced a new measurement yet."
                 )
+            await asyncio.sleep(_FILE_POLL_INTERVAL_S)
 
     async def _watch_via_ble(self, timeout_seconds: float) -> WeightReading:
         mac = self._device_mac()
@@ -388,4 +459,6 @@ class WeightScaleService:
     @staticmethod
     def is_recent(reading: WeightReading) -> bool:
         """Heuristic freshness check (scale clock vs server clock)."""
+        if reading.measured_at is None:
+            return False
         return abs(datetime.now() - reading.measured_at) <= _RECENT_WINDOW

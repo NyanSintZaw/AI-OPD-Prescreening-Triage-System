@@ -438,6 +438,9 @@ export interface WeightScaleFetchResponse {
   status: WeightScaleFetchStatus;
   weight_kg: number | null;
   measured_at: string | null;
+  /** The scale's per-user monotonic measurement counter — the reliable
+   *  "is this new?" signal (the scale clock resets on battery change). */
+  sequence: number | null;
   is_recent: boolean | null;
   message: string | null;
 }

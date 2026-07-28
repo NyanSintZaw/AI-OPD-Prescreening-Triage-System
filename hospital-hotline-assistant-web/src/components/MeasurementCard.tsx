@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { api } from '../api';
 import type { AppLanguage } from '../i18n/resources';
 import { useBpCuffWatch } from '../hooks/useBpCuffWatch';
-import { useScaleWatch } from '../hooks/useScaleWatch';
+import { useScaleWatch, type UseScaleWatchResult } from '../hooks/useScaleWatch';
 import { useSessionStorage } from '../hooks/useSession';
 
 export interface MeasurementCardProps {
@@ -23,6 +23,11 @@ export interface MeasurementCardProps {
   onRest?: (secondsRemaining: number) => void;
   onCancel?: () => void;
   disabled?: boolean;
+  /** Shared scale-watch instance (the kiosk arms one at the weigh-in step
+   *  so the HBF-222T's 1–2 min sync overlaps the interview). When provided,
+   *  the weight branch rides that watch/reading instead of starting its
+   *  own, and never resets it on mount. */
+  scale?: UseScaleWatchResult;
 }
 
 type SbpChoice = 'unset' | 'machine' | 'manual';
@@ -45,7 +50,7 @@ const inRange = (n: number, min: number, max: number) => n >= min && n <= max;
  * vitals the engine can request: temperature, blood pressure (machine or
  * manual), and weight+height together.
  */
-export function MeasurementCard({ vital, onSubmit, onRest, onCancel, disabled }: MeasurementCardProps) {
+export function MeasurementCard({ vital, onSubmit, onRest, onCancel, disabled, scale: sharedScale }: MeasurementCardProps) {
   const { t } = useTranslation();
   const { sessionId } = useSessionStorage();
   const [saving, setSaving] = useState(false);
@@ -63,10 +68,19 @@ export function MeasurementCard({ vital, onSubmit, onRest, onCancel, disabled }:
   const [weightChoice, setWeightChoice] = useState<WeightChoice>('unset');
   const [weightKg, setWeightKg] = useState('');
   const [heightCm, setHeightCm] = useState('');
-  const scale = useScaleWatch();
+  const ownScale = useScaleWatch();
+  const scale = sharedScale ?? ownScale;
+  // With a shared scale the kiosk already armed the watch at the weigh-in
+  // step (or the reading has landed) — go straight to machine mode.
+  const weightMode: WeightChoice =
+    weightChoice === 'unset' && sharedScale && (scale.status === 'watching' || scale.reading != null)
+      ? 'machine'
+      : weightChoice;
 
   // Reset all local state whenever the engine asks for a different vital
-  // (or re-asks for the same one on a later turn).
+  // (or re-asks for the same one on a later turn). Only the card's OWN
+  // scale instance is reset — a shared one belongs to the kiosk's
+  // background prefetch and must keep running across card mounts.
   useEffect(() => {
     setSaving(false);
     setErrorKey(null);
@@ -80,7 +94,7 @@ export function MeasurementCard({ vital, onSubmit, onRest, onCancel, disabled }:
     setWeightKg('');
     setHeightCm('');
     cuff.reset();
-    scale.reset();
+    ownScale.reset();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [vital]);
 
@@ -608,7 +622,7 @@ export function MeasurementCard({ vital, onSubmit, onRest, onCancel, disabled }:
   }
 
   if (vital === 'weight') {
-    if (weightChoice === 'unset') {
+    if (weightMode === 'unset') {
       return (
         <div className="measurement-prompt-card">
           <p className="measurement-prompt-title">{t('measurementWeightChooseTitle')}</p>
@@ -638,7 +652,7 @@ export function MeasurementCard({ vital, onSubmit, onRest, onCancel, disabled }:
       );
     }
 
-    if (weightChoice === 'machine' && scale.status === 'watching') {
+    if (weightMode === 'machine' && scale.status === 'watching') {
       return (
         <div className="measurement-prompt-card">
           {scale.stage === 'step-on' ? (
@@ -674,7 +688,7 @@ export function MeasurementCard({ vital, onSubmit, onRest, onCancel, disabled }:
       );
     }
 
-    if (weightChoice === 'machine' && scale.status === 'error') {
+    if (weightMode === 'machine' && scale.status === 'error') {
       return (
         <div className="measurement-prompt-card">
           <p className="measurement-prompt-title">{t('vitalsErrorTitle')}</p>
@@ -683,7 +697,7 @@ export function MeasurementCard({ vital, onSubmit, onRest, onCancel, disabled }:
             <button
               type="button"
               className="primary-btn"
-              onClick={() => void scale.startWatching(true)}
+              onClick={() => void scale.startWatching({ resume: true })}
             >
               {t('vitalsRetry')}
             </button>
@@ -703,7 +717,7 @@ export function MeasurementCard({ vital, onSubmit, onRest, onCancel, disabled }:
       );
     }
 
-    const fromScale = weightChoice === 'machine' && scale.reading != null;
+    const fromScale = weightMode === 'machine' && scale.reading != null;
     return (
       <div className="measurement-prompt-card">
         <p className="measurement-prompt-title">{t('measurementWeightTitle')}</p>
@@ -784,7 +798,11 @@ export function MeasurementCard({ vital, onSubmit, onRest, onCancel, disabled }:
             type="button"
             className="text-btn location-prompt-skip"
             onClick={() => {
-              scale.cancel();
+              // Full reset so the choice screen actually shows (with a
+              // shared scale a lingering reading would jump straight back
+              // into machine mode).
+              scale.reset();
+              setWeightKg('');
               setWeightChoice('unset');
             }}
             disabled={busy}

@@ -40,6 +40,13 @@ export const resources = {
       kioskAssistantLabel: 'Assistant',
       kioskYouLabel: 'You',
       kioskHelloLead: 'Let’s talk about your symptoms.',
+      kioskWeighTitle: 'Step on the scale',
+      kioskWeighLead:
+        'Please step on the weight scale barefoot now (personal number 1). Your weight records automatically — we will keep going while it syncs.',
+      kioskWeighWaiting: 'Waiting for the scale… you can continue, it keeps working in the background.',
+      kioskWeighGot: 'Weight recorded: {{kg}} kg',
+      kioskWeighHeight: 'Your height (cm) — optional',
+      kioskWeighContinue: 'Continue',
       kioskEndConversation: 'End conversation',
       kioskTapToBegin: 'Tap the button below to begin',
       // Rotating stat banner — number is injected between Pre and Post.
@@ -813,6 +820,13 @@ export const resources = {
       kioskAssistantLabel: 'ผู้ช่วย',
       kioskYouLabel: 'คุณ',
       kioskHelloLead: 'เรามาคุยเรื่องอาการของคุณกันค่ะ',
+      kioskWeighTitle: 'ขึ้นชั่งน้ำหนัก',
+      kioskWeighLead:
+        'กรุณาถอดรองเท้าแล้วขึ้นยืนบนเครื่องชั่งน้ำหนักตอนนี้ (หมายเลขผู้ใช้ 1) ระบบจะบันทึกน้ำหนักให้อัตโนมัติ ระหว่างรอเราคุยกันต่อได้เลยค่ะ',
+      kioskWeighWaiting: 'กำลังรอข้อมูลจากเครื่องชั่ง… กดดำเนินการต่อได้เลย ระบบทำงานต่อเบื้องหลังค่ะ',
+      kioskWeighGot: 'บันทึกน้ำหนักแล้ว: {{kg}} กก.',
+      kioskWeighHeight: 'ส่วนสูง (ซม.) — ไม่บังคับ',
+      kioskWeighContinue: 'ดำเนินการต่อ',
       kioskEndConversation: 'จบการสนทนา',
       kioskTapToBegin: 'แตะปุ่มด้านล่างเพื่อเริ่ม',
       // Rotating stat banner — number is injected between Pre and Post.

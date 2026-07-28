@@ -1200,6 +1200,7 @@ def _build_scale_response(
         status="ok",
         weight_kg=reading.weight_kg,
         measured_at=reading.measured_at,
+        sequence=reading.sequence,
         is_recent=scale_service.is_recent(reading),
     )
 
@@ -1238,8 +1239,9 @@ async def watch_weight_scale(
     """
     scale_service: WeightScaleService = request.app.state.scale_service
     timeout = payload.timeout_seconds if payload else 25.0
+    since_sequence = payload.since_sequence if payload else None
     try:
-        reading = await scale_service.watch_and_fetch(timeout)
+        reading = await scale_service.watch_and_fetch(timeout, since_sequence)
     except WeightScaleFetchError as exc:
         return WeightScaleFetchResponse(status=exc.code, message=str(exc))
     except Exception as exc:  # noqa: BLE001 — surface as structured error
