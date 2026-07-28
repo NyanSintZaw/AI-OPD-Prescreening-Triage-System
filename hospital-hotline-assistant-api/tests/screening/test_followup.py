@@ -43,6 +43,11 @@ async def _run(language: str, utterance: str, phase: str = "follow_up"):
     "ไม่มีค่ะ", "ไม่มีค่ะ ขอบคุณค่ะ", "ไม่มีอะไรจะถามแล้วค่ะ", "แค่นี้ค่ะ",
     # "แล้ว/เลย" riders (observed live: this exact decline was written to HIS)
     "ไม่มีแล้วค่ะ ขอบคุณค่ะ", "ไม่มีแล้วครับ", "ไม่มีเลยค่ะ", "ไม่เป็นไรแล้วค่ะ",
+    # observed live 2026-07-27 (VN 03): this exact decline was noted for the
+    # doctor — free-phrased English declines
+    "No, there isn't anything. I'm done.", "There's nothing else.",
+    "I don't have anything else.", "That's it, thanks.", "Nothing to add.",
+    "ไม่มีอะไรจะบอกค่ะ", "เสร็จแล้วค่ะ",
 ])
 async def test_negative_closes(text):
     state, out = await _run("en" if text.isascii() else "th", text)

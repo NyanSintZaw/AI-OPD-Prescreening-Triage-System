@@ -31,8 +31,15 @@ class FakeConn:
 
     def __init__(self, metadata: dict | None = None) -> None:
         self.metadata = dict(metadata or {})
+        # Pending-point resume lookups (None → interview not started).
+        self.last_assistant: str | None = None
+        self.screening_state: dict | None = None
 
     async def fetchrow(self, query, *args):
+        if "FROM messages" in query:
+            return {"content": self.last_assistant} if self.last_assistant else None
+        if "FROM screening_sessions" in query:
+            return {"state": self.screening_state} if self.screening_state else None
         return {"id": args[0], "metadata": dict(self.metadata)}
 
     async def execute(self, query, *args):
@@ -106,23 +113,44 @@ def final_turn(reply: str = "Please proceed to the Emergency Department.") -> li
     ]
 
 
+class FakeHisAdapter:
+    """Records history write-backs from the spoken intake gate."""
+
+    def __init__(self) -> None:
+        self.pushes: list[tuple[str, dict]] = []
+
+    async def push_patient_history(self, hn: str, payload: dict) -> bool:
+        self.pushes.append((hn, dict(payload)))
+        return True
+
+
 class Harness:
-    def __init__(self, language: str = "en", metadata: dict | None = None) -> None:
+    def __init__(
+        self,
+        language: str = "en",
+        metadata: dict | None = None,
+        resume_prompt: str | None = None,
+    ) -> None:
+        self.resume_prompt = resume_prompt
         self.language = language
         self.stt = FakeStt()
         self.tts = FakeTts()
         self.triage = FakeTriageService()
         self.conn = FakeConn(metadata)
+        self.his_adapter = FakeHisAdapter()
         self.service = TurnVoiceService(
             triage_service=self.triage,  # duck-typed
             stt_client=self.stt,
             tts_client=self.tts,
+            his_adapter_getter=lambda: self.his_adapter,
         )
         self.transcripts: list[tuple[str, str]] = []
         self.emergencies: list[dict] = []
         self.assessments: list[dict] = []
         self.identities: list[dict] = []
+        self.resumes: list[dict] = []
         self.options: list[dict] = []
+        self.measurements: list[dict] = []
         self.chunks: list[bytes] = []
         self._task: asyncio.Task | None = None
 
@@ -139,8 +167,14 @@ class Harness:
         async def on_identity(payload: dict) -> None:
             self.identities.append(payload)
 
+        async def on_resume(payload: dict) -> None:
+            self.resumes.append(payload)
+
         async def on_options(payload: dict) -> None:
             self.options.append(payload)
+
+        async def on_measurement(payload: dict) -> None:
+            self.measurements.append(payload)
 
         await self.service.connect(
             SESSION_ID,
@@ -151,6 +185,9 @@ class Harness:
             assessment_callback=on_assessment,
             options_callback=on_options,
             identity_callback=on_identity,
+            resume_callback=on_resume,
+            measurement_callback=on_measurement,
+            resume_prompt=self.resume_prompt,
         )
 
         async def consume() -> None:
@@ -307,13 +344,88 @@ async def test_noisy_room_raises_gate():
     assert floor * NOISE_GATE_FACTOR > 900  # settled gate ≈ 3.5× the noise
 
 
-async def test_short_buffer_ignored(harness):
+async def test_short_buffer_on_done_speaks_didnt_hear(harness):
+    # An explicit Done tap with no usable audio must ALWAYS answer with
+    # audio: the client sits muted in "thinking" until reply audio drains,
+    # so a silent ignore here freezes the kiosk (live regression 2026-07-27).
     await harness.wait_until(lambda: harness.chunks)
     await harness.service.send_audio(SESSION_ID, LOUD_CHUNK)  # 40 ms < minimum
     harness.service.end_user_turn(SESSION_ID)
-    await asyncio.sleep(0.05)
-    assert harness.stt.calls == []
-    assert all(role == "agent" for role, _ in harness.transcripts)
+    await harness.wait_until(
+        lambda: ("agent", templates.VOICE_DIDNT_HEAR["en"]) in harness.transcripts
+    )
+    assert harness.stt.calls == []  # never reached STT — buffer too short
+
+
+async def test_turn_buffer_slides_and_keeps_quiet_speech(harness):
+    # The buffer is a sliding window: bounded under Google STT's 1-minute
+    # sync limit, but NEVER amplitude-gated — quiet speech (below the gate)
+    # must stay transcribable. Regression: an amplitude-gated trim discarded
+    # whole quiet answers while the browser caption heard them fine.
+    from app.services.screening.voice_bridge import (
+        TURN_BUFFER_KEEP_BYTES,
+        TURN_BUFFER_TRIM_AT_BYTES,
+    )
+
+    await harness.wait_until(lambda: harness.chunks)
+    quiet_speech = b"\x40\x00" * 640  # amplitude 64 — well below the 250 gate
+    for _ in range(50):  # 2 s of quiet speech
+        await harness.service.send_audio(SESSION_ID, quiet_speech)
+    buf = harness.service._sessions[SESSION_ID]["buffer"]
+    assert len(buf) == 50 * len(quiet_speech)  # kept in full, no trim
+
+    # Long idling still stays bounded under the STT limit.
+    big = SILENT_CHUNK * 400  # 16 s per send
+    for _ in range(4):
+        await harness.service.send_audio(SESSION_ID, big)
+    buf = harness.service._sessions[SESSION_ID]["buffer"]
+    assert len(buf) <= TURN_BUFFER_TRIM_AT_BYTES
+    assert len(buf) >= TURN_BUFFER_KEEP_BYTES - len(big)
+
+
+async def test_caption_fallback_when_stt_hears_nothing(harness):
+    # The browser live caption rides the Done tap. If STT returns empty for
+    # the audio (AGC-quiet first utterance), the caption text IS the turn —
+    # what streamed on the patient's screen is always honored.
+    harness.stt.transcripts.append("")
+    harness.triage.turns.append(interview_turn("Since when?"))
+    await harness.wait_until(lambda: harness.chunks)
+
+    await harness.service.send_audio(SESSION_ID, LOUD_CHUNK * 15)
+    harness.service.end_user_turn(SESSION_ID, caption="I have a sore throat")
+    await harness.wait_until(
+        lambda: ("user", "I have a sore throat") in harness.transcripts
+    )
+    assert harness.triage.contents == ["I have a sore throat"]
+
+
+async def test_caption_fallback_on_short_buffer(harness):
+    # Even with no usable audio at all, a caption-bearing Done tap becomes a
+    # real turn instead of "didn't catch that".
+    harness.triage.turns.append(interview_turn("Since when?"))
+    await harness.wait_until(lambda: harness.chunks)
+
+    harness.service.end_user_turn(SESSION_ID, caption="my ear hurts")
+    await harness.wait_until(lambda: ("user", "my ear hurts") in harness.transcripts)
+    assert harness.stt.calls == []  # buffer too short — STT never ran
+    assert (
+        "agent",
+        templates.VOICE_DIDNT_HEAR["en"],
+    ) not in harness.transcripts
+
+
+async def test_done_tap_racing_fallback_is_redundant(harness):
+    # A Done tap landing while a fallback-consumed turn is mid-flight must
+    # NOT be flagged explicit — the follow-up empty pass would speak
+    # "didn't catch that" for an answer that WAS heard.
+    await harness.wait_until(lambda: harness.chunks)
+    session = harness.service._sessions[SESSION_ID]
+    session["processing"] = True
+    harness.service.end_user_turn(SESSION_ID)
+    assert session["explicit_turn"] is False
+    session["processing"] = False
+    harness.service.end_user_turn(SESSION_ID)
+    assert session["explicit_turn"] is True
 
 
 async def test_muted_audio_dropped(harness):
@@ -412,21 +524,34 @@ async def test_interview_turn_keeps_call_open(harness):
     assert harness.service.should_keep_pipeline_open(SESSION_ID)
 
 
-async def test_empty_transcript_speaks_didnt_hear(harness):
-    # First empty turn stays silent (the patient is still gathering their
-    # thoughts); only a second consecutive empty prompts "couldn't hear you".
-    harness.stt.transcripts.append("")
+async def test_empty_transcript_on_done_speaks_didnt_hear(harness):
+    # An explicit Done tap gets the "couldn't hear you" prompt on the FIRST
+    # empty transcript — the client is muted in "thinking" and only reply
+    # audio releases it.
     harness.stt.transcripts.append("")
     await harness.wait_until(lambda: harness.chunks)
-
-    await harness.speak_turn()
-    await harness.wait_until(lambda: len(harness.stt.calls) >= 1)
-    assert ("agent", templates.VOICE_DIDNT_HEAR["en"]) not in harness.transcripts
 
     await harness.speak_turn()
     await harness.wait_until(
         lambda: ("agent", templates.VOICE_DIDNT_HEAR["en"]) in harness.transcripts
     )
+    assert harness.triage.contents == []
+
+
+async def test_empty_transcript_on_silence_fallback_stays_quiet_once(harness):
+    # The passive silence fallback keeps the two-strike grace: the patient is
+    # just gathering their thoughts, and the client never muted itself.
+    harness.stt.transcripts.append("")
+    await harness.wait_until(lambda: harness.chunks)
+
+    await harness.service.send_audio(SESSION_ID, LOUD_CHUNK * 15)
+    n_silence = int(SILENCE_HANG_MS / 40) + 1
+    for _ in range(n_silence):
+        await harness.service.send_audio(SESSION_ID, SILENT_CHUNK)
+
+    await harness.wait_until(lambda: len(harness.stt.calls) >= 1)
+    await asyncio.sleep(0.05)
+    assert ("agent", templates.VOICE_DIDNT_HEAR["en"]) not in harness.transcripts
     assert harness.triage.contents == []
 
 
@@ -539,7 +664,11 @@ PATIENT = "Waraporn Srisuk"
 
 def identity_harness(language: str = "en", *, first_time: bool = False) -> Harness:
     metadata: dict = {
-        "visit": {"visit_id": "990000000000000004", "patient_name": PATIENT},
+        "visit": {
+            "visit_id": "990000000000000004",
+            "patient_name": PATIENT,
+            "hn": "09900004",
+        },
     }
     if first_time:
         metadata["patient_history"] = {"is_first_time": True}
@@ -647,7 +776,7 @@ async def test_identity_unclear_retries_once_then_rejects():
         await harness.stop()
 
 
-async def test_identity_yes_first_time_hands_off_to_history_form():
+async def test_identity_yes_first_time_starts_history_intake():
     harness = identity_harness(first_time=True)
     await harness.start()
     try:
@@ -658,11 +787,350 @@ async def test_identity_yes_first_time_hands_off_to_history_form():
 
         assert harness.identities == [{"kind": "confirmed", "needs_history": True}]
         assert harness.conn.metadata["visit"]["name_confirmed"] is True
+        # Same call: spoken intro + first history question, with chips.
+        first_q = (
+            f"{templates.HISTORY_INTRO['en']} {templates.history_question(0, 'en')}"
+        )
+        assert ("agent", first_q) in harness.transcripts
+        labels = [o["label"] for o in harness.options[-1]["options"]]
+        assert labels == [
+            o["label"] for o in templates.history_options(0, "en")
+        ]
+        # No form hand-off, no clinical turn.
+        assert harness.triage.contents == []
+    finally:
+        await harness.stop()
+
+
+# ── spoken first-time history intake ─────────────────────────────────────────
+
+
+async def test_history_intake_full_flow_persists_and_continues():
+    harness = identity_harness(first_time=True)
+    await harness.start()
+    try:
+        await harness.wait_until(lambda: harness.chunks)
+        harness.stt.transcripts.append("yes")
+        await harness.speak_turn()
+        await harness.wait_until(lambda: harness.identities)
+
+        # Q1 spoken by voice, Q3 by chip tap — both rails feed the gate.
+        answers = [
+            ("I smoke sometimes", "voice"),
+            ("None", "chip"),
+            ("Diabetes", "chip"),
+            ("appendix surgery years ago", "voice"),
+            ("None", "chip"),
+        ]
+        for index, (answer, rail) in enumerate(answers):
+            if rail == "voice":
+                harness.stt.transcripts.append(answer)
+                await harness.speak_turn()
+            else:
+                await harness.wait_until(
+                    lambda: not harness.service._sessions[SESSION_ID]["processing"]
+                )
+                harness.service.inject_text_turn(SESSION_ID, answer, "button")
+            if index < len(answers) - 1:
+                next_q = templates.history_question(index + 1, "en")
+                await harness.wait_until(
+                    lambda: ("agent", next_q) in harness.transcripts
+                )
+
+        await harness.wait_until(
+            lambda: ("agent", templates.HISTORY_DONE_ASK["en"]) in harness.transcripts
+        )
+        history = harness.conn.metadata["patient_history"]
+        assert history["intake_complete"] is True
+        assert history["is_first_time"] is False
+        assert history["smoking_alcohol"] == "I smoke sometimes"
+        assert history["chronic_conditions"] == "Diabetes"
+        assert history["past_surgeries"] == "appendix surgery years ago"
+        # Written back to the HIS HN as well.
+        assert harness.his_adapter.pushes
+        hn, payload = harness.his_adapter.pushes[0]
+        assert hn == "09900004"
+        assert payload["chronic_conditions"] == "Diabetes"
+        # Intake answers never touched the clinical pipeline…
+        assert harness.triage.contents == []
+
+        # …but the very next utterance does.
+        harness.triage.turns.append(interview_turn())
+        harness.stt.transcripts.append("I have a fever")
+        await harness.speak_turn()
+        await harness.wait_until(lambda: harness.triage.contents)
+        assert harness.triage.contents == ["I have a fever"]
+    finally:
+        await harness.stop()
+
+
+async def test_history_gate_restarts_at_greeting_after_call_drop():
+    # Identity was confirmed in a previous call but the intake never finished:
+    # a reconnect opens straight on the history questions.
+    harness = Harness(
+        metadata={
+            "visit": {
+                "visit_id": "990000000000000004",
+                "patient_name": PATIENT,
+                "hn": "09900004",
+                "name_confirmed": True,
+            },
+            "patient_history": {"is_first_time": True},
+        },
+    )
+    await harness.start()
+    try:
+        await harness.wait_until(lambda: harness.chunks and harness.options)
+        first_q = (
+            f"{templates.HISTORY_INTRO['en']} {templates.history_question(0, 'en')}"
+        )
+        assert harness.transcripts[0] == ("agent", first_q)
+    finally:
+        await harness.stop()
+
+
+async def test_history_blank_answer_reasks_same_question():
+    harness = identity_harness(first_time=True)
+    await harness.start()
+    try:
+        await harness.wait_until(lambda: harness.chunks)
+        harness.stt.transcripts.append("yes")
+        await harness.speak_turn()
+        await harness.wait_until(lambda: harness.identities)
+
+        await harness.wait_until(
+            lambda: not harness.service._sessions[SESSION_ID]["processing"]
+        )
+        harness.service.inject_text_turn(SESSION_ID, "   ", "button")
+        await harness.wait_until(
+            lambda: ("agent", templates.HISTORY_RETRY["en"]) in harness.transcripts
+        )
+        # Still on question 1; a real answer advances to question 2.
+        harness.stt.transcripts.append("Neither")
+        await harness.speak_turn()
+        await harness.wait_until(
+            lambda: ("agent", templates.history_question(1, "en"))
+            in harness.transcripts
+        )
+    finally:
+        await harness.stop()
+
+
+# ── spoken resume gate (continue vs start over) ───────────────────────────────
+
+
+def resume_harness(status: str = "active", *, confirmed: bool = True,
+                   language: str = "th") -> Harness:
+    return Harness(
+        language=language,
+        metadata={
+            "visit": {
+                "visit_id": "990000000000000007",
+                "patient_name": "มาลี วงศ์สว่าง",
+                "name_confirmed": confirmed,
+            },
+        },
+        resume_prompt=status,
+    )
+
+
+async def confirm_identity_yes(harness: Harness, answer: str = "ใช่ค่ะ") -> None:
+    """Pass the identity gate that now opens every resume call."""
+    await harness.wait_until(lambda: harness.chunks)
+    harness.stt.transcripts.append(answer)
+    await harness.speak_turn()
+    await harness.wait_until(lambda: harness.identities)
+    assert harness.identities[0]["kind"] == "confirmed"
+
+
+async def test_resume_call_confirms_identity_before_resume_question():
+    harness = resume_harness()
+    await harness.start()
+    try:
+        await harness.wait_until(lambda: harness.chunks and harness.options)
+        # Even though the previous call confirmed the name, a resume call
+        # re-confirms — someone else may have typed the VN.
+        assert harness.transcripts[0] == (
+            "agent",
+            templates.confirm_name_ask("มาลี วงศ์สว่าง", "th"),
+        )
+        harness.stt.transcripts.append("ใช่ค่ะ")
+        await harness.speak_turn()
+        await harness.wait_until(
+            lambda: ("agent", templates.resume_ask("มาลี วงศ์สว่าง", "th", "active"))
+            in harness.transcripts
+        )
+        assert harness.resumes == []  # question asked, not yet answered
+    finally:
+        await harness.stop()
+
+
+async def test_resume_identity_no_keeps_old_session_intact():
+    harness = resume_harness()
+    await harness.start()
+    try:
+        await harness.wait_until(lambda: harness.chunks)
+        harness.stt.transcripts.append("ไม่ใช่ค่ะ คนละคน")
+        await harness.speak_turn()
+        await harness.wait_until(lambda: harness.identities)
+        assert harness.identities == [{"kind": "rejected"}]
+        # The REAL patient's session must survive a stranger's "no":
+        # still linked, still confirmed.
+        assert harness.conn.metadata["visit"]["visit_id"] == "990000000000000007"
+        assert harness.conn.metadata["visit"]["name_confirmed"] is True
+        assert harness.resumes == []
+    finally:
+        await harness.stop()
+
+
+async def test_resume_continue_flows_into_intake():
+    harness = resume_harness()
+    await harness.start()
+    try:
+        await confirm_identity_yes(harness)
+        harness.stt.transcripts.append("ทำต่อค่ะ")
+        await harness.speak_turn()
+        await harness.wait_until(lambda: harness.resumes)
+        assert harness.resumes == [{"kind": "continue", "needs_history": False}]
+        # ack + the normal intake greeting followed in the SAME call
         assert (
             "agent",
-            templates.CONFIRM_NAME_HISTORY_NEXT["en"],
+            templates.RESUME_ACK_CONTINUE["th"],
         ) in harness.transcripts
-        # The kiosk ends the call for the form; no clinical turn ran.
+        assert (
+            "agent",
+            templates.greeting_line("มาลี วงศ์สว่าง", "th"),
+        ) in harness.transcripts
         assert harness.triage.contents == []
+    finally:
+        await harness.stop()
+
+
+async def test_resume_continue_resumes_pending_question():
+    # "Continue" on a mid-interview session re-speaks the pending question
+    # (and re-opens the measurement card when the engine awaited a reading)
+    # instead of the intake greeting — the greeting read as the assessment
+    # starting over (live report 2026-07-27, BP-rest return).
+    harness = resume_harness()
+    harness.conn.last_assistant = "Please measure your blood pressure now."
+    harness.conn.screening_state = {"awaiting_measurement": "sbp"}
+    await harness.start()
+    try:
+        await confirm_identity_yes(harness)
+        harness.stt.transcripts.append("ทำต่อค่ะ")
+        await harness.speak_turn()
+        await harness.wait_until(lambda: harness.resumes)
+        await harness.wait_until(lambda: harness.measurements)
+        assert (
+            "agent",
+            "Please measure your blood pressure now.",
+        ) in harness.transcripts
+        assert (
+            "agent",
+            templates.greeting_line("มาลี วงศ์สว่าง", "th"),
+        ) not in harness.transcripts
+        assert harness.measurements == [{"vital": "sbp"}]
+    finally:
+        await harness.stop()
+
+
+async def test_resume_ask_pushes_continue_chips():
+    # The spoken continue/start-over question carries tappable chips, so the
+    # choice works on the conversation screen without the separate chooser.
+    harness = resume_harness()
+    await harness.start()
+    try:
+        await confirm_identity_yes(harness)
+        await harness.wait_until(
+            lambda: any(
+                {o["id"] for o in p.get("options", [])} == {"continue", "start_over"}
+                for p in harness.options
+            )
+        )
+    finally:
+        await harness.stop()
+
+
+async def test_resume_continue_first_time_flows_into_history_intake():
+    harness = Harness(
+        language="en",
+        metadata={
+            "visit": {
+                "visit_id": "990000000000000004",
+                "patient_name": PATIENT,
+                "hn": "09900004",
+                "name_confirmed": True,
+            },
+            "patient_history": {"is_first_time": True},
+        },
+        resume_prompt="active",
+    )
+    await harness.start()
+    try:
+        await confirm_identity_yes(harness, answer="yes")
+        harness.stt.transcripts.append("continue")
+        await harness.speak_turn()
+        await harness.wait_until(lambda: harness.resumes)
+        assert harness.resumes == [{"kind": "continue", "needs_history": True}]
+        first_q = (
+            f"{templates.HISTORY_INTRO['en']} {templates.history_question(0, 'en')}"
+        )
+        assert ("agent", first_q) in harness.transcripts
+    finally:
+        await harness.stop()
+
+
+async def test_resume_start_over_signals_kiosk():
+    harness = resume_harness()
+    await harness.start()
+    try:
+        await confirm_identity_yes(harness)
+        harness.stt.transcripts.append("เริ่มใหม่ค่ะ")
+        await harness.speak_turn()
+        await harness.wait_until(lambda: harness.resumes)
+        assert harness.resumes == [{"kind": "start_over"}]
+        # further audio ignored while the kiosk relinks
+        harness.stt.transcripts.append("มีไข้ค่ะ")
+        await harness.speak_turn()
+        await asyncio.sleep(0.1)
+        assert harness.triage.contents == []
+    finally:
+        await harness.stop()
+
+
+async def test_resume_completed_yes_no_variant():
+    harness = resume_harness(status="completed")
+    await harness.start()
+    try:
+        await confirm_identity_yes(harness)
+        await harness.wait_until(
+            lambda: (
+                "agent",
+                templates.resume_ask("มาลี วงศ์สว่าง", "th", "completed"),
+            )
+            in harness.transcripts
+        )
+        harness.stt.transcripts.append("ไม่ค่ะ")
+        await harness.speak_turn()
+        await harness.wait_until(lambda: harness.resumes)
+        assert harness.resumes == [{"kind": "decline"}]
+    finally:
+        await harness.stop()
+
+
+async def test_resume_unclear_twice_falls_back_to_buttons():
+    harness = resume_harness()
+    await harness.start()
+    try:
+        await confirm_identity_yes(harness)
+        harness.stt.transcripts.append("อากาศดีนะ")
+        await harness.speak_turn()
+        await harness.wait_until(
+            lambda: ("agent", templates.RESUME_RETRY["th"]) in harness.transcripts
+        )
+        harness.stt.transcripts.append("หิวข้าว")
+        await harness.speak_turn()
+        await harness.wait_until(lambda: harness.resumes)
+        assert harness.resumes == [{"kind": "decline"}]
     finally:
         await harness.stop()

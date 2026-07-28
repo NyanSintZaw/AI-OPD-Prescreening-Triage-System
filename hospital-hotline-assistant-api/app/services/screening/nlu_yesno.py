@@ -82,6 +82,38 @@ CONFIRM_NO = re.compile(
 _NO_CORE_RE = re.compile(rf"(?:{_NEG_CORE}|{_NO_PHRASE})", re.IGNORECASE)
 
 
+# Resume-choice classifier: "continue the unfinished assessment" vs "start
+# over". Spoken answers and the on-screen button labels both route through
+# this (labels: "ทำการประเมินต่อ"/"Continue my assessment",
+# "เริ่มใหม่"/"Start over").
+ResumeChoice = Literal["continue", "start_over", "other"]
+
+_RESUME_CONTINUE_RE = re.compile(
+    r"continue|resume|keep\s+going|carry\s+on|pick\s+up|"
+    r"ทำต่อ|ต่อเลย|ประเมินต่อ|ทำ(?:การประเมิน)?ต่อ|เอาต่อ|ต่อจากเดิม",
+    re.IGNORECASE,
+)
+_RESUME_STARTOVER_RE = re.compile(
+    r"start\s+(?:over|again|new|fresh)|restart|from\s+the\s+beginning|"
+    r"เริ่มใหม่|เริ่มต้นใหม่|เอาใหม่|เริ่มกันใหม่",
+    re.IGNORECASE,
+)
+
+
+def classify_resume_choice(text: str) -> ResumeChoice:
+    """Classify a continue-vs-start-over answer; ambiguous → "other"."""
+    cleaned = (text or "").strip()
+    if not cleaned:
+        return "other"
+    cont = bool(_RESUME_CONTINUE_RE.search(cleaned))
+    over = bool(_RESUME_STARTOVER_RE.search(cleaned))
+    if cont and not over:
+        return "continue"
+    if over and not cont:
+        return "start_over"
+    return "other"
+
+
 def classify_yes_no(text: str) -> YesNoAnswer:
     """Classify a short patient reply as yes / no / uncertain / other.
 

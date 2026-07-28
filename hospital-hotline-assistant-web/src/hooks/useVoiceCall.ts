@@ -6,7 +6,8 @@ import { takePrewarmedPlaybackContext } from './voicePrewarm';
 
 /**
  * Continuous voice-call hook backed by the backend's
- * `WS /ws/voice/{session_id}` Gemini Live API bridge.
+ * `WS /ws/voice/{session_id}` turn-based voice bridge (Google STT →
+ * screening engine → Google Cloud TTS; no Gemini Live).
  *
  * Flow:
  *   1. ``start()`` opens the WebSocket, requests the mic, and pipes raw PCM
@@ -55,10 +56,18 @@ export interface UseVoiceCallOptions {
    *  can transition (back to VN entry / to the history form) without
    *  cutting the AI off mid-sentence. */
   onIdentity?: (payload: VoiceIdentityPayload) => void;
+  /** Fired after the spoken continue-vs-start-over gate resolves
+   *  (``resume_choice`` frame); drain-committed like ``onIdentity``. */
+  onResumeChoice?: (payload: VoiceResumeChoicePayload) => void;
 }
 
 export interface VoiceIdentityPayload {
   kind: 'confirmed' | 'rejected';
+  needsHistory: boolean;
+}
+
+export interface VoiceResumeChoicePayload {
+  kind: 'continue' | 'start_over' | 'decline';
   needsHistory: boolean;
 }
 
@@ -91,9 +100,9 @@ export interface UseVoiceCallApi {
   completedAssessment: ChatResponsePayload | null;
   /** True while waiting for the agent to finish speaking before auto-hangup. */
   autoEnding: boolean;
-  start: () => Promise<void>;
+  start: (opts?: { resumePrompt?: 'active' | 'completed' }) => Promise<void>;
   end: () => Promise<void>;
-  sendTurn: () => void;
+  sendTurn: (captionText?: string) => void;
   /** Barge-in while the assistant is speaking: cut the reply's audio, drop
    *  the rest of its chunks, and go straight back to listening so the
    *  patient can correct a misheard turn. The reply text stays on screen. */
@@ -108,6 +117,30 @@ export interface UseVoiceCallApi {
   setMuted: (muted: boolean) => void;
   toggleSpeaker: () => void;
   setSpeakerEnabled: (enabled: boolean) => void;
+  /** Instantaneous loudness (0..1) of the assistant's voice playback.
+   *  Stable identity, safe to poll from a rAF loop (returns 0 unless
+   *  state is 'speaking'). Drives the avatar's mouth. */
+  getOutputLevel: () => number;
+  /** Loudness plus the normalized spectral centroid (0..1, low = dark
+   *  rounded vowels, high = bright wide vowels) of the assistant's voice,
+   *  plus — when the server sent a text-timed viseme track for the line
+   *  currently playing — the exact vowel scheduled at this instant
+   *  (null between words / when no track). Same identity/rAF guarantees
+   *  as getOutputLevel. Drives vowel-shaped lip sync. */
+  getOutputFeatures: () => { level: number; centroid: number; vowel: VisemeName | null };
+}
+
+/** VRM mouth-shape names as sent in the server's viseme_track frames. */
+export type VisemeName = 'aa' | 'ih' | 'ou' | 'ee' | 'oh';
+
+interface ActiveVisemeTrack {
+  visemes: Array<{ t: number; v: string }>;
+  duration: number;
+  /** AudioContext time at which the line's first chunk starts playing;
+   *  null until that chunk is scheduled. */
+  anchor: number | null;
+  /** Monotonic playhead index (tracks only ever advance). */
+  idx: number;
 }
 
 const voiceFeatureEnabled = import.meta.env.VITE_ENABLE_VOICE === 'true';
@@ -118,12 +151,13 @@ const voiceFeatureEnabled = import.meta.env.VITE_ENABLE_VOICE === 'true';
 // actually flowing in both directions.
 const voiceDebugEnabled = import.meta.env.VITE_VOICE_DEBUG === 'true';
 
-// PCM rates: Gemini Live wants 16 kHz mono input, sends 24 kHz mono output.
+// PCM rates: the voice bridge takes 16 kHz mono input (Google STT) and
+// sends 24 kHz mono output (Google Cloud TTS).
 const INPUT_SAMPLE_RATE = 16000;
 const OUTPUT_SAMPLE_RATE = 24000;
 
 // How long after the last server-sent audio chunk before we flip the UI
-// back from "speaking" to "listening". Gemini Live tends to send tightly
+// back from "speaking" to "listening". TTS audio arrives in tightly
 // packed bursts followed by gaps; a small grace period prevents the orb
 // from flickering between states mid-utterance.
 const SPEAKING_IDLE_GRACE_MS = 250;
@@ -195,10 +229,19 @@ class PcmDownsampleProcessor extends AudioWorkletProcessor {
 registerProcessor('pcm-downsample', PcmDownsampleProcessor);
 `;
 
-function buildWebSocketUrl(sessionId: string, language: string): string {
+function buildWebSocketUrl(
+  sessionId: string,
+  language: string,
+  resumePrompt?: 'active' | 'completed',
+): string {
   const wsBase = baseUrl.replace(/^http/, 'ws');
   const normalizedLanguage = language === 'th' ? 'th' : 'en';
-  return `${wsBase}/ws/voice/${encodeURIComponent(sessionId)}?language=${encodeURIComponent(normalizedLanguage)}`;
+  let url = `${wsBase}/ws/voice/${encodeURIComponent(sessionId)}?language=${encodeURIComponent(normalizedLanguage)}`;
+  if (resumePrompt) {
+    // Open the call with the spoken continue-vs-start-over gate.
+    url += `&resume_prompt=${resumePrompt}`;
+  }
+  return url;
 }
 
 /**
@@ -274,6 +317,9 @@ function pcm16ToAudioBuffer(
 
 interface PlaybackQueueRef {
   ctx: AudioContext;
+  /** All buffer sources route through this tap so UI (avatar lip sync)
+   *  can read the live output level without touching the audio path. */
+  analyser: AnalyserNode;
   nextStartTime: number;
   scheduledCount: number;
   onIdle: () => void;
@@ -308,6 +354,10 @@ export function useVoiceCall(options: UseVoiceCallOptions): UseVoiceCallApi {
   // values without having to rebuild on every render.
   const stateRef = useRef<VoiceCallState>('idle');
   const mutedRef = useRef(false);
+  // Turn-scoped capture (product decision 2026-07-27): the mic records ONLY
+  // during the patient's turn. While the avatar speaks or thinks, audio is
+  // dropped — nothing is buffered or replayed. The "Listening" chip and the
+  // live caption mark exactly the window that will be sent.
   const speakerEnabledRef = useRef(true);
   const activeRef = useRef(false);
   const languageRef = useRef(language);
@@ -326,10 +376,12 @@ export function useVoiceCall(options: UseVoiceCallOptions): UseVoiceCallApi {
   const onMeasurementRef = useRef(options.onMeasurementRequest);
   const onQuestionOptionsRef = useRef(options.onQuestionOptions);
   const onIdentityRef = useRef(options.onIdentity);
-  // Identity outcome mirrors the assessment's drain-then-commit dance: the
-  // frame lands before the spoken line finishes playing, and the kiosk must
-  // not yank the screen away mid-sentence.
+  const onResumeChoiceRef = useRef(options.onResumeChoice);
+  // Identity/resume outcomes mirror the assessment's drain-then-commit
+  // dance: the frame lands before the spoken line finishes playing, and the
+  // kiosk must not yank the screen away mid-sentence.
   const pendingIdentityRef = useRef<VoiceIdentityPayload | null>(null);
+  const pendingResumeRef = useRef<VoiceResumeChoicePayload | null>(null);
 
   languageRef.current = language;
   sessionIdRef.current = sessionId;
@@ -337,6 +389,7 @@ export function useVoiceCall(options: UseVoiceCallOptions): UseVoiceCallApi {
   onMeasurementRef.current = options.onMeasurementRequest;
   onQuestionOptionsRef.current = options.onQuestionOptions;
   onIdentityRef.current = options.onIdentity;
+  onResumeChoiceRef.current = options.onResumeChoice;
 
   const commitAssessment = useCallback(() => {
     if (assessmentCommittedRef.current) return;
@@ -363,9 +416,24 @@ export function useVoiceCall(options: UseVoiceCallOptions): UseVoiceCallApi {
     }
   }, []);
 
+  const commitResumeChoice = useCallback(() => {
+    const payload = pendingResumeRef.current;
+    if (!payload) return;
+    pendingResumeRef.current = null;
+    try {
+      onResumeChoiceRef.current?.(payload);
+    } catch {
+      // best-effort
+    }
+  }, []);
+
   // Set by interrupt(): drop the current reply's remaining audio chunks
   // until the next turn starts, so barge-in doesn't fight arriving PCM.
   const discardPlaybackRef = useRef(false);
+
+  // Text-timed vowel timeline for the line currently playing (avatar lip
+  // sync). Replaced whenever the server sends the next line's track.
+  const visemeTrackRef = useRef<ActiveVisemeTrack | null>(null);
 
   const wsRef = useRef<WebSocket | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -454,8 +522,14 @@ export function useVoiceCall(options: UseVoiceCallOptions): UseVoiceCallApi {
     if (ctx.state === 'suspended') {
       void ctx.resume().catch(() => undefined);
     }
+    // Small FFT keeps the per-frame RMS read cheap; sources connect to the
+    // analyser, the analyser to the speakers, so playback is unaffected.
+    const analyser = ctx.createAnalyser();
+    analyser.fftSize = 256;
+    analyser.connect(ctx.destination);
     const queue: PlaybackQueueRef = {
       ctx,
+      analyser,
       nextStartTime: 0,
       scheduledCount: 0,
       onIdle: () => {
@@ -471,7 +545,10 @@ export function useVoiceCall(options: UseVoiceCallOptions): UseVoiceCallApi {
           if (
             activeRef.current &&
             mutedRef.current &&
-            !pendingAutoEndRef.current
+            !pendingAutoEndRef.current &&
+            // Mid-turn drain (a tap sent while the previous line was still
+            // playing): keep the gate shut until the reply's own drain.
+            stateRef.current !== 'thinking'
           ) {
             mutedRef.current = false;
             setMutedState(false);
@@ -486,9 +563,10 @@ export function useVoiceCall(options: UseVoiceCallOptions): UseVoiceCallApi {
           }
           speakingTimerRef.current = null;
           // The final reply's audio has drained — safe to reveal the slip
-          // or apply a pending identity transition.
+          // or apply a pending identity/resume transition.
           commitAssessment();
           commitIdentity();
+          commitResumeChoice();
           if (pendingAutoEndRef.current) {
             tryScheduleAutoEnd();
           }
@@ -497,7 +575,7 @@ export function useVoiceCall(options: UseVoiceCallOptions): UseVoiceCallApi {
     };
     playbackRef.current = queue;
     return queue;
-  }, [updateState, tryScheduleAutoEnd, commitAssessment, commitIdentity]);
+  }, [updateState, tryScheduleAutoEnd, commitAssessment, commitIdentity, commitResumeChoice]);
 
   const schedulePlaybackChunk = useCallback(
     (data: ArrayBuffer) => {
@@ -542,9 +620,14 @@ export function useVoiceCall(options: UseVoiceCallOptions): UseVoiceCallApi {
         return;
       }
       const startAt = Math.max(queue.ctx.currentTime + 0.02, queue.nextStartTime);
+      // The viseme track for a line always arrives just before that
+      // line's audio — the first chunk scheduled after it anchors the
+      // timeline to the AudioContext clock.
+      const track = visemeTrackRef.current;
+      if (track && track.anchor === null) track.anchor = startAt;
       const src = queue.ctx.createBufferSource();
       src.buffer = buffer;
-      src.connect(queue.ctx.destination);
+      src.connect(queue.analyser);
       src.start(startAt);
       queue.nextStartTime = startAt + buffer.duration;
       queue.scheduledCount += 1;
@@ -597,6 +680,82 @@ export function useVoiceCall(options: UseVoiceCallOptions): UseVoiceCallApi {
       speakingTimerRef.current = null;
     }
   }, []);
+
+  // Scratch buffer reused across getOutputLevel calls so a 60 fps rAF
+  // consumer doesn't allocate every frame.
+  const levelBufRef = useRef<Uint8Array<ArrayBuffer> | null>(null);
+
+  const getOutputLevel = useCallback((): number => {
+    const queue = playbackRef.current;
+    if (!queue || stateRef.current !== 'speaking') return 0;
+    const { analyser } = queue;
+    let buf = levelBufRef.current;
+    if (!buf || buf.length !== analyser.fftSize) {
+      buf = new Uint8Array(analyser.fftSize);
+      levelBufRef.current = buf;
+    }
+    analyser.getByteTimeDomainData(buf);
+    let sum = 0;
+    for (let i = 0; i < buf.length; i++) {
+      const v = (buf[i] - 128) / 128;
+      sum += v * v;
+    }
+    // Conversational speech RMS rarely exceeds ~0.3, so scale up so a
+    // normal voice spans most of 0..1 for the mouth animation.
+    return Math.min(1, Math.sqrt(sum / buf.length) * 3.5);
+  }, []);
+
+  // Second scratch buffer for the frequency-domain read.
+  const freqBufRef = useRef<Uint8Array<ArrayBuffer> | null>(null);
+
+  const getOutputFeatures = useCallback((): {
+    level: number;
+    centroid: number;
+    vowel: VisemeName | null;
+  } => {
+    const level = getOutputLevel();
+    const queue = playbackRef.current;
+    // Text-timed vowel for this exact instant, when a track is playing.
+    let vowel: VisemeName | null = null;
+    const track = visemeTrackRef.current;
+    if (queue && track && track.anchor !== null) {
+      const elapsed = queue.ctx.currentTime - track.anchor;
+      if (elapsed >= 0 && elapsed <= track.duration + 0.25) {
+        while (
+          track.idx + 1 < track.visemes.length &&
+          track.visemes[track.idx + 1].t <= elapsed
+        ) {
+          track.idx += 1;
+        }
+        const entry = track.visemes[track.idx];
+        if (entry && entry.t <= elapsed && entry.v !== 'sil') {
+          vowel = entry.v as VisemeName;
+        }
+      }
+    }
+    if (!queue || level <= 0) return { level: 0, centroid: 0.5, vowel: null };
+    const { analyser } = queue;
+    let buf = freqBufRef.current;
+    if (!buf || buf.length !== analyser.frequencyBinCount) {
+      buf = new Uint8Array(analyser.frequencyBinCount);
+      freqBufRef.current = buf;
+    }
+    analyser.getByteFrequencyData(buf);
+    // Spectral centroid across the speech band (~190 Hz – 3.8 kHz at the
+    // 24 kHz playback rate / fftSize 256 → bins 2..40). Rounded vowels
+    // (う/お) sit low, open あ mid, wide い/え high.
+    const lo = 2;
+    const hi = Math.min(40, buf.length - 1);
+    let energy = 0;
+    let weighted = 0;
+    for (let i = lo; i <= hi; i++) {
+      energy += buf[i];
+      weighted += i * buf[i];
+    }
+    if (energy < 1) return { level, centroid: 0.5, vowel };
+    const centroid = (weighted / energy - lo) / (hi - lo);
+    return { level, centroid: Math.min(1, Math.max(0, centroid)), vowel };
+  }, [getOutputLevel]);
 
   // ----- Mic capture (browser → server) --------------------------------
 
@@ -662,6 +821,8 @@ export function useVoiceCall(options: UseVoiceCallOptions): UseVoiceCallApi {
     inputNodeRef.current = node;
 
     node.port.onmessage = (event: MessageEvent<ArrayBuffer>) => {
+      // Not the patient's turn → drop, never buffer (see turn-scoped
+      // capture note above).
       if (!activeRef.current || mutedRef.current) return;
       const ws = wsRef.current;
       if (!ws || ws.readyState !== WebSocket.OPEN) return;
@@ -759,6 +920,15 @@ export function useVoiceCall(options: UseVoiceCallOptions): UseVoiceCallApi {
             // server (or Gemini Live) re-emits the same finalised phrase.
             const accum = transcriptAccumRef.current;
             if (role === 'user') {
+              // The server transcribed a turn. If we still show "listening",
+              // the silence fallback beat the Done tap — close the gate and
+              // flip to thinking NOW so a late tap can't race the in-flight
+              // turn (it used to trigger a spurious "didn't catch that").
+              if (stateRef.current === 'listening' && activeRef.current) {
+                mutedRef.current = true;
+                setMutedState(true);
+                updateState('thinking');
+              }
               accum.user = smartMergeTranscript(accum.user, text);
               setLastTranscript(accum.user);
               accum.agent = '';
@@ -848,11 +1018,63 @@ export function useVoiceCall(options: UseVoiceCallOptions): UseVoiceCallApi {
               kind: raw.kind === 'rejected' ? 'rejected' : 'confirmed',
               needsHistory: Boolean(raw.needs_history),
             };
+            if (raw.kind !== 'rejected') {
+              // Confirmed: reveal the next step (chooser buttons) right away,
+              // while the spoken question is still playing — a tap during the
+              // speech queues server-side and applies when the line ends.
+              commitIdentity();
+              return;
+            }
+            // Rejected tears the call down — let the "please re-check your
+            // number" line finish playing first (drain-committed).
             const queue = playbackRef.current;
             if (!speakerEnabledRef.current || !queue || queue.scheduledCount === 0) {
               // Nothing will drain — deliver now.
               commitIdentity();
             }
+            return;
+          }
+          case 'resume_choice': {
+            const raw = message as { kind?: string; needs_history?: boolean };
+            const kind =
+              raw.kind === 'start_over' || raw.kind === 'decline'
+                ? raw.kind
+                : 'continue';
+            pendingResumeRef.current = {
+              kind,
+              needsHistory: Boolean(raw.needs_history),
+            };
+            if (kind === 'continue') {
+              // Move to the assessment screen immediately — the greeting
+              // audio keeps playing there. Waiting for drain left the
+              // patient staring at the chooser through the whole greeting.
+              commitResumeChoice();
+              return;
+            }
+            // start_over / decline end or relink the call — let the spoken
+            // ack finish before the teardown (drain-committed).
+            const queue = playbackRef.current;
+            if (!speakerEnabledRef.current || !queue || queue.scheduledCount === 0) {
+              commitResumeChoice();
+            }
+            return;
+          }
+          case 'viseme_track': {
+            // Vowel timeline for the next spoken line (avatar lip sync);
+            // anchored when that line's first audio chunk is scheduled.
+            const raw = message as {
+              visemes?: Array<{ t: number; v: string }>;
+              duration?: number;
+            };
+            visemeTrackRef.current =
+              Array.isArray(raw.visemes) && raw.visemes.length > 0
+                ? {
+                    visemes: raw.visemes,
+                    duration: Number(raw.duration) || 0,
+                    anchor: null,
+                    idx: 0,
+                  }
+                : null;
             return;
           }
           default:
@@ -868,7 +1090,7 @@ export function useVoiceCall(options: UseVoiceCallOptions): UseVoiceCallApi {
         void data.arrayBuffer().then((buf) => schedulePlaybackChunk(buf));
       }
     },
-    [schedulePlaybackChunk, tryScheduleAutoEnd, commitAssessment, commitIdentity],
+    [schedulePlaybackChunk, tryScheduleAutoEnd, commitAssessment, commitIdentity, commitResumeChoice],
   );
 
   // ----- Lifecycle: start / end ----------------------------------------
@@ -880,6 +1102,7 @@ export function useVoiceCall(options: UseVoiceCallOptions): UseVoiceCallApi {
     commitAssessment();
     activeRef.current = false;
     discardPlaybackRef.current = false;
+    visemeTrackRef.current = null;
     pendingAutoEndRef.current = false;
     setAutoEnding(false);
     if (autoEndTimerRef.current !== null) {
@@ -911,7 +1134,7 @@ export function useVoiceCall(options: UseVoiceCallOptions): UseVoiceCallApi {
     setMutedState(false);
   }, [teardownInputGraph, teardownPlayback, commitAssessment]);
 
-  const start = useCallback(async () => {
+  const start = useCallback(async (opts?: { resumePrompt?: 'active' | 'completed' }) => {
     if (!supported) {
       setError('Voice calling is not supported in this browser.');
       updateState('error');
@@ -931,6 +1154,7 @@ export function useVoiceCall(options: UseVoiceCallOptions): UseVoiceCallApi {
     pendingAssessmentRef.current = null;
     assessmentCommittedRef.current = false;
     pendingIdentityRef.current = null;
+    pendingResumeRef.current = null;
     if (autoEndTimerRef.current !== null) {
       window.clearTimeout(autoEndTimerRef.current);
       autoEndTimerRef.current = null;
@@ -965,7 +1189,9 @@ export function useVoiceCall(options: UseVoiceCallOptions): UseVoiceCallApi {
     // of the two instead of their sum.
     let ws: WebSocket;
     try {
-      ws = new WebSocket(buildWebSocketUrl(activeSessionId, languageRef.current));
+      ws = new WebSocket(
+        buildWebSocketUrl(activeSessionId, languageRef.current, opts?.resumePrompt),
+      );
       ws.binaryType = 'arraybuffer';
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to open voice channel');
@@ -1072,7 +1298,7 @@ export function useVoiceCall(options: UseVoiceCallOptions): UseVoiceCallApi {
 
   // ----- Turn boundary -------------------------------------------------
 
-  const sendTurn = useCallback(() => {
+  const sendTurn = useCallback((captionText?: string) => {
     if (!activeRef.current || mutedRef.current) return;
     discardPlaybackRef.current = false;
     mutedRef.current = true;
@@ -1080,7 +1306,15 @@ export function useVoiceCall(options: UseVoiceCallOptions): UseVoiceCallApi {
     const ws = wsRef.current;
     if (!ws || ws.readyState !== WebSocket.OPEN) return;
     try {
-      ws.send(JSON.stringify({ type: 'end_of_turn' }));
+      // The live caption rides along: if STT hears nothing in the audio
+      // (AGC-quiet first utterance), the server uses the caption instead —
+      // whatever streamed on screen IS the turn, guaranteed.
+      const caption = (captionText || '').trim();
+      ws.send(
+        JSON.stringify(
+          caption ? { type: 'end_of_turn', caption } : { type: 'end_of_turn' },
+        ),
+      );
       updateState('thinking');
     } catch {
       // Keep the local gate closed if the socket is unhealthy.
@@ -1094,6 +1328,7 @@ export function useVoiceCall(options: UseVoiceCallOptions): UseVoiceCallApi {
   const interrupt = useCallback(() => {
     if (!activeRef.current || stateRef.current !== 'speaking') return;
     discardPlaybackRef.current = true;
+    visemeTrackRef.current = null; // barge-in — don't leave a stuck mouth
     teardownPlayback();
     if (mutedRef.current) {
       mutedRef.current = false;
@@ -1117,6 +1352,9 @@ export function useVoiceCall(options: UseVoiceCallOptions): UseVoiceCallApi {
     const ws = wsRef.current;
     if (!ws || ws.readyState !== WebSocket.OPEN) return;
     discardPlaybackRef.current = false;
+    // Same injected-turn mute cycle as tapReply — see the comment there.
+    mutedRef.current = true;
+    setMutedState(true);
     try {
       ws.send(JSON.stringify({ type: 'submit_measurement', content }));
       if (activeRef.current) updateState('thinking');
@@ -1131,6 +1369,12 @@ export function useVoiceCall(options: UseVoiceCallOptions): UseVoiceCallApi {
     const ws = wsRef.current;
     if (!ws || ws.readyState !== WebSocket.OPEN) return;
     discardPlaybackRef.current = false;
+    // Mirror sendTurn: the server mutes itself for every injected turn, and
+    // the post-reply auto-unmute only fires when the LOCAL gate is closed
+    // too. Without this, a tap left the server muted forever — the next
+    // spoken answer never arrived and the kiosk hung on "thinking".
+    mutedRef.current = true;
+    setMutedState(true);
     try {
       ws.send(JSON.stringify({ type: 'tap_reply', content: text }));
       if (activeRef.current) updateState('thinking');
@@ -1244,5 +1488,7 @@ export function useVoiceCall(options: UseVoiceCallOptions): UseVoiceCallApi {
     setMuted,
     toggleSpeaker,
     setSpeakerEnabled,
+    getOutputLevel,
+    getOutputFeatures,
   };
 }

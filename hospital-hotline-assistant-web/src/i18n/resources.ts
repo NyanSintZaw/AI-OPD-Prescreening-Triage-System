@@ -81,6 +81,7 @@ export const resources = {
       kioskVisitLinkedReady: 'We found your visit. Let’s begin.',
       kioskVisitNotFound: 'We couldn’t find that Visit ID. Please try again or continue without it.',
       kioskVisitWrongName: 'That wasn’t you — please re-enter your correct visit number.',
+      kioskAvatarLoading: 'Preparing your assistant…',
       kioskVisitInvalidFormat:
         'That doesn’t look like a valid Visit ID. It should be the 18-digit number printed on your registration slip — please check and try again.',
       kioskVisitLinkError:
@@ -120,7 +121,7 @@ export const resources = {
       kioskConvConnecting: 'Connecting…',
       kioskConvYouSaid: 'You said',
       kioskConvTapAnswer: 'Choose an answer below, or speak and tap “Done”',
-      kioskConvSpeakNow: 'Speak now, then tap the button when you are finished',
+      kioskConvSpeakNow: 'Speak now — pause when you are done, or tap the button to send right away',
       kioskConvDone: 'I’m finished speaking',
       kioskConvWait: 'Please wait…',
       kioskConvAiSpeaking: 'The assistant is speaking…',
@@ -147,7 +148,6 @@ export const resources = {
       kioskResultSubtitle: 'Here is where to go next',
       kioskResultPrint: 'Print my slip',
       kioskResultFinish: 'Finish',
-      kioskResultThanks: 'Thank you — take care!',
       // Idle / reset
       kioskIdleTitle: 'Are you still there?',
       kioskIdleBody: 'This session will restart soon for the next visitor.',
@@ -434,6 +434,7 @@ export const resources = {
       kioskResumeLead: 'You have an unfinished assessment from earlier today. Would you like to continue it or start over?',
       kioskResumeDoneTitle: 'Hello again, {{name}}',
       kioskResumeDoneLead: 'Your assessment today is already complete. Would you like to start a new one?',
+      kioskFinishedLead: 'Your pre-screening for this visit is already complete. Please proceed to your department, or contact the front desk if you need help.',
       kioskResumeContinue: 'Continue my assessment',
       kioskResumeStartOver: 'Start over',
       kioskResumeReprint: 'Print my slip again',
@@ -853,6 +854,7 @@ export const resources = {
       kioskVisitLinkedReady: 'เราพบข้อมูลของคุณแล้ว มาเริ่มกันเลย',
       kioskVisitNotFound: 'ไม่พบรหัสการเข้ารับบริการนี้ กรุณาลองใหม่หรือดำเนินการต่อโดยไม่มีรหัส',
       kioskVisitWrongName: 'ไม่ใช่ชื่อของคุณ กรุณากรอกหมายเลข visit ที่ถูกต้องอีกครั้งค่ะ',
+      kioskAvatarLoading: 'กำลังเตรียมผู้ช่วยพยาบาล…',
       kioskVisitInvalidFormat:
         'รูปแบบรหัสไม่ถูกต้อง รหัสควรเป็นตัวเลข 18 หลักที่พิมพ์อยู่บนใบลงทะเบียนของคุณ กรุณาตรวจสอบแล้วลองใหม่อีกครั้ง',
       kioskVisitLinkError: 'ขณะนี้ระบบไม่สามารถตรวจสอบข้อมูลการเข้ารับบริการของคุณได้ กรุณาลองใหม่อีกครั้งในอีกสักครู่',
@@ -890,7 +892,7 @@ export const resources = {
       kioskConvConnecting: 'กำลังเชื่อมต่อ…',
       kioskConvYouSaid: 'คุณพูดว่า',
       kioskConvTapAnswer: 'เลือกคำตอบด้านล่าง หรือพูดแล้วแตะ “พูดเสร็จแล้ว”',
-      kioskConvSpeakNow: 'พูดได้เลย เมื่อพูดเสร็จให้แตะปุ่ม',
+      kioskConvSpeakNow: 'พูดได้เลยค่ะ พูดจบแล้วหยุดสักครู่ระบบจะส่งให้ หรือแตะปุ่มเพื่อส่งทันที',
       kioskConvDone: 'พูดเสร็จแล้ว',
       kioskConvWait: 'กรุณารอสักครู่…',
       kioskConvAiSpeaking: 'ผู้ช่วยกำลังพูด…',
@@ -916,7 +918,6 @@ export const resources = {
       kioskResultSubtitle: 'นี่คือจุดที่คุณต้องไปต่อ',
       kioskResultPrint: 'พิมพ์ใบของฉัน',
       kioskResultFinish: 'เสร็จสิ้น',
-      kioskResultThanks: 'ขอบคุณค่ะ ดูแลสุขภาพด้วยนะคะ',
       // Idle / reset
       kioskIdleTitle: 'คุณยังอยู่ไหม?',
       kioskIdleBody: 'ระบบจะเริ่มใหม่สำหรับผู้รับบริการรายถัดไปในไม่ช้า',
@@ -1194,6 +1195,7 @@ export const resources = {
       kioskResumeLead: 'คุณมีการประเมินที่ยังไม่เสร็จจากก่อนหน้านี้ ต้องการทำต่อหรือเริ่มใหม่คะ',
       kioskResumeDoneTitle: 'สวัสดีอีกครั้ง คุณ{{name}}',
       kioskResumeDoneLead: 'การประเมินของคุณวันนี้เสร็จสิ้นแล้ว ต้องการเริ่มการประเมินใหม่ไหมคะ',
+      kioskFinishedLead: 'การคัดกรองสำหรับการมาครั้งนี้เสร็จสิ้นแล้วค่ะ เชิญไปที่แผนกได้เลย หรือติดต่อเจ้าหน้าที่หากต้องการความช่วยเหลือ',
       kioskResumeContinue: 'ทำการประเมินต่อ',
       kioskResumeStartOver: 'เริ่มใหม่',
       kioskResumeReprint: 'พิมพ์สลิปอีกครั้ง',

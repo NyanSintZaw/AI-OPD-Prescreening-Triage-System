@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { useEffect, useRef, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
@@ -28,7 +28,9 @@ interface ConversationStageProps {
   replyOptions: ReplyOption[];
   onTapReply: (label: string) => void;
   /** Signal end-of-turn ("I'm finished speaking") → useVoiceCall.sendTurn. */
-  onDone: () => void;
+  /** End the turn; carries the live caption so the server can fall back to
+   *  it when STT hears nothing (AGC-quiet first utterances). */
+  onDone: (captionText?: string) => void;
   onEnd: () => void;
   measurementVital: string | null;
   onMeasurementSubmit: (continuationText: string) => void;
@@ -45,12 +47,12 @@ interface ConversationStageProps {
   /** False once the assessment is wrapping up — hides the interrupt button. */
   canInterrupt?: boolean;
   /**
-   * Future lip-synced avatar. Render the avatar component here (video /
-   * canvas / WebGL — children auto-fill the tile via CSS) and it replaces
-   * the orb placeholder inside the reserved stage with no layout changes.
-   * The stage also carries a stable DOM id (#kiosk-avatar-slot) for
+   * The assistant's synced avatar (NurseAvatar today; video / canvas /
+   * WebGL children also auto-fill the tile via CSS). Replaces the orb
+   * placeholder inside the reserved stage with no layout changes. The
+   * stage also carries a stable DOM id (#kiosk-avatar-slot) for
    * imperative mounting. Drive sync from the same `state` prop
-   * (listening / thinking / speaking) that animates the orb today.
+   * (listening / thinking / speaking) that animates the orb fallback.
    */
   avatar?: ReactNode;
 }
@@ -85,6 +87,41 @@ export function ConversationStage({
   // Live "we're hearing you" preview of the patient's speech (Web Speech
   // API, Chrome). The server's end-of-turn STT stays authoritative.
   const liveCaption = useLiveCaption(language, isListening && !measurementVital && !hasError);
+
+  // Self-echo guard: the caption recognizer captures raw speaker audio (no
+  // echo cancellation on its path), so a mid-sentence playback gap can put
+  // the avatar's OWN words into the caption — which auto-send then submitted
+  // as a patient turn (seen live: the assistant answering its own question).
+  // A caption that reads as a substring of the assistant's current line is
+  // echo, not the patient.
+  const normalizeForEcho = (s: string) => s.toLowerCase().replace(/[^\p{L}\p{N}]/gu, '');
+  const captionForTurn = (() => {
+    const c = normalizeForEcho(liveCaption);
+    if (c.length >= 8 && normalizeForEcho(lastReply || '').includes(c)) return '';
+    return liveCaption;
+  })();
+
+  // Caption-driven auto end-of-turn: once the patient has said something and
+  // the caption stops changing for a beat, send the turn exactly as if they
+  // tapped "I'm finished" — caption attached, same guards. The caption
+  // recognizer's endpointing hears quiet mics the amplitude gate misses; the
+  // server's 8 s silence backstop remains for browsers without Web Speech.
+  const AUTO_SEND_SILENCE_MS = 2500;
+  const autoSentRef = useRef(false);
+  useEffect(() => {
+    if (!isListening) {
+      autoSentRef.current = false;
+      return;
+    }
+    if (!captionForTurn || autoSentRef.current) return;
+    const timer = setTimeout(() => {
+      if (autoSentRef.current) return;
+      autoSentRef.current = true;
+      onDone(captionForTurn);
+    }, AUTO_SEND_SILENCE_MS);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [captionForTurn, isListening]);
 
   // Mic/connection failure: say so plainly and offer a big retry — never
   // leave the patient staring at an endless "connecting" state. A stalled
@@ -259,7 +296,7 @@ export function ConversationStage({
             <motion.button
               type="button"
               className="k-btn success xl"
-              onClick={onDone}
+              onClick={() => onDone(captionForTurn)}
               disabled={!isListening}
               whileTap={isListening ? { scale: 0.97 } : undefined}
               animate={

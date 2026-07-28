@@ -90,12 +90,14 @@ Open **http://localhost:5173**:
 
 ## Features
 
-- **Multilingual triage** (English, Thai, others via the LLM) — frontdesk mode auto-enables text-to-speech for hands-free patient communication.
-- **Rule engine + LLM hybrid** — deterministic emergency triggers always win over LLM classification, so safety-critical keywords (chest pain, can't breathe, etc.) escalate immediately.
-- **Department routing** — recommended specialty (ER, cardiology, ENT, …) returned with each turn.
-- **Follow-up questions** — backend can request structured clarification before final triage.
-- **Slack alerts** — emergency / high-severity events fire a webhook with cooldown + threshold controls (no spam).
-- **Admin dashboard** — filterable session list (severity, language, alert status), per-session conversation transcript, and emergency event timeline.
+Full list in [`docs/features.md`](./docs/features.md). Highlights:
+
+- **Voice-first bilingual kiosk** (Thai/English) — spoken conversation with tappable quick-reply chips; VN check-in against the hospital HIS, spoken identity confirm, session resume, first-visit history intake.
+- **Deterministic 5-level triage** — a pure rules engine decides MOPH acuity from versioned bilingual criteria; the LLM only extracts findings and phrases replies. Patients never see the level (leak validator, th + en).
+- **Vitals on demand** — BP cuff / temperature / weight-height requested mid-interview only when the complaint requires them; BP-crisis rest-first protocol.
+- **HIS integration** — mock hospital HIS + adapter seam for the real one; two-stage write-back (screening attach → nurse-approved publish).
+- **Nurse review portal** — slip-code lookup, editable review, approve/reroute publishing to the HIS.
+- **Admin portal** — session monitor with AI trace, criteria lifecycle (upload → approve → activate), RAG manual upload, disease-surveillance dashboard, BP-device and user management.
 
 ## Repository layout
 

@@ -141,6 +141,9 @@ async def lifespan(app: FastAPI):
         triage_service=app.state.triage_service,
         stt_client=app.state.stt_client,
         tts_client=app.state.tts_client,
+        # Getter: the admin HIS-connection endpoints swap the adapter at
+        # runtime; the spoken history intake must write to the current one.
+        his_adapter_getter=lambda: app.state.his_adapter,
     )
     app.state.rag_prewarm_task = None
     if settings.rag_query_prewarm_on_startup:
@@ -504,7 +507,9 @@ async def link_visit(
         "age_years": info.age_years,
         "appointment": info.appointment,
         "linked_at": datetime.now(timezone.utc).isoformat(),
-        "name_confirmed": False,
+        # Identity is asked once per kiosk walk-up: a relink within the same
+        # run (start over) carries the already-spoken confirmation.
+        "name_confirmed": bool(payload.preconfirmed and info.patient_name),
     }
     if info.patient_history is not None:
         metadata["patient_history"] = {
@@ -620,55 +625,29 @@ async def save_patient_history(
     Gated for booth intake after name confirmation. Writes through
     ``HisAdapter.push_patient_history`` so returning visits see the data.
     """
-    session_row = await connection.fetchrow(
-        "SELECT metadata FROM sessions WHERE id = $1", session_id
-    )
-    if session_row is None:
+    from app.services.patient_history import store_patient_history
+
+    try:
+        result = await store_patient_history(
+            connection,
+            session_id,
+            {
+                "smoking_alcohol": payload.smoking_alcohol,
+                "allergies": payload.allergies,
+                "chronic_conditions": payload.chronic_conditions,
+                "past_surgeries": payload.past_surgeries,
+                "family_history": payload.family_history,
+            },
+            his_adapter=request.app.state.his_adapter,
+        )
+    except ValueError:
         raise HTTPException(status_code=404, detail="Session not found")
 
-    metadata = dict(session_row["metadata"] or {})
-    visit = dict(metadata.get("visit") or {})
-    hn = visit.get("hn") if isinstance(visit.get("hn"), str) else None
-
-    history_payload = {
-        "smoking_alcohol": payload.smoking_alcohol,
-        "allergies": payload.allergies,
-        "chronic_conditions": payload.chronic_conditions,
-        "past_surgeries": payload.past_surgeries,
-        "family_history": payload.family_history,
-    }
-    # Drop empty strings so HIS "none" semantics stay clean.
-    history_payload = {
-        k: (v.strip() if isinstance(v, str) else v)
-        for k, v in history_payload.items()
-        if v is not None and str(v).strip()
-    }
-
-    existing = dict(metadata.get("patient_history") or {})
-    existing.update(history_payload)
-    existing["is_first_time"] = False
-    existing["intake_complete"] = True
-    existing["recorded_at"] = datetime.now(timezone.utc).isoformat()
-    metadata["patient_history"] = existing
-    await connection.execute(
-        "UPDATE sessions SET metadata = $2::jsonb WHERE id = $1",
-        session_id,
-        metadata,
-    )
-
-    pushed = False
-    if hn:
-        adapter = request.app.state.his_adapter
-        try:
-            pushed = bool(await adapter.push_patient_history(hn, history_payload))
-        except Exception:  # noqa: BLE001 — booth must continue even if HIS is down
-            logger.exception("Failed to push patient history to HIS hn=%s", hn)
-
     return PatientHistoryIntakeResponse(
-        saved=True,
-        pushed_to_his=pushed,
+        saved=result["saved"],
+        pushed_to_his=result["pushed_to_his"],
         is_first_time=False,
-        hn=hn,
+        hn=result["hn"],
     )
 
 
@@ -2349,10 +2328,11 @@ async def list_routing_feedback(
 
 
 # ---------------------------------------------------------------------------
-# Voice WebSocket — Gemini Live API bridge
+# Voice WebSocket — turn-based voice bridge (Google STT → screening engine →
+# Google Cloud TTS; no Gemini Live)
 # ---------------------------------------------------------------------------
 #
-# Protocol (see app/services/live_voice_service.py for state details):
+# Protocol (see app/services/screening/voice_bridge.py for state details):
 #
 #   Client → server
 #     bytes                          raw PCM 16-bit 16 kHz mono audio chunk
@@ -2382,6 +2362,10 @@ async def voice_call(websocket: WebSocket, session_id: str):
     live_voice_service = websocket.app.state.live_voice_service  # TurnVoiceService
     requested_language = websocket.query_params.get("language", "en")
     language = requested_language if requested_language in {"en", "th"} else "en"
+    # Kiosk found a same-day session for this VN: open the call with the
+    # spoken continue-vs-start-over gate ('active' | 'completed').
+    raw_resume = websocket.query_params.get("resume_prompt")
+    resume_prompt = raw_resume if raw_resume in {"active", "completed"} else None
 
     # Callbacks forward turn transcripts + emergency banner triggers to the
     # frontend over the WS. ``send_*`` may raise if the client closed the
@@ -2445,6 +2429,28 @@ async def voice_call(websocket: WebSocket, session_id: str):
                 session_id,
             )
 
+    async def push_resume(payload: dict) -> None:
+        # {"kind": "continue"|"start_over"|"decline", ...} — the spoken
+        # continue-vs-start-over outcome; the kiosk transitions on it.
+        try:
+            await websocket.send_json({"type": "resume_choice", **payload})
+        except Exception:
+            logger.debug(
+                "Failed to push resume outcome to %s (likely client closed)",
+                session_id,
+            )
+
+    async def push_visemes(payload: dict) -> None:
+        # Vowel timeline for the avatar's lip sync — arrives before the
+        # spoken line's audio chunks so the client can anchor it.
+        try:
+            await websocket.send_json({"type": "viseme_track", **payload})
+        except Exception:
+            logger.debug(
+                "Failed to push viseme track to %s (likely client closed)",
+                session_id,
+            )
+
     async with pool.acquire() as conn:
         try:
             await live_voice_service.connect(
@@ -2458,6 +2464,9 @@ async def voice_call(websocket: WebSocket, session_id: str):
                 measurement_callback=push_measurement,
                 options_callback=push_options,
                 identity_callback=push_identity,
+                resume_callback=push_resume,
+                viseme_callback=push_visemes,
+                resume_prompt=resume_prompt,
             )
         except ValueError as exc:
             await websocket.close(code=1008, reason=str(exc))
@@ -2538,7 +2547,10 @@ async def voice_call(websocket: WebSocket, session_id: str):
                     live_voice_service.set_mute(session_id, False)
                     await websocket.send_json({"type": "status", "muted": False})
                 elif msg_type == "end_of_turn":
-                    live_voice_service.end_user_turn(session_id)
+                    live_voice_service.end_user_turn(
+                        session_id,
+                        caption=str(payload.get("caption") or ""),
+                    )
                     continue
                 elif msg_type == "submit_measurement":
                     # The temperature-on-demand popup: the client already

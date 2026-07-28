@@ -465,6 +465,9 @@ export interface SessionVitalsUpdate {
 
 export interface LinkVisitRequest {
   visit_id: string;
+  /** Identity already spoken-confirmed in this kiosk run (start-over relink)
+   *  — the fresh session must not re-ask "are you {name}?". */
+  preconfirmed?: boolean;
 }
 
 export type HisScreeningStatus = 'registered' | 'screened' | 'routed';
