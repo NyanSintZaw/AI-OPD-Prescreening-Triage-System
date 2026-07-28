@@ -1746,7 +1746,9 @@ async def get_session_trace(
 @app.get("/admin/reviews", response_model=list[AssessmentReviewOut])
 async def list_assessment_reviews(
     status: str = "pending",
-    _admin_user: dict = Depends(require_roles("admin", "super_admin")),
+    # Read-only: viewers reach the review queue from the staff shortcut, but
+    # approve/correct below stay admin + super_admin.
+    _admin_user: dict = Depends(require_roles("admin", "super_admin", "viewer")),
     connection: asyncpg.Connection = Depends(get_connection),
 ):
     rows = await connection.fetch(
@@ -2244,7 +2246,8 @@ async def correct_assessment_review(
 
 @app.get("/admin/feedback", response_model=list[RoutingFeedbackOut])
 async def list_routing_feedback(
-    _admin_user: dict = Depends(require_roles("admin", "super_admin")),
+    # Read-only, same as /admin/reviews above.
+    _admin_user: dict = Depends(require_roles("admin", "super_admin", "viewer")),
     connection: asyncpg.Connection = Depends(get_connection),
 ):
     rows = await connection.fetch(

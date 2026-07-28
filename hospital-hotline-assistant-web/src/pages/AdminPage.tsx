@@ -110,11 +110,12 @@ export function AdminPage() {
       setLastRefreshed(new Date());
     } catch (err) {
       const message = err instanceof Error ? err.message : t('error');
+      // Only a stale token warrants a logout — a 403 means the role lacks
+      // the permission, which signing out again will not fix.
       if (
         message.includes('401') ||
-        message.includes('403') ||
         message.toLowerCase().includes('token') ||
-        message.toLowerCase().includes('permission')
+        message.toLowerCase().includes('unauthorized')
       ) {
         api.adminLogout();
         navigate('/login/admin', { replace: true });
