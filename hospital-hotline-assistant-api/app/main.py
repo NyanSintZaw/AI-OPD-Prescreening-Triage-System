@@ -1921,7 +1921,12 @@ async def _push_his_routing(
 # app, framed as "the admin also oversees the hospital DB". Only meaningful in
 # HIS_MODE=http; degrades to an empty/unavailable response otherwise.
 
-async def _his_proxy_get(path: str) -> dict | None:
+async def _his_proxy_get(path: str, *, not_found_ok: bool = False) -> dict | None:
+    """GET from the connected HIS. A 404 raises (a looked-up record does
+    not exist) unless ``not_found_ok`` — listing endpoints pass that so a
+    HIS that simply lacks the API degrades to "not available" instead of
+    erroring the admin panel (seen live: a stale his-mock without
+    /api/patients turned the Database tab into a 404 loop)."""
     if settings.his_mode != "http" or not settings.his_base_url:
         return None
     headers = {"X-API-Key": settings.his_api_key} if settings.his_api_key else {}
@@ -1931,7 +1936,7 @@ async def _his_proxy_get(path: str) -> dict | None:
             resp = await client.get(url, headers=headers)
         if resp.status_code == 200:
             return resp.json()
-        if resp.status_code == 404:
+        if resp.status_code == 404 and not not_found_ok:
             raise HTTPException(status_code=404, detail="Visit not found in HIS")
     except HTTPException:
         raise
@@ -2059,7 +2064,7 @@ async def admin_his_disconnect(
 async def admin_his_visits(
     _admin_user: dict = Depends(require_roles("super_admin", "admin", "viewer")),
 ):
-    data = await _his_proxy_get("/api/visits")
+    data = await _his_proxy_get("/api/visits", not_found_ok=True)
     if data is None:
         return {"available": False, "visits": []}
     return {"available": True, **data}
@@ -2083,7 +2088,7 @@ async def admin_his_patients(
     """HN master records from the connected hospital DB — the admin
     Database tab's patient (HN) view. Each row already carries the full
     history + last-vitals payload, so no per-patient detail proxy is needed."""
-    data = await _his_proxy_get("/api/patients")
+    data = await _his_proxy_get("/api/patients", not_found_ok=True)
     if data is None:
         return {"available": False, "patients": []}
     return {"available": True, **data}
