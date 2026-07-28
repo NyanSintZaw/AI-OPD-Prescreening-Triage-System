@@ -5808,3 +5808,129 @@ a:hover {
 }
 .hdb-stage-1 { background: #fde9c8; color: #9a6413; }
 .hdb-stage-2 { background: #cdeccf; color: #1f7a2e; }
+
+/* ── Floating shortcut → nurse Triage Reviews ─────────────────────────
+   Rendered by Layout on every staff screen (ReviewsFab.tsx). */
+
+.reviews-fab {
+  position: fixed;
+  right: clamp(1rem, 3vw, 2rem);
+  bottom: clamp(1rem, 3vw, 2rem);
+  /* Above page content, below every overlay: .hdb-modal-backdrop 60,
+     .nurse-review-modal 80, .patient-id-modal 100, .admin-detail-big and
+     .tm-confirm-overlay 1000. */
+  z-index: 50;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.55rem;
+  min-height: 56px;
+  min-width: 56px;
+  padding: 0 1.15rem;
+  border: 1px solid var(--mch-gold-dark);
+  border-radius: 999px;
+  background: var(--mch-gold);
+  color: #ffffff;
+  font: inherit;
+  font-weight: 600;
+  font-size: 0.95rem;
+  line-height: 1;
+  cursor: pointer;
+  box-shadow: var(--shadow-card);
+  transition: background-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.reviews-fab:hover {
+  background: var(--mch-gold-dark);
+  transform: translateY(-2px);
+  box-shadow: rgba(0, 0, 0, 0.18) -4px 12px 28px -6px;
+}
+
+.reviews-fab:active {
+  transform: translateY(0);
+}
+
+.reviews-fab:focus-visible {
+  outline: 3px solid var(--mch-navy);
+  outline-offset: 3px;
+}
+
+.reviews-fab-icon {
+  display: inline-flex;
+  flex: 0 0 auto;
+}
+
+/* Pending-count badge + the nudge that draws the eye to it. The hop is
+   confined to the first fifth of the cycle: ~0.7s of motion, then ~3.3s
+   still, so a button staff sit beside all shift stays workable. */
+.reviews-fab-badge {
+  position: absolute;
+  top: -6px;
+  right: -4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 6px;
+  border: 2px solid var(--color-surface);
+  border-radius: 999px;
+  background: var(--mch-red);
+  color: #ffffff;
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+@keyframes reviews-fab-nudge {
+  0%, 18%, 100% { transform: translateY(0); }
+  6% { transform: translateY(-8px); }
+  12% { transform: translateY(-4px); }
+}
+
+.reviews-fab.has-pending {
+  animation: reviews-fab-nudge 4s ease-in-out infinite;
+}
+
+/* A running animation's transform beats the :hover lift, so drop it once the
+   pointer arrives and let the button settle under the cursor. */
+.reviews-fab.has-pending:hover,
+.reviews-fab.has-pending:focus-visible {
+  animation: none;
+}
+
+/* Never float over a dialog. display:none also drops it from the tab order,
+   which matters because none of these modals trap focus. One rule per
+   selector so an unsupported :has() argument can't invalidate the group. */
+body:has(.nurse-review-modal) .reviews-fab { display: none; }
+body:has(.admin-detail-big) .reviews-fab { display: none; }
+body:has(.tm-confirm-overlay) .reviews-fab { display: none; }
+body:has(.hdb-modal-backdrop) .reviews-fab { display: none; }
+
+/* Small screens: icon-only circle, label kept for assistive tech. */
+@media (max-width: 720px) {
+  .reviews-fab {
+    width: 56px;
+    padding: 0;
+  }
+  .reviews-fab-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reviews-fab { transition: none; }
+  .reviews-fab:hover,
+  .reviews-fab:active { transform: none; }
+  /* Badge stays — the count is the information, the hop is just the nudge. */
+  .reviews-fab.has-pending { animation: none; }
+}
+
+@media print {
+  .reviews-fab { display: none; }
+}

@@ -25,10 +25,15 @@ export function App() {
         <Route path="/login" element={<Navigate to="/login/nurse" replace />} />
         <Route path="/login/:portal" element={<LoginPage />} />
         <Route path="/slip/:sessionId" element={<SlipPage />} />
+        {/* Ops staff reach the review queue from the admin portal shortcut;
+            viewers land here read-only. */}
         <Route
           path="/nurse"
           element={
-            <ProtectedRoute allowedRoles={['admin']} loginPath="/login/nurse">
+            <ProtectedRoute
+              allowedRoles={['admin', 'super_admin', 'viewer']}
+              loginPath="/login/nurse"
+            >
               <NursePage />
             </ProtectedRoute>
           }

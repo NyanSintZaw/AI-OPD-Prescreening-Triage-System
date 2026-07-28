@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { LanguageSwitcher } from './LanguageSwitcher';
+import { ReviewsFab } from './ReviewsFab';
 import type { AppLanguage } from '../i18n/resources';
 
 const LOGO_URL =
@@ -68,6 +69,9 @@ export function Layout({
         </div>
       </header>
       <main className="app-main">{children}</main>
+      {/* Staff shortcut to the triage review queue; renders itself only for
+          signed-in staff who are not already on that screen. */}
+      <ReviewsFab />
       <footer className="app-footer">
         <div className="app-footer-inner">
           <p className="footer-hospital">{t('hospitalName')}</p>

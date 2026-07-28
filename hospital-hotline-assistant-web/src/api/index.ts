@@ -327,6 +327,9 @@ export const api = {
     status: 'all' | 'pending' | 'reviewed' | 'approved' | 'corrected' = 'pending',
   ) => request<AssessmentReviewOut[]>(`/admin/reviews?status=${status}`),
 
+  getPendingReviewCount: () =>
+    request<{ pending: number }>('/admin/reviews/pending-count'),
+
   approveAssessmentReview: (
     assessmentId: string,
     payload: AssessmentReviewApproveRequest = {},

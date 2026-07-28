@@ -42,12 +42,13 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     // while we HAD a token means the session is stale — clear it and send
     // staff back to the right login instead of silently empty panels.
     if (response.status === 401 && token && typeof window !== 'undefined') {
-      const path = window.location.pathname;
-      if (path.startsWith('/admin') || path.startsWith('/nurse')) {
+      const currentPath = window.location.pathname;
+      if (currentPath.startsWith('/admin') || currentPath.startsWith('/nurse')) {
+        // Pick the login by ROLE, not by path: ops staff can reach /nurse too,
+        // and /login/nurse would reject them. Read the role before clearing.
+        const role = getAdminRole();
         setAdminSession(null, null);
-        window.location.assign(
-          path.startsWith('/admin') ? '/login/admin' : '/login/nurse',
-        );
+        window.location.assign(role === 'admin' ? '/login/nurse' : '/login/admin');
         throw new Error('Session expired — please log in again');
       }
     }

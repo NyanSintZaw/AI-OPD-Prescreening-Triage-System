@@ -1808,10 +1808,25 @@ async def get_session_trace(
     }
 
 
+@app.get("/admin/reviews/pending-count")
+async def count_pending_reviews(
+    # Cheap badge feed for the in-app FAB and the desktop widget — the list
+    # route below returns up to 200 fully-joined rows, far too fat to poll.
+    _admin_user: dict = Depends(require_roles("admin", "super_admin", "viewer")),
+    connection: asyncpg.Connection = Depends(get_connection),
+):
+    pending = await connection.fetchval(
+        "SELECT COUNT(*) FROM assessment_reviews WHERE status = 'pending'"
+    )
+    return {"pending": pending or 0}
+
+
 @app.get("/admin/reviews", response_model=list[AssessmentReviewOut])
 async def list_assessment_reviews(
     status: str = "pending",
-    _admin_user: dict = Depends(require_roles("admin", "super_admin")),
+    # Read-only: viewers reach the review queue from the staff shortcut, but
+    # approve/correct below stay admin + super_admin.
+    _admin_user: dict = Depends(require_roles("admin", "super_admin", "viewer")),
     connection: asyncpg.Connection = Depends(get_connection),
 ):
     rows = await connection.fetch(
@@ -2314,7 +2329,8 @@ async def correct_assessment_review(
 
 @app.get("/admin/feedback", response_model=list[RoutingFeedbackOut])
 async def list_routing_feedback(
-    _admin_user: dict = Depends(require_roles("admin", "super_admin")),
+    # Read-only, same as /admin/reviews above.
+    _admin_user: dict = Depends(require_roles("admin", "super_admin", "viewer")),
     connection: asyncpg.Connection = Depends(get_connection),
 ):
     rows = await connection.fetch(

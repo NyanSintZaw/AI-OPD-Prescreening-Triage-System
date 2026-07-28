@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { api, type MessageOut } from '../api';
-import { getAdminEmail, getAdminToken } from '../api/client';
+import { getAdminEmail, getAdminRole, getAdminToken } from '../api/client';
 import { Layout } from '../components/Layout';
 import { MessageBubble } from '../components/MessageBubble';
 import { DoctorScheduleManager } from '../components/DoctorScheduleManager';
@@ -38,7 +38,20 @@ export function NursePage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { language, setLanguage } = useLanguage();
-  const [activeTab, setActiveTab] = useState<NurseTab>('reviews');
+  // Ops staff can reach this portal too; viewers get the read-only view and
+  // must be sent back to their own login, not the nurse one.
+  const isReadOnly = getAdminRole() === 'viewer';
+  // The tab lives in the URL so the floating shortcut can land on a specific
+  // one — /nurse and /nurse?tab=schedules share a route element, so nothing
+  // remounts on a same-route jump and local state would stay stale.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const activeTab: NurseTab =
+    searchParams.get('tab') === 'schedules' && !isReadOnly ? 'schedules' : 'reviews';
+  const setActiveTab = (tab: NurseTab) => {
+    const next = new URLSearchParams(searchParams);
+    next.set('tab', tab);
+    setSearchParams(next, { replace: true }); // tab toggles shouldn't pile up history
+  };
   const [reviewFilter, setReviewFilter] = useState<ReviewFilter>('all');
   const [deptFilter, setDeptFilter] = useState<string>('all');
   const [reviews, setReviews] = useState<AssessmentReviewOut[]>([]);
@@ -61,6 +74,7 @@ export function NursePage() {
   const [editScore, setEditScore] = useState('');
 
   const staffEmail = getAdminEmail() ?? t('loginNurseTab');
+  const loginPathForRole = () => (getAdminRole() === 'admin' ? '/login/nurse' : '/login/admin');
 
   const loadReviewData = async (status: ReviewFilter) => {
     if (!getAdminToken()) return;
@@ -75,15 +89,17 @@ export function NursePage() {
       setFeedbackRows(feedbackData);
     } catch (err) {
       const message = err instanceof Error ? err.message : t('error');
+      // Only a stale token warrants a logout. A 403 means the role lacks the
+      // permission — logging out would strand them at a login their role
+      // cannot use, so surface it as an error instead.
       if (
         message.includes('401') ||
-        message.includes('403') ||
         message.toLowerCase().includes('token') ||
-        message.toLowerCase().includes('unauthorized') ||
-        message.toLowerCase().includes('permission')
+        message.toLowerCase().includes('unauthorized')
       ) {
+        const loginPath = loginPathForRole();
         api.adminLogout();
-        navigate('/login/nurse', { replace: true });
+        navigate(loginPath, { replace: true });
         return;
       }
       setAuthError(message);
@@ -115,8 +131,9 @@ export function NursePage() {
   }, [selectedReview]);
 
   const handleLogout = () => {
+    const loginPath = loginPathForRole(); // read the role before it is cleared
     api.adminLogout();
-    navigate('/login/nurse', { replace: true });
+    navigate(loginPath, { replace: true });
   };
 
   // One button: an unchanged department confirms/approves; a changed one is
@@ -248,13 +265,16 @@ export function NursePage() {
           >
             {t('scheduleTabReviews')}
           </button>
-          <button
-            type="button"
-            className={`nurse-tab-btn ${activeTab === 'schedules' ? 'active' : ''}`}
-            onClick={() => setActiveTab('schedules')}
-          >
-            {t('scheduleTabDoctors')}
-          </button>
+          {/* Schedule management is all writes — viewers have no use for it. */}
+          {!isReadOnly && (
+            <button
+              type="button"
+              className={`nurse-tab-btn ${activeTab === 'schedules' ? 'active' : ''}`}
+              onClick={() => setActiveTab('schedules')}
+            >
+              {t('scheduleTabDoctors')}
+            </button>
+          )}
         </div>
 
         {authError ? <p className="error-text">{authError}</p> : null}
@@ -511,7 +531,7 @@ export function NursePage() {
                     </p>
 
                     <p className="nurse-review-section-title">{t('nurseAssessmentSection')}</p>
-                    {selectedReview.status === 'pending' ? (
+                    {selectedReview.status === 'pending' && !isReadOnly ? (
                       <>
                         <p className="muted nurse-narrative-hint">{t('nurseNarrativeHint')}</p>
                         <label className="nurse-modal-field">
