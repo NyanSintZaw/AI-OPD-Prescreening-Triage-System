@@ -1,0 +1,19 @@
+meta {
+  name: DELETE /sessions/{session_id}/link-visit
+  type: http
+  seq: 3
+}
+
+delete {
+  url: {{baseUrl}}/sessions/{{session_id}}/link-visit
+  body: none
+  auth: none
+}
+
+docs {
+  Clear the linked hospital visit so the patient can re-enter a VN.
+  
+  Used when name confirmation fails ("Is this you?" → No). Does not delete
+  the session or screening state — drops ``metadata.visit`` plus any
+  HIS-derived prefill (history, HIS-sourced vitals) of the wrong patient.
+}

@@ -1,0 +1,25 @@
+meta {
+  name: POST /sessions/{session_id}/measurement
+  type: http
+  seq: 11
+}
+
+post {
+  url: {{baseUrl}}/sessions/{{session_id}}/measurement
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "vital": "temp",
+    "value": 0.0
+  }
+}
+
+docs {
+  Record a single vital the screening engine asked for mid-interview
+  (temperature-on-demand). Merges into the session's stored vitals so the
+  next turn's ``turn_context`` carries it — without requiring the booth to
+  re-send the blood-pressure reading.
+}

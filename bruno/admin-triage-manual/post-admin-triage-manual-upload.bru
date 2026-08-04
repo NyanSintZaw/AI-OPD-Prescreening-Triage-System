@@ -1,0 +1,26 @@
+meta {
+  name: POST /admin/triage-manual/upload
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/admin/triage-manual/upload
+  body: multipartForm
+  auth: none
+}
+
+headers {
+  Authorization: Bearer {{token}}
+}
+
+docs {
+  Upload a new triage manual PDF and trigger background RAG ingestion.
+  
+  Replaces any previously uploaded manual.  The old pgvector embeddings are
+  deleted automatically before the new ones are stored.
+  
+  Returns a JSON object with the upload ``id`` and initial ``status``.
+  
+  Roles: super_admin, admin. Multipart form — pick the file in Bruno's Body tab.
+}

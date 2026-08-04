@@ -1,0 +1,976 @@
+{
+ "openapi": "3.1.0",
+ "info": {
+  "title": "Hospital HIS (mock)",
+  "description": "Simulates the hospital's visit database behind a REST API. The data in here belongs to the 'hospital side' of the demo — the triage system can only reach it through these endpoints.",
+  "version": "0.1.0"
+ },
+ "paths": {
+  "/api/visits": {
+   "get": {
+    "summary": "List Visits",
+    "description": "List all visits with their before/after screening status — powers\nthe admin dashboard's 'Hospital DB' view.",
+    "operationId": "list_visits_api_visits_get",
+    "parameters": [
+     {
+      "name": "x-api-key",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "X-Api-Key"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/visits/{visit_id}": {
+   "get": {
+    "summary": "Get Visit",
+    "operationId": "get_visit_api_visits__visit_id__get",
+    "parameters": [
+     {
+      "name": "visit_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Visit Id"
+      }
+     },
+     {
+      "name": "x-api-key",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "X-Api-Key"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/visits/{visit_id}/prescreen": {
+   "post": {
+    "summary": "Push Prescreen",
+    "description": "Stage 1 write-back — objective booth data only.\n\nWrites the measurements taken at our booth + the booth as\nfirst_location/measure onto the visit row. The clinical narrative\n(complaint summary, reason) and the recommended department are HELD\nin prescreen_results (pending) and NOT published to the visit row\nuntil a nurse confirms at the destination (Stage 2).",
+    "operationId": "push_prescreen_api_visits__visit_id__prescreen_post",
+    "parameters": [
+     {
+      "name": "visit_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Visit Id"
+      }
+     },
+     {
+      "name": "x-api-key",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "X-Api-Key"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/PrescreenIn"
+       }
+      }
+     }
+    },
+    "responses": {
+     "201": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   },
+   "get": {
+    "summary": "Get Prescreen",
+    "operationId": "get_prescreen_api_visits__visit_id__prescreen_get",
+    "parameters": [
+     {
+      "name": "visit_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Visit Id"
+      }
+     },
+     {
+      "name": "x-api-key",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "X-Api-Key"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/visits/{visit_id}/routing": {
+   "put": {
+    "summary": "Confirm Routing",
+    "description": "Stage 2 write-back — publish the clinical narrative + routing.\n\nHuman sign-off. Promotes the held complaint summary + reason into the\nnurse_* fields and writes second_location (the confirmed/rerouted\ndepartment) onto the visit row.",
+    "operationId": "confirm_routing_api_visits__visit_id__routing_put",
+    "parameters": [
+     {
+      "name": "visit_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Visit Id"
+      }
+     },
+     {
+      "name": "x-api-key",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "X-Api-Key"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/RoutingIn"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/visits/{visit_id}/follow-up": {
+   "put": {
+    "summary": "Update Follow Up",
+    "description": "Record the patient's own follow-up question/concern from the booth.\n\nWritten as soon as the patient states it (end of the booth flow) —\nunlike the nurse narrative it needs no human sign-off, it IS the\npatient's verbatim words for the doctor.",
+    "operationId": "update_follow_up_api_visits__visit_id__follow_up_put",
+    "parameters": [
+     {
+      "name": "visit_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Visit Id"
+      }
+     },
+     {
+      "name": "x-api-key",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "X-Api-Key"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/FollowUpIn"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/patients": {
+   "get": {
+    "summary": "List Patients",
+    "description": "List all HN master records with their visit counts — powers the\nadmin dashboard's 'Hospital DB' HN tab.",
+    "operationId": "list_patients_api_patients_get",
+    "parameters": [
+     {
+      "name": "x-api-key",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "X-Api-Key"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/patients/{hn}": {
+   "get": {
+    "summary": "Get Patient",
+    "description": "HN master record: demographics + history + last-known vitals.\n\n``is_first_time`` is ``true`` iff ``history_recorded_at`` is NULL —\nthe signal the booth uses to decide whether to run the first-time\npatient history intake.",
+    "operationId": "get_patient_api_patients__hn__get",
+    "parameters": [
+     {
+      "name": "hn",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Hn"
+      }
+     },
+     {
+      "name": "x-api-key",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "X-Api-Key"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/patients/{hn}/history": {
+   "put": {
+    "summary": "Update Patient History",
+    "description": "Record first-time-patient history collected at the booth.\n\nUpserts the full history (no partial-field merge, matching this\nservice's other write-back endpoints) and stamps\n``history_recorded_at`` — from this point on the patient is no\nlonger first-time, on this visit and any future one.",
+    "operationId": "update_patient_history_api_patients__hn__history_put",
+    "parameters": [
+     {
+      "name": "hn",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Hn"
+      }
+     },
+     {
+      "name": "x-api-key",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "X-Api-Key"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/PatientHistoryIn"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/patients/{hn}/vitals": {
+   "put": {
+    "summary": "Update Patient Vitals",
+    "description": "Record the most recent booth weight/height for this HN, so a\nfuture visit's booth can decide to skip re-asking within the\nrecency window.",
+    "operationId": "update_patient_vitals_api_patients__hn__vitals_put",
+    "parameters": [
+     {
+      "name": "hn",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Hn"
+      }
+     },
+     {
+      "name": "x-api-key",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "X-Api-Key"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/PatientVitalsIn"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/admin/reset": {
+   "post": {
+    "summary": "Reset Visits",
+    "description": "Testing convenience: return visits to their pre-registration\n(\"registered\") state so a demo can be re-run against the same visit\nIDs. Clears the held prescreen results and NULLs every screening\ncolumn our system writes back (booth measurements, first/second\nlocation, nurse narrative). Pre-registration fields\n(visit_id / hnx / birthdate / appointment) are untouched.\n\nWith ``visit_ids`` it resets only those; otherwise it resets every\nvisit. Note: against a completed real export (``HIS_MOCK_DATA_PATH``)\nthis also clears the export's screening fields — it is a demo/test tool.\n\nPatient (HN) history is left alone by default, since it's meant to\ncarry across visits — pass ``reset_history: true`` to also wipe the\naffected patients' history/last-vitals back to \"first-time\" so that\nflow can be re-demoed against the same synthetic HNs.",
+    "operationId": "reset_visits_api_admin_reset_post",
+    "parameters": [
+     {
+      "name": "x-api-key",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "X-Api-Key"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "anyOf": [
+         {
+          "$ref": "#/components/schemas/ResetIn"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Payload"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/departments": {
+   "get": {
+    "summary": "List Departments",
+    "operationId": "list_departments_api_departments_get",
+    "parameters": [
+     {
+      "name": "x-api-key",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "X-Api-Key"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  }
+ },
+ "components": {
+  "schemas": {
+   "FollowUpIn": {
+    "properties": {
+     "follow_up": {
+      "type": "string",
+      "title": "Follow Up"
+     }
+    },
+    "type": "object",
+    "required": [
+     "follow_up"
+    ],
+    "title": "FollowUpIn"
+   },
+   "HTTPValidationError": {
+    "properties": {
+     "detail": {
+      "items": {
+       "$ref": "#/components/schemas/ValidationError"
+      },
+      "type": "array",
+      "title": "Detail"
+     }
+    },
+    "type": "object",
+    "title": "HTTPValidationError"
+   },
+   "PatientHistoryIn": {
+    "properties": {
+     "smoking_alcohol": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Smoking Alcohol"
+     },
+     "allergies": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Allergies"
+     },
+     "chronic_conditions": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Chronic Conditions"
+     },
+     "past_surgeries": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Past Surgeries"
+     },
+     "family_history": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Family History"
+     }
+    },
+    "type": "object",
+    "title": "PatientHistoryIn"
+   },
+   "PatientVitalsIn": {
+    "properties": {
+     "weight_kg": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Weight Kg"
+     },
+     "height_cm": {
+      "anyOf": [
+       {
+        "type": "number"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Height Cm"
+     }
+    },
+    "type": "object",
+    "title": "PatientVitalsIn"
+   },
+   "PrescreenIn": {
+    "properties": {
+     "session_ref": {
+      "type": "string",
+      "title": "Session Ref"
+     },
+     "slip_code": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Slip Code"
+     },
+     "recommended_department": {
+      "type": "string",
+      "title": "Recommended Department"
+     },
+     "complaint": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Complaint"
+     },
+     "reason": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Reason"
+     },
+     "vitals": {
+      "anyOf": [
+       {
+        "additionalProperties": true,
+        "type": "object"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Vitals"
+     },
+     "reasons": {
+      "items": {
+       "type": "string"
+      },
+      "type": "array",
+      "title": "Reasons"
+     }
+    },
+    "type": "object",
+    "required": [
+     "session_ref",
+     "recommended_department"
+    ],
+    "title": "PrescreenIn"
+   },
+   "ResetIn": {
+    "properties": {
+     "visit_ids": {
+      "items": {
+       "type": "string"
+      },
+      "type": "array",
+      "title": "Visit Ids"
+     },
+     "reset_history": {
+      "type": "boolean",
+      "title": "Reset History",
+      "default": false
+     }
+    },
+    "type": "object",
+    "title": "ResetIn"
+   },
+   "RoutingIn": {
+    "properties": {
+     "department": {
+      "type": "string",
+      "title": "Department"
+     },
+     "complaint": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Complaint"
+     },
+     "illness_note": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Illness Note"
+     },
+     "confirmed_by": {
+      "type": "string",
+      "title": "Confirmed By"
+     },
+     "rerouted": {
+      "type": "boolean",
+      "title": "Rerouted",
+      "default": false
+     }
+    },
+    "type": "object",
+    "required": [
+     "department",
+     "confirmed_by"
+    ],
+    "title": "RoutingIn"
+   },
+   "ValidationError": {
+    "properties": {
+     "loc": {
+      "items": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "integer"
+        }
+       ]
+      },
+      "type": "array",
+      "title": "Location"
+     },
+     "msg": {
+      "type": "string",
+      "title": "Message"
+     },
+     "type": {
+      "type": "string",
+      "title": "Error Type"
+     },
+     "input": {
+      "title": "Input"
+     },
+     "ctx": {
+      "type": "object",
+      "title": "Context"
+     }
+    },
+    "type": "object",
+    "required": [
+     "loc",
+     "msg",
+     "type"
+    ],
+    "title": "ValidationError"
+   }
+  }
+ }
+}

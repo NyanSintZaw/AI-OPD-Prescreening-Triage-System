@@ -1,0 +1,17 @@
+meta {
+  name: POST /stt
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/stt
+  body: multipartForm
+  auth: none
+}
+
+docs {
+  Transcribe a short audio clip. Returns the recognized text.
+  
+  Multipart form — pick the file in Bruno's Body tab.
+}

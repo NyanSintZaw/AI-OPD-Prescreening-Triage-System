@@ -1,0 +1,21 @@
+meta {
+  name: GET /admin/users
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/admin/users
+  body: none
+  auth: none
+}
+
+headers {
+  Authorization: Bearer {{token}}
+}
+
+docs {
+  Admin List Users
+  
+  Roles: super_admin.
+}

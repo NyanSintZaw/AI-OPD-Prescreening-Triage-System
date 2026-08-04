@@ -1,0 +1,21 @@
+meta {
+  name: GET /admin/bp-device
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/admin/bp-device
+  body: none
+  auth: none
+}
+
+headers {
+  Authorization: Bearer {{token}}
+}
+
+docs {
+  Current cuff configuration for the admin portal device manager.
+  
+  Roles: super_admin, admin, viewer.
+}

@@ -1,0 +1,21 @@
+meta {
+  name: GET /conversation-summary
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/conversation-summary
+  body: none
+  auth: none
+}
+
+headers {
+  Authorization: Bearer {{token}}
+}
+
+docs {
+  Conversation Summary
+  
+  Roles: super_admin, viewer, admin.
+}

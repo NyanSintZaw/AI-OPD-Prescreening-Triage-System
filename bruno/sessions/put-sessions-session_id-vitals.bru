@@ -1,0 +1,37 @@
+meta {
+  name: PUT /sessions/{session_id}/vitals
+  type: http
+  seq: 10
+}
+
+put {
+  url: {{baseUrl}}/sessions/{{session_id}}/vitals
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "systolic": 0,
+    "diastolic": 0,
+    "pulse_bpm": 0,
+    "weight_kg": 0.0,
+    "height_cm": 0.0,
+    "temperature_c": 0.0,
+    "measured_at": "2026-08-04T09:00:00Z",
+    "source": "device",
+    "reading_id": "00000000-0000-0000-0000-000000000000"
+  }
+}
+
+docs {
+  Store a blood-pressure reading on the session so the triage agent
+  (text chat and live voice) can factor it into the assessment.
+  Called by the vitals gate UI after a cuff fetch or manual entry.
+  
+  Plausibility is enforced by ``SessionVitalsUpdate`` (bounds from the
+  criteria defaults, plus systolic > diastolic), so an impossible reading is
+  rejected with a 422 BEFORE the hypertensive-crisis check below can see it.
+  That ordering is load-bearing: 300/220 must not open a 15-minute rest
+  window. See docs/vital-bounds.md.
+}

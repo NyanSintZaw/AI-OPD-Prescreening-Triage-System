@@ -1,0 +1,9 @@
+{
+  "version": "1",
+  "name": "ai-opd-prescreening-api",
+  "type": "collection",
+  "ignore": [
+    "node_modules",
+    ".git"
+  ]
+}

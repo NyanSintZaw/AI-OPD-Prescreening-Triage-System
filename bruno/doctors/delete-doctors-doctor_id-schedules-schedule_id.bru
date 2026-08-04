@@ -1,0 +1,21 @@
+meta {
+  name: DELETE /doctors/{doctor_id}/schedules/{schedule_id}
+  type: http
+  seq: 8
+}
+
+delete {
+  url: {{baseUrl}}/doctors/{{doctor_id}}/schedules/{{schedule_id}}
+  body: none
+  auth: none
+}
+
+headers {
+  Authorization: Bearer {{token}}
+}
+
+docs {
+  Delete a schedule entry.
+  
+  Roles: super_admin, admin.
+}

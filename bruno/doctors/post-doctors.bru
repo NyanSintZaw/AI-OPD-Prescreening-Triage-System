@@ -1,0 +1,33 @@
+meta {
+  name: POST /doctors
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/doctors
+  body: json
+  auth: none
+}
+
+headers {
+  Authorization: Bearer {{token}}
+}
+
+body:json {
+  {
+    "full_name": "string",
+    "title": "Dr.",
+    "specialization": "string",
+    "department_id": "00000000-0000-0000-0000-000000000000",
+    "phone_ext": "string",
+    "notes": "string",
+    "is_active": true
+  }
+}
+
+docs {
+  Create a new doctor profile. Requires admin or nurse role.
+  
+  Roles: super_admin, admin.
+}

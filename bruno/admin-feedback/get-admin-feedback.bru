@@ -1,0 +1,21 @@
+meta {
+  name: GET /admin/feedback
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/admin/feedback
+  body: none
+  auth: none
+}
+
+headers {
+  Authorization: Bearer {{token}}
+}
+
+docs {
+  List Routing Feedback
+  
+  Roles: admin, super_admin, viewer.
+}

@@ -1,0 +1,21 @@
+meta {
+  name: GET /admin/his/visits
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{baseUrl}}/admin/his/visits
+  body: none
+  auth: none
+}
+
+headers {
+  Authorization: Bearer {{token}}
+}
+
+docs {
+  Admin His Visits
+  
+  Roles: super_admin, admin, viewer.
+}

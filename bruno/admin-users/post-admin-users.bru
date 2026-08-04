@@ -1,0 +1,30 @@
+meta {
+  name: POST /admin/users
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/admin/users
+  body: json
+  auth: none
+}
+
+headers {
+  Authorization: Bearer {{token}}
+}
+
+body:json {
+  {
+    "email": "string",
+    "full_name": "string",
+    "password": "string",
+    "role": "admin"
+  }
+}
+
+docs {
+  Admin Create User
+  
+  Roles: super_admin.
+}
