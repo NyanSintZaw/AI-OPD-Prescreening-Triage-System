@@ -55,7 +55,7 @@ async def _active_criteria_payload(conn: asyncpg.Connection) -> dict:
 
 @router.get("/admin/criteria/versions")
 async def list_criteria_versions(
-    _admin_user: dict = Depends(require_roles("super_admin", "admin", "viewer")),
+    _admin_user: dict = Depends(require_roles("super_admin", "nurse", "viewer")),
     connection: asyncpg.Connection = Depends(get_connection),
 ):
     rows = await connection.fetch(
@@ -72,7 +72,7 @@ async def list_criteria_versions(
 @router.get("/admin/criteria/versions/{version_id}")
 async def get_criteria_version_detail(
     version_id: UUID,
-    _admin_user: dict = Depends(require_roles("super_admin", "admin", "viewer")),
+    _admin_user: dict = Depends(require_roles("super_admin", "nurse", "viewer")),
     connection: asyncpg.Connection = Depends(get_connection),
 ):
     from app.services.screening.rules.criteria_store import validation_errors
@@ -95,7 +95,7 @@ async def diff_criteria_version(
     against: UUID | None = Query(
         None, description="Version to compare against (default: the active version)"
     ),
-    _admin_user: dict = Depends(require_roles("super_admin", "admin", "viewer")),
+    _admin_user: dict = Depends(require_roles("super_admin", "nurse", "viewer")),
     connection: asyncpg.Connection = Depends(get_connection),
 ):
     """Section-level diff (added/removed/changed rule ids) vs another version."""
@@ -131,7 +131,7 @@ async def diff_criteria_version(
 async def edit_criteria_version(
     version_id: UUID,
     criteria: dict = Body(..., description="Full criteria JSON document"),
-    _admin_user: dict = Depends(require_roles("super_admin", "admin")),
+    _admin_user: dict = Depends(require_roles("super_admin", "nurse")),
     connection: asyncpg.Connection = Depends(get_connection),
 ):
     """Replace a draft's criteria JSON (the pressure valve for imperfect extraction).
@@ -224,7 +224,7 @@ async def _criteria_status_transition(
 @router.post("/admin/criteria/versions/{version_id}/submit")
 async def submit_criteria_version(
     version_id: UUID,
-    _admin_user: dict = Depends(require_roles("super_admin", "admin")),
+    _admin_user: dict = Depends(require_roles("super_admin", "nurse")),
     connection: asyncpg.Connection = Depends(get_connection),
 ):
     return await _criteria_status_transition(
@@ -235,7 +235,7 @@ async def submit_criteria_version(
 @router.post("/admin/criteria/versions/{version_id}/approve")
 async def approve_criteria_version(
     version_id: UUID,
-    admin_user: dict = Depends(require_roles("super_admin", "admin")),
+    admin_user: dict = Depends(require_roles("super_admin", "nurse")),
     connection: asyncpg.Connection = Depends(get_connection),
 ):
     reviewer = str(admin_user.get("email") or admin_user.get("id") or "unknown")
@@ -251,7 +251,7 @@ async def approve_criteria_version(
 @router.post("/admin/criteria/versions/{version_id}/activate")
 async def activate_criteria_version(
     version_id: UUID,
-    _admin_user: dict = Depends(require_roles("super_admin", "admin")),
+    _admin_user: dict = Depends(require_roles("super_admin", "nurse")),
     connection: asyncpg.Connection = Depends(get_connection),
 ):
     """Activate an approved version. Activating a retired version = rollback."""

@@ -461,7 +461,7 @@ async def watch_blood_pressure(
 @router.get("/admin/bp-device", response_model=BpDeviceStatusOut)
 async def get_bp_device_status(
     request: Request,
-    _admin_user: dict = Depends(require_roles("super_admin", "admin", "viewer")),
+    _admin_user: dict = Depends(require_roles("super_admin", "nurse", "viewer")),
 ):
     """Current cuff configuration for the admin portal device manager."""
     bp_service: BloodPressureService = request.app.state.bp_service
@@ -477,7 +477,7 @@ async def get_bp_device_status(
 @router.post("/admin/bp-device/scan", response_model=BpScanResponse)
 async def scan_bp_devices(
     request: Request,
-    _admin_user: dict = Depends(require_roles("super_admin", "admin")),
+    _admin_user: dict = Depends(require_roles("super_admin", "nurse")),
 ):
     """Sweep for nearby BLE devices (~6s) so the admin can pick the cuff.
 
@@ -499,7 +499,7 @@ async def scan_bp_devices(
 async def pair_bp_device(
     payload: BpPairRequest,
     request: Request,
-    _admin_user: dict = Depends(require_roles("super_admin", "admin")),
+    _admin_user: dict = Depends(require_roles("super_admin", "nurse")),
 ):
     """Program the pairing key into the selected cuff and make it the
     active kiosk device (persists to .env, effective immediately)."""

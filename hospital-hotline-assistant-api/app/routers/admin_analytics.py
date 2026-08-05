@@ -27,7 +27,7 @@ router = APIRouter()
 
 @router.get("/conversation-summary", response_model=list[ConversationSummaryOut])
 async def conversation_summary(
-    _admin_user: dict = Depends(require_roles("super_admin", "viewer", "admin")),
+    _admin_user: dict = Depends(require_roles("super_admin", "viewer", "nurse")),
     connection: asyncpg.Connection = Depends(get_connection),
 ):
     records = await connection.fetch(
@@ -47,7 +47,7 @@ async def conversation_summary(
 @router.get("/admin/surveillance", response_model=SurveillanceSummaryOut)
 async def get_surveillance_summary(
     days: int = 7,
-    _admin_user: dict = Depends(require_roles("super_admin", "admin", "viewer")),
+    _admin_user: dict = Depends(require_roles("super_admin", "nurse", "viewer")),
     connection: asyncpg.Connection = Depends(get_connection),
 ):
     """Aggregate disease-surveillance data for the admin outbreak dashboard."""
@@ -209,7 +209,7 @@ async def upload_triage_manual(
     request: Request,
     file: UploadFile = File(..., description="Hospital triage manual PDF"),
     connection: asyncpg.Connection = Depends(get_connection),
-    admin_user: dict = Depends(require_roles("super_admin", "admin")),
+    admin_user: dict = Depends(require_roles("super_admin", "nurse")),
 ) -> JSONResponse:
     """Upload a new triage manual PDF and trigger background RAG ingestion.
 
@@ -274,7 +274,7 @@ async def upload_triage_manual(
 @router.get("/admin/triage-manual/status")
 async def get_triage_manual_status(
     connection: asyncpg.Connection = Depends(get_connection),
-    admin_user: dict = Depends(require_roles("super_admin", "admin")),
+    admin_user: dict = Depends(require_roles("super_admin", "nurse")),
 ) -> JSONResponse:
     """Return the latest triage manual upload record.
 
@@ -318,7 +318,7 @@ async def get_triage_manual_status(
 async def get_ai_metrics(
     date_from: str | None = Query(None, alias="from", description="ISO date/datetime lower bound"),
     date_to: str | None = Query(None, alias="to", description="ISO date/datetime upper bound"),
-    _admin_user: dict = Depends(require_roles("super_admin", "admin", "viewer")),
+    _admin_user: dict = Depends(require_roles("super_admin", "nurse", "viewer")),
     connection: asyncpg.Connection = Depends(get_connection),
 ):
     """Aggregate AI transparency metrics over ai_inference_audit (SRS F40).

@@ -59,7 +59,7 @@ def _his_connection_payload(
 
 @router.get("/admin/his/connection", response_model=HisConnectionOut)
 async def admin_his_connection(
-    _admin_user: dict = Depends(require_roles("super_admin", "admin", "viewer")),
+    _admin_user: dict = Depends(require_roles("super_admin", "nurse", "viewer")),
 ):
     """Current hospital-DB connection state for the Database Settings tab."""
     if settings.his_mode != "http" or not settings.his_base_url:
@@ -149,7 +149,7 @@ async def admin_his_disconnect(
 
 @router.get("/admin/his/visits")
 async def admin_his_visits(
-    _admin_user: dict = Depends(require_roles("super_admin", "admin", "viewer")),
+    _admin_user: dict = Depends(require_roles("super_admin", "nurse", "viewer")),
 ):
     data = await _his_proxy_get("/api/visits")
     if data is None:
@@ -160,7 +160,7 @@ async def admin_his_visits(
 @router.get("/admin/his/visits/{visit_id}")
 async def admin_his_visit_detail(
     visit_id: str,
-    _admin_user: dict = Depends(require_roles("super_admin", "admin", "viewer")),
+    _admin_user: dict = Depends(require_roles("super_admin", "nurse", "viewer")),
 ):
     data = await _his_proxy_get(f"/api/visits/{visit_id}")
     if data is None:
@@ -170,7 +170,7 @@ async def admin_his_visit_detail(
 
 @router.get("/admin/his/patients")
 async def admin_his_patients(
-    _admin_user: dict = Depends(require_roles("super_admin", "admin", "viewer")),
+    _admin_user: dict = Depends(require_roles("super_admin", "nurse", "viewer")),
 ):
     """HN master records from the connected hospital DB — the admin
     Database tab's patient (HN) view. Each row already carries the full

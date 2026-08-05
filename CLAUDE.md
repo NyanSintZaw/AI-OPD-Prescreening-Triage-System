@@ -94,7 +94,7 @@ Routes live in feature routers under `app/routers/` (one file per surface: `sess
 
 **Voice flow** (`WS /ws/voice/{session_id}`): browser streams 16 kHz PCM up / receives 24 kHz PCM down; every turn persists as it happens through `process_chat_stream`. Binary WS frames are mic PCM; JSON control frames are `mute`/`unmute`/`end_of_turn`/`end_call`.
 
-Admin auth is in-memory bearer tokens (`admin_auth.py`, roles `super_admin`/`admin`/`viewer`) — tokens vanish on restart.
+Admin auth is in-memory bearer tokens (`admin_auth.py`, roles `super_admin`/`nurse`/`viewer`; `nurse` gates the review portal, `/admin` portal is super_admin+viewer) — tokens vanish on restart; `POST /admin/logout` revokes.
 
 **Tests** (`tests/`): self-contained unit tests with in-file fakes; no real Google/DB calls except tests marked `integration`. `tests/screening/` covers the engine: table-driven rules tests from the seed criteria, graph/engine tests with a `FakeChatModel` (`fakes.py`), golden end-to-end transcripts (`test_golden_transcripts.py`) validator-checking every reply in both languages, HIS adapter/write-back tests, voice-bridge tests (incl. a Thai turn), and `test_engine_authority.py` (interview turns stay in_progress; disposed turns persist the engine's department). Run `uv run pytest -m "not integration"`.
 

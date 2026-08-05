@@ -30,7 +30,7 @@ export function App() {
           path="/nurse"
           element={
             <ProtectedRoute
-              allowedRoles={['admin', 'super_admin', 'viewer']}
+              allowedRoles={['nurse', 'super_admin', 'viewer']}
               loginPath="/login/nurse"
             >
               <NursePage />

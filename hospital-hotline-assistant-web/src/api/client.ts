@@ -5,7 +5,7 @@ const ADMIN_TOKEN_KEY = 'hotline_admin_token';
 const ADMIN_EMAIL_KEY = 'hotline_admin_email';
 const ADMIN_ROLE_KEY = 'hotline_admin_role';
 
-export type StaffRole = 'super_admin' | 'admin' | 'viewer';
+export type StaffRole = 'super_admin' | 'nurse' | 'viewer';
 
 function getAdminToken(): string | null {
   if (typeof window === 'undefined') return null;
@@ -15,7 +15,7 @@ function getAdminToken(): string | null {
 function getAdminRole(): StaffRole | null {
   if (typeof window === 'undefined') return null;
   const role = window.localStorage.getItem(ADMIN_ROLE_KEY);
-  if (role === 'super_admin' || role === 'admin' || role === 'viewer') {
+  if (role === 'super_admin' || role === 'nurse' || role === 'viewer') {
     return role;
   }
   return null;
@@ -48,7 +48,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
         // and /login/nurse would reject them. Read the role before clearing.
         const role = getAdminRole();
         setAdminSession(null, null);
-        window.location.assign(role === 'admin' ? '/login/nurse' : '/login/admin');
+        window.location.assign(role === 'nurse' ? '/login/nurse' : '/login/admin');
         throw new Error('Session expired — please log in again');
       }
     }

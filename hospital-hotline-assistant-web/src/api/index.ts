@@ -123,6 +123,9 @@ export const api = {
   },
 
   adminLogout: () => {
+    // Revoke server-side first (best-effort — the token header is injected
+    // by `request`), then drop the local session either way.
+    void request<void>('/admin/logout', { method: 'POST' }).catch(() => {});
     setAdminSession(null);
   },
 

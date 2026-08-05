@@ -419,7 +419,7 @@ class AdminUserOut(BaseModel):
     id: UUID
     email: str
     full_name: str | None = None
-    role: Literal["super_admin", "admin", "viewer"]
+    role: Literal["super_admin", "nurse", "viewer"]
 
 
 class AdminUserManageOut(AdminUserOut):
@@ -434,8 +434,8 @@ class AdminUserCreate(BaseModel):
     email: str = Field(..., min_length=3, max_length=255)
     full_name: str = Field(..., min_length=1, max_length=150)
     password: str = Field(..., min_length=8, max_length=128)
-    # Only nurse accounts (role "admin") are manageable from the UI for now.
-    role: Literal["admin"] = "admin"
+    # Only nurse accounts are manageable from the UI for now.
+    role: Literal["nurse"] = "nurse"
 
 
 class AdminUserUpdate(BaseModel):

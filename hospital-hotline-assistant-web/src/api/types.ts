@@ -139,7 +139,7 @@ export interface AdminUserOut {
   id: string;
   email: string;
   full_name: string | null;
-  role: 'super_admin' | 'admin' | 'viewer';
+  role: 'super_admin' | 'nurse' | 'viewer';
 }
 
 export interface AdminLoginRequest {
@@ -571,7 +571,7 @@ export interface AdminManagedUser {
   id: string;
   email: string;
   full_name: string | null;
-  role: 'super_admin' | 'admin' | 'viewer';
+  role: 'super_admin' | 'nurse' | 'viewer';
   is_active: boolean;
   last_login_at: string | null;
   created_at: string;

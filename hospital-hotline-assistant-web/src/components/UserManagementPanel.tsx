@@ -4,7 +4,7 @@ import { api } from '../api';
 import type { AdminManagedUser } from '../api/types';
 
 /** Admin → User Settings: create / manage / delete nurse accounts.
- *  Nurses are admin_users rows with role 'admin' (the /nurse portal role);
+ *  Nurses are admin_users rows with role 'nurse' (the /nurse portal role);
  *  super-admin and viewer accounts are deliberately not manageable here. */
 export function UserManagementPanel() {
   const { t } = useTranslation();

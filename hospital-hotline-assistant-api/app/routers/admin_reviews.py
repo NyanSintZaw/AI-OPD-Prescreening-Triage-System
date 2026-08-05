@@ -90,7 +90,7 @@ def _attach_missing_vitals(row: dict) -> dict:
 @router.get("/admin/sessions/{session_id}/trace")
 async def get_session_trace(
     session_id: UUID,
-    _admin_user: dict = Depends(require_roles("admin", "super_admin", "viewer")),
+    _admin_user: dict = Depends(require_roles("nurse", "super_admin", "viewer")),
     connection: asyncpg.Connection = Depends(get_connection),
 ):
     """Full AI decision trace for one session (SRS Explainability / F40).
@@ -146,7 +146,7 @@ async def get_session_trace(
 async def count_pending_reviews(
     # Cheap badge feed for the in-app FAB and the desktop widget — the list
     # route below returns up to 200 fully-joined rows, far too fat to poll.
-    _admin_user: dict = Depends(require_roles("admin", "super_admin", "viewer")),
+    _admin_user: dict = Depends(require_roles("nurse", "super_admin", "viewer")),
     connection: asyncpg.Connection = Depends(get_connection),
 ):
     pending = await connection.fetchval(
@@ -159,8 +159,8 @@ async def count_pending_reviews(
 async def list_assessment_reviews(
     status: str = "pending",
     # Read-only: viewers reach the review queue from the staff shortcut, but
-    # approve/correct below stay admin + super_admin.
-    _admin_user: dict = Depends(require_roles("admin", "super_admin", "viewer")),
+    # approve/correct below stay nurse + super_admin.
+    _admin_user: dict = Depends(require_roles("nurse", "super_admin", "viewer")),
     connection: asyncpg.Connection = Depends(get_connection),
 ):
     rows = await connection.fetch(
@@ -278,7 +278,7 @@ async def approve_assessment_review(
     assessment_id: UUID,
     payload: AssessmentReviewApproveRequest,
     request: Request,
-    admin_user: dict = Depends(require_roles("admin", "super_admin")),
+    admin_user: dict = Depends(require_roles("nurse", "super_admin")),
     connection: asyncpg.Connection = Depends(get_connection),
 ):
     row = await connection.fetchrow(
@@ -341,7 +341,7 @@ async def correct_assessment_review(
     assessment_id: UUID,
     payload: AssessmentReviewCorrectRequest,
     request: Request,
-    admin_user: dict = Depends(require_roles("admin", "super_admin")),
+    admin_user: dict = Depends(require_roles("nurse", "super_admin")),
     connection: asyncpg.Connection = Depends(get_connection),
 ):
     review_before = await connection.fetchrow(
@@ -436,7 +436,7 @@ async def correct_assessment_review(
 @router.get("/admin/feedback", response_model=list[RoutingFeedbackOut])
 async def list_routing_feedback(
     # Read-only, same as /admin/reviews above.
-    _admin_user: dict = Depends(require_roles("admin", "super_admin", "viewer")),
+    _admin_user: dict = Depends(require_roles("nurse", "super_admin", "viewer")),
     connection: asyncpg.Connection = Depends(get_connection),
 ):
     rows = await connection.fetch(

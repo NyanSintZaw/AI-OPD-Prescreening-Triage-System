@@ -25,7 +25,7 @@ from app.schemas import (
 )
 
 from fastapi import APIRouter
-from app.routers.deps import require_roles
+from app.routers.deps import auth_scheme, require_roles
 
 router = APIRouter()
 
@@ -70,8 +70,19 @@ async def admin_login(
     )
 
 
+@router.post("/admin/logout", status_code=status.HTTP_204_NO_CONTENT)
+async def admin_logout(
+    request: Request,
+    credentials=Depends(auth_scheme),
+) -> None:
+    """Revoke the bearer token server-side. Idempotent: unknown or already
+    expired tokens are a no-op (still 204) so the client can always call it."""
+    if credentials is not None:
+        request.app.state.admin_tokens.pop(credentials.credentials, None)
+
+
 # ── Nurse account management (admin → User Settings) ────────────────────────
-# Nurses ARE admin_users rows with role 'admin' (the /nurse portal role).
+# Nurses ARE admin_users rows with role 'nurse' (the /nurse portal role).
 # Only those rows are manageable here — super_admin/viewer accounts are not
 # touchable from the UI.
 
@@ -83,7 +94,7 @@ async def _fetch_manageable_user(
     )
     if row is None:
         raise HTTPException(status_code=404, detail="User not found")
-    if row["role"] != "admin":
+    if row["role"] != "nurse":
         raise HTTPException(
             status_code=403, detail="Only nurse accounts can be managed here"
         )

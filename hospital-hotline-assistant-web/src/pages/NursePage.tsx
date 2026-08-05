@@ -112,7 +112,7 @@ export function NursePage() {
   const [editScore, setEditScore] = useState('');
 
   const staffEmail = getAdminEmail() ?? t('loginNurseTab');
-  const loginPathForRole = () => (getAdminRole() === 'admin' ? '/login/nurse' : '/login/admin');
+  const loginPathForRole = () => (getAdminRole() === 'nurse' ? '/login/nurse' : '/login/admin');
 
   const loadReviewData = async (status: ReviewFilter) => {
     if (!getAdminToken()) return;

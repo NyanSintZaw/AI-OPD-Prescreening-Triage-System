@@ -12,7 +12,7 @@ const LOGO_URL =
 type PortalKind = 'nurse' | 'admin';
 
 const PORTAL_ROLES: Record<PortalKind, StaffRole[]> = {
-  nurse: ['admin'],
+  nurse: ['nurse'],
   admin: ['super_admin', 'viewer'],
 };
 
@@ -57,7 +57,7 @@ export function LoginPage() {
   const redirectForRole = useMemo(
     () =>
       ({
-        admin: '/nurse',
+        nurse: '/nurse',
         super_admin: '/admin',
         viewer: '/admin',
       }) satisfies Record<StaffRole, string>,

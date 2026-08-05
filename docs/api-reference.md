@@ -92,6 +92,19 @@ Example response:
 
 ---
 
+### `POST /admin/logout`
+
+Admin Logout.
+
+Revoke the bearer token server-side. Idempotent: unknown or already
+expired tokens are a no-op (still 204) so the client can always call it.
+
+**Auth:** none
+
+**Response 204:** Successful Response
+
+---
+
 ### `GET /admin/users`
 
 Admin List Users.
@@ -131,7 +144,7 @@ Admin Create User.
 | `email` | string | Y | Email |
 | `full_name` | string | Y | Full Name |
 | `password` | string | Y | Password |
-| `role` | string | N | Role (default: `"admin"`) |
+| `role` | string | N | Role (default: `"nurse"`) |
 
 Example request:
 
@@ -140,7 +153,7 @@ Example request:
   "email": "string",
   "full_name": "string",
   "password": "string",
-  "role": "admin"
+  "role": "nurse"
 }
 ```
 
@@ -824,7 +837,7 @@ Get Bp Device Status.
 
 Current cuff configuration for the admin portal device manager.
 
-**Auth:** bearer token (roles: super_admin, admin, viewer)
+**Auth:** bearer token (roles: super_admin, nurse, viewer)
 
 **Response 200:** `BpDeviceStatusOut`
 
@@ -853,7 +866,7 @@ Sweep for nearby BLE devices (~6s) so the admin can pick the cuff.
 Mirrors omblepy's interactive selection table: likely Omron monitors
 are flagged and sorted first.
 
-**Auth:** bearer token (roles: super_admin, admin)
+**Auth:** bearer token (roles: super_admin, nurse)
 
 **Response 200:** `BpScanResponse`
 
@@ -883,7 +896,7 @@ Pair Bp Device.
 Program the pairing key into the selected cuff and make it the
 active kiosk device (persists to .env, effective immediately).
 
-**Auth:** bearer token (roles: super_admin, admin)
+**Auth:** bearer token (roles: super_admin, nurse)
 
 **Request body** (`application/json`, `BpPairRequest`):
 
@@ -1446,7 +1459,7 @@ Create Doctor.
 
 Create a new doctor profile. Requires admin or nurse role.
 
-**Auth:** bearer token (roles: super_admin, admin)
+**Auth:** bearer token (roles: super_admin, nurse)
 
 **Request body** (`application/json`, `DoctorCreate`):
 
@@ -1553,7 +1566,7 @@ Update Doctor.
 
 Update a doctor profile. Requires admin or nurse role.
 
-**Auth:** bearer token (roles: super_admin, admin)
+**Auth:** bearer token (roles: super_admin, nurse)
 
 **Path params:** `doctor_id`
 
@@ -1654,7 +1667,7 @@ Add Doctor Schedule.
 
 Add a date-specific schedule entry for a doctor.
 
-**Auth:** bearer token (roles: super_admin, admin)
+**Auth:** bearer token (roles: super_admin, nurse)
 
 **Path params:** `doctor_id`
 
@@ -1718,7 +1731,7 @@ Update Doctor Schedule.
 
 Update an existing schedule entry.
 
-**Auth:** bearer token (roles: super_admin, admin)
+**Auth:** bearer token (roles: super_admin, nurse)
 
 **Path params:** `doctor_id`, `schedule_id`
 
@@ -1782,7 +1795,7 @@ Delete Doctor Schedule.
 
 Delete a schedule entry.
 
-**Auth:** bearer token (roles: super_admin, admin)
+**Auth:** bearer token (roles: super_admin, nurse)
 
 **Path params:** `doctor_id`, `schedule_id`
 
@@ -1910,7 +1923,7 @@ Example response:
 
 Conversation Summary.
 
-**Auth:** bearer token (roles: super_admin, viewer, admin)
+**Auth:** bearer token (roles: super_admin, viewer, nurse)
 
 **Response 200:** `array of ConversationSummaryOut`
 
@@ -1942,7 +1955,7 @@ Get Surveillance Summary.
 
 Aggregate disease-surveillance data for the admin outbreak dashboard.
 
-**Auth:** bearer token (roles: super_admin, admin, viewer)
+**Auth:** bearer token (roles: super_admin, nurse, viewer)
 
 **Query params:**
 
@@ -2008,7 +2021,7 @@ deleted automatically before the new ones are stored.
 
 Returns a JSON object with the upload ``id`` and initial ``status``.
 
-**Auth:** bearer token (roles: super_admin, admin)
+**Auth:** bearer token (roles: super_admin, nurse)
 
 **Request body** (`multipart/form-data`, `Body_upload_triage_manual_admin_triage_manual_upload_post`):
 
@@ -2029,7 +2042,7 @@ Return the latest triage manual upload record.
 The frontend polls this endpoint after uploading to track ingest progress.
 Returns ``null`` when no manual has been uploaded yet.
 
-**Auth:** bearer token (roles: super_admin, admin)
+**Auth:** bearer token (roles: super_admin, nurse)
 
 **Response 200:** JSON (Successful Response)
 
@@ -2045,7 +2058,7 @@ Feeds the head-nurse governance panel: call volumes/ok-rates/latency per
 LLM call site, dispositions by level and department, validator violation
 counts, and escalation totals.
 
-**Auth:** bearer token (roles: super_admin, admin, viewer)
+**Auth:** bearer token (roles: super_admin, nurse, viewer)
 
 **Query params:**
 
@@ -2068,7 +2081,7 @@ Returns the screening engine state (findings, slots, disposition with
 fired rules + manual citations) and the per-call ai_inference_audit
 timeline. Only available for sessions run by the screening engine v2.
 
-**Auth:** bearer token (roles: admin, super_admin, viewer)
+**Auth:** bearer token (roles: nurse, super_admin, viewer)
 
 **Path params:** `session_id`
 
@@ -2080,7 +2093,7 @@ timeline. Only available for sessions run by the screening engine v2.
 
 List Assessment Reviews.
 
-**Auth:** bearer token (roles: admin, super_admin, viewer)
+**Auth:** bearer token (roles: nurse, super_admin, viewer)
 
 **Query params:**
 
@@ -2143,7 +2156,7 @@ Example response:
 
 Approve Assessment Review.
 
-**Auth:** bearer token (roles: admin, super_admin)
+**Auth:** bearer token (roles: nurse, super_admin)
 
 **Path params:** `assessment_id`
 
@@ -2220,7 +2233,7 @@ Example response:
 
 Correct Assessment Review.
 
-**Auth:** bearer token (roles: admin, super_admin)
+**Auth:** bearer token (roles: nurse, super_admin)
 
 **Path params:** `assessment_id`
 
@@ -2299,7 +2312,7 @@ Example response:
 
 List Routing Feedback.
 
-**Auth:** bearer token (roles: admin, super_admin, viewer)
+**Auth:** bearer token (roles: nurse, super_admin, viewer)
 
 **Response 200:** `array of RoutingFeedbackOut`
 
@@ -2331,7 +2344,7 @@ Admin His Connection.
 
 Current hospital-DB connection state for the Database Settings tab.
 
-**Auth:** bearer token (roles: super_admin, admin, viewer)
+**Auth:** bearer token (roles: super_admin, nurse, viewer)
 
 **Response 200:** `HisConnectionOut`
 
@@ -2435,7 +2448,7 @@ Example response:
 
 Admin His Visits.
 
-**Auth:** bearer token (roles: super_admin, admin, viewer)
+**Auth:** bearer token (roles: super_admin, nurse, viewer)
 
 **Response 200:** JSON (Successful Response)
 
@@ -2445,7 +2458,7 @@ Admin His Visits.
 
 Admin His Visit Detail.
 
-**Auth:** bearer token (roles: super_admin, admin, viewer)
+**Auth:** bearer token (roles: super_admin, nurse, viewer)
 
 **Path params:** `visit_id`
 
@@ -2461,7 +2474,7 @@ HN master records from the connected hospital DB — the admin
 Database tab's patient (HN) view. Each row already carries the full
 history + last-vitals payload, so no per-patient detail proxy is needed.
 
-**Auth:** bearer token (roles: super_admin, admin, viewer)
+**Auth:** bearer token (roles: super_admin, nurse, viewer)
 
 **Response 200:** JSON (Successful Response)
 
@@ -2471,7 +2484,7 @@ history + last-vitals payload, so no per-patient detail proxy is needed.
 
 List Criteria Versions.
 
-**Auth:** bearer token (roles: super_admin, admin, viewer)
+**Auth:** bearer token (roles: super_admin, nurse, viewer)
 
 **Response 200:** JSON (Successful Response)
 
@@ -2481,7 +2494,7 @@ List Criteria Versions.
 
 Get Criteria Version Detail.
 
-**Auth:** bearer token (roles: super_admin, admin, viewer)
+**Auth:** bearer token (roles: super_admin, nurse, viewer)
 
 **Path params:** `version_id`
 
@@ -2499,7 +2512,7 @@ Saves even when the document has validation errors — they are returned so
 the editor can fix them iteratively — but submit/activate require a clean
 document.
 
-**Auth:** bearer token (roles: super_admin, admin)
+**Auth:** bearer token (roles: super_admin, nurse)
 
 **Path params:** `version_id`
 
@@ -2521,7 +2534,7 @@ Diff Criteria Version.
 
 Section-level diff (added/removed/changed rule ids) vs another version.
 
-**Auth:** bearer token (roles: super_admin, admin, viewer)
+**Auth:** bearer token (roles: super_admin, nurse, viewer)
 
 **Path params:** `version_id`
 
@@ -2539,7 +2552,7 @@ Section-level diff (added/removed/changed rule ids) vs another version.
 
 Submit Criteria Version.
 
-**Auth:** bearer token (roles: super_admin, admin)
+**Auth:** bearer token (roles: super_admin, nurse)
 
 **Path params:** `version_id`
 
@@ -2551,7 +2564,7 @@ Submit Criteria Version.
 
 Approve Criteria Version.
 
-**Auth:** bearer token (roles: super_admin, admin)
+**Auth:** bearer token (roles: super_admin, nurse)
 
 **Path params:** `version_id`
 
@@ -2565,7 +2578,7 @@ Activate Criteria Version.
 
 Activate an approved version. Activating a retired version = rollback.
 
-**Auth:** bearer token (roles: super_admin, admin)
+**Auth:** bearer token (roles: super_admin, nurse)
 
 **Path params:** `version_id`
 
@@ -2955,7 +2968,7 @@ Request/response models referenced above (main API).
 | `email` | string | Y | Email |
 | `full_name` | string | Y | Full Name |
 | `password` | string | Y | Password |
-| `role` | string | N | Role (default: `"admin"`) |
+| `role` | string | N | Role (default: `"nurse"`) |
 
 ### `AdminUserManageOut`
 
@@ -2966,7 +2979,7 @@ Row in the admin User Settings table (nurse accounts).
 | `id` | string (uuid) | Y | Id |
 | `email` | string | Y | Email |
 | `full_name` | string or null | N | Full Name |
-| `role` | string — one of `super_admin` \| `admin` \| `viewer` | Y | Role |
+| `role` | string — one of `super_admin` \| `nurse` \| `viewer` | Y | Role |
 | `is_active` | boolean | Y | Is Active |
 | `last_login_at` | string (date-time) or null | N | Last Login At |
 | `created_at` | string (date-time) | Y | Created At |
@@ -2978,7 +2991,7 @@ Row in the admin User Settings table (nurse accounts).
 | `id` | string (uuid) | Y | Id |
 | `email` | string | Y | Email |
 | `full_name` | string or null | N | Full Name |
-| `role` | string — one of `super_admin` \| `admin` \| `viewer` | Y | Role |
+| `role` | string — one of `super_admin` \| `nurse` \| `viewer` | Y | Role |
 
 ### `AdminUserUpdate`
 

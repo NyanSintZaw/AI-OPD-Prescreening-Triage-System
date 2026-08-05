@@ -162,7 +162,7 @@ async def list_doctors(
 async def create_doctor(
     payload: DoctorCreate,
     connection: asyncpg.Connection = Depends(get_connection),
-    admin_user: dict = Depends(require_roles("super_admin", "admin")),
+    admin_user: dict = Depends(require_roles("super_admin", "nurse")),
 ):
     """Create a new doctor profile. Requires admin or nurse role."""
     row = await connection.fetchrow(
@@ -218,7 +218,7 @@ async def update_doctor(
     doctor_id: UUID,
     payload: DoctorUpdate,
     connection: asyncpg.Connection = Depends(get_connection),
-    _admin_user: dict = Depends(require_roles("super_admin", "admin")),
+    _admin_user: dict = Depends(require_roles("super_admin", "nurse")),
 ):
     """Update a doctor profile. Requires admin or nurse role."""
     existing = await connection.fetchrow("SELECT * FROM doctors WHERE id = $1", doctor_id)
@@ -278,7 +278,7 @@ async def add_doctor_schedule(
     doctor_id: UUID,
     payload: DoctorScheduleCreate,
     connection: asyncpg.Connection = Depends(get_connection),
-    _admin_user: dict = Depends(require_roles("super_admin", "admin")),
+    _admin_user: dict = Depends(require_roles("super_admin", "nurse")),
 ):
     """Add a date-specific schedule entry for a doctor."""
     doctor = await connection.fetchrow("SELECT id FROM doctors WHERE id = $1", doctor_id)
@@ -325,7 +325,7 @@ async def update_doctor_schedule(
     schedule_id: UUID,
     payload: DoctorScheduleCreate,
     connection: asyncpg.Connection = Depends(get_connection),
-    _admin_user: dict = Depends(require_roles("super_admin", "admin")),
+    _admin_user: dict = Depends(require_roles("super_admin", "nurse")),
 ):
     """Update an existing schedule entry."""
     row = await connection.fetchrow(
@@ -362,7 +362,7 @@ async def delete_doctor_schedule(
     doctor_id: UUID,
     schedule_id: UUID,
     connection: asyncpg.Connection = Depends(get_connection),
-    _admin_user: dict = Depends(require_roles("super_admin", "admin")),
+    _admin_user: dict = Depends(require_roles("super_admin", "nurse")),
 ):
     """Delete a schedule entry."""
     result = await connection.execute(
