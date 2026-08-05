@@ -83,7 +83,7 @@ def _linked_meta(**extra):
 
 
 async def _call(conn, **payload_kwargs):
-    from app.main import confirm_visit_name
+    from app.routers.sessions import confirm_visit_name
     from app.schemas import ConfirmVisitNameRequest
 
     return await confirm_visit_name(
@@ -150,7 +150,7 @@ class _FakeModel:
 
 
 async def test_unclear_backstop_no_rejects_immediately(monkeypatch):
-    import app.main as main_mod
+    import app.routers.sessions as main_mod
 
     monkeypatch.setattr(main_mod, "_screening_model", lambda: _FakeModel("no"))
     conn = _MetaConn(_linked_meta())
@@ -163,7 +163,7 @@ async def test_unclear_backstop_no_rejects_immediately(monkeypatch):
 
 
 async def test_unclear_backstop_yes_confirms_and_resets_counter(monkeypatch):
-    import app.main as main_mod
+    import app.routers.sessions as main_mod
 
     monkeypatch.setattr(main_mod, "_screening_model", lambda: _FakeModel("yes"))
     conn = _MetaConn(_linked_meta(confirm_name_attempts=1))
@@ -175,7 +175,7 @@ async def test_unclear_backstop_yes_confirms_and_resets_counter(monkeypatch):
 
 
 async def test_unclear_backstop_failure_keeps_422_flow(monkeypatch):
-    import app.main as main_mod
+    import app.routers.sessions as main_mod
 
     monkeypatch.setattr(main_mod, "_screening_model", lambda: _FakeModel(None))
     conn = _MetaConn(_linked_meta())

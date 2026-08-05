@@ -1,7 +1,7 @@
 # Backend (FastAPI, Python 3.11, uv)
 
 - Run: `uv run uvicorn app.main:app --reload` (:8000). Tests: `uv run pytest -m "not integration"`. Types: Pyright standard.
-- ALL routes in `app/main.py`. Raw asyncpg SQL via `app/database.py` — no ORM. Migrations = numbered raw SQL in `migrations/`, applied by `scripts/init_db.py` (idempotent, tracks `schema_migrations`).
+- Routes live in feature routers under `app/routers/` (shared auth deps in `routers/deps.py`); `app/main.py` only wires lifespan/services + `include_router`. Raw asyncpg SQL via `app/database.py` — no ORM. Migrations = numbered raw SQL in `migrations/`, applied by `scripts/init_db.py` (idempotent, tracks `schema_migrations`).
 - Settings: `app/config.py` (pydantic-settings, `extra="ignore"`). Never read env vars directly.
 - `services/triage_service.py` is engine-authoritative: persists exactly what the screening engine decides. The AI engine itself lives in `services/screening/` (has its own CLAUDE.md).
 - Patient-facing responses NEVER contain triage level/color/diagnosis — redaction in `triage_payloads.py`, reply validation in `screening/validator.py`. Nurse/admin surfaces show everything.

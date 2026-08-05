@@ -1,10 +1,10 @@
 """Generate markdown API reference from the dumped OpenAPI specs.
-Auth roles are scraped from main.py source (require_roles isn't in OpenAPI)."""
+Auth roles are scraped from the router sources (require_roles isn't in OpenAPI)."""
 import json, re, sys
 from pathlib import Path
 
 SCRATCH = Path(__file__).parent
-API_SRC = Path(__file__).resolve().parents[2] / "app" / "main.py"
+ROUTERS_DIR = Path(__file__).resolve().parents[2] / "app" / "routers"
 
 spec = json.load(open(SCRATCH / "openapi.json"))
 his_spec = json.load(open(SCRATCH / "openapi_his.json"))
@@ -13,9 +13,9 @@ his_spec = json.load(open(SCRATCH / "openapi_his.json"))
 def build_auth_map(src: str) -> dict[tuple[str, str], str]:
     """(method, path) -> roles string, by scanning decorator blocks."""
     auth: dict[tuple[str, str], str] = {}
-    blocks = re.split(r"\n(?=@app\.)", src)
+    blocks = re.split(r"\n(?=@router\.)", src)
     for b in blocks:
-        m = re.match(r'@app\.(get|post|put|delete|patch|websocket)\(\s*\n?\s*"([^"]+)"', b)
+        m = re.match(r'@router\.(get|post|put|delete|patch|websocket)\(\s*\n?\s*"([^"]+)"', b)
         if not m:
             continue
         method, path = m.group(1), m.group(2)
@@ -27,7 +27,9 @@ def build_auth_map(src: str) -> dict[tuple[str, str], str]:
     return auth
 
 
-auth_map = build_auth_map(API_SRC.read_text())
+auth_map: dict[tuple[str, str], str] = {}
+for router_file in sorted(ROUTERS_DIR.glob("*.py")):
+    auth_map.update(build_auth_map(router_file.read_text()))
 
 
 def deref(spec, ref):

@@ -76,7 +76,7 @@ Two Windows environment gotchas, both one-time and neither a code problem:
 
 ### Backend
 
-All routes live in `app/main.py`; persistence is raw SQL via asyncpg (no ORM) through `app/database.py`. Request/response models in `app/schemas.py`; settings in `app/config.py` (pydantic-settings, env vars like `SCREENING_MODEL_NAME`, `HIS_MODE`, `PGVECTOR_TABLE`, `EMBED_MODEL`). `Settings` uses `extra="ignore"` so retired env vars in older `.env` files don't break startup.
+Routes live in feature routers under `app/routers/` (one file per surface: `sessions`, `vitals`, `admin_reviews`, `voice_ws`, …; shared auth deps in `routers/deps.py`), included by `app/main.py`, which keeps only app wiring (lifespan services on `app.state`, CORS, exception handlers); persistence is raw SQL via asyncpg (no ORM) through `app/database.py`. Request/response models in `app/schemas.py`; settings in `app/config.py` (pydantic-settings, env vars like `SCREENING_MODEL_NAME`, `HIS_MODE`, `PGVECTOR_TABLE`, `EMBED_MODEL`). `Settings` uses `extra="ignore"` so retired env vars in older `.env` files don't break startup.
 
 **One AI engine — the deterministic screening engine (LangGraph)** (`app/services/screening/`). The older ADK (Stack A) and pydantic-ai RAG (Stack B) stacks and the legacy keyword `rule_engine` have been removed; there are no `TRIAGE_ENGINE`/`VOICE_ENGINE` flags. `TriageService` (`app/services/triage_service.py`) is engine-authoritative: it persists exactly the engine's decision — no override chain, no keyword rules.
 

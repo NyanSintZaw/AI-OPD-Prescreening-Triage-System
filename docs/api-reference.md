@@ -1196,6 +1196,98 @@ Example response:
 
 ---
 
+### `POST /sessions/{session_id}/department-recommendations`
+
+Create Department Recommendation.
+
+**Auth:** none
+
+**Path params:** `session_id`
+
+**Request body** (`application/json`, `DepartmentRecommendationCreate`):
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `assessment_id` | string (uuid) or null | N | Assessment Id |
+| `department_id` | string (uuid) | Y | Department Id |
+| `confidence` | number or null | N | Confidence |
+| `reason` | string or null | N | Reason |
+
+Example request:
+
+```json
+{
+  "assessment_id": "00000000-0000-0000-0000-000000000000",
+  "department_id": "00000000-0000-0000-0000-000000000000",
+  "confidence": 0.0,
+  "reason": "string"
+}
+```
+
+**Response 201:** JSON (Successful Response)
+
+---
+
+### `POST /sessions/{session_id}/emergency-events`
+
+Create Emergency Event.
+
+**Auth:** none
+
+**Path params:** `session_id`
+
+**Request body** (`application/json`, `EmergencyEventCreate`):
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `trigger_id` | string (uuid) or null | N | Trigger Id |
+| `source_message_id` | string (uuid) or null | N | Source Message Id |
+| `detected_symptoms` | array of any | N | Detected Symptoms |
+| `alert_message` | string | Y | Alert Message |
+
+Example request:
+
+```json
+{
+  "trigger_id": "00000000-0000-0000-0000-000000000000",
+  "source_message_id": "00000000-0000-0000-0000-000000000000",
+  "detected_symptoms": [],
+  "alert_message": "string"
+}
+```
+
+**Response 201:** JSON (Successful Response)
+
+---
+
+### `GET /sessions/{session_id}/emergency-events`
+
+List Emergency Events.
+
+**Auth:** none
+
+**Path params:** `session_id`
+
+**Response 200:** `array of EmergencyEventOut`
+
+Example response:
+
+```json
+[
+  {
+    "trigger_id": "00000000-0000-0000-0000-000000000000",
+    "source_message_id": "00000000-0000-0000-0000-000000000000",
+    "detected_symptoms": [],
+    "alert_message": "string",
+    "id": "00000000-0000-0000-0000-000000000000",
+    "session_id": "00000000-0000-0000-0000-000000000000",
+    "created_at": "2026-08-04T09:00:00Z"
+  }
+]
+```
+
+---
+
 ### `GET /departments`
 
 List Departments.
@@ -1289,408 +1381,6 @@ Example response:
 
 ---
 
-### `POST /sessions/{session_id}/department-recommendations`
-
-Create Department Recommendation.
-
-**Auth:** none
-
-**Path params:** `session_id`
-
-**Request body** (`application/json`, `DepartmentRecommendationCreate`):
-
-| Field | Type | Required | Notes |
-|---|---|---|---|
-| `assessment_id` | string (uuid) or null | N | Assessment Id |
-| `department_id` | string (uuid) | Y | Department Id |
-| `confidence` | number or null | N | Confidence |
-| `reason` | string or null | N | Reason |
-
-Example request:
-
-```json
-{
-  "assessment_id": "00000000-0000-0000-0000-000000000000",
-  "department_id": "00000000-0000-0000-0000-000000000000",
-  "confidence": 0.0,
-  "reason": "string"
-}
-```
-
-**Response 201:** JSON (Successful Response)
-
----
-
-### `POST /sessions/{session_id}/emergency-events`
-
-Create Emergency Event.
-
-**Auth:** none
-
-**Path params:** `session_id`
-
-**Request body** (`application/json`, `EmergencyEventCreate`):
-
-| Field | Type | Required | Notes |
-|---|---|---|---|
-| `trigger_id` | string (uuid) or null | N | Trigger Id |
-| `source_message_id` | string (uuid) or null | N | Source Message Id |
-| `detected_symptoms` | array of any | N | Detected Symptoms |
-| `alert_message` | string | Y | Alert Message |
-
-Example request:
-
-```json
-{
-  "trigger_id": "00000000-0000-0000-0000-000000000000",
-  "source_message_id": "00000000-0000-0000-0000-000000000000",
-  "detected_symptoms": [],
-  "alert_message": "string"
-}
-```
-
-**Response 201:** JSON (Successful Response)
-
----
-
-### `GET /sessions/{session_id}/emergency-events`
-
-List Emergency Events.
-
-**Auth:** none
-
-**Path params:** `session_id`
-
-**Response 200:** `array of EmergencyEventOut`
-
-Example response:
-
-```json
-[
-  {
-    "trigger_id": "00000000-0000-0000-0000-000000000000",
-    "source_message_id": "00000000-0000-0000-0000-000000000000",
-    "detected_symptoms": [],
-    "alert_message": "string",
-    "id": "00000000-0000-0000-0000-000000000000",
-    "session_id": "00000000-0000-0000-0000-000000000000",
-    "created_at": "2026-08-04T09:00:00Z"
-  }
-]
-```
-
----
-
-### `POST /tts`
-
-Text To Speech.
-
-Synthesize speech for the given text. Returns audio/mpeg (MP3) bytes.
-
-**Auth:** none
-
-**Request body** (`application/json`, `TtsRequest`):
-
-| Field | Type | Required | Notes |
-|---|---|---|---|
-| `text` | string | Y | Text |
-| `language` | string — one of `th` \| `en` | N | Language (default: `"en"`) |
-
-Example request:
-
-```json
-{
-  "text": "string",
-  "language": "en"
-}
-```
-
-**Response 200:** JSON (Successful Response)
-
----
-
-### `POST /stt`
-
-Speech To Text.
-
-Transcribe a short audio clip. Returns the recognized text.
-
-**Auth:** none
-
-**Request body** (`multipart/form-data`, `Body_speech_to_text_stt_post`):
-
-| Field | Type | Required | Notes |
-|---|---|---|---|
-| `audio` | string | Y | Short audio clip from MediaRecorder |
-| `language` | string | N | Language (default: `"en"`) |
-
-**Response 200:** `SttResponse`
-
-Example response:
-
-```json
-{
-  "transcript": "string",
-  "confidence": 0.0,
-  "language_code": "string"
-}
-```
-
----
-
-### `GET /conversation-summary`
-
-Conversation Summary.
-
-**Auth:** bearer token (roles: super_admin, viewer, admin)
-
-**Response 200:** `array of ConversationSummaryOut`
-
-Example response:
-
-```json
-[
-  {
-    "session_id": "00000000-0000-0000-0000-000000000000",
-    "language": "th",
-    "status": "active",
-    "started_at": "2026-08-04T09:00:00Z",
-    "ended_at": "2026-08-04T09:00:00Z",
-    "severity": "emergency",
-    "department_name_en": "string",
-    "department_name_th": "string",
-    "message_count": 0,
-    "has_alert": false,
-    "escalation_reason": "string"
-  }
-]
-```
-
----
-
-### `GET /admin/sessions/{session_id}/trace`
-
-Get Session Trace.
-
-Full AI decision trace for one session (SRS Explainability / F40).
-
-Returns the screening engine state (findings, slots, disposition with
-fired rules + manual citations) and the per-call ai_inference_audit
-timeline. Only available for sessions run by the screening engine v2.
-
-**Auth:** bearer token (roles: admin, super_admin, viewer)
-
-**Path params:** `session_id`
-
-**Response 200:** JSON (Successful Response)
-
----
-
-### `GET /admin/reviews`
-
-List Assessment Reviews.
-
-**Auth:** bearer token (roles: admin, super_admin, viewer)
-
-**Query params:**
-
-| Param | Type | Required | Notes |
-|---|---|---|---|
-| `status` | string | N | default: `"pending"` |
-
-**Response 200:** `array of AssessmentReviewOut`
-
-Example response:
-
-```json
-[
-  {
-    "id": "00000000-0000-0000-0000-000000000000",
-    "session_id": "00000000-0000-0000-0000-000000000000",
-    "assessment_id": "00000000-0000-0000-0000-000000000000",
-    "status": "pending",
-    "reviewer_id": "00000000-0000-0000-0000-000000000000",
-    "reviewer_name": "string",
-    "proposed_department_id": "00000000-0000-0000-0000-000000000000",
-    "proposed_department_name_en": "string",
-    "proposed_department_name_th": "string",
-    "confirmed_department_id": "00000000-0000-0000-0000-000000000000",
-    "confirmed_department_name_en": "string",
-    "confirmed_department_name_th": "string",
-    "ai_assessment_score": 0,
-    "ai_assessment_scale": 10,
-    "patient_contact_requested": false,
-    "patient_contact_phone": "string",
-    "patient_contact_preferred_time": "string",
-    "patient_contact_relation": "string",
-    "disposition_reasons": [
-      {}
-    ],
-    "notes": "string",
-    "visit_id": "string",
-    "patient_name": "string",
-    "vitals": {},
-    "missing_vitals": [
-      "string"
-    ],
-    "rejected_vitals": {},
-    "ai_chief_complaint": "string",
-    "ai_illness_note": "string",
-    "patient_follow_up": "string",
-    "chief_complaint": "string",
-    "illness_note": "string",
-    "his_routing_status": "string",
-    "reviewed_at": "2026-08-04T09:00:00Z",
-    "created_at": "2026-08-04T09:00:00Z",
-    "updated_at": "2026-08-04T09:00:00Z"
-  }
-]
-```
-
----
-
-### `GET /admin/his/connection`
-
-Admin His Connection.
-
-Current hospital-DB connection state for the Database Settings tab.
-
-**Auth:** bearer token (roles: super_admin, admin, viewer)
-
-**Response 200:** `HisConnectionOut`
-
-Example response:
-
-```json
-{
-  "mode": "mock",
-  "endpoint": "string",
-  "name": "string",
-  "connected": false,
-  "visit_count": 0,
-  "message": "string",
-  "has_api_key": false
-}
-```
-
----
-
-### `PUT /admin/his/connection`
-
-Admin His Connect.
-
-Establish (or change) the hospital-DB connection from the admin page.
-
-Probes the endpoint first — an unreachable endpoint is rejected without
-saving, so the demo can never end up pointed at a dead database. On
-success the adapter is swapped live (no restart) and the config is
-persisted to .env.
-
-**Auth:** bearer token (roles: super_admin)
-
-**Request body** (`application/json`, `HisConnectionUpdate`):
-
-| Field | Type | Required | Notes |
-|---|---|---|---|
-| `endpoint` | string | Y | Endpoint |
-| `name` | string | Y | Name |
-| `api_key` | string or null | N | Api Key |
-
-Example request:
-
-```json
-{
-  "endpoint": "string",
-  "name": "string",
-  "api_key": "string"
-}
-```
-
-**Response 200:** `HisConnectionOut`
-
-Example response:
-
-```json
-{
-  "mode": "mock",
-  "endpoint": "string",
-  "name": "string",
-  "connected": false,
-  "visit_count": 0,
-  "message": "string",
-  "has_api_key": false
-}
-```
-
----
-
-### `DELETE /admin/his/connection`
-
-Admin His Disconnect.
-
-Disconnect the hospital DB: back to the mock adapter, persisted.
-
-HIS_BASE_URL is kept in .env so reconnecting pre-fills the last endpoint;
-the access token is cleared (re-typed on reconnect — it's a secret, and
-this is the UI's only way to drop a stale one). Booth flows keep working
-(mock accepts every visit, write-backs are logged instead of sent).
-
-**Auth:** bearer token (roles: super_admin)
-
-**Response 200:** `HisConnectionOut`
-
-Example response:
-
-```json
-{
-  "mode": "mock",
-  "endpoint": "string",
-  "name": "string",
-  "connected": false,
-  "visit_count": 0,
-  "message": "string",
-  "has_api_key": false
-}
-```
-
----
-
-### `GET /admin/his/visits`
-
-Admin His Visits.
-
-**Auth:** bearer token (roles: super_admin, admin, viewer)
-
-**Response 200:** JSON (Successful Response)
-
----
-
-### `GET /admin/his/visits/{visit_id}`
-
-Admin His Visit Detail.
-
-**Auth:** bearer token (roles: super_admin, admin, viewer)
-
-**Path params:** `visit_id`
-
-**Response 200:** JSON (Successful Response)
-
----
-
-### `GET /admin/his/patients`
-
-Admin His Patients.
-
-HN master records from the connected hospital DB — the admin
-Database tab's patient (HN) view. Each row already carries the full
-history + last-vitals payload, so no per-patient detail proxy is needed.
-
-**Auth:** bearer token (roles: super_admin, admin, viewer)
-
-**Response 200:** JSON (Successful Response)
-
----
-
 ### `GET /kiosk/stats`
 
 Kiosk Stats.
@@ -1708,192 +1398,6 @@ Every source degrades to 0 rather than erroring so the screen never breaks.
 **Auth:** none
 
 **Response 200:** JSON (Successful Response)
-
----
-
-### `POST /admin/reviews/{assessment_id}/approve`
-
-Approve Assessment Review.
-
-**Auth:** bearer token (roles: admin, super_admin)
-
-**Path params:** `assessment_id`
-
-**Request body** (`application/json`, `AssessmentReviewApproveRequest`):
-
-| Field | Type | Required | Notes |
-|---|---|---|---|
-| `notes` | string or null | N | Notes |
-| `ai_assessment_score` | integer or null | N | Ai Assessment Score |
-| `chief_complaint` | string or null | N | Chief Complaint |
-| `illness_note` | string or null | N | Illness Note |
-
-Example request:
-
-```json
-{
-  "notes": "string",
-  "ai_assessment_score": 0,
-  "chief_complaint": "string",
-  "illness_note": "string"
-}
-```
-
-**Response 200:** `AssessmentReviewOut`
-
-Example response:
-
-```json
-{
-  "id": "00000000-0000-0000-0000-000000000000",
-  "session_id": "00000000-0000-0000-0000-000000000000",
-  "assessment_id": "00000000-0000-0000-0000-000000000000",
-  "status": "pending",
-  "reviewer_id": "00000000-0000-0000-0000-000000000000",
-  "reviewer_name": "string",
-  "proposed_department_id": "00000000-0000-0000-0000-000000000000",
-  "proposed_department_name_en": "string",
-  "proposed_department_name_th": "string",
-  "confirmed_department_id": "00000000-0000-0000-0000-000000000000",
-  "confirmed_department_name_en": "string",
-  "confirmed_department_name_th": "string",
-  "ai_assessment_score": 0,
-  "ai_assessment_scale": 10,
-  "patient_contact_requested": false,
-  "patient_contact_phone": "string",
-  "patient_contact_preferred_time": "string",
-  "patient_contact_relation": "string",
-  "disposition_reasons": [
-    {}
-  ],
-  "notes": "string",
-  "visit_id": "string",
-  "patient_name": "string",
-  "vitals": {},
-  "missing_vitals": [
-    "string"
-  ],
-  "rejected_vitals": {},
-  "ai_chief_complaint": "string",
-  "ai_illness_note": "string",
-  "patient_follow_up": "string",
-  "chief_complaint": "string",
-  "illness_note": "string",
-  "his_routing_status": "string",
-  "reviewed_at": "2026-08-04T09:00:00Z",
-  "created_at": "2026-08-04T09:00:00Z",
-  "updated_at": "2026-08-04T09:00:00Z"
-}
-```
-
----
-
-### `POST /admin/reviews/{assessment_id}/correct`
-
-Correct Assessment Review.
-
-**Auth:** bearer token (roles: admin, super_admin)
-
-**Path params:** `assessment_id`
-
-**Request body** (`application/json`, `AssessmentReviewCorrectRequest`):
-
-| Field | Type | Required | Notes |
-|---|---|---|---|
-| `confirmed_department_id` | string (uuid) | Y | Confirmed Department Id |
-| `reason` | string or null | N | Reason |
-| `ai_assessment_score` | integer or null | N | Ai Assessment Score |
-| `chief_complaint` | string or null | N | Chief Complaint |
-| `illness_note` | string or null | N | Illness Note |
-
-Example request:
-
-```json
-{
-  "confirmed_department_id": "00000000-0000-0000-0000-000000000000",
-  "reason": "string",
-  "ai_assessment_score": 0,
-  "chief_complaint": "string",
-  "illness_note": "string"
-}
-```
-
-**Response 200:** `AssessmentReviewOut`
-
-Example response:
-
-```json
-{
-  "id": "00000000-0000-0000-0000-000000000000",
-  "session_id": "00000000-0000-0000-0000-000000000000",
-  "assessment_id": "00000000-0000-0000-0000-000000000000",
-  "status": "pending",
-  "reviewer_id": "00000000-0000-0000-0000-000000000000",
-  "reviewer_name": "string",
-  "proposed_department_id": "00000000-0000-0000-0000-000000000000",
-  "proposed_department_name_en": "string",
-  "proposed_department_name_th": "string",
-  "confirmed_department_id": "00000000-0000-0000-0000-000000000000",
-  "confirmed_department_name_en": "string",
-  "confirmed_department_name_th": "string",
-  "ai_assessment_score": 0,
-  "ai_assessment_scale": 10,
-  "patient_contact_requested": false,
-  "patient_contact_phone": "string",
-  "patient_contact_preferred_time": "string",
-  "patient_contact_relation": "string",
-  "disposition_reasons": [
-    {}
-  ],
-  "notes": "string",
-  "visit_id": "string",
-  "patient_name": "string",
-  "vitals": {},
-  "missing_vitals": [
-    "string"
-  ],
-  "rejected_vitals": {},
-  "ai_chief_complaint": "string",
-  "ai_illness_note": "string",
-  "patient_follow_up": "string",
-  "chief_complaint": "string",
-  "illness_note": "string",
-  "his_routing_status": "string",
-  "reviewed_at": "2026-08-04T09:00:00Z",
-  "created_at": "2026-08-04T09:00:00Z",
-  "updated_at": "2026-08-04T09:00:00Z"
-}
-```
-
----
-
-### `GET /admin/feedback`
-
-List Routing Feedback.
-
-**Auth:** bearer token (roles: admin, super_admin, viewer)
-
-**Response 200:** `array of RoutingFeedbackOut`
-
-Example response:
-
-```json
-[
-  {
-    "id": "00000000-0000-0000-0000-000000000000",
-    "session_id": "00000000-0000-0000-0000-000000000000",
-    "assessment_id": "00000000-0000-0000-0000-000000000000",
-    "original_department_id": "00000000-0000-0000-0000-000000000000",
-    "corrected_department_id": "00000000-0000-0000-0000-000000000000",
-    "corrected_department_name_en": "string",
-    "corrected_department_name_th": "string",
-    "reported_by": "00000000-0000-0000-0000-000000000000",
-    "reporter_name": "string",
-    "reason": "string",
-    "created_at": "2026-08-04T09:00:00Z"
-  }
-]
-```
 
 ---
 
@@ -2345,6 +1849,93 @@ Example response:
 
 ---
 
+### `POST /tts`
+
+Text To Speech.
+
+Synthesize speech for the given text. Returns audio/mpeg (MP3) bytes.
+
+**Auth:** none
+
+**Request body** (`application/json`, `TtsRequest`):
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `text` | string | Y | Text |
+| `language` | string — one of `th` \| `en` | N | Language (default: `"en"`) |
+
+Example request:
+
+```json
+{
+  "text": "string",
+  "language": "en"
+}
+```
+
+**Response 200:** JSON (Successful Response)
+
+---
+
+### `POST /stt`
+
+Speech To Text.
+
+Transcribe a short audio clip. Returns the recognized text.
+
+**Auth:** none
+
+**Request body** (`multipart/form-data`, `Body_speech_to_text_stt_post`):
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `audio` | string | Y | Short audio clip from MediaRecorder |
+| `language` | string | N | Language (default: `"en"`) |
+
+**Response 200:** `SttResponse`
+
+Example response:
+
+```json
+{
+  "transcript": "string",
+  "confidence": 0.0,
+  "language_code": "string"
+}
+```
+
+---
+
+### `GET /conversation-summary`
+
+Conversation Summary.
+
+**Auth:** bearer token (roles: super_admin, viewer, admin)
+
+**Response 200:** `array of ConversationSummaryOut`
+
+Example response:
+
+```json
+[
+  {
+    "session_id": "00000000-0000-0000-0000-000000000000",
+    "language": "th",
+    "status": "active",
+    "started_at": "2026-08-04T09:00:00Z",
+    "ended_at": "2026-08-04T09:00:00Z",
+    "severity": "emergency",
+    "department_name_en": "string",
+    "department_name_th": "string",
+    "message_count": 0,
+    "has_alert": false,
+    "escalation_reason": "string"
+  }
+]
+```
+
+---
+
 ### `GET /admin/surveillance`
 
 Get Surveillance Summary.
@@ -2439,6 +2030,438 @@ The frontend polls this endpoint after uploading to track ingest progress.
 Returns ``null`` when no manual has been uploaded yet.
 
 **Auth:** bearer token (roles: super_admin, admin)
+
+**Response 200:** JSON (Successful Response)
+
+---
+
+### `GET /admin/ai-metrics`
+
+Get Ai Metrics.
+
+Aggregate AI transparency metrics over ai_inference_audit (SRS F40).
+
+Feeds the head-nurse governance panel: call volumes/ok-rates/latency per
+LLM call site, dispositions by level and department, validator violation
+counts, and escalation totals.
+
+**Auth:** bearer token (roles: super_admin, admin, viewer)
+
+**Query params:**
+
+| Param | Type | Required | Notes |
+|---|---|---|---|
+| `from` | string or null | N |  |
+| `to` | string or null | N |  |
+
+**Response 200:** JSON (Successful Response)
+
+---
+
+### `GET /admin/sessions/{session_id}/trace`
+
+Get Session Trace.
+
+Full AI decision trace for one session (SRS Explainability / F40).
+
+Returns the screening engine state (findings, slots, disposition with
+fired rules + manual citations) and the per-call ai_inference_audit
+timeline. Only available for sessions run by the screening engine v2.
+
+**Auth:** bearer token (roles: admin, super_admin, viewer)
+
+**Path params:** `session_id`
+
+**Response 200:** JSON (Successful Response)
+
+---
+
+### `GET /admin/reviews`
+
+List Assessment Reviews.
+
+**Auth:** bearer token (roles: admin, super_admin, viewer)
+
+**Query params:**
+
+| Param | Type | Required | Notes |
+|---|---|---|---|
+| `status` | string | N | default: `"pending"` |
+
+**Response 200:** `array of AssessmentReviewOut`
+
+Example response:
+
+```json
+[
+  {
+    "id": "00000000-0000-0000-0000-000000000000",
+    "session_id": "00000000-0000-0000-0000-000000000000",
+    "assessment_id": "00000000-0000-0000-0000-000000000000",
+    "status": "pending",
+    "reviewer_id": "00000000-0000-0000-0000-000000000000",
+    "reviewer_name": "string",
+    "proposed_department_id": "00000000-0000-0000-0000-000000000000",
+    "proposed_department_name_en": "string",
+    "proposed_department_name_th": "string",
+    "confirmed_department_id": "00000000-0000-0000-0000-000000000000",
+    "confirmed_department_name_en": "string",
+    "confirmed_department_name_th": "string",
+    "ai_assessment_score": 0,
+    "ai_assessment_scale": 10,
+    "patient_contact_requested": false,
+    "patient_contact_phone": "string",
+    "patient_contact_preferred_time": "string",
+    "patient_contact_relation": "string",
+    "disposition_reasons": [
+      {}
+    ],
+    "notes": "string",
+    "visit_id": "string",
+    "patient_name": "string",
+    "vitals": {},
+    "missing_vitals": [
+      "string"
+    ],
+    "rejected_vitals": {},
+    "ai_chief_complaint": "string",
+    "ai_illness_note": "string",
+    "patient_follow_up": "string",
+    "chief_complaint": "string",
+    "illness_note": "string",
+    "his_routing_status": "string",
+    "reviewed_at": "2026-08-04T09:00:00Z",
+    "created_at": "2026-08-04T09:00:00Z",
+    "updated_at": "2026-08-04T09:00:00Z"
+  }
+]
+```
+
+---
+
+### `POST /admin/reviews/{assessment_id}/approve`
+
+Approve Assessment Review.
+
+**Auth:** bearer token (roles: admin, super_admin)
+
+**Path params:** `assessment_id`
+
+**Request body** (`application/json`, `AssessmentReviewApproveRequest`):
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `notes` | string or null | N | Notes |
+| `ai_assessment_score` | integer or null | N | Ai Assessment Score |
+| `chief_complaint` | string or null | N | Chief Complaint |
+| `illness_note` | string or null | N | Illness Note |
+
+Example request:
+
+```json
+{
+  "notes": "string",
+  "ai_assessment_score": 0,
+  "chief_complaint": "string",
+  "illness_note": "string"
+}
+```
+
+**Response 200:** `AssessmentReviewOut`
+
+Example response:
+
+```json
+{
+  "id": "00000000-0000-0000-0000-000000000000",
+  "session_id": "00000000-0000-0000-0000-000000000000",
+  "assessment_id": "00000000-0000-0000-0000-000000000000",
+  "status": "pending",
+  "reviewer_id": "00000000-0000-0000-0000-000000000000",
+  "reviewer_name": "string",
+  "proposed_department_id": "00000000-0000-0000-0000-000000000000",
+  "proposed_department_name_en": "string",
+  "proposed_department_name_th": "string",
+  "confirmed_department_id": "00000000-0000-0000-0000-000000000000",
+  "confirmed_department_name_en": "string",
+  "confirmed_department_name_th": "string",
+  "ai_assessment_score": 0,
+  "ai_assessment_scale": 10,
+  "patient_contact_requested": false,
+  "patient_contact_phone": "string",
+  "patient_contact_preferred_time": "string",
+  "patient_contact_relation": "string",
+  "disposition_reasons": [
+    {}
+  ],
+  "notes": "string",
+  "visit_id": "string",
+  "patient_name": "string",
+  "vitals": {},
+  "missing_vitals": [
+    "string"
+  ],
+  "rejected_vitals": {},
+  "ai_chief_complaint": "string",
+  "ai_illness_note": "string",
+  "patient_follow_up": "string",
+  "chief_complaint": "string",
+  "illness_note": "string",
+  "his_routing_status": "string",
+  "reviewed_at": "2026-08-04T09:00:00Z",
+  "created_at": "2026-08-04T09:00:00Z",
+  "updated_at": "2026-08-04T09:00:00Z"
+}
+```
+
+---
+
+### `POST /admin/reviews/{assessment_id}/correct`
+
+Correct Assessment Review.
+
+**Auth:** bearer token (roles: admin, super_admin)
+
+**Path params:** `assessment_id`
+
+**Request body** (`application/json`, `AssessmentReviewCorrectRequest`):
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `confirmed_department_id` | string (uuid) | Y | Confirmed Department Id |
+| `reason` | string or null | N | Reason |
+| `ai_assessment_score` | integer or null | N | Ai Assessment Score |
+| `chief_complaint` | string or null | N | Chief Complaint |
+| `illness_note` | string or null | N | Illness Note |
+
+Example request:
+
+```json
+{
+  "confirmed_department_id": "00000000-0000-0000-0000-000000000000",
+  "reason": "string",
+  "ai_assessment_score": 0,
+  "chief_complaint": "string",
+  "illness_note": "string"
+}
+```
+
+**Response 200:** `AssessmentReviewOut`
+
+Example response:
+
+```json
+{
+  "id": "00000000-0000-0000-0000-000000000000",
+  "session_id": "00000000-0000-0000-0000-000000000000",
+  "assessment_id": "00000000-0000-0000-0000-000000000000",
+  "status": "pending",
+  "reviewer_id": "00000000-0000-0000-0000-000000000000",
+  "reviewer_name": "string",
+  "proposed_department_id": "00000000-0000-0000-0000-000000000000",
+  "proposed_department_name_en": "string",
+  "proposed_department_name_th": "string",
+  "confirmed_department_id": "00000000-0000-0000-0000-000000000000",
+  "confirmed_department_name_en": "string",
+  "confirmed_department_name_th": "string",
+  "ai_assessment_score": 0,
+  "ai_assessment_scale": 10,
+  "patient_contact_requested": false,
+  "patient_contact_phone": "string",
+  "patient_contact_preferred_time": "string",
+  "patient_contact_relation": "string",
+  "disposition_reasons": [
+    {}
+  ],
+  "notes": "string",
+  "visit_id": "string",
+  "patient_name": "string",
+  "vitals": {},
+  "missing_vitals": [
+    "string"
+  ],
+  "rejected_vitals": {},
+  "ai_chief_complaint": "string",
+  "ai_illness_note": "string",
+  "patient_follow_up": "string",
+  "chief_complaint": "string",
+  "illness_note": "string",
+  "his_routing_status": "string",
+  "reviewed_at": "2026-08-04T09:00:00Z",
+  "created_at": "2026-08-04T09:00:00Z",
+  "updated_at": "2026-08-04T09:00:00Z"
+}
+```
+
+---
+
+### `GET /admin/feedback`
+
+List Routing Feedback.
+
+**Auth:** bearer token (roles: admin, super_admin, viewer)
+
+**Response 200:** `array of RoutingFeedbackOut`
+
+Example response:
+
+```json
+[
+  {
+    "id": "00000000-0000-0000-0000-000000000000",
+    "session_id": "00000000-0000-0000-0000-000000000000",
+    "assessment_id": "00000000-0000-0000-0000-000000000000",
+    "original_department_id": "00000000-0000-0000-0000-000000000000",
+    "corrected_department_id": "00000000-0000-0000-0000-000000000000",
+    "corrected_department_name_en": "string",
+    "corrected_department_name_th": "string",
+    "reported_by": "00000000-0000-0000-0000-000000000000",
+    "reporter_name": "string",
+    "reason": "string",
+    "created_at": "2026-08-04T09:00:00Z"
+  }
+]
+```
+
+---
+
+### `GET /admin/his/connection`
+
+Admin His Connection.
+
+Current hospital-DB connection state for the Database Settings tab.
+
+**Auth:** bearer token (roles: super_admin, admin, viewer)
+
+**Response 200:** `HisConnectionOut`
+
+Example response:
+
+```json
+{
+  "mode": "mock",
+  "endpoint": "string",
+  "name": "string",
+  "connected": false,
+  "visit_count": 0,
+  "message": "string",
+  "has_api_key": false
+}
+```
+
+---
+
+### `PUT /admin/his/connection`
+
+Admin His Connect.
+
+Establish (or change) the hospital-DB connection from the admin page.
+
+Probes the endpoint first — an unreachable endpoint is rejected without
+saving, so the demo can never end up pointed at a dead database. On
+success the adapter is swapped live (no restart) and the config is
+persisted to .env.
+
+**Auth:** bearer token (roles: super_admin)
+
+**Request body** (`application/json`, `HisConnectionUpdate`):
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `endpoint` | string | Y | Endpoint |
+| `name` | string | Y | Name |
+| `api_key` | string or null | N | Api Key |
+
+Example request:
+
+```json
+{
+  "endpoint": "string",
+  "name": "string",
+  "api_key": "string"
+}
+```
+
+**Response 200:** `HisConnectionOut`
+
+Example response:
+
+```json
+{
+  "mode": "mock",
+  "endpoint": "string",
+  "name": "string",
+  "connected": false,
+  "visit_count": 0,
+  "message": "string",
+  "has_api_key": false
+}
+```
+
+---
+
+### `DELETE /admin/his/connection`
+
+Admin His Disconnect.
+
+Disconnect the hospital DB: back to the mock adapter, persisted.
+
+HIS_BASE_URL is kept in .env so reconnecting pre-fills the last endpoint;
+the access token is cleared (re-typed on reconnect — it's a secret, and
+this is the UI's only way to drop a stale one). Booth flows keep working
+(mock accepts every visit, write-backs are logged instead of sent).
+
+**Auth:** bearer token (roles: super_admin)
+
+**Response 200:** `HisConnectionOut`
+
+Example response:
+
+```json
+{
+  "mode": "mock",
+  "endpoint": "string",
+  "name": "string",
+  "connected": false,
+  "visit_count": 0,
+  "message": "string",
+  "has_api_key": false
+}
+```
+
+---
+
+### `GET /admin/his/visits`
+
+Admin His Visits.
+
+**Auth:** bearer token (roles: super_admin, admin, viewer)
+
+**Response 200:** JSON (Successful Response)
+
+---
+
+### `GET /admin/his/visits/{visit_id}`
+
+Admin His Visit Detail.
+
+**Auth:** bearer token (roles: super_admin, admin, viewer)
+
+**Path params:** `visit_id`
+
+**Response 200:** JSON (Successful Response)
+
+---
+
+### `GET /admin/his/patients`
+
+Admin His Patients.
+
+HN master records from the connected hospital DB — the admin
+Database tab's patient (HN) view. Each row already carries the full
+history + last-vitals payload, so no per-patient detail proxy is needed.
+
+**Auth:** bearer token (roles: super_admin, admin, viewer)
 
 **Response 200:** JSON (Successful Response)
 
@@ -2545,29 +2568,6 @@ Activate an approved version. Activating a retired version = rollback.
 **Auth:** bearer token (roles: super_admin, admin)
 
 **Path params:** `version_id`
-
-**Response 200:** JSON (Successful Response)
-
----
-
-### `GET /admin/ai-metrics`
-
-Get Ai Metrics.
-
-Aggregate AI transparency metrics over ai_inference_audit (SRS F40).
-
-Feeds the head-nurse governance panel: call volumes/ok-rates/latency per
-LLM call site, dispositions by level and department, validator violation
-counts, and escalation totals.
-
-**Auth:** bearer token (roles: super_admin, admin, viewer)
-
-**Query params:**
-
-| Param | Type | Required | Notes |
-|---|---|---|---|
-| `from` | string or null | N |  |
-| `to` | string or null | N |  |
 
 **Response 200:** JSON (Successful Response)
 
