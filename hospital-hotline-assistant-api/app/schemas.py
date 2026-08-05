@@ -60,6 +60,9 @@ class SessionMeasurementUpdate(BaseModel):
 
     vital: Literal["temp", "weight", "height"]
     value: float
+    # Weight from the kiosk scale: id of the durable weight_readings row
+    # stored at fetch time, so this call can link it to the session.
+    reading_id: UUID | None = None
 
     @model_validator(mode="after")
     def _check_range(self) -> "SessionMeasurementUpdate":
@@ -161,6 +164,7 @@ class ScaleWatchRequest(BaseModel):
     two long-polls is returned by the next one instead of being silently
     re-baselined away); omitted → the server baselines its current state."""
 
+    session_id: UUID | None = None
     timeout_seconds: float = Field(default=25, ge=5, le=45)
     since_sequence: int | None = None
 
@@ -187,6 +191,39 @@ class WeightScaleFetchResponse(BaseModel):
     # "is this new?" signal (the scale clock resets on battery change).
     sequence: int | None = None
     is_recent: bool | None = None
+    message: str | None = None
+    # Durable weight_readings row id (present when the reading was stored);
+    # pass to /sessions/{id}/measurement to link it to the session.
+    reading_id: UUID | None = None
+
+
+class ScaleDeviceStatusOut(BaseModel):
+    """Current scale configuration shown in the admin portal."""
+
+    read_mode: str
+    device_mac: str | None
+    user_slot: int | None
+    configured: bool
+    busy: bool
+
+
+class ScalePairRequest(BaseModel):
+    mac: str = Field(..., min_length=1, max_length=64)
+
+
+class ScalePairResponse(BaseModel):
+    status: Literal[
+        "ok",
+        "busy",
+        "invalid",
+        "device_not_found",
+        "pairing_error",
+        "wrong_device",
+        "timeout",
+        "not_configured",
+        "error",
+    ]
+    device_mac: str | None = None
     message: str | None = None
 
 

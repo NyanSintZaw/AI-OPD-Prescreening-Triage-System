@@ -91,6 +91,9 @@ from app.schemas import (
     BpPairRequest,
     BpPairResponse,
     BpScanResponse,
+    ScaleDeviceStatusOut,
+    ScalePairRequest,
+    ScalePairResponse,
     ScaleWatchRequest,
     WeightScaleFetchResponse,
     MessageCreate,
@@ -859,6 +862,57 @@ async def _store_bp_reading(
     return row["id"] if row is not None else None
 
 
+async def _store_weight_reading(
+    connection: asyncpg.Connection,
+    *,
+    session_id: UUID | None,
+    weight_kg: float,
+    sequence: int | None,
+    measured_at: datetime | None,
+    source: str = "device",
+) -> UUID | None:
+    """Insert a reading into ``weight_readings`` and return its id.
+
+    Device readings are deduplicated on the scale's monotonic ``sequence``
+    counter (the reliable identity signal — the scale clock resets on
+    battery change): the kiosk polls while waiting for the sync daemon, so
+    the same measurement arrives several times. On a duplicate, the
+    existing row is returned and its session link is filled in if it was
+    still missing.
+    """
+    if measured_at is not None and measured_at.tzinfo is not None:
+        # weight_readings.measured_at is the scale's own (naive, local) clock.
+        measured_at = measured_at.astimezone().replace(tzinfo=None)
+    row = await connection.fetchrow(
+        """
+        INSERT INTO weight_readings
+            (session_id, weight_kg, sequence, measured_at, source)
+        VALUES ($1, $2, $3, $4, $5)
+        ON CONFLICT (sequence) WHERE source = 'device' AND sequence IS NOT NULL
+        DO NOTHING
+        RETURNING id
+        """,
+        session_id,
+        weight_kg,
+        sequence,
+        measured_at,
+        source,
+    )
+    if row is not None:
+        return row["id"]
+    row = await connection.fetchrow(
+        """
+        UPDATE weight_readings
+        SET session_id = COALESCE(session_id, $2)
+        WHERE source = 'device' AND sequence = $1
+        RETURNING id
+        """,
+        sequence,
+        session_id,
+    )
+    return row["id"] if row is not None else None
+
+
 @app.put("/sessions/{session_id}/vitals")
 async def update_session_vitals(
     session_id: UUID,
@@ -1023,6 +1077,14 @@ async def update_session_measurement(
         session_id,
         metadata,
     )
+    if payload.reading_id is not None:
+        # Link the durable weight_readings row (stored at scale-fetch time)
+        # to this session, mirroring the bp_readings flow.
+        await connection.execute(
+            "UPDATE weight_readings SET session_id = $2 WHERE id = $1",
+            payload.reading_id,
+            session_id,
+        )
     return {"session_id": str(session_id), "vitals": vitals}
 
 
@@ -1193,28 +1255,56 @@ async def watch_blood_pressure(
     )
 
 
-def _build_scale_response(
-    scale_service: WeightScaleService, reading
+async def _persist_and_build_scale_response(
+    scale_service: WeightScaleService,
+    connection: asyncpg.Connection,
+    reading,
+    session_id: UUID | None,
+    *,
+    store: bool,
 ) -> WeightScaleFetchResponse:
+    reading_id: UUID | None = None
+    if store and reading.weight_kg is not None:
+        # Durable row, like bp_readings — written before the patient decides
+        # anything so the measurement survives a cancelled flow. Deduped by
+        # the scale's sequence counter.
+        try:
+            reading_id = await _store_weight_reading(
+                connection,
+                session_id=session_id,
+                weight_kg=reading.weight_kg,
+                sequence=reading.sequence,
+                measured_at=reading.measured_at,
+                source="device",
+            )
+        except Exception:  # noqa: BLE001 — reading display must not fail
+            logger.exception("Failed to persist weight reading")
     return WeightScaleFetchResponse(
         status="ok",
         weight_kg=reading.weight_kg,
         measured_at=reading.measured_at,
         sequence=reading.sequence,
         is_recent=scale_service.is_recent(reading),
+        reading_id=reading_id,
     )
 
 
 @app.post("/vitals/weight-scale/fetch", response_model=WeightScaleFetchResponse)
-async def fetch_weight_scale(request: Request):
+async def fetch_weight_scale(
+    request: Request,
+    payload: BpFetchRequest | None = None,
+    connection: asyncpg.Connection = Depends(get_connection),
+):
     """Return the Omron scale's newest weight measurement.
 
     Reads the sync daemon's latest-json (or runs omscale.py over BLE,
     depending on SCALE_READ_MODE). Always returns 200 with a ``status``
     field so the kiosk UI can branch on failure modes. The kiosk decides
-    freshness client-side against its measurement anchor; the reading is
-    only written to the session when the patient confirms it.
+    freshness client-side against its measurement anchor; only readings
+    that look recent are stored durably (the fetch can surface stale scale
+    history).
     """
+    session_id = payload.session_id if payload else None
     scale_service: WeightScaleService = request.app.state.scale_service
     try:
         reading = await scale_service.fetch_latest()
@@ -1223,21 +1313,31 @@ async def fetch_weight_scale(request: Request):
     except Exception as exc:  # noqa: BLE001 — surface as structured error
         logger.exception("Unexpected omscale failure")
         return WeightScaleFetchResponse(status="error", message=str(exc))
-    return _build_scale_response(scale_service, reading)
+    return await _persist_and_build_scale_response(
+        scale_service,
+        connection,
+        reading,
+        session_id,
+        store=scale_service.is_recent(reading),
+    )
 
 
 @app.post("/vitals/weight-scale/watch", response_model=WeightScaleFetchResponse)
 async def watch_weight_scale(
     request: Request,
     payload: ScaleWatchRequest | None = None,
+    connection: asyncpg.Connection = Depends(get_connection),
 ):
     """Long-poll: wait for the scale to deliver a new measurement, then
     return it immediately.
 
     Returns status ``not_seen`` when nothing new appeared within
     ``timeout_seconds`` so the kiosk can re-arm without any dead time.
+    A delivered reading is novelty-guaranteed (sequence above the
+    baseline), so it is always stored durably in ``weight_readings``.
     """
     scale_service: WeightScaleService = request.app.state.scale_service
+    session_id = payload.session_id if payload else None
     timeout = payload.timeout_seconds if payload else 25.0
     since_sequence = payload.since_sequence if payload else None
     try:
@@ -1247,7 +1347,68 @@ async def watch_weight_scale(
     except Exception as exc:  # noqa: BLE001 — surface as structured error
         logger.exception("Unexpected scale watch failure")
         return WeightScaleFetchResponse(status="error", message=str(exc))
-    return _build_scale_response(scale_service, reading)
+    return await _persist_and_build_scale_response(
+        scale_service, connection, reading, session_id, store=True
+    )
+
+
+@app.get("/admin/scale-device", response_model=ScaleDeviceStatusOut)
+async def get_scale_device_status(
+    request: Request,
+    _admin_user: dict = Depends(require_roles("super_admin", "admin", "viewer")),
+):
+    """Current scale configuration for the admin portal device manager."""
+    scale_service: WeightScaleService = request.app.state.scale_service
+    mac = scale_service._device_mac()
+    return ScaleDeviceStatusOut(
+        read_mode=settings.scale_read_mode,
+        device_mac=mac,
+        user_slot=scale_service._user_slot(),
+        configured=bool(mac) or scale_service.omscale_dir.is_dir(),
+        busy=scale_service.is_busy,
+    )
+
+
+@app.post("/admin/scale-device/scan", response_model=BpScanResponse)
+async def scan_scale_devices(
+    request: Request,
+    _admin_user: dict = Depends(require_roles("super_admin", "admin")),
+):
+    """Sweep for nearby BLE devices (~6s) so the admin can pick the scale.
+
+    The scale only advertises in pairing mode (blinking P) or right after
+    a measurement — likely Omron devices are flagged and sorted first.
+    """
+    scale_service: WeightScaleService = request.app.state.scale_service
+    try:
+        devices = await scale_service.scan_devices()
+    except WeightScaleFetchError as exc:
+        return BpScanResponse(
+            status="busy" if exc.code == "busy" else "error", message=str(exc)
+        )
+    except Exception as exc:  # noqa: BLE001 — surface as structured error
+        logger.exception("BLE scale scan failed")
+        return BpScanResponse(status="error", message=str(exc))
+    return BpScanResponse(status="ok", devices=devices)
+
+
+@app.post("/admin/scale-device/pair", response_model=ScalePairResponse)
+async def pair_scale_device(
+    payload: ScalePairRequest,
+    request: Request,
+    _admin_user: dict = Depends(require_roles("super_admin", "admin")),
+):
+    """Register a user slot on the selected scale and make it the active
+    kiosk scale (persists to .env, effective immediately)."""
+    scale_service: WeightScaleService = request.app.state.scale_service
+    try:
+        await scale_service.pair_device(payload.mac)
+    except WeightScaleFetchError as exc:
+        return ScalePairResponse(status=exc.code, message=str(exc))
+    except Exception as exc:  # noqa: BLE001 — surface as structured error
+        logger.exception("Unexpected scale pairing failure")
+        return ScalePairResponse(status="error", message=str(exc))
+    return ScalePairResponse(status="ok", device_mac=settings.scale_device_mac)
 
 
 @app.get("/admin/bp-device", response_model=BpDeviceStatusOut)

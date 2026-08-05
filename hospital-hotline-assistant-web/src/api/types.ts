@@ -443,6 +443,9 @@ export interface WeightScaleFetchResponse {
   sequence: number | null;
   is_recent: boolean | null;
   message: string | null;
+  /** Durable weight_readings row id (present when the reading was stored);
+   *  pass to updateSessionMeasurement to link it to the session. */
+  reading_id: string | null;
 }
 
 export interface BpRestStatusOut {
@@ -688,6 +691,20 @@ export interface BpPairResponse {
     | 'not_configured'
     | 'error';
   device_name: string | null;
+  device_mac: string | null;
+  message: string | null;
+}
+
+export interface ScaleDeviceStatusOut {
+  read_mode: string;
+  device_mac: string | null;
+  user_slot: number | null;
+  configured: boolean;
+  busy: boolean;
+}
+
+export interface ScalePairResponse {
+  status: BpPairResponse['status'];
   device_mac: string | null;
   message: string | null;
 }

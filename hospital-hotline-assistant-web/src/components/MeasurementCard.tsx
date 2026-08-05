@@ -258,7 +258,14 @@ export function MeasurementCard({ vital, onSubmit, onRest, onCancel, disabled, s
     setErrorKey(null);
     try {
       if (sessionId) {
-        await api.updateSessionMeasurement(sessionId, { vital: 'weight', value: wgt });
+        // Link the durable scale row when the value is the scale's reading.
+        const fromScale =
+          scale.reading?.weight_kg != null && scale.reading.weight_kg === wgt;
+        await api.updateSessionMeasurement(sessionId, {
+          vital: 'weight',
+          value: wgt,
+          reading_id: fromScale ? scale.reading?.reading_id : null,
+        });
         await api.updateSessionMeasurement(sessionId, { vital: 'height', value: hgt });
       }
     } catch {

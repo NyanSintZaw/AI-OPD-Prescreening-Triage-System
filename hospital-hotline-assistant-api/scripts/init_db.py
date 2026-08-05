@@ -5,8 +5,8 @@ Run with: ``uv run python scripts/init_db.py``.
 Readies BOTH databases the demo needs, in one command:
 
 **Postgres** (our database):
-1. Connects to the cluster pointed at by ``DATABASE_URL`` (defaults to
-   ``postgresql://postgres:postgres@localhost:5432/hospital_hotline``).
+1. Connects to the cluster the app itself uses (``app.config.settings``,
+   i.e. ``DATABASE_URL`` from the environment or ``.env``).
 2. If the target database does not exist, creates it via the ``postgres``
    maintenance database in the same cluster.
 3. Ensures a ``schema_migrations`` tracking table exists so each migration
@@ -37,11 +37,13 @@ import urllib.request
 
 import asyncpg
 
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent))
 
-DEFAULT_URL = os.getenv(
-    "DATABASE_URL",
-    "postgresql://postgres:postgres@localhost:5432/hospital_hotline",
-)
+from app.config import settings  # noqa: E402
+
+# Same source of truth as the app: .env via pydantic-settings (a real
+# DATABASE_URL env var still wins inside Settings).
+DEFAULT_URL = settings.database_url
 SUPER_URL = DEFAULT_URL.rsplit("/", 1)[0] + "/postgres"
 MIGRATIONS_DIR = pathlib.Path(__file__).parent.parent / "migrations"
 

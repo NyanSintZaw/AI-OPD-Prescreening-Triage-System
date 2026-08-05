@@ -892,6 +892,14 @@ async def syncOnce(args):
         records = await reader.readRecords(lastSequence + 1)
         await reader.disableNotifications()
 
+        # A truncated transfer (lost 19/16-byte chunk) yields a record with no
+        # datetime/weight; don't let it advance lastSequence or reach the
+        # files — leaving it unacknowledged makes the next sync refetch it.
+        complete = [r for r in records if r.get("datetime") and r.get("weight") is not None]
+        if len(complete) != len(records):
+            logger.warning(f"dropped {len(records) - len(complete)} incomplete record(s); will refetch next sync")
+        records = complete
+
         logger.info(f"received {len(records)} record(s)")
         for record in records:
             logger.info(f"  {record.get('datetime')} seq={record.get('sequence')} "

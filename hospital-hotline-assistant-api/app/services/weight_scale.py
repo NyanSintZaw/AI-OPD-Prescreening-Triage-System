@@ -33,18 +33,26 @@ import csv
 import io
 import json
 import logging
+import re
 import sys
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from pathlib import Path
 
 from app.config import settings
+from app.services.blood_pressure import _VALID_MAC, _VALID_UUID
+from app.services.env_persist import persist_env_keys as _persist_env_keys
 
 logger = logging.getLogger(__name__)
 
 _RESULT_MARKER = "OMSCALE_RESULT_JSON "
 _RECENT_WINDOW = timedelta(minutes=15)
 _FILE_POLL_INTERVAL_S = 1.0
+
+# Advertised names that identify the Omron scale. Idle/off units are silent;
+# a scale in pairing mode (blinking P) or right after a measurement
+# advertises as "BLEsmart_..." / "BLESmart_...".
+_SCALE_NAME = re.compile(r"blesmart|hbf[-_]|omron", re.IGNORECASE)
 
 _LB_TO_KG = 0.45359237
 
@@ -462,3 +470,116 @@ class WeightScaleService:
         if reading.measured_at is None:
             return False
         return abs(datetime.now() - reading.measured_at) <= _RECENT_WINDOW
+
+    # ── Admin: device discovery + pairing ────────────────────────────────
+
+    async def scan_devices(self, duration: float = 6.0) -> list[dict]:
+        """BLE discovery sweep for the admin pairing wizard.
+
+        Returns dicts of ``{mac, name, rssi, is_omron}`` with likely Omron
+        devices first, then descending signal strength. The scale only
+        advertises in pairing mode (blinking P) or right after a
+        measurement — an idle scale will not appear. Shares the fetch lock.
+        """
+        if self._lock.locked():
+            raise WeightScaleFetchError(
+                "busy", "A scale operation is already in progress."
+            )
+        import bleak
+
+        async with self._lock:
+            found = await bleak.BleakScanner.discover(
+                timeout=duration, return_adv=True
+            )
+        devices = []
+        for mac, (ble_dev, adv) in found.items():
+            name = ble_dev.name or adv.local_name
+            rssi = adv.rssi if adv.rssi is not None and adv.rssi != 127 else None
+            devices.append(
+                {
+                    "mac": mac,
+                    "name": name,
+                    "rssi": rssi,
+                    "is_omron": bool(name and _SCALE_NAME.search(name)),
+                }
+            )
+        devices.sort(
+            key=lambda d: (
+                not d["is_omron"],
+                -(d["rssi"] if d["rssi"] is not None else -999),
+            )
+        )
+        return devices
+
+    async def pair_device(self, mac: str) -> None:
+        """Register a user slot on the scale (``omscale.py --pair``) and
+        persist it as the configured kiosk scale.
+
+        The scale must be in pairing mode (user selected, Bluetooth button
+        held until P blinks). The scale assigns the user slot itself;
+        omscale saves slot + address in omscale_state.json, which the
+        sync daemon and future fetches read. Raises
+        :class:`WeightScaleFetchError` on any failure.
+        """
+        mac = mac.strip()
+        if not (_VALID_MAC.match(mac) or _VALID_UUID.match(mac)):
+            raise WeightScaleFetchError(
+                "invalid", f"'{mac}' is not a valid Bluetooth address."
+            )
+        if not (self.omscale_dir / "omscale.py").exists():
+            raise WeightScaleFetchError(
+                "not_configured",
+                f"omscale.py not found in {self.omscale_dir}. Set SCALE_OMSCALE_DIR.",
+            )
+        if self._lock.locked():
+            raise WeightScaleFetchError(
+                "busy", "A scale operation is already in progress."
+            )
+
+        async with self._lock:
+            cmd = [self.python_bin, "omscale.py", "-p", "-m", mac]
+            logger.info("Starting omscale pairing: %s", " ".join(cmd))
+            process = await asyncio.create_subprocess_exec(
+                *cmd,
+                cwd=self.omscale_dir,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.STDOUT,
+            )
+            try:
+                raw_output, _ = await asyncio.wait_for(
+                    process.communicate(),
+                    timeout=settings.scale_fetch_timeout_seconds,
+                )
+            except asyncio.TimeoutError:
+                process.kill()
+                await process.wait()
+                raise WeightScaleFetchError(
+                    "timeout",
+                    "Timed out while pairing. Put the scale back in pairing "
+                    "mode (blinking P) and try again.",
+                )
+
+            output = raw_output.decode("utf-8", errors="replace")
+            logger.info(
+                "omscale pairing exited rc=%s, output tail: %s",
+                process.returncode,
+                " | ".join(output.strip().splitlines()[-3:]),
+            )
+            if process.returncode != 0 or "user registered successfully" not in output:
+                err = _classify_subprocess_failure(output)
+                if err.code in {"device_not_found", "timeout"}:
+                    err = WeightScaleFetchError(
+                        "device_not_found",
+                        "Could not connect to the scale. Select the user on "
+                        "the scale and hold its Bluetooth button until P "
+                        "blinks, then scan and pair again.",
+                    )
+                raise err
+
+        # Persist as the active kiosk scale: in-memory first (takes effect
+        # for the next fetch immediately), then .env so it survives restart.
+        settings.scale_device_mac = mac
+        try:
+            _persist_env_keys({"SCALE_DEVICE_MAC": mac})
+        except OSError:
+            logger.exception("Paired OK but failed to persist .env config")

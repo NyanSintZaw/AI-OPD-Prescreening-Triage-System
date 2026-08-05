@@ -158,12 +158,28 @@ export function KioskSession() {
     if (attachedSeqRef.current === seq) return;
     attachedSeqRef.current = seq;
     void api
-      .updateSessionMeasurement(sid, { vital: 'weight', value: reading.weight_kg })
+      .updateSessionMeasurement(sid, {
+        vital: 'weight',
+        value: reading.weight_kg,
+        reading_id: reading.reading_id,
+      })
       .catch(() => {
         // Allow a later reading (or re-render) to retry the attach.
         attachedSeqRef.current = null;
       });
   }, [scale.reading]);
+
+  // Conversation ended without a weight (the HBF-222T daemon needs 1–2 min
+  // to sync, so a fast interview can outrun it): re-arm the watch on the
+  // result screen so the late sync still attaches before the patient
+  // leaves — the attach effect above fires whenever the reading lands, and
+  // the nurse review reads vitals live from the session.
+  useEffect(() => {
+    if (phase !== 'result') return;
+    if (attachedSeqRef.current != null || scale.status === 'watching') return;
+    void scale.startWatching({ resume: true, deadlineMs: 2 * 60_000 });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase]);
 
   const handleWeighContinue = useCallback(() => {
     const sid = runSessionRef.current;

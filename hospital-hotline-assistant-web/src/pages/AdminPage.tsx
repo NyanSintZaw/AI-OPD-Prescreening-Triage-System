@@ -10,6 +10,7 @@ import { getAdminEmail, getAdminRole, getAdminToken } from '../api/client';
 import { Layout } from '../components/Layout';
 import { MessageBubble } from '../components/MessageBubble';
 import { BpDeviceManager } from '../components/BpDeviceManager';
+import { ScaleDeviceManager } from '../components/ScaleDeviceManager';
 import { OutbreakSurveillance } from '../components/OutbreakSurveillance';
 import { TriageManualUpload } from '../components/TriageManualUpload';
 import { CriteriaManager } from '../components/CriteriaManager';
@@ -24,6 +25,7 @@ type AdminTab =
   | 'triage-manual'
   | 'criteria'
   | 'bp-device'
+  | 'scale-device'
   | 'hospital-db'
   | 'users';
 
@@ -347,6 +349,15 @@ export function AdminPage() {
           <button
             type="button"
             role="tab"
+            aria-selected={activeTab === 'scale-device'}
+            className={`admin-tab-btn ${activeTab === 'scale-device' ? 'active' : ''}`}
+            onClick={() => setActiveTab('scale-device')}
+          >
+            ⚖️ {t('scaledevTab')}
+          </button>
+          <button
+            type="button"
+            role="tab"
             aria-selected={activeTab === 'hospital-db'}
             className={`admin-tab-btn ${activeTab === 'hospital-db' ? 'active' : ''}`}
             onClick={() => setActiveTab('hospital-db')}
@@ -382,6 +393,7 @@ export function AdminPage() {
         {activeTab === 'triage-manual' && <TriageManualUpload />}
         {activeTab === 'criteria' && <CriteriaManager />}
         {activeTab === 'bp-device' && <BpDeviceManager />}
+        {activeTab === 'scale-device' && <ScaleDeviceManager />}
         {activeTab === 'hospital-db' && <HospitalDbPanel />}
         {activeTab === 'users' && <UserManagementPanel />}
 

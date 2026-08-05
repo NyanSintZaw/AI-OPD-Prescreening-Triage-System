@@ -51,6 +51,7 @@ PURGE_STATEMENTS = [
     "DELETE FROM disease_surveillance",
     "DELETE FROM messages",
     "UPDATE bp_readings SET session_id = NULL",
+    "UPDATE weight_readings SET session_id = NULL",
     "DELETE FROM sessions",
 ]
 

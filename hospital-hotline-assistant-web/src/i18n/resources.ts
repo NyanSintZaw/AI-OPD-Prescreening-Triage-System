@@ -359,6 +359,32 @@ export const resources = {
       bpdevPairErrorHint:
         'Make sure the monitor is still in pairing mode (flashing symbol) and close to this computer, then rescan.',
       bpdevBackToStart: 'Start over',
+      scaledevTab: 'Weight Scale',
+      scaledevTitle: 'Weight Scale',
+      scaledevSubtitle:
+        'Pair and test the Omron HBF-222T scale the kiosk reads patient weight from.',
+      scaledevMode: 'Read mode: {{mode}}',
+      scaledevSlot: 'user slot {{slot}}',
+      scaledevTestHint:
+        'Step on the scale barefoot, wait for the weight on its display, then fetch. The sync can take 1–2 minutes.',
+      scaledevTestButton: 'Test reading',
+      scaledevTestNotFound:
+        'The scale did not respond. Step on it, wait for the weight to show, and try again.',
+      scaledevNoRecords: 'The scale has no synced measurement yet. Step on it first.',
+      scaledevTestFailed: 'Reading failed. Check the scale and try again.',
+      scaledevPairTitle: 'Pair a new scale',
+      scaledevPairStep1: 'Select the personal user number on the scale.',
+      scaledevPairStep2: 'Hold its Bluetooth button until "P" blinks on the display.',
+      scaledevPairStep3: 'Scan below and pick the scale from the list.',
+      scaledevScanningHint: 'Keep "P" blinking on the scale display.',
+      scaledevPairingHint:
+        'Keep "P" blinking — the scale assigns the user slot itself. This can take up to a minute.',
+      scaledevPairedTitle: 'Scale connected!',
+      scaledevPairedHint:
+        'The kiosk will now read weight from this scale. Run a test reading to confirm.',
+      scaledevPairErrorHint:
+        'Make sure "P" is still blinking on the scale and it is close to this computer, then rescan.',
+      vitalsUnitKg: 'kg',
       chatTitle: 'Hotline Chat',
       typeMessage: 'Describe your symptoms...',
       assessmentCompleteInput: 'Assessment complete. Save your ID to gallery.',
@@ -1129,6 +1155,29 @@ export const resources = {
       bpdevDone: 'เสร็จสิ้น',
       bpdevPairErrorHint: 'ตรวจสอบว่าเครื่องวัดยังอยู่ในโหมดจับคู่ (สัญลักษณ์กะพริบ) และอยู่ใกล้คอมพิวเตอร์ แล้วสแกนใหม่',
       bpdevBackToStart: 'เริ่มใหม่',
+      scaledevTab: 'เครื่องชั่งน้ำหนัก',
+      scaledevTitle: 'เครื่องชั่งน้ำหนัก',
+      scaledevSubtitle:
+        'จับคู่และทดสอบเครื่องชั่ง Omron HBF-222T ที่คีออสก์ใช้อ่านน้ำหนักผู้ป่วย',
+      scaledevMode: 'โหมดอ่านค่า: {{mode}}',
+      scaledevSlot: 'ผู้ใช้หมายเลข {{slot}}',
+      scaledevTestHint:
+        'ขึ้นชั่งด้วยเท้าเปล่า รอจนตัวเลขน้ำหนักขึ้นบนหน้าจอเครื่องชั่งแล้วกดอ่านค่า การซิงก์อาจใช้เวลา 1–2 นาที',
+      scaledevTestButton: 'ทดสอบอ่านค่า',
+      scaledevTestNotFound: 'เครื่องชั่งไม่ตอบสนอง ขึ้นชั่งใหม่ รอตัวเลขขึ้นแล้วลองอีกครั้ง',
+      scaledevNoRecords: 'เครื่องชั่งยังไม่มีค่าที่ซิงก์แล้ว กรุณาขึ้นชั่งก่อน',
+      scaledevTestFailed: 'อ่านค่าไม่สำเร็จ ตรวจสอบเครื่องชั่งแล้วลองใหม่',
+      scaledevPairTitle: 'จับคู่เครื่องชั่งใหม่',
+      scaledevPairStep1: 'เลือกหมายเลขผู้ใช้บนเครื่องชั่ง',
+      scaledevPairStep2: 'กดปุ่มบลูทูธค้างไว้จนตัว "P" กะพริบบนหน้าจอ',
+      scaledevPairStep3: 'กดสแกนด้านล่างแล้วเลือกเครื่องชั่งจากรายการ',
+      scaledevScanningHint: 'ให้ตัว "P" กะพริบบนหน้าจอเครื่องชั่งต่อไป',
+      scaledevPairingHint: 'ให้ "P" กะพริบต่อไป — เครื่องชั่งจะกำหนดหมายเลขผู้ใช้เอง อาจใช้เวลาถึงหนึ่งนาที',
+      scaledevPairedTitle: 'เชื่อมต่อสำเร็จ!',
+      scaledevPairedHint: 'คีออสก์จะอ่านน้ำหนักจากเครื่องชั่งนี้แล้ว กดทดสอบอ่านค่าเพื่อยืนยัน',
+      scaledevPairErrorHint:
+        'ตรวจสอบว่าตัว "P" ยังกะพริบบนเครื่องชั่งและอยู่ใกล้คอมพิวเตอร์ แล้วสแกนใหม่',
+      vitalsUnitKg: 'กก.',
       chatTitle: 'แชทสายด่วน',
       typeMessage: 'อธิบายอาการของคุณ...',
       assessmentCompleteInput: 'ประเมินเสร็จแล้ว กรุณาบันทึก ID ลงแกลเลอรี',

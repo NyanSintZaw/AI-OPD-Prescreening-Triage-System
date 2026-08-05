@@ -12,6 +12,8 @@ import type {
   BpDeviceStatusOut,
   BpPairRequest,
   BpPairResponse,
+  ScaleDeviceStatusOut,
+  ScalePairResponse,
   BpScanResponse,
   ChatRequestPayload,
   ChatResponsePayload,
@@ -450,7 +452,12 @@ export const api = {
    *  interview). Merges into the session's stored vitals. */
   updateSessionMeasurement: (
     sessionId: string,
-    payload: { vital: 'temp' | 'weight' | 'height'; value: number },
+    payload: {
+      vital: 'temp' | 'weight' | 'height';
+      value: number;
+      /** Durable weight_readings row from the kiosk scale to link. */
+      reading_id?: string | null;
+    },
   ) =>
     request<{ session_id: string; vitals: Record<string, unknown> }>(
       `/sessions/${sessionId}/measurement`,
@@ -466,6 +473,17 @@ export const api = {
     request<BpPairResponse>('/admin/bp-device/pair', {
       method: 'POST',
       body: JSON.stringify(payload),
+    }),
+
+  getScaleDeviceStatus: () => request<ScaleDeviceStatusOut>('/admin/scale-device'),
+
+  scanScaleDevices: () =>
+    request<BpScanResponse>('/admin/scale-device/scan', { method: 'POST' }),
+
+  pairScaleDevice: (mac: string) =>
+    request<ScalePairResponse>('/admin/scale-device/pair', {
+      method: 'POST',
+      body: JSON.stringify({ mac }),
     }),
 
   // ── Disease Surveillance ───────────────────────────────────────────────────
