@@ -62,6 +62,10 @@ async def lifespan(app: FastAPI):
     app.state.model_prewarm_task = asyncio.create_task(triage_engine.prewarm())
     # Kiosk-side Omron cuff reader (omblepy subprocess wrapper).
     app.state.bp_service = BloodPressureService()
+    # Kiosk-side BLE thermometer (standard Health Thermometer Service).
+    from app.services.thermometer import ThermometerService
+
+    app.state.temp_service = ThermometerService()
     try:
         yield
     finally:

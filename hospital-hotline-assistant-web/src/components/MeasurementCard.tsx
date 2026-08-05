@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { api } from '../api';
 import type { VitalBoundsOut } from '../api/types';
@@ -102,6 +102,11 @@ export function MeasurementCard({ vital, language, onSubmit, onRest, onCancel, d
   };
 
   const [tempValue, setTempValue] = useState('');
+  const [tempFetching, setTempFetching] = useState(false);
+  const [deviceTemp, setDeviceTemp] = useState<number | null>(null);
+  // Set when the patient backs out of a device fetch: the in-flight
+  // long-poll result is ignored instead of aborted (kiosk has one station).
+  const tempCancelRef = useRef(false);
 
   const [sbpChoice, setSbpChoice] = useState<SbpChoice>('unset');
   const [systolic, setSystolic] = useState('');
@@ -120,6 +125,9 @@ export function MeasurementCard({ vital, language, onSubmit, onRest, onCancel, d
     setErrorText(null);
     setRestSeconds(null);
     setTempValue('');
+    setTempFetching(false);
+    setDeviceTemp(null);
+    tempCancelRef.current = true;
     setSbpChoice('unset');
     setSystolic('');
     setDiastolic('');
@@ -169,6 +177,29 @@ export function MeasurementCard({ vital, language, onSubmit, onRest, onCancel, d
 
   const busy = saving || Boolean(disabled) || (vital === 'sbp' && restSeconds != null && restSeconds > 0);
 
+  const startTempDevice = async () => {
+    setErrorKey(null);
+    setErrorText(null);
+    setTempFetching(true);
+    tempCancelRef.current = false;
+    try {
+      const result = await api.fetchTemperature(sessionId, 60);
+      if (tempCancelRef.current) return;
+      if (result.status === 'ok' && result.temperature_c != null) {
+        setDeviceTemp(result.temperature_c);
+        setTempValue(String(result.temperature_c));
+      } else if (result.status === 'timeout') {
+        setErrorKey('measureTempDeviceTimeout');
+      } else {
+        setErrorKey('measureTempDeviceError');
+      }
+    } catch {
+      if (!tempCancelRef.current) setErrorKey('measureTempDeviceError');
+    } finally {
+      if (!tempCancelRef.current) setTempFetching(false);
+    }
+  };
+
   const submitTemp = async () => {
     const value = parseNum(tempValue);
     if (value === undefined) {
@@ -180,7 +211,10 @@ export function MeasurementCard({ vital, language, onSubmit, onRest, onCancel, d
     setErrorKey(null);
     setErrorText(null);
     try {
-      if (sessionId) {
+      // A device reading used unedited was already persisted and merged
+      // into the session vitals by the fetch endpoint — skip the manual
+      // write-back so it isn't double-recorded.
+      if (sessionId && !(deviceTemp != null && value === deviceTemp)) {
         await api.updateSessionMeasurement(sessionId, { vital: 'temp', value });
       }
     } catch {
@@ -327,6 +361,30 @@ export function MeasurementCard({ vital, language, onSubmit, onRest, onCancel, d
   // interview needs them) — there is deliberately no skip control.
 
   if (vital === 'temp') {
+    if (tempFetching) {
+      return (
+        <div className="measurement-prompt-card">
+          <p className="measurement-prompt-title">{t('measureTempDeviceWaiting')}</p>
+          <p className="measurement-prompt-subtitle muted">{t('measureTempDeviceWaitingHint')}</p>
+          <div className="vitals-progress">
+            <div className="vitals-progress-bar" />
+          </div>
+          <div className="measurement-card-actions">
+            <button
+              type="button"
+              className="text-btn location-prompt-skip"
+              onClick={() => {
+                tempCancelRef.current = true;
+                setTempFetching(false);
+              }}
+            >
+              {t('vitalsEnterManually')}
+            </button>
+            {cancelBtn}
+          </div>
+        </div>
+      );
+    }
     return (
       <div className="measurement-prompt-card">
         <p className="measurement-prompt-title">{t('measureTempTitle')}</p>
@@ -357,6 +415,16 @@ export function MeasurementCard({ vital, language, onSubmit, onRest, onCancel, d
             {saving ? t('loading') : t('measureTempConfirm')}
           </button>
           {cancelBtn}
+        </div>
+        <div className="measurement-card-actions">
+          <button
+            type="button"
+            className="secondary-btn"
+            onClick={() => void startTempDevice()}
+            disabled={busy}
+          >
+            {t('measureTempUseDevice')}
+          </button>
         </div>
         {errorNote}
       </div>

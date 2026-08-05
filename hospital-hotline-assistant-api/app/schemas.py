@@ -217,6 +217,74 @@ class BpPairRequest(BaseModel):
     device_name: str = Field(..., min_length=1, max_length=32)
 
 
+class TempFetchRequest(BaseModel):
+    """Body for the thermometer fetch: waits for the device to push a
+    measurement, links the stored reading to the kiosk session when given."""
+
+    session_id: UUID | None = None
+    timeout_seconds: float | None = Field(default=None, ge=5, le=180)
+
+
+class TemperatureFetchResponse(BaseModel):
+    """Result of a kiosk-side thermometer fetch. ``status`` is always set;
+    the reading fields are only present when ``status == "ok"``."""
+
+    status: Literal[
+        "ok",
+        "busy",
+        "not_configured",
+        "device_not_found",
+        "wrong_device",
+        "timeout",
+        "error",
+    ]
+    temperature_c: float | None = None
+    measured_at: datetime | None = None
+    message: str | None = None
+    reading_id: UUID | None = None
+
+
+class TempDeviceStatusOut(BaseModel):
+    """Current thermometer configuration shown in the admin portal."""
+
+    device_name: str
+    device_mac: str | None
+    configured: bool
+    busy: bool
+
+
+class TempScanDeviceOut(BaseModel):
+    mac: str
+    name: str | None = None
+    rssi: int | None = None
+    is_thermometer: bool = False
+
+
+class TempScanResponse(BaseModel):
+    status: Literal["ok", "busy", "error"]
+    devices: list[TempScanDeviceOut] = Field(default_factory=list)
+    message: str | None = None
+
+
+class TempPairRequest(BaseModel):
+    mac: str = Field(..., min_length=1, max_length=64)
+
+
+class TempPairResponse(BaseModel):
+    status: Literal[
+        "ok",
+        "busy",
+        "invalid",
+        "device_not_found",
+        "wrong_device",
+        "timeout",
+        "error",
+    ]
+    device_name: str | None = None
+    device_mac: str | None = None
+    message: str | None = None
+
+
 class BpPairResponse(BaseModel):
     status: Literal[
         "ok",
