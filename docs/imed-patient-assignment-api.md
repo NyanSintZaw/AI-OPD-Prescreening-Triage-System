@@ -207,18 +207,71 @@ queues correctly.
 
 ---
 
-## Notes for our integration (not in the spec)
+## How our system will call it — field alignment (not in the spec)
 
-- Maps to `HttpHisAdapter` Stage 2 (nurse-confirmed department routing).
-  We'll need the hospital to provide: base URL, bearer token, and the
-  real master-data codes for `assign_spid` / `base_department_id` per
-  department in `app/services/his/department_map.py`.
-- Our `request_id` should be deterministic per session (e.g. derived from
-  the screening session id) so retries after network errors and 409s are
-  idempotent, per rule 6.
-- The `sbar` object is a natural home for our engine output: `situation`
-  ≈ chief complaint, `background` ≈ history risk factors, `assessment` ≈
-  vitals summary, `assessment_problem` / `recommend` ≈ `key_reason`.
-- What we still need from the hospital: how we obtain `visit_id` for a
-  booth patient (visit lookup API is not covered by this document), token
-  issuance/rotation, and the UAT host.
+This maps to **Stage 2** in our flow: the nurse confirms (or reroutes) the
+AI's department recommendation in the review portal, and
+`_push_his_routing` (`app/routers/admin_reviews.py`) calls
+`HisAdapter.confirm_routing(...)`. Today that adapter method sends the
+mock-HIS shape (`PUT /api/visits/{visit_id}/routing`); at go-live it is
+replaced by this iMed call.
+
+### Request mapping — what we send today → `POST /patient-assignments`
+
+| iMed field | Our source (today's code) | Status |
+|---|---|---|
+| `request_id` | derive deterministically from the session, e.g. `MFU-PRESCREEN-<session_id>` — retries and 409s then stay idempotent (rule 6) | to implement in the iMed adapter |
+| `visit_id` | `session.metadata.visit.visit_id` (captured at `POST /sessions/{id}/link-visit`) | ✅ available |
+| `assign_spid` | our department code → real service-point id via `screening/his/department_map.py` | ⏳ needs master-data codes from hospital |
+| `assign_eid` | not modeled — we route to a department, never a named doctor | ask: does any OPD destination require it? |
+| `base_department_id` | same department map, or omit (iMed derives it from the service point) | ⏳ needs master-data codes |
+| `queue_number` | omit — iMed generates by its own queue rules | — |
+| `sbar.situation` | nurse-edited chief complaint (falls back to the AI `symptoms_summary`) | ✅ |
+| `sbar.background` | patient history risk factors (`metadata.patient_history`: chronic conditions, allergies, …) | ✅ |
+| `sbar.assessment` | booth-measured vitals (`metadata.vitals`: cuff BP, temp, weight/height) | ✅ |
+| `sbar.assessment_problem` | nurse illness note / engine `key_reason` | ✅ |
+| `sbar.recommend` | disposition reasons (cited criteria texts); if the nurse **rerouted**, note that here — iMed has no `rerouted` flag | ✅ |
+
+Fields we send to the mock HIS today that have **no iMed slot**:
+`confirmed_by` (iMed derives the sender from the access token — one token
+per system, so the individual nurse's identity stays only in our
+`assessment_reviews` audit trail) and `rerouted` (kept in our DB; can be
+phrased into `sbar.recommend`).
+
+### Response handling — what we receive
+
+Our adapter currently reduces the write-back to a bool
+(`his_routing.status: pushed|failed` on session metadata). Against iMed we
+should persist the response body into `session.metadata.his_routing`:
+`visit_queue_id`, `queue_number`, `queue_status`, `sbar_id` — the queue
+number is worth showing on the nurse review row (and potentially the
+patient slip) since it's the number the destination screen shows.
+
+Error semantics for the adapter:
+
+| HTTP | Meaning for us | Adapter behaviour |
+|---|---|---|
+| 409 `VISIT_QUEUE_ALREADY_EXIST` | our earlier retry already landed | treat as success (idempotent per `request_id`) |
+| 403 `VISIT_LOCKED_OR_FINANCIAL_DISCHARGED` | visit can no longer be routed | permanent failure — surface to nurse, don't retry |
+| 422 `SERVICE_POINT_NOT_AVAILABLE` | destination closed | surface to nurse to reroute; retry only after a new choice |
+| 400 / network | bad payload / HIS down | keep `status: failed`, best-effort retry stays manual |
+
+### Calls with NO iMed counterpart yet (our current mock-HIS contract)
+
+The assignment contract covers only Stage 2. Everything else our adapter
+does today (see the `bruno-his-integration/current-contract/` collection)
+still needs a hospital-side answer:
+
+| Our call | Purpose | Ask to hospital |
+|---|---|---|
+| `GET /api/visits/{visit_id}` | visit lookup at the booth (validate VN, patient name/birthdate, last vitals/history) | **blocking** — without it we cannot link a booth patient to a visit; which iMed API provides this? |
+| `GET /api/departments` | department list | replaceable by a one-time master-data sheet (`assign_spid`/`base_department_id` per department) |
+| `POST /api/visits/{id}/prescreen` (Stage 1) | AI prescreen result right after the booth session | no iMed equivalent — either the SBAR at Stage 2 carries it (current plan) or hospital exposes a field for it |
+| `PUT /api/patients/{hn}/history` | booth-updated patient history | no iMed equivalent — keep internal unless hospital wants it |
+| `PUT /api/visits/{id}/follow-up` | follow-up note | same as above |
+
+### Still needed from the hospital
+
+UAT host + access token (issuance/rotation policy), master-data codes
+(`assign_spid`, `base_department_id`, any `assign_eid` requirements per
+destination), and the visit-lookup API above.
