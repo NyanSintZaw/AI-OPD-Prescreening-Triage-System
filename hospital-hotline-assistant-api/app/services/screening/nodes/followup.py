@@ -1,8 +1,10 @@
-"""Post-disposition follow-up capture — pure keyword matcher, no LLM.
+"""Post-disposition follow-up capture — keyword matcher + LLM backstop.
 
 After a non-emergency disposition the explain node offers a follow-up. This
 node handles the patient's reply: decline → close; bare yes → ask what to
 note; anything else → record verbatim and acknowledge. Never answers medically.
+Before storing a "note" (which is later pushed to HIS) the LLM backstop
+double-checks it isn't a free-phrased decline the regex missed.
 """
 
 from __future__ import annotations
@@ -10,6 +12,7 @@ from __future__ import annotations
 import re
 
 from .. import templates
+from ..nlu_backstop import confirm_gate
 from ..state import TurnOutput
 from .base import GraphDeps, GraphState
 
@@ -65,21 +68,25 @@ def make_followup_node(deps: GraphDeps):
         language = state.language
         utterance = (graph_state.get("user_text") or "").strip()
         department = _department_label(state, deps)
+        audit = graph_state.get("audit") or []
 
-        if _is_decline(utterance):
-            reply = templates.follow_up_close(
-                state.patient_name, department, language
-            )
+        def close_declined() -> GraphState:
             state.phase = "done"
             return {
                 "s": state,
+                "audit": audit,
                 "output": TurnOutput(
-                    reply=reply,
+                    reply=templates.follow_up_close(
+                        state.patient_name, department, language
+                    ),
                     classification=state.classification,
                     flow_complete=True,
                     post_disposition=True,
                 ),
             }
+
+        if _is_decline(utterance):
+            return close_declined()
 
         if _AFFIRMATIVE.match(utterance):
             # Stay in follow_up waiting for the actual note; no Yes/No chips.
@@ -93,13 +100,37 @@ def make_followup_node(deps: GraphDeps):
                 ),
             }
 
+        # Sub-2-char scraps ("k", ".", a stray "ๆ") carry no note worth
+        # pushing to HIS — close them as a decline-equivalent ack.
+        if len(utterance) < 2:
+            return close_declined()
+
+        # Regex says content and we're about to store it as the HIS note —
+        # the LLM backstop rescues free-phrased declines the regex vocabulary
+        # misses (live 2026-07-27: "ไม่มีแล้วค่ะ ขอบคุณค่ะ" was noted for the
+        # doctor). "content"/"unclear"/failure → store exactly as today.
+        if deps.model is not None:
+            verdict = await confirm_gate(
+                deps.model, "followup_decline", utterance, language
+            )
+            audit.append({
+                "call_site": "gate_backstop",
+                "latency_ms": verdict.latency_ms,
+                "ok": verdict.ok,
+                "kind": "followup_decline",
+                "regex_verdict": "content",
+                "llm_verdict": str(verdict),
+            })
+            if verdict == "decline":
+                return close_declined()
+
         # Anything else is the note itself (or a direct question to record).
-        if utterance:
-            state.patient_follow_up = utterance
+        state.patient_follow_up = utterance
         reply = templates.follow_up_ack(state.patient_name, department, language)
         state.phase = "done"
         return {
             "s": state,
+            "audit": audit,
             "output": TurnOutput(
                 reply=reply,
                 classification=state.classification,

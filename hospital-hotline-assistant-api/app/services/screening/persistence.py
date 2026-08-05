@@ -96,7 +96,11 @@ class PostgresStateStore:
                     updated_at = NOW()
                 """,
                 state.session_id,
-                state.to_json(),
+                # The pool's JSONB codec json.dumps-es the value itself; passing
+                # the pre-dumped string double-encodes into a JSONB *string*
+                # scalar, which silently nulls every ``ss.state->...`` SQL read
+                # (nurse-review missing_vitals/rejected_vitals).
+                state.model_dump(mode="json"),
                 state.criteria_version_id,
                 state.prompt_version,
             )

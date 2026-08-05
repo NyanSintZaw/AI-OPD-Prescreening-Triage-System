@@ -24,6 +24,10 @@ class FakeChatModel:
         self.extractions: deque[ExtractionResult] = deque()
         self.phrasings: deque[PhrasedQuestion] = deque()
         self.text_replies: deque[str] = deque()
+        # Canned results for any OTHER structured schema (e.g. nlu_backstop
+        # gate verdicts): a str builds ``schema(verdict=value)``, an Exception
+        # is raised, an empty queue raises (simulates a failed/timed-out call).
+        self.structured: deque = deque()
         self.prompts: list[str] = []
 
     def with_structured_output(self, schema):
@@ -55,4 +59,11 @@ class _Structured:
                     question=self._owner.text_replies.popleft(), options=[]
                 )
             raise RuntimeError("no canned phrasing")
-        raise AssertionError(f"unexpected schema {self._schema}")
+        if not self._owner.structured:
+            raise RuntimeError(f"no canned structured result for {self._schema}")
+        value = self._owner.structured.popleft()
+        if isinstance(value, Exception):
+            raise value
+        if isinstance(value, str):
+            return self._schema(verdict=value)
+        return value

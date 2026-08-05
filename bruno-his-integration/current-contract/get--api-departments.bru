@@ -1,0 +1,22 @@
+meta {
+  name: GET /api/departments
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{hisBaseUrl}}/api/departments
+  body: none
+  auth: none
+}
+
+headers {
+  Authorization: Bearer {{hisToken}}
+  X-API-Key: {{hisToken}}
+}
+
+docs {
+  WE GET — list of department names for routing (HttpHisAdapter.get_departments).
+  
+  List Departments
+}

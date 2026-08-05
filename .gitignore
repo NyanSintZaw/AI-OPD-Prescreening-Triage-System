@@ -69,3 +69,6 @@ ds-bundle/
 # local E2E voice-test workspace (Playwright scripts, TTS-generated audio,
 # screenshots) — the plan lives in docs/e2e-voice-test-plan.md
 e2e/
+
+# runtime artifacts
+his_mock.db

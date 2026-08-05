@@ -67,3 +67,57 @@ async def get_criteria_version(conn, version_id: str) -> ScreeningCriteria | Non
     if row is None:
         return None
     return _parse_row(dict(row))[1]
+
+
+# --- version review helpers (used by the /admin/criteria/* lifecycle) --------
+
+def validation_errors(payload: dict[str, Any]) -> list[str]:
+    """Human-readable schema errors for a criteria payload ([] when valid)."""
+    from pydantic import ValidationError
+
+    try:
+        parse_criteria(payload)
+        return []
+    except ValidationError as exc:
+        return [
+            f"{'.'.join(str(p) for p in err['loc'])}: {err['msg']}"
+            for err in exc.errors()[:50]
+        ]
+    except Exception as exc:  # noqa: BLE001
+        return [str(exc)]
+
+
+def diff_criteria(old: dict[str, Any], new: dict[str, Any]) -> dict[str, Any]:
+    """Field-level diff between two criteria payloads, keyed by rule ids."""
+
+    sections = [
+        ("level1_criteria", "id"), ("danger_vitals", "id"),
+        ("department_rules", "id"), ("fast_tracks", "id"),
+        ("triage_tuples", "id"), ("routing_table", "complaint_category"),
+        ("complaint_templates", "category"),
+    ]
+    result: dict[str, Any] = {}
+    for section, key in sections:
+        old_items = {item.get(key): item for item in old.get(section, [])}
+        new_items = {item.get(key): item for item in new.get(section, [])}
+        added = sorted(k for k in new_items if k not in old_items)
+        removed = sorted(k for k in old_items if k not in new_items)
+        changed = sorted(
+            k for k in new_items
+            if k in old_items and new_items[k] != old_items[k]
+        )
+        if added or removed or changed:
+            result[section] = {"added": added, "removed": removed, "changed": changed}
+
+    # Sections stored as a mapping rather than a list of rules.
+    for section in ("finding_catalog", "vital_bounds", "cross_checks"):
+        old_map = old.get(section, {})
+        new_map = new.get(section, {})
+        added = sorted(k for k in new_map if k not in old_map)
+        removed = sorted(k for k in old_map if k not in new_map)
+        changed = sorted(
+            k for k in new_map if k in old_map and new_map[k] != old_map[k]
+        )
+        if added or removed or changed:
+            result[section] = {"added": added, "removed": removed, "changed": changed}
+    return result

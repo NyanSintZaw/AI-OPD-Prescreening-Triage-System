@@ -199,9 +199,7 @@ class TriageService:
         validates the session, writes the inbound user message, fetches
         the rule-engine inputs (emergency triggers / routing rules /
         departments), and returns a context bag the second half
-        (``_finalize_chat_turn``) needs to persist the result. Split out
-        of ``process_chat`` so the streaming variant can share it
-        verbatim without duplicating fragile DB code.
+        (``_finalize_chat_turn``) needs to persist the result.
         """
 
         session_row = await connection.fetchrow(
@@ -265,47 +263,6 @@ class TriageService:
             "department_name_by_id": department_name_by_id,
             "schedule_context": schedule_context,
         }
-
-    async def process_chat(
-        self,
-        *,
-        connection: asyncpg.Connection,
-        session_id: str,
-        language: str,
-        input_mode: str,
-        content: str,
-    ) -> tuple[TriageResult, dict[str, Any]]:
-        start = perf_counter()
-
-        ctx = await self._prepare_chat_turn(
-            connection=connection,
-            session_id=session_id,
-            language=language,
-            input_mode=input_mode,
-            content=content,
-        )
-
-        # One bounded screening-engine turn. Objective inputs (age from a
-        # linked HIS visit, measured vitals) go through ``turn_context`` — the
-        # engine merges them into state before its red-flag gate runs.
-        engine_result = await self.triage_engine.run_turn(
-            session_id=session_id,
-            language=language,
-            input_mode=input_mode,
-            content=content,
-            schedule_context=ctx.get("schedule_context"),
-            turn_context=_turn_context(ctx["prior_metadata"]),
-        )
-
-        return await self._finalize_chat_turn(
-            connection=connection,
-            session_id=session_id,
-            language=language,
-            content=content,
-            start=start,
-            ctx=ctx,
-            adk_result=engine_result,
-        )
 
     async def _notify_staff_assessment_summary(
         self,
@@ -836,10 +793,10 @@ class TriageService:
         input_mode: str,
         content: str,
     ) -> AsyncIterator[dict[str, Any]]:
-        """Streaming variant of :meth:`process_chat`.
+        """Run one screening-engine turn, yielding streaming events.
 
-        Yields a sequence of event dicts that the HTTP layer can relay
-        to the frontend as Server-Sent Events. Mirrors the
+        Yields a sequence of event dicts that the voice bridge relays
+        to the frontend. Mirrors the
         non-streaming path's persistence + rule-engine + notifier
         behaviour exactly — same DB writes, same notifier gating, same
         sticky-state semantics — only the agent text reaches the
@@ -850,11 +807,9 @@ class TriageService:
           inbound user message is persisted (so the UI can re-render
           its optimistic bubble with the real DB id + timestamp).
         * ``{"type": "delta", "text": "..."}`` as the agent streams.
-        * ``{"type": "classified", ...}`` when the triage tool fires.
         * ``{"type": "complete", "result": {...},
             "assistant_message": {...}}`` terminal event with the full
-          TriageResult payload (matches the existing /chat response
-          shape) and the freshly-persisted assistant DB row.
+          TriageResult payload and the freshly-persisted assistant DB row.
         * ``{"type": "error", "message": "..."}`` on a fatal failure.
         """
 

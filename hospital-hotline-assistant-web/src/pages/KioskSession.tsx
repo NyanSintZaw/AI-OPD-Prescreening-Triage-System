@@ -13,7 +13,7 @@ import { HistoryIntakeStep, type HistoryIntakeValues } from '../components/kiosk
 import { ConversationStage } from '../components/kiosk/ConversationStage';
 import { VrmAvatar, preloadAvatarModel } from '../components/kiosk/VrmAvatar';
 import { RecommendationCard } from '../components/RecommendationCard';
-import { toAssessment, type ChatAssessment } from '../hooks/useChat';
+import { toAssessment, type ChatAssessment } from '../utils/assessment';
 import {
   useLanguage,
   useSessionStorage,

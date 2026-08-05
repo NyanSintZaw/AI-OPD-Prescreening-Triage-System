@@ -58,6 +58,7 @@ def build_chat_model(settings: Any) -> BaseChatModel:
     # turn. The screening nodes also wrap every call in asyncio.wait_for
     # (belt-and-suspenders), but this gives the SDK a real deadline to honour.
     timeout_s = float(getattr(settings, "screening_model_timeout_s", 30.0))
+    temperature = float(getattr(settings, "screening_model_temperature", 0.1))
 
     if provider == "openai_compatible":
         from langchain_openai import ChatOpenAI
@@ -66,7 +67,7 @@ def build_chat_model(settings: Any) -> BaseChatModel:
             model=model_name,
             base_url=settings.screening_openai_base_url,
             api_key=settings.screening_openai_api_key or "not-needed",
-            temperature=0.1,
+            temperature=temperature,
             timeout=timeout_s,
             max_retries=1,
         )
@@ -83,15 +84,11 @@ def build_chat_model(settings: Any) -> BaseChatModel:
         # Thinking is the dominant latency cost for these short prompts.
         # Gemini 3+ takes thinking_level (and 400s if thinking_budget is also
         # sent); older 2.x models only understand thinking_budget=0.
-        extra_kwargs: dict[str, Any] = {}
+        extra_kwargs: dict[str, Any] = {"temperature": temperature}
         level = getattr(settings, "screening_thinking_level", "minimal")
         if model_name.startswith("gemini-2"):
             extra_kwargs["thinking_budget"] = 0
-            extra_kwargs["temperature"] = 0.1
         elif level:
-            # Gemini 3 guidance: keep temperature at its 1.0 default — low
-            # temperatures degrade thinking models. Determinism comes from
-            # structured output + the rules engine, not sampling temperature.
             extra_kwargs["thinking_level"] = level
         return ChatGoogleGenerativeAI(
             model=model_name,

@@ -59,7 +59,11 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     } catch {
       // ignore parse errors
     }
-    throw new Error(detail);
+    // Carry the status: callers must distinguish "the server refused this
+    // value" (4xx — don't retry, don't proceed) from a transient failure.
+    const error = new Error(detail) as Error & { status?: number };
+    error.status = response.status;
+    throw error;
   }
 
   if (response.status === 204) {

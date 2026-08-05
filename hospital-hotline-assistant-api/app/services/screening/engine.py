@@ -20,7 +20,7 @@ from .graph import build_screening_graph
 from .nodes.base import GraphDeps
 from .persistence import InMemoryStateStore, StateStore
 from .state import ScreeningState, TurnOutput
-from .vitals import apply_objective_findings, normalize_vitals
+from .vitals import apply_objective_findings, check_vitals, record_rejections
 from .history_findings import apply_history_findings
 
 logger = logging.getLogger(__name__)
@@ -171,7 +171,7 @@ class ScreeningTriageEngine:
 
     @staticmethod
     def _apply_turn_context(
-        state: ScreeningState, turn_context: dict[str, Any] | None
+        state: ScreeningState, turn_context: dict[str, Any] | None, criteria=None
     ) -> None:
         """Merge booth-supplied age + measured vitals into the state before
         the graph runs, so the red-flag gate evaluates real numbers (e.g. a
@@ -189,9 +189,16 @@ class ScreeningTriageEngine:
         patient_name = str(turn_context.get("patient_name") or "").strip()
         if patient_name:
             state.patient_name = patient_name
-        vitals = normalize_vitals(turn_context.get("vitals"))
+        # Plausibility filter before anything reaches the rules: an impossible
+        # cuff reading must not reach the red-flag gate at all.
+        vitals, rejected = check_vitals(turn_context.get("vitals"), criteria)
+        if rejected:
+            record_rejections(state, rejected, source="measured")
         if vitals:
             state.vitals.update(vitals)
+            # provenance: these came from the booth cuff / HIS, so spoken
+            # values (LLM extraction) can never overwrite them later.
+            state.measured_vitals.update(vitals)
         apply_objective_findings(state)
         history = turn_context.get("patient_history")
         if isinstance(history, dict):
@@ -225,10 +232,11 @@ class ScreeningTriageEngine:
         if language in ("en", "th"):
             state.language = language  # session language is locked upstream
         state.mode = "voice" if input_mode == "voice" else "text"
-        self._apply_turn_context(state, turn_context)
-
+        # Criteria first: the turn context is plausibility-filtered against the
+        # bounds this session is pinned to.
         version_id, criteria = await self._store.get_criteria(state.criteria_version_id)
         state.criteria_version_id = version_id
+        self._apply_turn_context(state, turn_context, criteria)
         state.turn_count += 1
 
         result = await self._graph.ainvoke({

@@ -20,7 +20,6 @@ export function App() {
         <Route path="/kiosk/avatar-dev" element={<AvatarDevPage />} />
         {/* Legacy web patient routes now point at the kiosk. */}
         <Route path="/patient" element={<Navigate to="/kiosk" replace />} />
-        <Route path="/chat" element={<Navigate to="/kiosk" replace />} />
         <Route path="/call" element={<Navigate to="/kiosk" replace />} />
         <Route path="/login" element={<Navigate to="/login/nurse" replace />} />
         <Route path="/login/:portal" element={<LoginPage />} />

@@ -1,0 +1,65 @@
+{
+  "meta": {
+    "dry_run": false,
+    "criteria_mode": "v1",
+    "model_label": "screening:vertexai:gemini-3.1-flash-lite",
+    "language_filter": null,
+    "generated_utc": "2026-07-28T07:35:39.645903+00:00"
+  },
+  "aggregates": {
+    "vignettes": 1,
+    "passed": 1,
+    "undertriage_rate_pct": 0.0,
+    "undertriage_misses": [],
+    "critical_vignettes": 1,
+    "level_exact_pct": 100.0,
+    "level_within_1_pct": 100.0,
+    "category_pct": 100.0,
+    "department_pct": 100.0,
+    "leak_count": 0,
+    "avg_turns": 1.0,
+    "total_wall_time_s": 4.1
+  },
+  "results": [
+    {
+      "id": "cp_en_crushing",
+      "language": "en",
+      "description": "Crushing chest pressure + diaphoresis, 58yo — classic ACS, must dispose emergency on turn 1",
+      "category_expected": [
+        "chest_pain"
+      ],
+      "category_actual": "chest_pain",
+      "category_ok": true,
+      "level_expected": [
+        1,
+        2
+      ],
+      "level_actual": 1,
+      "level_ok": true,
+      "within_1": true,
+      "undertriage_expected": true,
+      "undertriage_critical_fail": false,
+      "department_expected": [
+        "emergency"
+      ],
+      "department_actual": "emergency",
+      "department_ok": true,
+      "must_ask_missing": [],
+      "leaks": [],
+      "turns": 1,
+      "wall_time_s": 4.07,
+      "passed": true,
+      "fail_reasons": [],
+      "transcript": [
+        {
+          "turn": 1,
+          "patient": "I've got this crushing pressure in my chest, like someone's sitting on it. It started about half an hour ago and I'm sweating buckets.",
+          "question_id": null,
+          "reply": "Please head directly to the Emergency Department right now, as our staff has already been notified of your arrival and is ready to assist you. We want to make sure you are seen immediately to get the care you need. I wish you all the very best.",
+          "awaiting_measurement": null,
+          "classified": true
+        }
+      ]
+    }
+  ]
+}

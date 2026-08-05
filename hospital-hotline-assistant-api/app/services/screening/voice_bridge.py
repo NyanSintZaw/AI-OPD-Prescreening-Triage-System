@@ -696,6 +696,53 @@ class TurnVoiceService:
                 except Exception:
                     logger.exception("measurement_cb failed for %s", session_id)
 
+    async def _gate_backstop(
+        self,
+        session_id: str,
+        session: dict[str, Any],
+        kind: str,
+        transcript: str,
+        regex_verdict: str,
+        context: str = "",
+    ) -> str:
+        """Consult the screening LLM when a regex gate came back unclear.
+
+        Reuses the engine's already-built shared model (no per-call factory);
+        without a model (or on any failure) the verdict is "unclear" and the
+        caller falls through to today's retry flow. Best-effort audit via the
+        engine's store — voice gates run outside the LangGraph turn, so the
+        graph_state audit list isn't available here.
+        """
+        from .nlu_backstop import confirm_gate
+
+        engine = getattr(self.triage_service, "triage_engine", None)
+        model = getattr(engine, "_model", None)
+        verdict = await confirm_gate(
+            model, kind, transcript, session["language"], context=context  # type: ignore[arg-type]
+        )
+        store = getattr(engine, "_store", None)
+        if model is not None and store is not None:
+            try:
+                await store.write_audit(
+                    session_id=session_id,
+                    # Gate turns run before the clinical turn counter starts.
+                    turn_no=0,
+                    entries=[{
+                        "call_site": "gate_backstop",
+                        "latency_ms": verdict.latency_ms,
+                        "ok": verdict.ok,
+                        "kind": kind,
+                        "regex_verdict": regex_verdict,
+                        "llm_verdict": str(verdict),
+                    }],
+                    model_name=getattr(engine, "_model_label", "screening:unknown"),
+                    prompt_version=getattr(engine, "_prompt_version", "v1"),
+                    criteria_version_id=None,
+                )
+            except Exception:
+                logger.exception("gate_backstop audit write failed for %s", session_id)
+        return str(verdict)
+
     async def _handle_resume_turn(
         self, session_id: str, session: dict[str, Any], transcript: str
     ) -> AsyncIterator[bytes]:
@@ -722,6 +769,15 @@ class TurnVoiceService:
                 decision = "start_over"
             elif yn == "no":
                 decision = "decline"
+
+        if decision == "other":
+            # LLM backstop before burning a retry / falling back to buttons.
+            verdict = await self._gate_backstop(
+                session_id, session, "resume_choice", transcript, "other",
+                context=session.get("resume_status") or "",
+            )
+            if verdict in ("continue", "start_over"):
+                decision = verdict
 
         if decision == "other":
             session["resume_attempts"] += 1
@@ -848,6 +904,15 @@ class TurnVoiceService:
 
         language = session["language"]
         decision = classify_yes_no(transcript)
+        if decision in ("uncertain", "other"):
+            # LLM backstop BEFORE consuming a retry: free-phrased confirms
+            # the regex vocabulary misses shouldn't cost the patient a strike.
+            verdict = await self._gate_backstop(
+                session_id, session, "identity_yesno", transcript, decision,
+                context=str(session.get("patient_name") or ""),
+            )
+            if verdict in ("yes", "no"):
+                decision = verdict
         if decision in ("uncertain", "other"):
             session["identity_attempts"] += 1
             if session["identity_attempts"] < MAX_IDENTITY_RETRIES:

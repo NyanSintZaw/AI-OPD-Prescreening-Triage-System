@@ -19,6 +19,11 @@ class NoVisitLinkedError(Exception):
     """The session has no linked visit to confirm."""
 
 
+# Unclear identity answers allowed before the confirm fails closed (rejected).
+# ponytail: duplicated in voice_bridge.py; unify when the voice workstream lands.
+MAX_IDENTITY_RETRIES = 2
+
+
 @dataclass(frozen=True)
 class ConfirmOutcome:
     decision: str  # "yes" | "no" | "uncertain" | "other"

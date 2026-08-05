@@ -88,6 +88,11 @@ def _catalog_lines(criteria: ScreeningCriteria, state: ScreeningState) -> list[s
         "cardiac_arrest", "unresponsive", "seizure_now", "dyspnea",
         "severe_respiratory_distress", "chest_pain", "active_bleeding",
         "blue_lips", "pale_cold_sweaty", "suicidal_ideation", "pregnancy",
+        # High-risk findings patients volunteer in openers that the bounded
+        # turn-1 catalog silently dropped (July 28 eval: anaphylaxis lip
+        # swelling, palpitations+syncope, head injury with brief LOC).
+        "lip_swelling", "rash_itching", "palpitations", "syncope_24h",
+        "head_injury", "loc_transient",
     })
     # …and the symptoms patients most often volunteer in an opener, so a
     # first message like "fever but no cough" can record BOTH sides before

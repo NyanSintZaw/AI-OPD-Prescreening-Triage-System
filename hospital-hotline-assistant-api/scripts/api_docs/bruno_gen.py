@@ -18,6 +18,9 @@ def folder_for(path: str) -> str:
     if not seg:
         return "misc"
     if seg[0] == "admin":
+        # reviews is the nurse portal's workflow — label it so it's findable
+        if len(seg) > 1 and seg[1] == "reviews":
+            return "admin-reviews (nurse)"
         return "admin-" + (seg[1] if len(seg) > 1 else "misc")
     return seg[0]
 

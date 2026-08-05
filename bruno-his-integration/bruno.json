@@ -1,0 +1,9 @@
+{
+  "version": "1",
+  "name": "his-integration (hospital-facing)",
+  "type": "collection",
+  "ignore": [
+    "node_modules",
+    ".git"
+  ]
+}

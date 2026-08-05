@@ -19,6 +19,15 @@ from .adapter import PatientHistory, VisitInfo
 logger = logging.getLogger(__name__)
 
 
+def his_auth_headers(api_key: str | None) -> dict[str, str]:
+    """Auth headers for HIS calls. Sends both schemes so one config works
+    everywhere: the real iMed API wants ``Authorization: Bearer``; the
+    ``hospital-his-mock`` convention is ``X-API-Key``."""
+    if not api_key:
+        return {}
+    return {"Authorization": f"Bearer {api_key}", "X-API-Key": api_key}
+
+
 def _parse_patient_history(patient: dict[str, Any] | None) -> PatientHistory | None:
     """Parse the ``visit_payload()``-nested ``"patient"`` object (mock HIS's
     ``GET /api/visits/{id}``) into a ``PatientHistory``. None when the HIS
@@ -62,7 +71,7 @@ class HttpHisAdapter:
         client: httpx.AsyncClient | None = None,
     ) -> None:
         self._base_url = base_url.rstrip("/")
-        self._headers = {"X-API-Key": api_key} if api_key else {}
+        self._headers = his_auth_headers(api_key)
         self._timeout = timeout
         self._client = client  # injectable for tests (ASGI transport)
 

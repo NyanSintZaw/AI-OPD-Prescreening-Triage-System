@@ -14,7 +14,7 @@ wording.
 
 from __future__ import annotations
 
-from typing import Any, Literal
+from typing import Any, Literal, get_args
 
 from pydantic import BaseModel, Field, model_validator
 
@@ -27,6 +27,127 @@ VitalName = Literal[
 CompareOp = Literal["lt", "le", "gt", "ge", "eq"]
 
 FindingState = Literal["present", "absent"]
+
+
+class VitalBound(BaseModel):
+    """Physiologically possible range for one vital — an INPUT FILTER.
+
+    This is not a triage threshold. A systolic of 250 is inside the bound
+    (accepted) *and* a hypertensive crisis (level 2); a systolic of 400 is
+    outside it and is discarded before any rule can see it. Keeping the two
+    axes separate is what stops a garbage cuff reading from disposing an
+    emergency.
+
+    ``retry_text_*`` is nurse-approved, patient-facing wording shown verbatim
+    when a value is rejected — measurement questions are never LLM-paraphrased.
+    """
+
+    min: float
+    max: float
+    unit: str = ""
+    retry_text_en: str
+    retry_text_th: str
+
+    def contains(self, value: float) -> bool:
+        return self.min <= value <= self.max
+
+
+# Cross-field checks whose logic lives in code (they compare two vitals, which
+# the single-vital bound table can't express) but whose wording stays here.
+CrossCheckId = Literal["sbp_le_dbp", "bmi_implausible"]
+
+
+class CrossCheck(BaseModel):
+    """Patient-facing wording for a cross-field plausibility rejection."""
+
+    text_en: str
+    text_th: str
+
+
+def default_vital_bounds() -> dict[str, VitalBound]:
+    """Bounds applied when a criteria document doesn't author its own.
+
+    Every stored document — including v1, which is the currently active
+    version — gets a working plausibility layer without being re-authored.
+    """
+
+    return {
+        "sbp": VitalBound(
+            min=50, max=300, unit="mmHg",
+            retry_text_en="That blood pressure reading doesn't look right. A systolic reading is normally between 50 and 300 mmHg — could you check and enter it again?",
+            retry_text_th="ค่าความดันตัวบนดูไม่ถูกต้องนะคะ ปกติจะอยู่ระหว่าง 50 ถึง 300 mmHg รบกวนตรวจสอบและกรอกใหม่อีกครั้งนะคะ",
+        ),
+        "dbp": VitalBound(
+            min=20, max=200, unit="mmHg",
+            retry_text_en="That blood pressure reading doesn't look right. A diastolic reading is normally between 20 and 200 mmHg — could you check and enter it again?",
+            retry_text_th="ค่าความดันตัวล่างดูไม่ถูกต้องนะคะ ปกติจะอยู่ระหว่าง 20 ถึง 200 mmHg รบกวนตรวจสอบและกรอกใหม่อีกครั้งนะคะ",
+        ),
+        "hr": VitalBound(
+            min=20, max=250, unit="bpm",
+            retry_text_en="That pulse doesn't look right. A pulse is normally between 20 and 250 beats per minute — could you check and enter it again?",
+            retry_text_th="ค่าชีพจรดูไม่ถูกต้องนะคะ ปกติจะอยู่ระหว่าง 20 ถึง 250 ครั้งต่อนาที รบกวนตรวจสอบและกรอกใหม่อีกครั้งนะคะ",
+        ),
+        "rr": VitalBound(
+            min=4, max=80, unit="/min",
+            retry_text_en="That breathing rate doesn't look right. It is normally between 4 and 80 breaths per minute — could you check and enter it again?",
+            retry_text_th="ค่าอัตราการหายใจดูไม่ถูกต้องนะคะ ปกติจะอยู่ระหว่าง 4 ถึง 80 ครั้งต่อนาที รบกวนตรวจสอบและกรอกใหม่อีกครั้งนะคะ",
+        ),
+        "spo2": VitalBound(
+            min=50, max=100, unit="%",
+            retry_text_en="That oxygen reading doesn't look right. It is normally between 50 and 100 percent — could you check and enter it again?",
+            retry_text_th="ค่าออกซิเจนดูไม่ถูกต้องนะคะ ปกติจะอยู่ระหว่าง 50 ถึง 100 เปอร์เซ็นต์ รบกวนตรวจสอบและกรอกใหม่อีกครั้งนะคะ",
+        ),
+        "temp": VitalBound(
+            min=30, max=45, unit="°C",
+            retry_text_en="That temperature doesn't look right. A body temperature is normally between 30 and 45 °C — could you measure again and tell me the number?",
+            retry_text_th="ค่าอุณหภูมิดูไม่ถูกต้องนะคะ อุณหภูมิร่างกายปกติจะอยู่ระหว่าง 30 ถึง 45 องศาเซลเซียส รบกวนวัดใหม่แล้วบอกตัวเลขอีกครั้งนะคะ",
+        ),
+        "weight": VitalBound(
+            min=1, max=400, unit="kg",
+            retry_text_en="That weight doesn't look right. Please enter your weight in kilograms (between 1 and 400).",
+            retry_text_th="ค่าน้ำหนักดูไม่ถูกต้องนะคะ รบกวนกรอกน้ำหนักเป็นกิโลกรัม (ระหว่าง 1 ถึง 400) นะคะ",
+        ),
+        "height": VitalBound(
+            min=30, max=272, unit="cm",
+            retry_text_en="That height doesn't look right. Please enter your height in centimetres (between 30 and 272).",
+            retry_text_th="ค่าส่วนสูงดูไม่ถูกต้องนะคะ รบกวนกรอกส่วนสูงเป็นเซนติเมตร (ระหว่าง 30 ถึง 272) นะคะ",
+        ),
+        "age_years": VitalBound(
+            min=0, max=120, unit="years",
+            retry_text_en="I didn't catch your age correctly. Could you tell me your age in years again?",
+            retry_text_th="ขอโทษค่ะ ไม่แน่ใจเรื่องอายุ รบกวนบอกอายุเป็นปีอีกครั้งนะคะ",
+        ),
+        "pain_score": VitalBound(
+            min=0, max=10, unit="",
+            retry_text_en="Please give your pain a number from 0 to 10.",
+            retry_text_th="รบกวนให้คะแนนความเจ็บปวดเป็นตัวเลข 0 ถึง 10 นะคะ",
+        ),
+        "distress_score": VitalBound(
+            min=0, max=10, unit="",
+            retry_text_en="Please give your breathing difficulty a number from 0 to 10.",
+            retry_text_th="รบกวนให้คะแนนความเหนื่อยหอบเป็นตัวเลข 0 ถึง 10 นะคะ",
+        ),
+    }
+
+
+def default_cross_checks() -> dict[str, CrossCheck]:
+    return {
+        "sbp_le_dbp": CrossCheck(
+            text_en="The blood pressure numbers look swapped — the top number should be higher than the bottom one. Could you check and enter them again?",
+            text_th="ค่าความดันดูเหมือนสลับกันนะคะ ตัวบนควรมากกว่าตัวล่าง รบกวนตรวจสอบและกรอกใหม่อีกครั้งนะคะ",
+        ),
+        "bmi_implausible": CrossCheck(
+            text_en="The weight and height don't seem to match up. Could you check both numbers and enter them again?",
+            text_th="ค่าน้ำหนักและส่วนสูงดูไม่สอดคล้องกันนะคะ รบกวนตรวจสอบทั้งสองค่าและกรอกใหม่อีกครั้งนะคะ",
+        ),
+    }
+
+
+# Implied-BMI window for the weight/height cross-check. Deliberately far wider
+# than any clinical band — this rejects unit mix-ups (height typed in metres,
+# weight in pounds), not unusual bodies.
+BMI_MIN = 5.0
+BMI_MAX = 150.0
 
 
 class CriterionCondition(BaseModel):
@@ -187,6 +308,7 @@ class QuestionTemplate(BaseModel):
     text_en: str
     text_th: str
     priority: int = 100  # lower asks earlier within its kind
+    citation: str = ""  # source standard for red-flag questions (docs/criteria-standards.md)
 
     @model_validator(mode="after")
     def _check_target(self) -> "QuestionTemplate":
@@ -223,11 +345,26 @@ class FindingDef(BaseModel):
     is_risk_factor: bool = False
 
 
+class SourceStandard(BaseModel):
+    """One published standard the criteria document is derived from
+    (rendered with a link in the admin Screening Criteria tab)."""
+
+    name: str
+    edition: str = ""
+    url: str = ""
+
+
 class ScreeningCriteria(BaseModel):
     """Complete, versioned rule set driving the screening engine."""
 
     schema_version: int = 1
+    source_standards: list[SourceStandard] = Field(default_factory=list)
     age_bands: dict[str, AgeBand] = Field(default_factory=dict)
+    # Plausibility filter for incoming values (patient-reported and instrument
+    # alike). Defaults apply to documents that don't author their own, so every
+    # stored version gets the filter without being rewritten.
+    vital_bounds: dict[str, VitalBound] = Field(default_factory=default_vital_bounds)
+    cross_checks: dict[str, CrossCheck] = Field(default_factory=default_cross_checks)
     finding_catalog: dict[str, FindingDef]
     level1_criteria: list[Level1Criterion]
     danger_vitals: list[DangerVitalRule]
@@ -245,6 +382,15 @@ class ScreeningCriteria(BaseModel):
     @model_validator(mode="after")
     def _check_references(self) -> "ScreeningCriteria":
         known = set(self.finding_catalog)
+
+        for name, bound in self.vital_bounds.items():
+            if name not in get_args(VitalName):
+                raise ValueError(f"vital_bounds references unknown vital {name!r}")
+            if bound.min >= bound.max:
+                raise ValueError(f"vital_bounds[{name!r}] has min >= max")
+        for check_id in self.cross_checks:
+            if check_id not in get_args(CrossCheckId):
+                raise ValueError(f"cross_checks references unknown check {check_id!r}")
 
         def walk(cond: CriterionCondition) -> None:
             if cond.finding_id is not None and cond.finding_id not in known:

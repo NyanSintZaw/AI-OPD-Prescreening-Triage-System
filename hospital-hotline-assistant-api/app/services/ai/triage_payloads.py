@@ -33,12 +33,9 @@ def assessment_status(result: TriageResult) -> str:
 
 
 def _triage_result_to_payload(result: TriageResult) -> dict[str, Any]:
-    """Coerce :class:`TriageResult` into the same JSON shape the
-    existing ``/sessions/{id}/chat`` REST response uses.
-
-    Keeping the schema identical between streaming and non-streaming
-    means the frontend can re-use its existing ``ChatResponsePayload``
-    parser for the terminal ``complete`` event.
+    """Coerce :class:`TriageResult` into the assessment JSON payload the
+    frontend parses as ``ChatResponsePayload`` — the terminal ``complete``
+    stream event and the voice WS ``assessment_complete`` frame.
     """
 
     return {

@@ -18,50 +18,23 @@ def _slot(slots: Mapping[str, Any], key: str) -> str | None:
     return text or None
 
 
-def _complaint_text(state) -> str | None:
+def _complaint_text(state, criteria) -> str | None:
     if state.chief_complaint and str(state.chief_complaint).strip():
         return str(state.chief_complaint).strip()
     # Fallback: humanize category when intake never captured free text.
+    # Labels come from the criteria document's own templates (single source
+    # of truth — no second hardcoded map); unknown category → raw id.
     category = getattr(state, "complaint_category", None)
     if not category or category == "generic":
         return None
-    labels = {
-        "en": {
-            "chest_pain": "chest pain",
-            "dyspnea_cough": "breathing difficulty or cough",
-            "abdominal_pain": "abdominal pain",
-            "headache": "headache",
-            "fever": "fever",
-            "ear": "ear symptoms",
-            "nose_throat": "sore throat or nasal symptoms",
-            "eye": "eye symptoms",
-            "injury": "injury",
-            "pregnancy": "pregnancy-related symptoms",
-            "mental_health": "mental health concerns",
-            "musculoskeletal": "muscle or joint pain",
-            "urinary": "urinary symptoms",
-        },
-        "th": {
-            "chest_pain": "อาการเจ็บหน้าอก",
-            "dyspnea_cough": "อาการหายใจลำบากหรือไอ",
-            "abdominal_pain": "อาการปวดท้อง",
-            "headache": "อาการปวดศีรษะ",
-            "fever": "อาการไข้",
-            "ear": "อาการทางหู",
-            "nose_throat": "อาการเจ็บคอหรือจมูก",
-            "eye": "อาการทางตา",
-            "injury": "อาการบาดเจ็บ",
-            "pregnancy": "อาการที่เกี่ยวกับการตั้งครรภ์",
-            "mental_health": "อาการด้านสุขภาพจิต",
-            "musculoskeletal": "อาการปวดกล้ามเนื้อหรือข้อ",
-            "urinary": "อาการทางเดินปัสสาวะ",
-        },
-    }
     lang = "th" if getattr(state, "language", "th") == "th" else "en"
-    return labels[lang].get(str(category))
+    for template in getattr(criteria, "complaint_templates", None) or []:
+        if template.category == category:
+            return template.label_th if lang == "th" else template.label_en
+    return str(category)
 
 
-def format_chief_complaint_summary(state) -> str:
+def format_chief_complaint_summary(state, criteria=None) -> str:
     """Compose a nurse-readable sentence from chief complaint + OLDCARTS slots.
 
     Examples (en):
@@ -72,7 +45,7 @@ def format_chief_complaint_summary(state) -> str:
     """
     language = "th" if getattr(state, "language", "th") == "th" else "en"
     slots = getattr(state, "slots", None) or {}
-    complaint = _complaint_text(state)
+    complaint = _complaint_text(state, criteria)
     duration = _slot(slots, "duration") or _slot(slots, "onset")
     location = _slot(slots, "location")
     character = _slot(slots, "character")

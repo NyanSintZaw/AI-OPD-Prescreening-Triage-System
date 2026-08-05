@@ -50,6 +50,8 @@ function ConnectionCard({
   const [open, setOpen] = useState(!connected);
   const [endpoint, setEndpoint] = useState(conn?.endpoint ?? 'http://localhost:8001');
   const [name, setName] = useState(conn?.name ?? '');
+  // Always starts empty — the saved token is never echoed back to the UI.
+  const [apiKey, setApiKey] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirmDisconnect, setConfirmDisconnect] = useState(false);
@@ -72,8 +74,10 @@ function ConnectionCard({
       const next = await api.updateHisConnection({
         endpoint: endpoint.trim(),
         name: name.trim(),
+        ...(apiKey.trim() ? { api_key: apiKey.trim() } : {}),
       });
       onConnected(next);
+      setApiKey('');
       setOpen(false);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -175,6 +179,20 @@ function ConnectionCard({
               onChange={(e) => setName(e.target.value)}
               disabled={busy}
               maxLength={120}
+            />
+          </label>
+          <label className="vitals-extra-field">
+            <span>{t('hdbConnToken')}</span>
+            <input
+              type="password"
+              autoComplete="off"
+              placeholder={
+                conn?.has_api_key ? t('hdbConnTokenKeep') : t('hdbConnTokenPlaceholder')
+              }
+              value={apiKey}
+              onChange={(e) => setApiKey(e.target.value)}
+              disabled={busy}
+              maxLength={500}
             />
           </label>
           <button

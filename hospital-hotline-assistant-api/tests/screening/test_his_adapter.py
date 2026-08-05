@@ -64,6 +64,7 @@ def _fake_his_handler():
 
     def handler(request: httpx.Request) -> httpx.Response:
         assert request.headers.get("X-API-Key") == "k"
+        assert request.headers.get("Authorization") == "Bearer k"
         path = request.url.path
         if request.method == "GET" and path == "/api/visits/V1":
             return httpx.Response(200, json={

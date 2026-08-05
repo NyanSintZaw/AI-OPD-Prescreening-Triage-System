@@ -20,6 +20,11 @@ The five runs are chosen so each isolates one idea:
 
 Runtime: ~12–18 minutes for all five.
 
+> **This runbook demos the experience.** To demo the **decision** — which rule
+> fired, why, and what would have changed it — use
+> [demo-criteria-triage.md](demo-criteria-triage.md): five A/B scenarios walking
+> the criteria ladder from the plausibility filter to department routing.
+
 > **Chat is the fallback, not the demo.** If the mic/room is unreliable on the
 > day, every run below works identically by picking **Chat** instead of **Call**
 > and typing / tapping the same inputs — but the voice-specific behaviour
@@ -120,10 +125,15 @@ linked visit; booth measurements are collected **mid-interview**.
 
 | Complaint category | BP asked? |
 |---|---|
-| chest pain, cough/dyspnea, abdominal pain, headache, fever, injury, pregnancy, generic | **Yes** — always (after red flags, before most history slots) |
-| ear, nose/throat, eye, musculoskeletal, urinary, mental health | **Only if age ≥ 60** (or skip entirely if age unknown) |
+| chest pain, cough/dyspnea, abdominal pain, headache, fever, injury, pregnancy, ear, nose/throat, eye, musculoskeletal, urinary, mental health, palpitations, chronic follow-up, generic | **Yes** — always, at every age (after red flags, before most history slots) |
+| wound/skin, gynecology, breast, limb-vascular, forensic, GI, rash, administrative | **No** — these templates carry no BP question |
 
-The patient never hears that rule — they just see/hear the BP request when it applies.
+Whether BP is asked is a property of the **complaint template in the criteria**
+(16 of the 24 v2 templates have a BP question), not a rule in code — the
+hospital can add or remove it per pathway. The age gate that ENT-like pathways
+used to have was removed in July 2026: BP is now asked at any age wherever the
+template asks for it. The patient never hears any of this — they just see the
+BP request when it applies.
 
 ### 3. The BP measurement card (two buttons)
 
@@ -228,9 +238,9 @@ and note what is **deliberately absent**: no BP request.
 4. Answer red-flag / history questions. When chips appear (Yes/No, onset
    options, severity 0–10), **tap them** — point out that tap overrides voice
    and free-text is still there.
-5. **No BP card appears — that's the feature**: ENT-like pathways skip BP for
-   patients under 60 (triage research: BP doesn't change routing for minor
-   ENT complaints). Contrast with Runs 2–4.
+5. **BP card** appears (the nose/throat template asks for it at any age since
+   July 2026) → enter e.g. **118 / 76**, or tap **Skip this step** to show that
+   a measurement never blocks the flow.
 6. Near the end: **weight & height** card — e.g. **60 kg / 170 cm** (or tap
    **Skip this step**).
 7. AI speaks the department recommendation (**OPD General Practice** / similar).
@@ -239,10 +249,9 @@ and note what is **deliberately absent**: no BP request.
 9. **Slip** opens in a **new tab** (name + vitals + department); **map** stays
    on the call page. Call auto-ends.
 
-> **Talking point:** no blocking vitals form; BP is *not* asked because this
-> pathway doesn't need it (evidence-based, age-gated); chips make answers
-> booth-proof; follow-up is record-only; slip is for the desk, map is for
-> wayfinding.
+> **Talking point:** no blocking vitals form — measurements happen inside the
+> conversation and can be skipped; chips make answers booth-proof; follow-up is
+> record-only; slip is for the desk, map is for wayfinding.
 
 **Staff window** → **🏥 Hospital DB** → visit moves **registered → screened**
 (vitals + follow-up text if any). **Nurse** (`/nurse`): search **slip code** →
@@ -362,12 +371,11 @@ chips / cards / follow-up / slip.
 
 ## Optional talking points (if asked)
 
-**"Why didn't ENT ask for BP?"**  
-Ear / nose-throat / eye / MSK / urinary / mental-health pathways skip BP unless
-the patient is **≥ 60**. Run 1 shows exactly this (sore throat, 33 → no BP
-card); contrast with Run 2 (child cough — BP asked) and Run 3 (headache /
-elderly). Same sore throat on visit `…005` (age 78) **would** ask BP — the
-age guard.
+**"Which pathways ask for BP?"**  
+Sixteen of the 24 v2 complaint templates carry a BP question and ask it at any
+age; wound/skin, gynecology, breast, limb-vascular, forensic, GI, rash and
+administrative carry none. It's criteria data the hospital edits per pathway,
+not a rule in code (see the table in *What changed in this booth build* §2).
 
 **"What if the patient answers 'yes' to a multi-symptom question?"**  
 The AI never guesses which symptom they meant — it asks once more showing one
@@ -407,9 +415,9 @@ Nurse: full acuity/reasons/citations + patient follow-up + confirm/reroute.
   resort, run the scenario in **Chat** (type / tap the same inputs).
 - **It cuts you off / says "couldn't hear" too eagerly** → speak a full sentence,
   then pause; or just **tap a chip**.
-- **BP card never appears** → expected on ENT-like pathways if age &lt; 60
-  (that IS Run 1's talking point); use a cough/fever/headache complaint
-  (Runs 2, 3, 4) to show the card.
+- **BP card never appears** → the complaint landed on a template with no BP
+  question (wound/skin, gynecology, breast, limb-vascular, forensic, GI, rash,
+  administrative); use a cough/fever/headache complaint to show the card.
 - **It repeats a red-flag question after you say "yes"** → expected: a bare yes
   to a multi-symptom question can't be mapped; tap one of the symptom chips or
   **None of these**.

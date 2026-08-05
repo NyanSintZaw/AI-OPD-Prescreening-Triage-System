@@ -1134,3 +1134,133 @@ async def test_resume_unclear_twice_falls_back_to_buttons():
         assert harness.resumes == [{"kind": "decline"}]
     finally:
         await harness.stop()
+
+
+# ── LLM backstop behind the spoken gates ─────────────────────────────────────
+
+from .fakes import FakeChatModel
+
+
+class FakeAuditStore:
+    def __init__(self) -> None:
+        self.audits: list[dict] = []
+
+    async def write_audit(self, **kwargs) -> None:
+        self.audits.append(kwargs)
+
+
+def attach_backstop(harness: Harness, *verdicts: str):
+    """Give the duck-typed triage service an engine with a fake model+store."""
+    model = FakeChatModel()
+    for v in verdicts:
+        model.structured.append(v)
+    store = FakeAuditStore()
+    harness.triage.triage_engine = SimpleNamespace(
+        _model=model,
+        _store=store,
+        _model_label="fake:model",
+        _prompt_version="v1",
+    )
+    return model, store
+
+
+async def test_identity_unclear_backstop_yes_confirms_without_retry():
+    harness = identity_harness()
+    model, store = attach_backstop(harness, "yes")
+    await harness.start()
+    try:
+        await harness.wait_until(lambda: harness.chunks)
+        harness.stt.transcripts.append("yeah that would be my name alright")
+        await harness.speak_turn()
+        await harness.wait_until(lambda: harness.identities)
+
+        assert harness.identities == [{"kind": "confirmed", "needs_history": False}]
+        assert harness.conn.metadata["visit"]["name_confirmed"] is True
+        # No retry consumed, no retry line spoken.
+        assert harness.service._sessions[SESSION_ID]["identity_attempts"] == 0
+        assert (
+            "agent",
+            templates.confirm_name_ask(PATIENT, "en", retry=True),
+        ) not in harness.transcripts
+        # Backstop call audited through the engine store.
+        assert len(store.audits) == 1
+        entry = store.audits[0]["entries"][0]
+        assert entry["call_site"] == "gate_backstop"
+        assert entry["kind"] == "identity_yesno"
+        assert entry["llm_verdict"] == "yes"
+        assert store.audits[0]["session_id"] == SESSION_ID
+    finally:
+        await harness.stop()
+
+
+async def test_identity_unclear_backstop_unclear_consumes_retry_as_today():
+    harness = identity_harness()
+    attach_backstop(harness)  # empty structured queue → backstop fails → unclear
+    await harness.start()
+    try:
+        await harness.wait_until(lambda: harness.chunks)
+        harness.stt.transcripts.append("banana banana")
+        await harness.speak_turn()
+        await harness.wait_until(
+            lambda: (
+                "agent",
+                templates.confirm_name_ask(PATIENT, "en", retry=True),
+            )
+            in harness.transcripts
+        )
+        assert harness.service._sessions[SESSION_ID]["identity_attempts"] == 1
+        assert "visit" in harness.conn.metadata  # link untouched while retrying
+    finally:
+        await harness.stop()
+
+
+async def test_identity_clear_yes_never_calls_backstop():
+    harness = identity_harness()
+    model, store = attach_backstop(harness, "no")  # would misfire if consulted
+    await harness.start()
+    try:
+        await harness.wait_until(lambda: harness.chunks)
+        harness.stt.transcripts.append("yes that's me")
+        await harness.speak_turn()
+        await harness.wait_until(lambda: harness.identities)
+        assert harness.identities == [{"kind": "confirmed", "needs_history": False}]
+        assert model.prompts == []
+        assert store.audits == []
+    finally:
+        await harness.stop()
+
+
+async def test_resume_other_backstop_continue_takes_continue_branch():
+    harness = resume_harness()
+    model, store = attach_backstop(harness, "continue")
+    await harness.start()
+    try:
+        await confirm_identity_yes(harness)
+        harness.stt.transcripts.append("เอาอันเดิมแหละ")  # not in the regex vocab
+        await harness.speak_turn()
+        await harness.wait_until(lambda: harness.resumes)
+        assert harness.resumes == [{"kind": "continue", "needs_history": False}]
+        assert ("agent", templates.RESUME_ACK_CONTINUE["th"]) in harness.transcripts
+        # No retry line, no button fallback.
+        assert ("agent", templates.RESUME_RETRY["th"]) not in harness.transcripts
+        entry = store.audits[-1]["entries"][0]
+        assert entry["kind"] == "resume_choice"
+        assert entry["llm_verdict"] == "continue"
+    finally:
+        await harness.stop()
+
+
+async def test_resume_other_backstop_failure_retries_as_today():
+    harness = resume_harness()
+    attach_backstop(harness)  # backstop fails → unclear → retry flow
+    await harness.start()
+    try:
+        await confirm_identity_yes(harness)
+        harness.stt.transcripts.append("อากาศดีนะ")
+        await harness.speak_turn()
+        await harness.wait_until(
+            lambda: ("agent", templates.RESUME_RETRY["th"]) in harness.transcripts
+        )
+        assert harness.resumes == []
+    finally:
+        await harness.stop()

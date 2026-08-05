@@ -30,7 +30,8 @@ class InterviewInputs:
     question_budget: int
     # How many times each question has been asked. Red flags whose findings
     # stay unknown after one ask (garbled STT, bare "yes" on a compound
-    # question) get exactly ONE repeat; when not provided, membership in
+    # question), and measurements whose value never arrived or was rejected as
+    # implausible, get exactly ONE repeat; when not provided, membership in
     # asked_question_ids counts as exhausted (the old no-repeat behavior).
     ask_counts: Mapping[str, int] = field(default_factory=dict)
 
@@ -71,14 +72,12 @@ def _is_resolved(question: QuestionTemplate, inputs: InterviewInputs) -> bool:
         if all(s is not None for s in states):
             return True
         return _ask_count(question, inputs) >= 2
-    if question.id in inputs.asked_question_ids:
-        return True
-    if question.kind == "intake":
-        # Ask "what brings you in?" only until a chief complaint is established.
-        return inputs.complaint_category is not None
-    if question.kind == "age":
-        return inputs.age_known
     if question.kind == "measurement":
+        # Checked BEFORE the asked-once rule so a reading that never arrived —
+        # or arrived physiologically impossible and was rejected — gets exactly
+        # ONE more attempt. Two asks then give up, so a patient who keeps
+        # typing nonsense can't loop the interview; the vital is left missing
+        # and flagged for the nurse instead.
         if question.vital in inputs.measured_vitals:
             return True  # already measured
         # Age-gated measurements (e.g. BP in ENT for age ≥ 60 only): skip when
@@ -90,7 +89,14 @@ def _is_resolved(question: QuestionTemplate, inputs: InterviewInputs) -> bool:
         # (e.g. temperature only once fever is reported).
         if question.finding_ids and not _all_findings_present(question, inputs):
             return True
-        return False
+        return _ask_count(question, inputs) >= 2
+    if question.id in inputs.asked_question_ids:
+        return True
+    if question.kind == "intake":
+        # Ask "what brings you in?" only until a chief complaint is established.
+        return inputs.complaint_category is not None
+    if question.kind == "age":
+        return inputs.age_known
     if question.kind == "slot":
         return question.slot in inputs.answered_slots
     if question.kind == "scale":
@@ -170,8 +176,9 @@ def is_interview_complete(
         return True
     if inputs.questions_asked >= inputs.question_budget:
         # Budget caps interview questions, not wrap-up measurements: each of
-        # those fires at most once (asked ids resolve them), so this hold
-        # extends the flow by at most len(pre_disposition_questions) turns.
+        # those fires at most twice (one ask plus one re-ask for a missing or
+        # implausible value), so this hold extends the flow by at most
+        # 2 × len(pre_disposition_questions) turns.
         return not _unresolved_pre_disposition(criteria, inputs)
     # Hold disposition while weight/height (etc.) remain unasked.
     if _unresolved_pre_disposition(criteria, inputs):
@@ -179,6 +186,15 @@ def is_interview_complete(
     if not red_flags_resolved(criteria, inputs):
         return False
     template = get_template(criteria, inputs.complaint_category)
+    # Hold while the template's measurements (BP, temp) remain unasked — the
+    # "vitals always recorded" rule. Without this, a complaint sentence that
+    # already fills the minimum OLDCARTS slots disposes straight past the BP
+    # question, and a hypertensive crisis walks through unmeasured. Terminates
+    # like pre-disposition: each measurement resolves after at most two asks,
+    # and the budget-exhaust branch above still ends the flow regardless.
+    if any(not _is_resolved(q, inputs) for q in template.questions
+           if q.kind == "measurement"):
+        return False
     min_slots = template.min_slots_by_level.get(provisional_level, 3)
     if len(inputs.answered_slots) >= min_slots:
         return True

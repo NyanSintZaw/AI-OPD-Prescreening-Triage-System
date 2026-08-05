@@ -191,6 +191,20 @@ def make_question_node(deps: GraphDeps):
         reply = verbatim
         reply_options = localize_options(selected, state.language, criteria)
 
+        # Re-asking for a value we just refused: lead with the nurse-approved
+        # reason, verbatim, so the patient knows what was wrong instead of
+        # seeing the same question again.
+        rejection = (
+            state.rejected_vitals.get(selected.vital or "")
+            if selected.kind == "measurement"
+            else None
+        )
+        if rejection:
+            key = "text_en" if state.language == "en" else "text_th"
+            explanation = str(rejection.get(key) or "").strip()
+            if explanation:
+                reply = f"{explanation}\n\n{verbatim}"
+
         if deps.model is not None and selected.kind in PARAPHRASABLE_KINDS:
             prompt = _PARAPHRASE_PROMPT[state.language].format(
                 context=state.chief_complaint or "-",
@@ -223,7 +237,7 @@ def make_question_node(deps: GraphDeps):
         state.asked_question_ids.append(selected.id)
         # Measurement requests don't count against the interview budget: they
         # are booth actions, not questions the patient must think about, and
-        # asked_question_ids already guarantees each fires at most once. The
+        # the policy's ask-count cap guarantees each fires at most twice. The
         # budget must stay a cap on cognitive burden, not on readings.
         if selected.kind != "measurement":
             state.questions_asked += 1

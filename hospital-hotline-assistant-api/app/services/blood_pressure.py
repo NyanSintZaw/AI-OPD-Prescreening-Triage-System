@@ -110,19 +110,46 @@ def _classify_failure(output: str) -> BloodPressureFetchError:
     return BloodPressureFetchError("error", " | ".join(tail) or "omblepy failed")
 
 
-def _parse_result_json(output: str) -> BloodPressureReading | None:
-    """Return the newest reading from omblepy's ``--jsonOut`` stdout line."""
+def is_plausible(reading: "BloodPressureReading") -> bool:
+    """Whether a cuff record is physiologically possible at all.
+
+    A cuff that slipped, was pulled off mid-cycle, or reported a corrupt
+    record can emit numbers like 300/220 or 5/3. Those must never reach the
+    rules engine: 300 > 180 would otherwise read as a hypertensive crisis and
+    both open a 15-minute rest window and drive an emergency disposition off a
+    reading that never happened. Genuinely critical-but-possible readings
+    (e.g. 210/130) pass here and are handled by the criteria, as they must be.
+    """
+    from app.services.screening.vitals import check_vitals
+
+    _, rejected = check_vitals({
+        "sbp": reading.systolic,
+        "dbp": reading.diastolic,
+        "hr": reading.pulse_bpm,
+    })
+    return not rejected
+
+
+def _parse_result_json(output: str) -> tuple[BloodPressureReading | None, int]:
+    """Newest PLAUSIBLE reading from omblepy's ``--jsonOut`` line, plus how
+    many records were discarded as physiologically impossible.
+
+    Implausible records are skipped exactly like malformed ones, so a garbage
+    record can't mask an older good reading by being newer. The discard count
+    lets the caller say "measure again" instead of "no measurements found".
+    """
     payload: str | None = None
     for line in output.splitlines():
         if line.startswith(_RESULT_MARKER):
             payload = line[len(_RESULT_MARKER):]
     if payload is None:
-        return None
+        return None, 0
     try:
         all_user_records = json.loads(payload)
     except json.JSONDecodeError:
-        return None
+        return None, 0
     latest: BloodPressureReading | None = None
+    discarded = 0
     for user_records in all_user_records:
         for row in user_records:
             try:
@@ -138,9 +165,16 @@ def _parse_result_json(output: str) -> BloodPressureReading | None:
                 )
             except (KeyError, TypeError, ValueError):
                 continue
+            if not is_plausible(reading):
+                discarded += 1
+                logger.warning(
+                    "discarding implausible cuff record %s/%s pulse %s",
+                    reading.systolic, reading.diastolic, reading.pulse_bpm,
+                )
+                continue
             if latest is None or reading.measured_at > latest.measured_at:
                 latest = reading
-    return latest
+    return latest, discarded
 
 
 class BloodPressureService:
@@ -162,7 +196,8 @@ class BloodPressureService:
 
         Raises :class:`BloodPressureFetchError` with a machine-readable
         ``code`` (busy / not_configured / device_not_found / pairing_error /
-        wrong_device / timeout / no_records / error) on any failure.
+        wrong_device / timeout / no_records / implausible / error) on any
+        failure.
         """
         if not settings.bp_device_mac:
             raise BloodPressureFetchError(
@@ -228,7 +263,13 @@ class BloodPressureService:
             if process.returncode != 0 or "communication finished" not in output:
                 raise _classify_failure(output)
 
-            reading = _parse_result_json(output)
+            reading, discarded = _parse_result_json(output)
+            if reading is None and discarded:
+                raise BloodPressureFetchError(
+                    "implausible",
+                    "That reading doesn't look right. Sit still with the cuff "
+                    "on your upper arm and measure again.",
+                )
             if reading is None:
                 raise BloodPressureFetchError(
                     "no_records",

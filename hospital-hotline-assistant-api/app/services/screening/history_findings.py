@@ -123,23 +123,16 @@ def apply_history_findings(state, patient_history: Mapping[str, Any] | None) -> 
 
     family = patient_history.get("family_history")
     if _has_content(family):
+        # Any family history maps to the single family_history_chronic finding
+        # (the criteria catalog has no per-disease family ids); never mark the
+        # patient's own chronic-condition findings from family text alone.
         _set_present(state, "family_history_chronic", str(family))
-        for pattern, finding_id in _CHRONIC_KEYWORDS:
-            if pattern.search(str(family)):
-                # Family history of a specific chronic disease is still the
-                # family_history_chronic finding; do not mark the patient's
-                # own chronic condition findings from family text alone.
-                pass
 
     chronic = patient_history.get("chronic_conditions")
     if _has_content(chronic):
         text = str(chronic)
-        matched = False
         for pattern, finding_id in _CHRONIC_KEYWORDS:
             if pattern.search(text):
                 _set_present(state, finding_id, text)
-                matched = True
-        if not matched:
-            # Unknown chronic label — still a risk signal via allergy-style
-            # catch-all is not ideal; leave as no finding rather than guess.
-            pass
+        # An unmatched chronic label stamps nothing — better no finding than
+        # a guessed one.

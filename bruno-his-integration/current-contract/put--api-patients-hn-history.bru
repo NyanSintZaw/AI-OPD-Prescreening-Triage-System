@@ -1,0 +1,37 @@
+meta {
+  name: PUT /api/patients/{hn}/history
+  type: http
+  seq: 6
+}
+
+put {
+  url: {{hisBaseUrl}}/api/patients/{{hn}}/history
+  body: json
+  auth: none
+}
+
+headers {
+  Authorization: Bearer {{hisToken}}
+  X-API-Key: {{hisToken}}
+}
+
+body:json {
+  {
+    "smoking_alcohol": "string",
+    "allergies": "string",
+    "chronic_conditions": "string",
+    "past_surgeries": "string",
+    "family_history": "string"
+  }
+}
+
+docs {
+  WE PUT — patient history (allergies, chronic conditions, ...) updated at the booth (HttpHisAdapter.push_patient_history).
+  
+  Record first-time-patient history collected at the booth.
+  
+  Upserts the full history (no partial-field merge, matching this
+  service's other write-back endpoints) and stamps
+  ``history_recorded_at`` — from this point on the patient is no
+  longer first-time, on this visit and any future one.
+}

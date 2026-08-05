@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { api } from '../api';
+import type { VitalBoundsOut } from '../api/types';
 import type { AppLanguage } from '../i18n/resources';
 import { useBpCuffWatch } from '../hooks/useBpCuffWatch';
 import { useSessionStorage } from '../hooks/useSession';
@@ -34,7 +35,19 @@ const parseNum = (v: string): number | undefined => {
 // Physiologically plausible input ranges (HTML min/max don't stop typed
 // values, so submits re-check). Out-of-range gets its own message —
 // "fill in all fields" would gaslight a patient whose fields ARE filled.
-const inRange = (n: number, min: number, max: number) => n >= min && n <= max;
+//
+// The live numbers come from the active criteria version via
+// GET /screening/vital-bounds (see docs/vital-bounds.md); these are only the
+// offline fallback for when that call fails. Keep them in sync with
+// default_vital_bounds() in criteria_models.py.
+const FALLBACK_BOUNDS: Record<string, { min: number; max: number }> = {
+  sbp: { min: 50, max: 300 },
+  dbp: { min: 20, max: 200 },
+  hr: { min: 20, max: 250 },
+  temp: { min: 30, max: 45 },
+  weight: { min: 1, max: 400 },
+  height: { min: 30, max: 272 },
+};
 
 /**
  * Inline card the booth shows mid-interview when the screening engine asks
@@ -43,12 +56,50 @@ const inRange = (n: number, min: number, max: number) => n >= min && n <= max;
  * vitals the engine can request: temperature, blood pressure (machine or
  * manual), and weight+height together.
  */
-export function MeasurementCard({ vital, onSubmit, onRest, onCancel, disabled }: MeasurementCardProps) {
-  const { t } = useTranslation();
+export function MeasurementCard({ vital, language, onSubmit, onRest, onCancel, disabled }: MeasurementCardProps) {
+  const { t, i18n } = useTranslation();
   const { sessionId } = useSessionStorage();
   const [saving, setSaving] = useState(false);
   const [errorKey, setErrorKey] = useState<string | null>(null);
+  // Nurse-authored rejection wording from the criteria; takes precedence over
+  // the generic errorKey message when set.
+  const [errorText, setErrorText] = useState<string | null>(null);
   const [restSeconds, setRestSeconds] = useState<number | null>(null);
+  const [bounds, setBounds] = useState<VitalBoundsOut | null>(null);
+  const lang = language ?? (i18n.language === 'en' ? 'en' : 'th');
+
+  useEffect(() => {
+    let cancelled = false;
+    api
+      .getVitalBounds()
+      .then((data) => {
+        if (!cancelled) setBounds(data);
+      })
+      .catch(() => {
+        /* fall back to FALLBACK_BOUNDS with the generic range message */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const boundFor = (name: string) => bounds?.bounds?.[name] ?? FALLBACK_BOUNDS[name];
+
+  /** Range-check one value; on failure show the authored reason and return false. */
+  const accept = (name: string, value: number): boolean => {
+    const bound = boundFor(name);
+    if (!bound || (value >= bound.min && value <= bound.max)) return true;
+    const authored = bounds?.bounds?.[name];
+    setErrorText(authored ? (lang === 'en' ? authored.retry_text_en : authored.retry_text_th) : null);
+    setErrorKey('vitalsRangeError');
+    return false;
+  };
+
+  const rejectCross = (checkId: string) => {
+    const check = bounds?.cross_checks?.[checkId];
+    setErrorText(check ? (lang === 'en' ? check.text_en : check.text_th) : null);
+    setErrorKey(checkId === 'sbp_le_dbp' ? 'vitalsErrSwapped' : 'vitalsRangeError');
+  };
 
   const [tempValue, setTempValue] = useState('');
 
@@ -66,6 +117,7 @@ export function MeasurementCard({ vital, onSubmit, onRest, onCancel, disabled }:
   useEffect(() => {
     setSaving(false);
     setErrorKey(null);
+    setErrorText(null);
     setRestSeconds(null);
     setTempValue('');
     setSbpChoice('unset');
@@ -123,12 +175,10 @@ export function MeasurementCard({ vital, onSubmit, onRest, onCancel, disabled }:
       setErrorKey('vitalsRequiredError');
       return;
     }
-    if (!inRange(value, 30, 45)) {
-      setErrorKey('vitalsRangeError');
-      return;
-    }
+    if (!accept('temp', value)) return;
     setSaving(true);
     setErrorKey(null);
+    setErrorText(null);
     try {
       if (sessionId) {
         await api.updateSessionMeasurement(sessionId, { vital: 'temp', value });
@@ -149,12 +199,12 @@ export function MeasurementCard({ vital, onSubmit, onRest, onCancel, disabled }:
       setErrorKey('vitalsRequiredError');
       return;
     }
-    if (
-      !inRange(sys, 40, 300) ||
-      !inRange(dia, 20, 200) ||
-      (pul !== undefined && !inRange(pul, 20, 250))
-    ) {
-      setErrorKey('vitalsRangeError');
+    if (!accept('sbp', sys) || !accept('dbp', dia)) return;
+    if (pul !== undefined && !accept('hr', pul)) return;
+    // The top number must exceed the bottom one — catches a swapped entry,
+    // which is in range on both fields and so invisible to the checks above.
+    if (sys <= dia) {
+      rejectCross('sbp_le_dbp');
       return;
     }
     // Only tag as a device reading if the cuff filled BP and the patient
@@ -190,7 +240,7 @@ export function MeasurementCard({ vital, onSubmit, onRest, onCancel, disabled }:
           return;
         }
       }
-    } catch {
+    } catch (err) {
       // Could be a 409 (active rest window) — check before falling through,
       // so a blocked reading never leaks into the conversation as a turn.
       if (sessionId) {
@@ -205,6 +255,15 @@ export function MeasurementCard({ vital, onSubmit, onRest, onCancel, disabled }:
         } catch {
           /* status check failed — continue below */
         }
+      }
+      // A 4xx means the server REFUSED these numbers (implausible, or systolic
+      // not above diastolic). Stop here: sending them on as a conversation
+      // turn is exactly the leak the bounds exist to prevent.
+      const status = (err as { status?: number } | null)?.status;
+      if (status && status >= 400 && status < 500) {
+        setSaving(false);
+        setErrorKey('vitalsRangeError');
+        return;
       }
       // Otherwise non-fatal: the conversation can continue without the
       // write-back.
@@ -222,12 +281,17 @@ export function MeasurementCard({ vital, onSubmit, onRest, onCancel, disabled }:
       setErrorKey('vitalsRequiredError');
       return;
     }
-    if (!inRange(wgt, 1, 400) || !inRange(hgt, 30, 272)) {
-      setErrorKey('vitalsRangeError');
+    if (!accept('weight', wgt) || !accept('height', hgt)) return;
+    // Unit mix-up guard (height typed in metres, weight in pounds): both
+    // numbers can be individually valid yet impossible together.
+    const bmi = wgt / (hgt / 100) ** 2;
+    if (!(bmi >= 5 && bmi <= 150)) {
+      rejectCross('bmi_implausible');
       return;
     }
     setSaving(true);
     setErrorKey(null);
+    setErrorText(null);
     try {
       if (sessionId) {
         await api.updateSessionMeasurement(sessionId, { vital: 'weight', value: wgt });
@@ -240,6 +304,18 @@ export function MeasurementCard({ vital, onSubmit, onRest, onCancel, disabled }:
     }
     await onSubmit(`${wgt} kg, ${hgt} cm`);
   };
+
+  // One renderer for every error slot: the authored rejection wording when we
+  // have it, otherwise the generic i18n message.
+  const errorNote = (errorText || errorKey) && (
+    <p className="error-text" role="alert">
+      {errorText
+        ? errorText
+        : errorKey === 'vitalsErrResting'
+          ? t(errorKey, { minutes: Math.max(1, Math.ceil((restSeconds ?? 60) / 60)) })
+          : t(errorKey!)}
+    </p>
+  );
 
   const cancelBtn = onCancel && (
     <button type="button" className="text-btn location-prompt-skip" onClick={onCancel} disabled={busy}>
@@ -282,15 +358,7 @@ export function MeasurementCard({ vital, onSubmit, onRest, onCancel, disabled }:
           </button>
           {cancelBtn}
         </div>
-        {errorKey && (
-          <p className="error-text">
-            {errorKey === 'vitalsErrResting'
-              ? t(errorKey, {
-                  minutes: Math.max(1, Math.ceil((restSeconds ?? 60) / 60)),
-                })
-              : t(errorKey)}
-          </p>
-        )}
+        {errorNote}
       </div>
     );
   }
@@ -387,15 +455,7 @@ export function MeasurementCard({ vital, onSubmit, onRest, onCancel, disabled }:
               />
             </label>
           </div>
-          {errorKey && (
-          <p className="error-text">
-            {errorKey === 'vitalsErrResting'
-              ? t(errorKey, {
-                  minutes: Math.max(1, Math.ceil((restSeconds ?? 60) / 60)),
-                })
-              : t(errorKey)}
-          </p>
-        )}
+          {errorNote}
           <div className="measurement-card-actions">
             <button
               type="button"
@@ -534,15 +594,7 @@ export function MeasurementCard({ vital, onSubmit, onRest, onCancel, disabled }:
               />
             </label>
           </div>
-          {errorKey && (
-          <p className="error-text">
-            {errorKey === 'vitalsErrResting'
-              ? t(errorKey, {
-                  minutes: Math.max(1, Math.ceil((restSeconds ?? 60) / 60)),
-                })
-              : t(errorKey)}
-          </p>
-        )}
+          {errorNote}
           <div className="measurement-card-actions">
             <button
               type="button"
@@ -627,15 +679,7 @@ export function MeasurementCard({ vital, onSubmit, onRest, onCancel, disabled }:
             />
           </label>
         </div>
-        {errorKey && (
-          <p className="error-text">
-            {errorKey === 'vitalsErrResting'
-              ? t(errorKey, {
-                  minutes: Math.max(1, Math.ceil((restSeconds ?? 60) / 60)),
-                })
-              : t(errorKey)}
-          </p>
-        )}
+        {errorNote}
         <div className="measurement-card-actions">
           <button
             type="button"

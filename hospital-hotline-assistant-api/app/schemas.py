@@ -4,6 +4,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field, model_validator
 
+from app.services.screening.rules.criteria_models import default_vital_bounds
+
 LanguageCode = Literal["th", "en"]
 SessionStatus = Literal["active", "completed", "reset", "escalated"]
 MessageRole = Literal["user", "assistant", "system"]
@@ -39,17 +41,38 @@ class SessionLocationUpdate(BaseModel):
     location_area: str = Field(..., min_length=1, max_length=100)
 
 
+# Plausibility bounds come from the criteria defaults so the API, the engine,
+# the cuff parser and the kiosk all refuse the same values — see
+# docs/vital-bounds.md. These are a 422 backstop; the friendly re-ask happens
+# before a request ever gets here.
+_BOUNDS = default_vital_bounds()
+
+
 class SessionVitalsUpdate(BaseModel):
-    systolic: int = Field(..., ge=40, le=300)
-    diastolic: int = Field(..., ge=20, le=200)
-    pulse_bpm: int | None = Field(default=None, ge=20, le=250)
+    systolic: int = Field(..., ge=_BOUNDS["sbp"].min, le=_BOUNDS["sbp"].max)
+    diastolic: int = Field(..., ge=_BOUNDS["dbp"].min, le=_BOUNDS["dbp"].max)
+    pulse_bpm: int | None = Field(
+        default=None, ge=_BOUNDS["hr"].min, le=_BOUNDS["hr"].max
+    )
     # Patient-typed vitals captured at the booth alongside the cuff reading.
-    weight_kg: float | None = Field(default=None, gt=0, le=400)
-    height_cm: float | None = Field(default=None, gt=0, le=272)
-    temperature_c: float | None = Field(default=None, ge=30, le=45)
+    weight_kg: float | None = Field(
+        default=None, ge=_BOUNDS["weight"].min, le=_BOUNDS["weight"].max
+    )
+    height_cm: float | None = Field(
+        default=None, ge=_BOUNDS["height"].min, le=_BOUNDS["height"].max
+    )
+    temperature_c: float | None = Field(
+        default=None, ge=_BOUNDS["temp"].min, le=_BOUNDS["temp"].max
+    )
     measured_at: datetime | None = None
     source: Literal["device", "manual"] = "device"
     reading_id: UUID | None = None
+
+    @model_validator(mode="after")
+    def _check_cross_field(self) -> "SessionVitalsUpdate":
+        if self.systolic <= self.diastolic:
+            raise ValueError("systolic must be greater than diastolic")
+        return self
 
 
 class SessionMeasurementUpdate(BaseModel):
@@ -63,13 +86,11 @@ class SessionMeasurementUpdate(BaseModel):
 
     @model_validator(mode="after")
     def _check_range(self) -> "SessionMeasurementUpdate":
-        low, high = {
-            "temp": (25.0, 45.0),      # °C
-            "weight": (1.0, 400.0),    # kg
-            "height": (30.0, 272.0),   # cm
-        }[self.vital]
-        if not (low <= self.value <= high):
-            raise ValueError(f"{self.vital} must be between {low} and {high}")
+        bound = _BOUNDS[self.vital]
+        if not bound.contains(self.value):
+            raise ValueError(
+                f"{self.vital} must be between {bound.min} and {bound.max}"
+            )
         return self
 
 
@@ -137,6 +158,9 @@ class BloodPressureFetchResponse(BaseModel):
         "wrong_device",
         "timeout",
         "no_records",
+        # Records were returned but none were physiologically possible —
+        # the patient is asked to measure again straight away (no rest window).
+        "implausible",
         "not_seen",
         "resting",
         "error",
@@ -377,61 +401,6 @@ class FollowUpQuestionAnswerUpdate(BaseModel):
     answer_message_id: UUID
 
 
-class ChatRequest(BaseModel):
-    content: str
-    input_mode: InputMode = "text"
-    language: LanguageCode = "en"
-    history: list[Any] = Field(default_factory=list)
-
-
-class ChatSeverityOut(BaseModel):
-    level: SeverityLevel
-    explanation: str | None = None
-    confidence: float | None = Field(default=None, ge=0, le=1)
-
-
-class ChatDepartmentOut(BaseModel):
-    department_id: UUID | None = None
-    reason: str | None = None
-    confidence: float | None = Field(default=None, ge=0, le=1)
-
-
-class ChatEmergencyOut(BaseModel):
-    trigger_id: UUID | None = None
-    alert_message: str | None = None
-    detected_symptoms: list[str] = Field(default_factory=list)
-
-
-class ChatSymptomsOut(BaseModel):
-    raw_text: str
-    body_location: str | None = None
-    duration_text: str | None = None
-    pain_score: int | None = Field(default=None, ge=0, le=10)
-    pain_location: str | None = None
-    distress_score: int | None = Field(default=None, ge=0, le=10)
-    distress_type: str | None = None
-    red_flags: list[str] = Field(default_factory=list)
-
-
-class ChatResponse(BaseModel):
-    reply: str
-    severity: ChatSeverityOut
-    assessment_status: str | None = None  # "complete" | "in_progress"
-    department: ChatDepartmentOut | None = None
-    emergency: ChatEmergencyOut | None = None
-    symptoms: ChatSymptomsOut | None = None
-    contact: dict[str, Any] | None = None
-    follow_up_question: str | None = None
-    follow_up_reason: str | None = None
-    model_name: str | None = None
-    latency_ms: int | None = None
-    alert_sent: bool = False
-    assistant_message_id: UUID | None = None
-    awaiting_measurement: str | None = None
-    reply_options: list[dict[str, str]] = Field(default_factory=list)
-    flow_complete: bool = False
-
-
 class ConversationSummaryOut(BaseModel):
     session_id: UUID
     language: LanguageCode
@@ -484,11 +453,15 @@ class HisConnectionOut(BaseModel):
     connected: bool
     visit_count: int | None = None
     message: str | None = None
+    # Whether an access token is saved — the token itself is never echoed.
+    has_api_key: bool = False
 
 
 class HisConnectionUpdate(BaseModel):
     endpoint: str = Field(..., min_length=8, max_length=500)  # http(s)://…
     name: str = Field(..., min_length=1, max_length=120)
+    # Optional bearer token; blank/omitted keeps the currently saved one.
+    api_key: str | None = Field(None, max_length=500)
 
 
 class AdminLoginRequest(BaseModel):
@@ -548,6 +521,13 @@ class AssessmentReviewOut(BaseModel):
     visit_id: str | None = None
     patient_name: str | None = None
     vitals: dict[str, Any] | None = None
+    # Undertriage caution: core vitals (hr/rr/spo2/temp/sbp) never
+    # instrument-measured this session. Null until the engine disposed.
+    missing_vitals: list[str] | None = None
+    # Values reported but refused as physiologically impossible, keyed by
+    # canonical vital: {value, reason, source, attempts, ...}. Shown flagged in
+    # nurse review — never blank — and never published to the HIS.
+    rejected_vitals: dict[str, Any] | None = None
     ai_chief_complaint: str | None = None
     ai_illness_note: str | None = None
     patient_follow_up: str | None = None

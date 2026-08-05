@@ -1,0 +1,3236 @@
+[
+  {
+    "id": "cp_en_crushing",
+    "language": "en",
+    "description": "Crushing chest pressure + diaphoresis, 58yo — classic ACS, must dispose emergency on turn 1",
+    "opening": "I've got this crushing pressure in my chest, like someone's sitting on it. It started about half an hour ago and I'm sweating buckets.",
+    "age": 58,
+    "answers": [
+      {
+        "match": "cp_radiating",
+        "reply": "yeah, it kind of goes up into my jaw and down my left arm"
+      },
+      {
+        "match": "cp_dyspnea|uq_breathing",
+        "reply": "it's a bit hard to catch my breath honestly"
+      },
+      {
+        "match": "cp_diaphoresis",
+        "reply": "yes, I'm drenched in sweat"
+      }
+    ],
+    "measurements": {
+      "bp": [
+        150,
+        95
+      ]
+    },
+    "expected": {
+      "category": "chest_pain",
+      "level": [
+        1,
+        2
+      ],
+      "department": "emergency",
+      "undertriage_critical": true,
+      "must_ask": [],
+      "must_not_leak": true
+    }
+  },
+  {
+    "id": "cp_th_crushing",
+    "language": "th",
+    "description": "แน่นหน้าอกเหมือนช้างเหยียบ + เหงื่อแตก — ACS ต้องได้ฉุกเฉินตั้งแต่เทิร์นแรก",
+    "opening": "แน่นหน้าอกเหมือนช้างเหยียบเลยค่ะ เป็นมาสักครึ่งชั่วโมงแล้ว เหงื่อแตกท่วมตัวเลย",
+    "age": 60,
+    "answers": [
+      {
+        "match": "cp_radiating",
+        "reply": "ร้าวขึ้นไปที่กรามกับแขนซ้ายค่ะ"
+      },
+      {
+        "match": "cp_dyspnea|uq_breathing",
+        "reply": "หายใจอึดอัดนิดหน่อยค่ะ"
+      },
+      {
+        "match": "cp_diaphoresis",
+        "reply": "เหงื่อออกเยอะมากค่ะ ตัวเย็นด้วย"
+      }
+    ],
+    "measurements": {
+      "bp": [
+        148,
+        92
+      ]
+    },
+    "expected": {
+      "category": "chest_pain",
+      "level": [
+        1,
+        2
+      ],
+      "department": "emergency",
+      "undertriage_critical": true,
+      "must_ask": [],
+      "must_not_leak": true
+    }
+  },
+  {
+    "id": "cp_en_wall",
+    "language": "en",
+    "description": "Young adult, reproducible chest-wall pain, no red flags — routine",
+    "opening": "I've had this sharp pain in my chest since yesterday. It gets worse when I press on the spot or twist around.",
+    "age": 24,
+    "answers": [
+      {
+        "match": "uq_breathing|cp_dyspnea",
+        "reply": "no, breathing is totally fine"
+      },
+      {
+        "match": "cp_radiating",
+        "reply": "no, it stays in that one spot"
+      },
+      {
+        "match": "cp_diaphoresis",
+        "reply": "no sweating or feeling sick"
+      },
+      {
+        "match": "onset",
+        "reply": "yesterday afternoon"
+      },
+      {
+        "match": "duration",
+        "reply": "about a day now"
+      },
+      {
+        "match": "character",
+        "reply": "sharp, like a little stab when I move or press it"
+      },
+      {
+        "match": "severity|scale",
+        "reply": "maybe a 3 out of 10"
+      },
+      {
+        "match": "cp_history",
+        "reply": "no, nothing like that, I'm healthy"
+      }
+    ],
+    "expected": {
+      "category": "chest_pain",
+      "level": [
+        3,
+        4
+      ],
+      "department": [
+        "opd_general",
+        "opd_cardiology",
+        "opd_internal_medicine"
+      ],
+      "undertriage_critical": false,
+      "must_ask": [
+        "cp_radiating",
+        "cp_diaphoresis"
+      ],
+      "must_not_leak": true
+    }
+  },
+  {
+    "id": "cp_th_wall",
+    "language": "th",
+    "description": "เจ็บหน้าอกแบบกล้ามเนื้อ กดแล้วเจ็บ อายุน้อย ไม่มีสัญญาณอันตราย",
+    "opening": "เจ็บหน้าอกแปลบๆ ค่ะ เวลากดตรงจุดที่เจ็บหรือบิดตัวแล้วยิ่งเจ็บ เป็นมาตั้งแต่เมื่อวาน",
+    "age": 28,
+    "answers": [
+      {
+        "match": "uq_breathing|cp_dyspnea",
+        "reply": "หายใจปกติดีค่ะ"
+      },
+      {
+        "match": "cp_radiating",
+        "reply": "ไม่ร้าวไปไหนค่ะ เจ็บอยู่จุดเดียว"
+      },
+      {
+        "match": "cp_diaphoresis",
+        "reply": "ไม่มีเหงื่อแตก ไม่คลื่นไส้ค่ะ"
+      },
+      {
+        "match": "onset",
+        "reply": "เมื่อวานตอนบ่ายค่ะ"
+      },
+      {
+        "match": "duration",
+        "reply": "ประมาณวันนึงแล้วค่ะ"
+      },
+      {
+        "match": "character",
+        "reply": "แปลบๆ เวลาขยับหรือกดค่ะ"
+      },
+      {
+        "match": "severity|scale",
+        "reply": "สัก 3 ค่ะ"
+      },
+      {
+        "match": "cp_history",
+        "reply": "ไม่มีโรคประจำตัวค่ะ"
+      }
+    ],
+    "expected": {
+      "category": "chest_pain",
+      "level": [
+        3,
+        4
+      ],
+      "department": [
+        "opd_general",
+        "opd_cardiology",
+        "opd_internal_medicine"
+      ],
+      "undertriage_critical": false,
+      "must_ask": [
+        "cp_radiating",
+        "cp_diaphoresis"
+      ],
+      "must_not_leak": true
+    }
+  },
+  {
+    "id": "cp_en_exertional",
+    "language": "en",
+    "description": "Exertional chest tightness relieved by rest, 55yo hypertensive — high-risk angina story",
+    "opening": "For the past week I keep getting this tight feeling in my chest when I climb the stairs. It goes away after I sit down for a few minutes.",
+    "age": 55,
+    "answers": [
+      {
+        "match": "uq_breathing|cp_dyspnea",
+        "reply": "right now it's fine, only when it happens"
+      },
+      {
+        "match": "cp_radiating",
+        "reply": "sometimes it spreads to my left shoulder"
+      },
+      {
+        "match": "cp_diaphoresis",
+        "reply": "no sweating"
+      },
+      {
+        "match": "onset",
+        "reply": "about a week ago"
+      },
+      {
+        "match": "duration",
+        "reply": "a week or so, comes and goes"
+      },
+      {
+        "match": "character",
+        "reply": "tight, like a band squeezing"
+      },
+      {
+        "match": "severity|scale",
+        "reply": "about a 4 when it comes on"
+      },
+      {
+        "match": "cp_history",
+        "reply": "I take pills for high blood pressure"
+      }
+    ],
+    "measurements": {
+      "bp": [
+        152,
+        94
+      ]
+    },
+    "expected": {
+      "category": "chest_pain",
+      "level": [
+        2,
+        3
+      ],
+      "department": [
+        "emergency",
+        "opd_cardiology"
+      ],
+      "undertriage_critical": false,
+      "must_ask": [
+        "cp_radiating"
+      ],
+      "must_not_leak": true
+    }
+  },
+  {
+    "id": "cp_en_notsure_redflag",
+    "language": "en",
+    "description": "Regression pin: 'not sure' on a red-flag question must re-ask, never record absent",
+    "opening": "My chest has been hurting on and off since this morning.",
+    "age": 45,
+    "answers": [
+      {
+        "match": "cp_radiating",
+        "reply": "hmm, I'm not sure, maybe?"
+      },
+      {
+        "match": "cp_diaphoresis",
+        "reply": "no sweating"
+      },
+      {
+        "match": "uq_breathing|cp_dyspnea",
+        "reply": "breathing is okay"
+      },
+      {
+        "match": "onset",
+        "reply": "this morning"
+      },
+      {
+        "match": "duration",
+        "reply": "a few hours, on and off"
+      },
+      {
+        "match": "character",
+        "reply": "a dull ache"
+      },
+      {
+        "match": "severity|scale",
+        "reply": "about a 4"
+      },
+      {
+        "match": "cp_history",
+        "reply": "no"
+      }
+    ],
+    "expected": {
+      "category": "chest_pain",
+      "level": [
+        2,
+        3
+      ],
+      "department": [
+        "emergency",
+        "opd_cardiology",
+        "opd_internal_medicine"
+      ],
+      "undertriage_critical": false,
+      "must_ask": [
+        "cp_radiating"
+      ],
+      "findings": {
+        "chest_pain_radiating": "not_absent"
+      },
+      "must_not_leak": true
+    }
+  },
+  {
+    "id": "dc_th_severe",
+    "language": "th",
+    "description": "หอบเหนื่อยหนัก พูดเป็นคำๆ ผู้สูงอายุ — ต้องฉุกเฉินทันที",
+    "opening": "หายใจไม่ทันเลยค่ะ เหนื่อยมาก พูดยาวๆ ไม่ไหว ต้องหยุดหายใจเป็นพักๆ",
+    "age": 70,
+    "answers": [
+      {
+        "match": "uq_breathing",
+        "reply": "หายใจลำบากมากค่ะ"
+      },
+      {
+        "match": "dc_severe_distress",
+        "reply": "พูดเป็นประโยคไม่ไหวค่ะ เหนื่อยหอบ"
+      },
+      {
+        "match": "dc_distress_scale",
+        "reply": "สัก 8 ได้ค่ะ"
+      }
+    ],
+    "expected": {
+      "category": "dyspnea_cough",
+      "level": [
+        1,
+        2
+      ],
+      "department": "emergency",
+      "undertriage_critical": true,
+      "must_ask": [],
+      "must_not_leak": true
+    }
+  },
+  {
+    "id": "dc_en_mild",
+    "language": "en",
+    "description": "Mild cough, three days, no red flags — routine OPD",
+    "opening": "I've had a cough for about three days, tickly throat, nothing too bad.",
+    "age": 30,
+    "answers": [
+      {
+        "match": "uq_breathing|dc_severe_distress",
+        "reply": "no, I can breathe and talk fine"
+      },
+      {
+        "match": "dc_hemoptysis",
+        "reply": "no blood, no"
+      },
+      {
+        "match": "dc_chest_pain",
+        "reply": "no chest pain"
+      },
+      {
+        "match": "dc_fever",
+        "reply": "don't think so, maybe a little warm at night"
+      },
+      {
+        "match": "dc_distress_scale",
+        "reply": "about a 1"
+      },
+      {
+        "match": "onset",
+        "reply": "three days ago"
+      },
+      {
+        "match": "duration",
+        "reply": "three days"
+      },
+      {
+        "match": "dc_orthopnea",
+        "reply": "no, I sleep flat just fine, no swelling"
+      },
+      {
+        "match": "dc_tb_signs",
+        "reply": "no night sweats or weight loss, nothing like that"
+      }
+    ],
+    "expected": {
+      "category": "dyspnea_cough",
+      "level": [
+        4,
+        5
+      ],
+      "department": "opd_general",
+      "undertriage_critical": false,
+      "must_ask": [
+        "dc_hemoptysis|dc_fever"
+      ],
+      "must_not_leak": true
+    }
+  },
+  {
+    "id": "dc_th_mild_decline",
+    "language": "th",
+    "description": "Regression pin: ไอเล็กน้อย + ปฏิเสธ follow-up ด้วย 'ไม่มีแล้วค่ะ ขอบคุณค่ะ' ต้องไม่ถูกบันทึกเป็นโน้ต",
+    "opening": "ไอมาสามวันแล้วค่ะ คันคอนิดหน่อย ไม่ได้เหนื่อยอะไร",
+    "age": 33,
+    "answers": [
+      {
+        "match": "uq_breathing|dc_severe_distress",
+        "reply": "หายใจปกติ พูดได้ปกติค่ะ"
+      },
+      {
+        "match": "dc_hemoptysis",
+        "reply": "ไม่มีเลือดปนค่ะ"
+      },
+      {
+        "match": "dc_chest_pain",
+        "reply": "ไม่เจ็บหน้าอกค่ะ"
+      },
+      {
+        "match": "dc_fever",
+        "reply": "ไม่มีไข้ค่ะ"
+      },
+      {
+        "match": "dc_distress_scale",
+        "reply": "1 ค่ะ"
+      },
+      {
+        "match": "onset",
+        "reply": "สามวันก่อนค่ะ"
+      },
+      {
+        "match": "duration",
+        "reply": "สามวันแล้วค่ะ"
+      },
+      {
+        "match": "dc_orthopnea",
+        "reply": "นอนราบได้ปกติ ขาไม่บวมค่ะ"
+      },
+      {
+        "match": "dc_tb_signs",
+        "reply": "ไม่มีไข้ตอนเย็น น้ำหนักไม่ลดค่ะ"
+      }
+    ],
+    "follow_up_reply": "ไม่มีแล้วค่ะ ขอบคุณค่ะ",
+    "follow_up_expected": "decline",
+    "expected": {
+      "category": "dyspnea_cough",
+      "level": [
+        4,
+        5
+      ],
+      "department": "opd_general",
+      "undertriage_critical": false,
+      "must_ask": [
+        "dc_hemoptysis|dc_fever"
+      ],
+      "must_not_leak": true
+    }
+  },
+  {
+    "id": "dc_en_hemoptysis",
+    "language": "en",
+    "description": "Cough with blood streaks + night sweats — urgent, possible TB",
+    "opening": "I've been coughing for a week and this morning there were streaks of blood in it.",
+    "age": 45,
+    "answers": [
+      {
+        "match": "uq_breathing|dc_severe_distress",
+        "reply": "breathing is okay, I can talk fine"
+      },
+      {
+        "match": "dc_hemoptysis",
+        "reply": "yes, streaks of blood this morning"
+      },
+      {
+        "match": "dc_chest_pain",
+        "reply": "no chest pain"
+      },
+      {
+        "match": "dc_fever",
+        "reply": "a bit feverish in the evenings"
+      },
+      {
+        "match": "dc_distress_scale",
+        "reply": "about a 2"
+      },
+      {
+        "match": "onset",
+        "reply": "a week ago"
+      },
+      {
+        "match": "duration",
+        "reply": "a week"
+      },
+      {
+        "match": "dc_tb_signs",
+        "reply": "I do sweat at night lately and I've lost a bit of weight"
+      }
+    ],
+    "expected": {
+      "category": "dyspnea_cough",
+      "level": [
+        2,
+        3
+      ],
+      "department": [
+        "emergency",
+        "opd_internal_medicine",
+        "opd_general"
+      ],
+      "undertriage_critical": false,
+      "must_ask": [],
+      "findings": {
+        "hemoptysis": "present"
+      },
+      "must_not_leak": true
+    }
+  },
+  {
+    "id": "dc_th_asthma",
+    "language": "th",
+    "description": "หอบหืดกำเริบ ใช้ยาพ่นบ่อยขึ้น ยังพูดเป็นประโยคได้",
+    "opening": "หอบหืดกำเริบค่ะ ช่วงนี้ต้องพ่นยาบ่อยกว่าปกติ แน่นๆ หน้าอกเวลาหายใจ",
+    "age": 26,
+    "answers": [
+      {
+        "match": "uq_breathing",
+        "reply": "เหนื่อยกว่าปกติค่ะ แต่ยังพูดได้"
+      },
+      {
+        "match": "dc_severe_distress",
+        "reply": "ยังพูดเป็นประโยคได้ค่ะ ริมฝีปากไม่เขียว"
+      },
+      {
+        "match": "dc_distress_scale",
+        "reply": "สัก 4 ได้ค่ะ"
+      },
+      {
+        "match": "dc_hemoptysis",
+        "reply": "ไม่มีเลือดค่ะ"
+      },
+      {
+        "match": "dc_chest_pain",
+        "reply": "แน่นๆ เวลาหายใจ แต่ไม่ได้เจ็บจี๊ดค่ะ"
+      },
+      {
+        "match": "dc_fever",
+        "reply": "ไม่มีไข้ค่ะ"
+      },
+      {
+        "match": "onset",
+        "reply": "สองสามวันมานี้ค่ะ"
+      },
+      {
+        "match": "duration",
+        "reply": "สองสามวันค่ะ"
+      },
+      {
+        "match": "dc_orthopnea",
+        "reply": "นอนราบได้ค่ะ"
+      },
+      {
+        "match": "dc_tb_signs",
+        "reply": "ไม่มีค่ะ"
+      }
+    ],
+    "expected": {
+      "category": "dyspnea_cough",
+      "level": [
+        2,
+        3
+      ],
+      "department": [
+        "emergency",
+        "opd_internal_medicine",
+        "opd_general"
+      ],
+      "undertriage_critical": false,
+      "must_ask": [
+        "dc_severe_distress|dc_distress_scale"
+      ],
+      "must_not_leak": true
+    }
+  },
+  {
+    "id": "dc_en_child",
+    "language": "en",
+    "description": "8-year-old with mild cough, well-appearing — pediatrics routing",
+    "opening": "My son has had a cough for two days. He's playing normally, just coughing a lot at night.",
+    "age": 8,
+    "answers": [
+      {
+        "match": "uq_breathing|dc_severe_distress",
+        "reply": "no, he breathes fine and talks normally"
+      },
+      {
+        "match": "dc_hemoptysis",
+        "reply": "no blood"
+      },
+      {
+        "match": "dc_chest_pain",
+        "reply": "he says his chest doesn't hurt"
+      },
+      {
+        "match": "dc_fever",
+        "reply": "no fever, I checked"
+      },
+      {
+        "match": "dc_distress_scale",
+        "reply": "1, he's fine"
+      },
+      {
+        "match": "onset",
+        "reply": "two days ago"
+      },
+      {
+        "match": "duration",
+        "reply": "two days"
+      },
+      {
+        "match": "dc_orthopnea",
+        "reply": "he sleeps okay, no swelling"
+      },
+      {
+        "match": "dc_tb_signs",
+        "reply": "no"
+      }
+    ],
+    "measurements": {
+      "bp": [
+        104,
+        66
+      ],
+      "weight": 26,
+      "height": 128
+    },
+    "expected": {
+      "category": "dyspnea_cough",
+      "level": [
+        4,
+        5
+      ],
+      "department": "opd_pediatrics",
+      "undertriage_critical": false,
+      "must_ask": [
+        "dc_fever"
+      ],
+      "must_not_leak": true
+    }
+  },
+  {
+    "id": "fv_en_mild",
+    "language": "en",
+    "description": "Uncomplicated adult fever with body aches — routine",
+    "opening": "I've been running a fever since yesterday, body aches, feeling wiped out.",
+    "age": 27,
+    "answers": [
+      {
+        "match": "uq_breathing",
+        "reply": "breathing is fine"
+      },
+      {
+        "match": "fv_danger",
+        "reply": "no, none of those, just achy"
+      },
+      {
+        "match": "fv_chemo",
+        "reply": "no"
+      },
+      {
+        "match": "fv_rash",
+        "reply": "no rash"
+      },
+      {
+        "match": "onset",
+        "reply": "yesterday evening"
+      },
+      {
+        "match": "duration",
+        "reply": "since yesterday"
+      },
+      {
+        "match": "fv_associated",
+        "reply": "just body aches and feeling tired"
+      }
+    ],
+    "measurements": {
+      "temp": 38.2
+    },
+    "expected": {
+      "category": "fever",
+      "level": [
+        3,
+        4
+      ],
+      "department": [
+        "opd_general",
+        "opd_internal_medicine"
+      ],
+      "undertriage_critical": false,
+      "must_ask": [
+        "fv_danger"
+      ],
+      "must_not_leak": true
+    }
+  },
+  {
+    "id": "fv_th_mild",
+    "language": "th",
+    "description": "ไข้ธรรมดาผู้ใหญ่ ปวดเมื่อยตัว ไม่มีสัญญาณอันตราย",
+    "opening": "ตัวร้อนตั้งแต่เมื่อวานค่ะ ปวดเมื่อยเนื้อตัวไปหมด เพลียๆ",
+    "age": 40,
+    "answers": [
+      {
+        "match": "uq_breathing",
+        "reply": "หายใจปกติค่ะ"
+      },
+      {
+        "match": "fv_danger",
+        "reply": "ไม่มีค่ะ ไม่ซึม คอไม่แข็ง"
+      },
+      {
+        "match": "fv_chemo",
+        "reply": "ไม่ได้ทำคีโมค่ะ"
+      },
+      {
+        "match": "fv_rash",
+        "reply": "ไม่มีผื่นค่ะ"
+      },
+      {
+        "match": "onset",
+        "reply": "เมื่อวานตอนเย็นค่ะ"
+      },
+      {
+        "match": "duration",
+        "reply": "ตั้งแต่เมื่อวานค่ะ"
+      },
+      {
+        "match": "fv_associated",
+        "reply": "ปวดเมื่อยตัวกับเพลียค่ะ"
+      }
+    ],
+    "measurements": {
+      "temp": 38.3
+    },
+    "expected": {
+      "category": "fever",
+      "level": [
+        3,
+        4
+      ],
+      "department": [
+        "opd_general",
+        "opd_internal_medicine"
+      ],
+      "undertriage_critical": false,
+      "must_ask": [
+        "fv_danger"
+      ],
+      "must_not_leak": true
+    }
+  },
+  {
+    "id": "fv_th_infant",
+    "language": "th",
+    "description": "Undertriage trap: เด็ก 6 เดือน ไข้ 39.5 งอแง ไม่กินนม — ต้องฉุกเฉิน",
+    "opening": "ลูกเพิ่งหกเดือนค่ะ ตัวร้อนจี๋มาตั้งแต่บ่าย งอแงมาก ไม่ยอมกินนมเลย",
+    "age": 0.5,
+    "answers": [
+      {
+        "match": "uq_breathing",
+        "reply": "หายใจเร็วๆ หน่อยค่ะ"
+      },
+      {
+        "match": "fv_danger",
+        "reply": "ซึมๆ งอแง ไม่ค่อยกินนมค่ะ"
+      },
+      {
+        "match": "fv_chemo",
+        "reply": "ไม่มีค่ะ"
+      },
+      {
+        "match": "fv_rash",
+        "reply": "ไม่มีผื่นค่ะ"
+      }
+    ],
+    "measurements": {
+      "temp": 39.5,
+      "weight": 7.5,
+      "height": 66
+    },
+    "expected": {
+      "category": "fever",
+      "level": [
+        1,
+        2
+      ],
+      "department": "emergency",
+      "undertriage_critical": true,
+      "must_ask": [],
+      "must_not_leak": true
+    }
+  },
+  {
+    "id": "fv_en_chemo",
+    "language": "en",
+    "description": "Undertriage trap: fever on chemotherapy (neutropenic risk) — emergency",
+    "opening": "I'm on chemotherapy for breast cancer and I've had a fever since this evening, it was 38.4 when I checked at home.",
+    "age": 52,
+    "answers": [
+      {
+        "match": "fv_chemo",
+        "reply": "yes, I had a chemo round last week"
+      },
+      {
+        "match": "uq_breathing",
+        "reply": "breathing is fine"
+      },
+      {
+        "match": "fv_danger",
+        "reply": "no, just the fever and chills"
+      },
+      {
+        "match": "fv_rash",
+        "reply": "no rash"
+      }
+    ],
+    "measurements": {
+      "temp": 38.4
+    },
+    "expected": {
+      "category": "fever",
+      "level": [
+        1,
+        2
+      ],
+      "department": "emergency",
+      "undertriage_critical": true,
+      "must_ask": [],
+      "must_not_leak": true
+    }
+  },
+  {
+    "id": "fv_th_rash_child",
+    "language": "th",
+    "description": "เด็ก 4 ขวบ ไข้สามวัน + ผื่นขึ้น — ต้องรีบดู (ไข้เลือดออก/หัด)",
+    "opening": "ลูกสี่ขวบค่ะ มีไข้มาสามวันแล้ว วันนี้มีผื่นแดงๆ ขึ้นตามตัวกับแขนด้วยค่ะ",
+    "age": 4,
+    "answers": [
+      {
+        "match": "uq_breathing",
+        "reply": "หายใจปกติค่ะ"
+      },
+      {
+        "match": "fv_rash",
+        "reply": "มีผื่นแดงขึ้นตามตัวกับแขนค่ะ"
+      },
+      {
+        "match": "fv_danger",
+        "reply": "ไม่ถึงกับซึมค่ะ ยังเล่นได้บ้าง"
+      },
+      {
+        "match": "fv_chemo",
+        "reply": "ไม่มีค่ะ"
+      },
+      {
+        "match": "onset",
+        "reply": "สามวันก่อนค่ะ"
+      },
+      {
+        "match": "duration",
+        "reply": "สามวันแล้วค่ะ"
+      },
+      {
+        "match": "fv_associated",
+        "reply": "กินได้น้อยลงนิดหน่อยค่ะ"
+      }
+    ],
+    "measurements": {
+      "temp": 38.8,
+      "weight": 16,
+      "height": 102
+    },
+    "expected": {
+      "category": "fever",
+      "level": [
+        2,
+        3
+      ],
+      "department": [
+        "emergency",
+        "opd_pediatrics"
+      ],
+      "undertriage_critical": false,
+      "must_ask": [
+        "fv_rash|fv_danger"
+      ],
+      "must_not_leak": true
+    }
+  },
+  {
+    "id": "fv_en_denial_flip",
+    "language": "en",
+    "description": "Regression pin: booth temp 37.9 measured, patient denies fever — finding must stay present",
+    "opening": "I've just been feeling off today, tired and a bit shivery.",
+    "age": 35,
+    "initial_vitals": {
+      "temp": 37.9
+    },
+    "answers": [
+      {
+        "match": "uq_breathing",
+        "reply": "breathing is fine"
+      },
+      {
+        "match": "fever|fv_danger|fv_associated|gen_associated",
+        "reply": "no, I don't have a fever, I'm just tired"
+      },
+      {
+        "match": "fv_rash",
+        "reply": "no rash"
+      },
+      {
+        "match": "onset",
+        "reply": "just today"
+      },
+      {
+        "match": "duration",
+        "reply": "since this morning"
+      },
+      {
+        "match": "character",
+        "reply": "tired and shivery, hard to describe"
+      }
+    ],
+    "expected": {
+      "category": [
+        "generic",
+        "fever"
+      ],
+      "level": [
+        3,
+        5
+      ],
+      "department": [
+        "opd_general",
+        "opd_internal_medicine"
+      ],
+      "undertriage_critical": false,
+      "must_ask": [],
+      "findings": {
+        "fever": "present"
+      },
+      "must_not_leak": true
+    }
+  },
+  {
+    "id": "fv_en_child_ok",
+    "language": "en",
+    "description": "6-year-old, fever two days, eating and playing — pediatrics routine",
+    "opening": "My daughter is six. She's had a fever for two days but she's still eating and playing like normal.",
+    "age": 6,
+    "answers": [
+      {
+        "match": "uq_breathing",
+        "reply": "she breathes fine"
+      },
+      {
+        "match": "fv_danger",
+        "reply": "no, she's alert and drinking fine"
+      },
+      {
+        "match": "fv_chemo",
+        "reply": "no"
+      },
+      {
+        "match": "fv_rash",
+        "reply": "no rash"
+      },
+      {
+        "match": "onset",
+        "reply": "two days ago"
+      },
+      {
+        "match": "duration",
+        "reply": "two days"
+      },
+      {
+        "match": "fv_associated",
+        "reply": "a bit of a runny nose, that's all"
+      }
+    ],
+    "measurements": {
+      "temp": 38.1,
+      "weight": 20,
+      "height": 115
+    },
+    "expected": {
+      "category": "fever",
+      "level": [
+        3,
+        4
+      ],
+      "department": "opd_pediatrics",
+      "undertriage_critical": false,
+      "must_ask": [
+        "fv_danger"
+      ],
+      "must_not_leak": true
+    }
+  },
+  {
+    "id": "hd_th_thunderclap",
+    "language": "th",
+    "description": "Undertriage trap: ปวดหัวตูมเฉียบพลัน รุนแรงที่สุดในชีวิต — SAH ต้องฉุกเฉิน",
+    "opening": "อยู่ดีๆ ก็ปวดหัวตูมขึ้นมาเหมือนโดนฟ้าผ่าเลยค่ะ ไม่เคยปวดขนาดนี้มาก่อนในชีวิต",
+    "age": 42,
+    "answers": [
+      {
+        "match": "hd_thunderclap",
+        "reply": "ใช่ค่ะ มันตูมขึ้นมาแรงสุดๆ ภายในไม่กี่วินาที"
+      },
+      {
+        "match": "hd_befast",
+        "reply": "ไม่มีค่ะ"
+      },
+      {
+        "match": "uq_breathing",
+        "reply": "หายใจปกติค่ะ"
+      },
+      {
+        "match": "hd_severity|severity|scale",
+        "reply": "10 เลยค่ะ"
+      }
+    ],
+    "expected": {
+      "category": "headache",
+      "level": [
+        1,
+        2
+      ],
+      "department": "emergency",
+      "undertriage_critical": true,
+      "must_ask": [],
+      "must_not_leak": true
+    }
+  },
+  {
+    "id": "hd_en_tension",
+    "language": "en",
+    "description": "Band-like headache after long workdays, no red flags — routine",
+    "opening": "I've had this dull headache for two days, feels like a band around my head, mostly after staring at screens all day.",
+    "age": 29,
+    "answers": [
+      {
+        "match": "uq_breathing",
+        "reply": "breathing is fine"
+      },
+      {
+        "match": "hd_befast",
+        "reply": "no, nothing like that"
+      },
+      {
+        "match": "hd_thunderclap",
+        "reply": "no, it built up slowly"
+      },
+      {
+        "match": "hd_stiff_neck",
+        "reply": "no fever, my neck moves fine"
+      },
+      {
+        "match": "hd_severity|severity|scale",
+        "reply": "about a 3"
+      },
+      {
+        "match": "onset",
+        "reply": "two days ago"
+      },
+      {
+        "match": "duration",
+        "reply": "two days"
+      },
+      {
+        "match": "character",
+        "reply": "dull, like a tight band"
+      },
+      {
+        "match": "hd_associated",
+        "reply": "none of those"
+      }
+    ],
+    "expected": {
+      "category": "headache",
+      "level": [
+        4,
+        5
+      ],
+      "department": "opd_general",
+      "undertriage_critical": false,
+      "must_ask": [
+        "hd_befast",
+        "hd_thunderclap"
+      ],
+      "must_not_leak": true
+    }
+  },
+  {
+    "id": "hd_th_migraine",
+    "language": "th",
+    "description": "ปวดหัวข้างเดียวตุบๆ คลื่นไส้ แพ้แสง เป็นซ้ำๆ แบบไมเกรน",
+    "opening": "ปวดหัวข้างเดียวตุบๆ ค่ะ คลื่นไส้ด้วย เจอแสงจ้าๆ แล้วยิ่งปวด เป็นแบบนี้บ่อยเหมือนไมเกรนที่เคยเป็น",
+    "age": 31,
+    "answers": [
+      {
+        "match": "uq_breathing",
+        "reply": "หายใจปกติค่ะ"
+      },
+      {
+        "match": "hd_befast",
+        "reply": "ไม่มีค่ะ แขนขาปกติ พูดชัด"
+      },
+      {
+        "match": "hd_thunderclap",
+        "reply": "ค่อยๆ ปวดขึ้นมาค่ะ ไม่ได้ตูมทีเดียว"
+      },
+      {
+        "match": "hd_stiff_neck",
+        "reply": "ไม่มีไข้ ก้มคอได้ปกติค่ะ"
+      },
+      {
+        "match": "hd_severity|severity|scale",
+        "reply": "สัก 6 ค่ะ"
+      },
+      {
+        "match": "onset",
+        "reply": "เมื่อเช้าค่ะ"
+      },
+      {
+        "match": "duration",
+        "reply": "ตั้งแต่เช้าค่ะ"
+      },
+      {
+        "match": "character",
+        "reply": "ตุบๆ ข้างขวาข้างเดียวค่ะ"
+      },
+      {
+        "match": "hd_associated",
+        "reply": "คลื่นไส้ แพ้แสงค่ะ"
+      }
+    ],
+    "expected": {
+      "category": "headache",
+      "level": [
+        3,
+        4
+      ],
+      "department": [
+        "opd_general",
+        "opd_internal_medicine"
+      ],
+      "undertriage_critical": false,
+      "must_ask": [
+        "hd_befast",
+        "hd_thunderclap"
+      ],
+      "must_not_leak": true
+    }
+  },
+  {
+    "id": "hd_en_meningitis",
+    "language": "en",
+    "description": "Undertriage trap: headache + fever + stiff neck — meningitis, emergency",
+    "opening": "Really bad headache since last night. I've got a fever too and my neck is so stiff I can barely look down.",
+    "age": 22,
+    "answers": [
+      {
+        "match": "hd_stiff_neck",
+        "reply": "yes, my neck is stiff and I feel really hot"
+      },
+      {
+        "match": "hd_befast",
+        "reply": "no"
+      },
+      {
+        "match": "hd_thunderclap",
+        "reply": "it got bad over a few hours"
+      },
+      {
+        "match": "uq_breathing",
+        "reply": "breathing is fine"
+      },
+      {
+        "match": "hd_severity|severity|scale",
+        "reply": "an 8"
+      }
+    ],
+    "measurements": {
+      "temp": 39.1
+    },
+    "expected": {
+      "category": "headache",
+      "level": [
+        1,
+        2
+      ],
+      "department": "emergency",
+      "undertriage_critical": true,
+      "must_ask": [],
+      "must_not_leak": true
+    }
+  },
+  {
+    "id": "hd_en_befast_dizzy",
+    "language": "en",
+    "description": "Undertriage trap (July F3): BEFAST stroke signs hidden in a dizzy story, 68yo",
+    "opening": "I've been dizzy since this morning, keep losing my balance, and my wife says my words are coming out funny.",
+    "age": 68,
+    "answers": [
+      {
+        "match": "hd_befast|befast|weak|slurred|balance",
+        "reply": "my speech is slurred and I'm wobbly on my feet"
+      },
+      {
+        "match": "uq_breathing",
+        "reply": "breathing is fine"
+      },
+      {
+        "match": "onset",
+        "reply": "since this morning"
+      }
+    ],
+    "expected": {
+      "category": [
+        "headache",
+        "generic"
+      ],
+      "level": [
+        1,
+        2
+      ],
+      "department": "emergency",
+      "undertriage_critical": true,
+      "must_ask": [],
+      "must_not_leak": true
+    }
+  },
+  {
+    "id": "hd_th_hypertensive",
+    "language": "th",
+    "description": "Undertriage trap: ปวดหัวธรรมดาแต่วัดความดันได้ 200/120 — danger vitals ต้องฉุกเฉิน",
+    "opening": "ปวดหัวตึบๆ ท้ายทอยตั้งแต่เช้าค่ะ",
+    "age": 55,
+    "answers": [
+      {
+        "match": "uq_breathing",
+        "reply": "หายใจปกติค่ะ"
+      },
+      {
+        "match": "hd_befast",
+        "reply": "ไม่มีค่ะ"
+      },
+      {
+        "match": "hd_thunderclap",
+        "reply": "ค่อยๆ ปวดค่ะ"
+      },
+      {
+        "match": "hd_stiff_neck",
+        "reply": "ไม่มีไข้ค่ะ"
+      },
+      {
+        "match": "hd_severity|severity|scale",
+        "reply": "สัก 5 ค่ะ"
+      },
+      {
+        "match": "onset",
+        "reply": "เมื่อเช้าค่ะ"
+      },
+      {
+        "match": "duration",
+        "reply": "ตั้งแต่เช้าค่ะ"
+      },
+      {
+        "match": "character",
+        "reply": "ตึบๆ หนักๆ ท้ายทอยค่ะ"
+      },
+      {
+        "match": "hd_associated",
+        "reply": "ไม่มีค่ะ"
+      }
+    ],
+    "measurements": {
+      "bp": [
+        200,
+        120
+      ]
+    },
+    "expected": {
+      "category": "headache",
+      "level": [
+        1,
+        2
+      ],
+      "department": "emergency",
+      "undertriage_critical": true,
+      "must_ask": [
+        "hd_bp"
+      ],
+      "must_not_leak": true
+    }
+  },
+  {
+    "id": "hd_en_negation",
+    "language": "en",
+    "description": "Regression pin: opener negations ('no fever, not dizzy') must be extracted as absent on turn 1",
+    "opening": "I've had a headache since yesterday, but no fever, and I'm not dizzy or anything.",
+    "age": 30,
+    "answers": [
+      {
+        "match": "uq_breathing",
+        "reply": "breathing is fine"
+      },
+      {
+        "match": "hd_befast",
+        "reply": "no, nothing like that"
+      },
+      {
+        "match": "hd_thunderclap",
+        "reply": "no, it came on gradually"
+      },
+      {
+        "match": "hd_stiff_neck",
+        "reply": "no, my neck is fine"
+      },
+      {
+        "match": "hd_severity|severity|scale",
+        "reply": "about a 3"
+      },
+      {
+        "match": "onset",
+        "reply": "yesterday"
+      },
+      {
+        "match": "duration",
+        "reply": "about a day"
+      },
+      {
+        "match": "character",
+        "reply": "dull, all over"
+      },
+      {
+        "match": "hd_associated",
+        "reply": "none of those"
+      }
+    ],
+    "expected": {
+      "category": "headache",
+      "level": [
+        4,
+        5
+      ],
+      "department": "opd_general",
+      "undertriage_critical": false,
+      "must_ask": [],
+      "turn1_findings": {
+        "fever": "absent"
+      },
+      "must_not_leak": true
+    }
+  },
+  {
+    "id": "ap_th_gibleed",
+    "language": "th",
+    "description": "Undertriage trap: อาเจียนเป็นเลือดสด + หน้ามืด — GI bleed ต้องฉุกเฉิน",
+    "opening": "เมื่อเช้าอาเจียนออกมาเป็นเลือดสดๆ เลยค่ะ ตกใจมาก ตอนนี้เพลีย หน้ามืด ใจสั่นด้วย",
+    "age": 58,
+    "answers": [
+      {
+        "match": "ap_gi_bleed",
+        "reply": "อาเจียนเป็นเลือดสดค่ะ"
+      },
+      {
+        "match": "uq_breathing",
+        "reply": "หายใจได้ค่ะ แต่เพลียมาก"
+      }
+    ],
+    "expected": {
+      "category": "abdominal_pain",
+      "level": [
+        1,
+        2
+      ],
+      "department": "emergency",
+      "undertriage_critical": true,
+      "must_ask": [],
+      "must_not_leak": true
+    }
+  },
+  {
+    "id": "ap_en_rlq",
+    "language": "en",
+    "description": "Migrating right-lower-quadrant pain, worse on walking — appendicitis picture, urgent",
+    "opening": "My stomach's been hurting since yesterday. It started around my belly button but now it's down on the lower right, and it really hurts when I walk.",
+    "age": 21,
+    "answers": [
+      {
+        "match": "uq_breathing",
+        "reply": "breathing is fine"
+      },
+      {
+        "match": "ap_gi_bleed",
+        "reply": "no blood anywhere, no"
+      },
+      {
+        "match": "ap_severity|severity|scale",
+        "reply": "it's like a 7"
+      },
+      {
+        "match": "ap_pregnancy",
+        "reply": "no, I'm not pregnant, I just finished my period"
+      },
+      {
+        "match": "ap_location|location",
+        "reply": "lower right side of my belly"
+      },
+      {
+        "match": "onset",
+        "reply": "yesterday around lunch"
+      },
+      {
+        "match": "character",
+        "reply": "sharp and constant now"
+      },
+      {
+        "match": "aggravating",
+        "reply": "walking or pressing on it makes it worse"
+      },
+      {
+        "match": "ap_associated",
+        "reply": "I felt sick and threw up once, no appetite at all"
+      }
+    ],
+    "expected": {
+      "category": "abdominal_pain",
+      "level": [
+        2,
+        3
+      ],
+      "department": [
+        "emergency",
+        "opd_surgery"
+      ],
+      "undertriage_critical": false,
+      "must_ask": [
+        "ap_gi_bleed"
+      ],
+      "must_not_leak": true
+    }
+  },
+  {
+    "id": "ap_th_dyspepsia",
+    "language": "th",
+    "description": "จุกลิ้นปี่หลังอาหาร เป็นๆ หายๆ — โรคกระเพาะ routine",
+    "opening": "ปวดจุกๆ ตรงลิ้นปี่หลังกินข้าวค่ะ เป็นๆ หายๆ มาอาทิตย์นึงแล้ว ชอบเป็นตอนกินเผ็ดๆ",
+    "age": 35,
+    "answers": [
+      {
+        "match": "uq_breathing",
+        "reply": "หายใจปกติค่ะ"
+      },
+      {
+        "match": "ap_gi_bleed",
+        "reply": "ไม่มีเลือดค่ะ ถ่ายปกติ"
+      },
+      {
+        "match": "ap_severity|severity|scale",
+        "reply": "สัก 3 ค่ะ"
+      },
+      {
+        "match": "ap_pregnancy",
+        "reply": "ไม่ได้ท้องแน่นอนค่ะ"
+      },
+      {
+        "match": "ap_location|location",
+        "reply": "ตรงลิ้นปี่ค่ะ"
+      },
+      {
+        "match": "onset",
+        "reply": "ประมาณอาทิตย์ที่แล้วค่ะ"
+      },
+      {
+        "match": "character",
+        "reply": "จุกๆ แสบๆ ค่ะ"
+      },
+      {
+        "match": "aggravating",
+        "reply": "กินเผ็ดกับกาแฟแล้วเป็นหนักค่ะ"
+      },
+      {
+        "match": "ap_associated",
+        "reply": "ไม่มีค่ะ ไม่อาเจียน"
+      }
+    ],
+    "expected": {
+      "category": "abdominal_pain",
+      "level": [
+        4,
+        5
+      ],
+      "department": [
+        "opd_general",
+        "opd_internal_medicine"
+      ],
+      "undertriage_critical": false,
+      "must_ask": [
+        "ap_gi_bleed"
+      ],
+      "must_not_leak": true
+    }
+  },
+  {
+    "id": "ap_en_dyspepsia",
+    "language": "en",
+    "description": "Burning epigastric ache after meals, two weeks — routine",
+    "opening": "I get this burning ache in the top of my stomach after meals. It's been about two weeks now.",
+    "age": 30,
+    "answers": [
+      {
+        "match": "uq_breathing",
+        "reply": "breathing is fine"
+      },
+      {
+        "match": "ap_gi_bleed",
+        "reply": "no blood in vomit or stool, everything's normal"
+      },
+      {
+        "match": "ap_severity|severity|scale",
+        "reply": "about a 3"
+      },
+      {
+        "match": "ap_pregnancy",
+        "reply": "not pregnant, no"
+      },
+      {
+        "match": "ap_location|location",
+        "reply": "right at the top, under my ribs"
+      },
+      {
+        "match": "onset",
+        "reply": "about two weeks ago"
+      },
+      {
+        "match": "character",
+        "reply": "burning, gnawing"
+      },
+      {
+        "match": "aggravating",
+        "reply": "spicy food and coffee set it off"
+      },
+      {
+        "match": "ap_associated",
+        "reply": "nothing else really"
+      }
+    ],
+    "expected": {
+      "category": "abdominal_pain",
+      "level": [
+        4,
+        5
+      ],
+      "department": [
+        "opd_general",
+        "opd_internal_medicine"
+      ],
+      "undertriage_critical": false,
+      "must_ask": [
+        "ap_gi_bleed"
+      ],
+      "must_not_leak": true
+    }
+  },
+  {
+    "id": "ap_en_pregnant",
+    "language": "en",
+    "description": "8 weeks pregnant, cramping + spotting — possible ectopic/threatened miscarriage, urgent",
+    "opening": "I'm about 8 weeks pregnant and I've been getting cramps low in my belly since last night, with a little spotting.",
+    "age": 28,
+    "answers": [
+      {
+        "match": "uq_breathing",
+        "reply": "breathing is fine"
+      },
+      {
+        "match": "ap_pregnancy|pg_ga",
+        "reply": "yes, about 8 weeks along"
+      },
+      {
+        "match": "pg_warning",
+        "reply": "there's some light spotting, and the cramps"
+      },
+      {
+        "match": "ap_gi_bleed",
+        "reply": "no vomiting blood, no"
+      },
+      {
+        "match": "ap_severity|severity|scale",
+        "reply": "about a 5"
+      },
+      {
+        "match": "ap_location|location",
+        "reply": "low down, in the middle"
+      },
+      {
+        "match": "onset",
+        "reply": "last night"
+      },
+      {
+        "match": "character",
+        "reply": "crampy, like period pain but worse"
+      }
+    ],
+    "expected": {
+      "category": [
+        "abdominal_pain",
+        "pregnancy"
+      ],
+      "level": [
+        2,
+        3
+      ],
+      "department": [
+        "emergency",
+        "opd_obgyn"
+      ],
+      "undertriage_critical": false,
+      "must_ask": [],
+      "must_not_leak": true
+    }
+  },
+  {
+    "id": "ap_th_elderly_constipation",
+    "language": "th",
+    "description": "ผู้สูงอายุ 72 ท้องอืดแน่น ไม่ถ่ายสามวัน — ต้องดูเร็วพอสมควร",
+    "opening": "ยายปวดท้องแบบทั่วๆ ท้องอืดแน่นไปหมดค่ะ แล้วก็ไม่ถ่ายมาสามวันแล้ว",
+    "age": 72,
+    "answers": [
+      {
+        "match": "uq_breathing",
+        "reply": "หายใจปกติค่ะ"
+      },
+      {
+        "match": "ap_gi_bleed",
+        "reply": "ไม่มีเลือดค่ะ ไม่ได้อาเจียนเป็นเลือด"
+      },
+      {
+        "match": "ap_severity|severity|scale",
+        "reply": "สัก 4 ค่ะ"
+      },
+      {
+        "match": "ap_pregnancy",
+        "reply": "ไม่ท้องแน่นอนค่ะ ยายอายุเจ็ดสิบแล้ว"
+      },
+      {
+        "match": "ap_location|location",
+        "reply": "ปวดทั่วๆ ทั้งท้องค่ะ"
+      },
+      {
+        "match": "onset",
+        "reply": "สามวันก่อนค่ะ"
+      },
+      {
+        "match": "character",
+        "reply": "อืดๆ แน่นๆ ค่ะ"
+      },
+      {
+        "match": "aggravating",
+        "reply": "กินอะไรเข้าไปแล้วยิ่งแน่นค่ะ"
+      },
+      {
+        "match": "ap_associated",
+        "reply": "เบื่ออาหารค่ะ แต่ไม่ได้อาเจียน"
+      }
+    ],
+    "expected": {
+      "category": "abdominal_pain",
+      "level": [
+        3,
+        4
+      ],
+      "department": [
+        "opd_surgery",
+        "opd_general",
+        "opd_internal_medicine"
+      ],
+      "undertriage_critical": false,
+      "must_ask": [
+        "ap_gi_bleed"
+      ],
+      "must_not_leak": true
+    }
+  },
+  {
+    "id": "ear_en_mild",
+    "language": "en",
+    "description": "Mild ear ache, no ENT acceptance criterion met — falls back to general OPD",
+    "opening": "My left ear has been aching a bit since yesterday, nothing dramatic.",
+    "age": 30,
+    "answers": [
+      {
+        "match": "uq_breathing",
+        "reply": "breathing is fine"
+      },
+      {
+        "match": "ear_severe_pain_droop",
+        "reply": "no, my face moves normally, the pain's mild"
+      },
+      {
+        "match": "ear_fb",
+        "reply": "no, nothing stuck in there"
+      },
+      {
+        "match": "ear_severity|severity|scale",
+        "reply": "about a 2"
+      },
+      {
+        "match": "onset",
+        "reply": "yesterday"
+      },
+      {
+        "match": "duration",
+        "reply": "a day"
+      },
+      {
+        "match": "ear_associated",
+        "reply": "no discharge, hearing is fine, no ringing"
+      }
+    ],
+    "expected": {
+      "category": "ear",
+      "level": [
+        4,
+        5
+      ],
+      "department": [
+        "opd_general",
+        "opd_ent"
+      ],
+      "undertriage_critical": false,
+      "must_ask": [
+        "ear_fb"
+      ],
+      "must_not_leak": true
+    }
+  },
+  {
+    "id": "ear_th_discharge",
+    "language": "th",
+    "description": "ปวดหูมาก มีหนองไหล หูอื้อ — เข้าเกณฑ์ ENT",
+    "opening": "ปวดหูข้างขวามากค่ะ มีน้ำหนองไหลออกมาด้วย แล้วก็ได้ยินไม่ค่อยชัดเหมือนหูอื้อ",
+    "age": 45,
+    "answers": [
+      {
+        "match": "uq_breathing",
+        "reply": "หายใจปกติค่ะ"
+      },
+      {
+        "match": "ear_severe_pain_droop",
+        "reply": "หน้าปกติค่ะ ไม่เบี้ยว"
+      },
+      {
+        "match": "ear_fb",
+        "reply": "ไม่มีอะไรเข้าหูค่ะ"
+      },
+      {
+        "match": "ear_severity|severity|scale",
+        "reply": "สัก 6 ค่ะ"
+      },
+      {
+        "match": "onset",
+        "reply": "สองวันก่อนค่ะ"
+      },
+      {
+        "match": "duration",
+        "reply": "สองวันแล้วค่ะ"
+      },
+      {
+        "match": "ear_associated",
+        "reply": "มีหนองไหลค่ะ แล้วก็หูอื้อได้ยินไม่ชัด"
+      }
+    ],
+    "expected": {
+      "category": "ear",
+      "level": [
+        3,
+        4
+      ],
+      "department": "opd_ent",
+      "undertriage_critical": false,
+      "must_ask": [
+        "ear_associated|ear_fb"
+      ],
+      "must_not_leak": true
+    }
+  },
+  {
+    "id": "nt_th_epistaxis",
+    "language": "th",
+    "description": "เลือดกำเดาไหลไม่หยุดเกินครึ่งชั่วโมงแม้บีบจมูก — urgent",
+    "opening": "เลือดกำเดาไหลไม่หยุดเลยค่ะ บีบจมูกมาเกือบครึ่งชั่วโมงแล้วก็ยังไหลซึมอยู่",
+    "age": 63,
+    "answers": [
+      {
+        "match": "nt_epistaxis",
+        "reply": "บีบแล้วก็ยังไม่หยุดค่ะ ไหลมาครึ่งชั่วโมงแล้ว"
+      },
+      {
+        "match": "nt_airway|uq_breathing",
+        "reply": "หายใจทางปากได้ค่ะ ไม่ถึงกับหายใจไม่ออก"
+      },
+      {
+        "match": "onset",
+        "reply": "เมื่อสักครึ่งชั่วโมงก่อนค่ะ"
+      }
+    ],
+    "expected": {
+      "category": "nose_throat",
+      "level": [
+        2,
+        3
+      ],
+      "department": [
+        "emergency",
+        "opd_ent"
+      ],
+      "undertriage_critical": false,
+      "must_ask": [],
+      "must_not_leak": true
+    }
+  },
+  {
+    "id": "nt_en_sorethroat",
+    "language": "en",
+    "description": "Sore throat + runny nose, two days — routine",
+    "opening": "I've had a sore throat and a runny nose for a couple of days. It hurts a little when I swallow.",
+    "age": 25,
+    "answers": [
+      {
+        "match": "nt_airway|uq_breathing",
+        "reply": "no, I can swallow water fine and breathing is normal"
+      },
+      {
+        "match": "nt_epistaxis",
+        "reply": "no nosebleed"
+      },
+      {
+        "match": "onset",
+        "reply": "two days ago"
+      },
+      {
+        "match": "duration",
+        "reply": "two days"
+      },
+      {
+        "match": "nt_associated",
+        "reply": "just the runny nose, nothing else"
+      }
+    ],
+    "expected": {
+      "category": "nose_throat",
+      "level": [
+        4,
+        5
+      ],
+      "department": [
+        "opd_general",
+        "opd_ent"
+      ],
+      "undertriage_critical": false,
+      "must_ask": [
+        "nt_airway"
+      ],
+      "must_not_leak": true
+    }
+  },
+  {
+    "id": "nt_th_fishbone",
+    "language": "th",
+    "description": "ก้างปลาติดคอเมื่อวาน กลืนแล้วเจ็บ — foreign body ENT ภายใน 24 ชม.",
+    "opening": "เมื่อวานตอนเย็นกินปลาแล้วรู้สึกเหมือนก้างติดคอค่ะ กลืนทีไรเจ็บแปลบทุกที",
+    "age": 38,
+    "answers": [
+      {
+        "match": "nt_airway|uq_breathing",
+        "reply": "หายใจปกติค่ะ แค่เจ็บเวลากลืน"
+      },
+      {
+        "match": "nt_epistaxis",
+        "reply": "ไม่มีค่ะ"
+      },
+      {
+        "match": "onset",
+        "reply": "เมื่อวานตอนเย็นค่ะ"
+      },
+      {
+        "match": "duration",
+        "reply": "ตั้งแต่เมื่อวานเย็นค่ะ"
+      },
+      {
+        "match": "nt_associated",
+        "reply": "เจ็บตอนกลืนค่ะ น้ำลายกลืนยังเจ็บเลย"
+      }
+    ],
+    "expected": {
+      "category": "nose_throat",
+      "level": [
+        3,
+        4
+      ],
+      "department": "opd_ent",
+      "undertriage_critical": false,
+      "must_ask": [
+        "nt_airway"
+      ],
+      "must_not_leak": true
+    }
+  },
+  {
+    "id": "eye_en_chemical",
+    "language": "en",
+    "description": "Undertriage trap: cleaning chemical splashed in the eye — emergency irrigation",
+    "opening": "I was cleaning the bathroom and some of the cleaner splashed right into my eye. It's burning like crazy and won't stop watering.",
+    "age": 34,
+    "answers": [
+      {
+        "match": "eye_chemical",
+        "reply": "yes, toilet cleaner, maybe ten minutes ago"
+      },
+      {
+        "match": "uq_breathing",
+        "reply": "breathing is fine"
+      },
+      {
+        "match": "eye_vision",
+        "reply": "it's blurry in that eye right now"
+      }
+    ],
+    "expected": {
+      "category": "eye",
+      "level": [
+        1,
+        2
+      ],
+      "department": "emergency",
+      "undertriage_critical": true,
+      "must_ask": [],
+      "must_not_leak": true
+    }
+  },
+  {
+    "id": "eye_th_red",
+    "language": "th",
+    "description": "ตาแดง คัน มีขี้ตา สองวัน มองเห็นปกติ — เยื่อบุตาอักเสบ routine",
+    "opening": "ตาแดงมาสองวันแล้วค่ะ คันๆ เคืองๆ ตื่นนอนมามีขี้ตาเยอะเลย",
+    "age": 29,
+    "answers": [
+      {
+        "match": "uq_breathing",
+        "reply": "หายใจปกติค่ะ"
+      },
+      {
+        "match": "eye_chemical",
+        "reply": "ไม่ได้โดนสารเคมีค่ะ"
+      },
+      {
+        "match": "eye_trauma",
+        "reply": "ไม่ได้โดนอะไรกระแทกค่ะ"
+      },
+      {
+        "match": "eye_vision",
+        "reply": "มองเห็นชัดปกติค่ะ"
+      },
+      {
+        "match": "onset",
+        "reply": "สองวันก่อนค่ะ"
+      },
+      {
+        "match": "eye_associated",
+        "reply": "คันกับมีขี้ตาเยอะค่ะ"
+      }
+    ],
+    "expected": {
+      "category": "eye",
+      "level": [
+        4,
+        5
+      ],
+      "department": [
+        "opd_ophthalmology",
+        "opd_general"
+      ],
+      "undertriage_critical": false,
+      "must_ask": [
+        "eye_vision|eye_chemical"
+      ],
+      "must_not_leak": true
+    }
+  },
+  {
+    "id": "inj_th_headinjury",
+    "language": "th",
+    "description": "Undertriage trap: หัวฟาดพื้น สลบ + อาเจียนซ้ำ — head injury ต้องฉุกเฉิน",
+    "opening": "เมื่อคืนลื่นล้มในห้องน้ำ หัวฟาดพื้นค่ะ สลบไปแป๊บนึง แล้วเมื่อเช้าอาเจียนไปสองรอบแล้ว",
+    "age": 50,
+    "answers": [
+      {
+        "match": "inj_head",
+        "reply": "สลบไปสักพักค่ะ แล้วเมื่อเช้าก็อาเจียน"
+      },
+      {
+        "match": "inj_mechanism",
+        "reply": "ลื่นล้มในห้องน้ำ หัวฟาดพื้นเลยค่ะ"
+      },
+      {
+        "match": "uq_breathing",
+        "reply": "หายใจปกติค่ะ"
+      },
+      {
+        "match": "inj_when",
+        "reply": "เมื่อคืนประมาณสามทุ่มค่ะ"
+      }
+    ],
+    "expected": {
+      "category": "injury",
+      "level": [
+        1,
+        2
+      ],
+      "department": "emergency",
+      "undertriage_critical": true,
+      "must_ask": [],
+      "must_not_leak": true
+    }
+  },
+  {
+    "id": "inj_en_ankle",
+    "language": "en",
+    "description": "Twisted ankle, swollen but weight-bearing — routine ortho",
+    "opening": "I rolled my ankle playing football this afternoon. It's swollen and sore but I can sort of hobble on it.",
+    "age": 22,
+    "answers": [
+      {
+        "match": "uq_breathing",
+        "reply": "breathing is fine"
+      },
+      {
+        "match": "inj_mechanism",
+        "reply": "just twisted it landing, nothing major, no fall from height"
+      },
+      {
+        "match": "inj_bleeding",
+        "reply": "no bleeding"
+      },
+      {
+        "match": "inj_head",
+        "reply": "no, didn't hit my head"
+      },
+      {
+        "match": "inj_when",
+        "reply": "this afternoon, about three hours ago"
+      },
+      {
+        "match": "inj_fracture",
+        "reply": "it's swollen but I can put some weight on it"
+      },
+      {
+        "match": "inj_severity|severity|scale",
+        "reply": "about a 4"
+      },
+      {
+        "match": "inj_police",
+        "reply": "no, just sport"
+      }
+    ],
+    "expected": {
+      "category": "injury",
+      "level": [
+        4,
+        5
+      ],
+      "department": [
+        "opd_orthopedics",
+        "opd_general",
+        "opd_surgery"
+      ],
+      "undertriage_critical": false,
+      "must_ask": [
+        "inj_mechanism|inj_fracture"
+      ],
+      "must_not_leak": true
+    }
+  },
+  {
+    "id": "inj_th_cut",
+    "language": "th",
+    "description": "มีดบาดนิ้ว แผลตื้น เลือดหยุดแล้ว — ทำแผล routine",
+    "opening": "โดนมีดบาดนิ้วตอนหั่นหมูค่ะ แผลไม่ลึกมาก กดแผลไว้แล้วตอนนี้เลือดหยุดแล้ว",
+    "age": 27,
+    "answers": [
+      {
+        "match": "uq_breathing",
+        "reply": "หายใจปกติค่ะ"
+      },
+      {
+        "match": "inj_bleeding",
+        "reply": "เลือดหยุดแล้วค่ะ กดไว้สักพักก็หยุด"
+      },
+      {
+        "match": "inj_mechanism",
+        "reply": "มีดทำครัวบาดค่ะ ไม่ได้ลึกมาก"
+      },
+      {
+        "match": "inj_head",
+        "reply": "ไม่ได้กระแทกหัวค่ะ"
+      },
+      {
+        "match": "inj_when",
+        "reply": "เมื่อชั่วโมงก่อนค่ะ"
+      },
+      {
+        "match": "inj_fracture",
+        "reply": "นิ้วขยับได้ปกติค่ะ"
+      },
+      {
+        "match": "inj_severity|severity|scale",
+        "reply": "สัก 2 ค่ะ"
+      },
+      {
+        "match": "inj_police",
+        "reply": "ไม่ใช่ค่ะ ทำกับข้าวอยู่บ้านเอง"
+      }
+    ],
+    "expected": {
+      "category": "injury",
+      "level": [
+        4,
+        5
+      ],
+      "department": [
+        "opd_surgery",
+        "opd_general"
+      ],
+      "undertriage_critical": false,
+      "must_ask": [
+        "inj_bleeding"
+      ],
+      "must_not_leak": true
+    }
+  },
+  {
+    "id": "inj_en_dogbite",
+    "language": "en",
+    "description": "Stray dog bite broke the skin this morning — rabies/tetanus care today",
+    "opening": "A stray dog bit me on the calf this morning. It broke the skin. I washed it but it's still stinging.",
+    "age": 33,
+    "answers": [
+      {
+        "match": "uq_breathing",
+        "reply": "breathing is fine"
+      },
+      {
+        "match": "inj_bleeding",
+        "reply": "it's stopped bleeding now"
+      },
+      {
+        "match": "inj_mechanism",
+        "reply": "a stray dog bit me, broke the skin"
+      },
+      {
+        "match": "inj_head",
+        "reply": "no"
+      },
+      {
+        "match": "inj_when",
+        "reply": "this morning, about two hours ago"
+      },
+      {
+        "match": "inj_fracture",
+        "reply": "I can walk fine, it's just the wound"
+      },
+      {
+        "match": "inj_severity|severity|scale",
+        "reply": "a 3"
+      },
+      {
+        "match": "inj_police",
+        "reply": "no"
+      }
+    ],
+    "expected": {
+      "category": "injury",
+      "level": [
+        3,
+        4
+      ],
+      "department": [
+        "opd_surgery",
+        "opd_general",
+        "emergency"
+      ],
+      "undertriage_critical": false,
+      "must_ask": [
+        "inj_bleeding|inj_when"
+      ],
+      "must_not_leak": true
+    }
+  },
+  {
+    "id": "pg_th_fetal_movement",
+    "language": "th",
+    "description": "Undertriage trap: ท้อง 32 สัปดาห์ ลูกดิ้นน้อยลงชัดเจน — ต้องประเมินด่วน",
+    "opening": "ท้อง 32 สัปดาห์ค่ะ ตั้งแต่เมื่อวานรู้สึกลูกดิ้นน้อยลงมากเลย ปกติดิ้นทั้งวัน",
+    "age": 30,
+    "answers": [
+      {
+        "match": "pg_warning",
+        "reply": "ลูกดิ้นน้อยลงค่ะ ไม่มีเลือดออก น้ำเดินก็ไม่มี"
+      },
+      {
+        "match": "pg_ga",
+        "reply": "32 สัปดาห์ค่ะ"
+      },
+      {
+        "match": "pg_crowning",
+        "reply": "ยังไม่เจ็บท้องคลอดค่ะ"
+      },
+      {
+        "match": "uq_breathing",
+        "reply": "หายใจปกติค่ะ"
+      },
+      {
+        "match": "onset",
+        "reply": "ตั้งแต่เมื่อวานค่ะ"
+      }
+    ],
+    "expected": {
+      "category": "pregnancy",
+      "level": [
+        1,
+        2
+      ],
+      "department": [
+        "emergency",
+        "opd_obgyn"
+      ],
+      "undertriage_critical": true,
+      "must_ask": [],
+      "must_not_leak": true
+    }
+  },
+  {
+    "id": "pg_en_missed_period",
+    "language": "en",
+    "description": "Missed period, positive home test, no pain or bleeding — routine ANC start",
+    "opening": "My period is about two weeks late and I've been queasy in the mornings. A home test came back positive yesterday.",
+    "age": 26,
+    "answers": [
+      {
+        "match": "uq_breathing",
+        "reply": "breathing is fine"
+      },
+      {
+        "match": "pg_warning",
+        "reply": "no bleeding, no pain, just the nausea"
+      },
+      {
+        "match": "pg_ga",
+        "reply": "maybe six weeks from my last period"
+      },
+      {
+        "match": "pg_crowning",
+        "reply": "no, no contractions or anything like that"
+      },
+      {
+        "match": "pg_onset|onset",
+        "reply": "the nausea started about a week ago"
+      }
+    ],
+    "expected": {
+      "category": "pregnancy",
+      "level": [
+        4,
+        5
+      ],
+      "department": "opd_obgyn",
+      "undertriage_critical": false,
+      "must_ask": [
+        "pg_warning"
+      ],
+      "must_not_leak": true
+    }
+  },
+  {
+    "id": "mh_th_suicidal_soft",
+    "language": "th",
+    "description": "Undertriage trap: ซึมเศร้า + ความคิดอยากหายไปพูดแบบอ้อมๆ — ต้อง escalate เป็นเคสด่วน",
+    "opening": "ช่วงนี้นอนไม่หลับเลยค่ะ เบื่ออาหาร ไม่อยากทำอะไร ร้องไห้เองบ่อยๆ ด้วย",
+    "age": 24,
+    "answers": [
+      {
+        "match": "mh_suicide",
+        "reply": "ก็... บางทีแวบๆ คิดว่าถ้าหลับไปแล้วไม่ต้องตื่นอีกก็คงดีค่ะ"
+      },
+      {
+        "match": "mh_onset",
+        "reply": "สักเดือนได้แล้วค่ะ"
+      },
+      {
+        "match": "mh_duration|duration",
+        "reply": "ประมาณเดือนนึงค่ะ"
+      },
+      {
+        "match": "mh_psychosis",
+        "reply": "ไม่มีค่ะ ไม่ได้ยินเสียงอะไรแปลกๆ"
+      },
+      {
+        "match": "uq_breathing",
+        "reply": "หายใจปกติค่ะ"
+      }
+    ],
+    "expected": {
+      "category": "mental_health",
+      "level": [
+        1,
+        2
+      ],
+      "department": [
+        "emergency",
+        "opd_psychiatry"
+      ],
+      "undertriage_critical": true,
+      "must_ask": [
+        "mh_suicide"
+      ],
+      "must_not_leak": true
+    }
+  },
+  {
+    "id": "mh_en_depression",
+    "language": "en",
+    "description": "Three months of low mood, denies self-harm — psychiatry OPD",
+    "opening": "I've been feeling really low for a few months now. No energy, can't enjoy anything, and work is becoming a real struggle.",
+    "age": 35,
+    "answers": [
+      {
+        "match": "mh_suicide",
+        "reply": "no, I've never thought about hurting myself"
+      },
+      {
+        "match": "mh_onset",
+        "reply": "about three months ago"
+      },
+      {
+        "match": "mh_duration|duration",
+        "reply": "three months or so"
+      },
+      {
+        "match": "mh_psychosis",
+        "reply": "no, nothing like that"
+      },
+      {
+        "match": "uq_breathing",
+        "reply": "breathing is fine"
+      }
+    ],
+    "expected": {
+      "category": "mental_health",
+      "level": [
+        3,
+        4
+      ],
+      "department": "opd_psychiatry",
+      "undertriage_critical": false,
+      "must_ask": [
+        "mh_suicide"
+      ],
+      "must_not_leak": true
+    }
+  },
+  {
+    "id": "mh_th_stress",
+    "language": "th",
+    "description": "เครียดงาน ใจสั่น นอนไม่หลับสองอาทิตย์ ไม่มีความคิดทำร้ายตัวเอง",
+    "opening": "เครียดเรื่องงานหนักมากค่ะ ใจสั่น นอนไม่หลับมาสองอาทิตย์แล้ว",
+    "age": 41,
+    "answers": [
+      {
+        "match": "mh_suicide",
+        "reply": "ไม่เคยคิดทำร้ายตัวเองค่ะ แค่เครียดมาก"
+      },
+      {
+        "match": "mh_onset",
+        "reply": "สองอาทิตย์ก่อนค่ะ ช่วงงานเข้าเยอะ"
+      },
+      {
+        "match": "mh_duration|duration",
+        "reply": "สองอาทิตย์ค่ะ"
+      },
+      {
+        "match": "mh_psychosis",
+        "reply": "ไม่มีค่ะ"
+      },
+      {
+        "match": "uq_breathing",
+        "reply": "หายใจปกติค่ะ"
+      }
+    ],
+    "expected": {
+      "category": "mental_health",
+      "level": [
+        3,
+        5
+      ],
+      "department": [
+        "opd_psychiatry",
+        "opd_general"
+      ],
+      "undertriage_critical": false,
+      "must_ask": [
+        "mh_suicide"
+      ],
+      "must_not_leak": true
+    }
+  },
+  {
+    "id": "msk_en_backpain_radiating",
+    "language": "en",
+    "description": "Two weeks of low back pain now shooting down one leg — sciatica, ortho",
+    "opening": "My lower back has been killing me for two weeks and now the pain shoots down the back of my right leg.",
+    "age": 48,
+    "answers": [
+      {
+        "match": "uq_breathing",
+        "reply": "breathing is fine"
+      },
+      {
+        "match": "msk_injury",
+        "reply": "no accident or fall, it just crept up on me"
+      },
+      {
+        "match": "msk_radiating",
+        "reply": "yes, down the back of my right leg to the calf"
+      },
+      {
+        "match": "msk_onset|onset",
+        "reply": "two weeks ago"
+      },
+      {
+        "match": "msk_duration|duration",
+        "reply": "two weeks"
+      },
+      {
+        "match": "msk_severity|severity|scale",
+        "reply": "a 5, worse in the evening"
+      },
+      {
+        "match": "msk_aggravating|aggravating",
+        "reply": "sitting too long and bending forward"
+      }
+    ],
+    "expected": {
+      "category": "musculoskeletal",
+      "level": [
+        3,
+        4
+      ],
+      "department": [
+        "opd_orthopedics",
+        "opd_general"
+      ],
+      "undertriage_critical": false,
+      "must_ask": [
+        "msk_injury|msk_radiating"
+      ],
+      "must_not_leak": true
+    }
+  },
+  {
+    "id": "msk_th_knee",
+    "language": "th",
+    "description": "ปวดเข่าเรื้อรังตอนขึ้นบันได ผู้สูงวัย — ข้อเข่าเสื่อม routine",
+    "opening": "ปวดเข่าเวลาขึ้นลงบันไดค่ะ เป็นมาเป็นเดือนแล้ว ช่วงนี้มีเสียงลั่นในเข่าด้วย",
+    "age": 60,
+    "answers": [
+      {
+        "match": "uq_breathing",
+        "reply": "หายใจปกติค่ะ"
+      },
+      {
+        "match": "msk_injury",
+        "reply": "ไม่ได้ล้มหรือโดนอะไรกระแทกค่ะ"
+      },
+      {
+        "match": "msk_radiating",
+        "reply": "ไม่ร้าวค่ะ ปวดอยู่แค่เข่า"
+      },
+      {
+        "match": "msk_onset|onset",
+        "reply": "เดือนกว่าแล้วค่ะ"
+      },
+      {
+        "match": "msk_duration|duration",
+        "reply": "ประมาณเดือนนึงค่ะ"
+      },
+      {
+        "match": "msk_severity|severity|scale",
+        "reply": "สัก 4 ค่ะ"
+      },
+      {
+        "match": "msk_aggravating|aggravating",
+        "reply": "ขึ้นบันไดกับนั่งยองๆ ค่ะ"
+      }
+    ],
+    "expected": {
+      "category": "musculoskeletal",
+      "level": [
+        4,
+        5
+      ],
+      "department": [
+        "opd_orthopedics",
+        "opd_general"
+      ],
+      "undertriage_critical": false,
+      "must_ask": [
+        "msk_injury"
+      ],
+      "must_not_leak": true
+    }
+  },
+  {
+    "id": "ur_en_dysuria",
+    "language": "en",
+    "description": "Burning urination + frequency, no fever or flank pain — simple cystitis",
+    "opening": "It burns when I pee and I keep needing to go every half hour. Started a couple of days ago.",
+    "age": 31,
+    "answers": [
+      {
+        "match": "uq_breathing",
+        "reply": "breathing is fine"
+      },
+      {
+        "match": "ur_fever_flank",
+        "reply": "no fever and no back pain"
+      },
+      {
+        "match": "ur_onset|onset",
+        "reply": "two days ago"
+      },
+      {
+        "match": "ur_duration|duration",
+        "reply": "two days"
+      },
+      {
+        "match": "ur_character|character",
+        "reply": "burning, and I go all the time but only a little comes out"
+      }
+    ],
+    "expected": {
+      "category": "urinary",
+      "level": 4,
+      "department": [
+        "opd_general",
+        "opd_internal_medicine"
+      ],
+      "undertriage_critical": false,
+      "must_ask": [
+        "ur_fever_flank"
+      ],
+      "must_not_leak": true
+    }
+  },
+  {
+    "id": "ur_th_flank_fever",
+    "language": "th",
+    "description": "ฉี่แสบขัด + ไข้หนาวสั่น + ปวดบั้นเอว — กรวยไตอักเสบ urgent",
+    "opening": "ฉี่แสบขัดมาสามวันค่ะ วันนี้มีไข้หนาวสั่นด้วย แล้วก็ปวดบั้นเอวข้างขวา",
+    "age": 44,
+    "answers": [
+      {
+        "match": "uq_breathing",
+        "reply": "หายใจปกติค่ะ"
+      },
+      {
+        "match": "ur_fever_flank",
+        "reply": "มีไข้หนาวสั่นค่ะ ปวดบั้นเอวขวาด้วย"
+      },
+      {
+        "match": "ur_onset|onset",
+        "reply": "สามวันก่อนค่ะ"
+      },
+      {
+        "match": "ur_duration|duration",
+        "reply": "สามวันแล้วค่ะ"
+      },
+      {
+        "match": "ur_character|character",
+        "reply": "แสบขัดตอนฉี่ ฉี่บ่อยด้วยค่ะ"
+      }
+    ],
+    "measurements": {
+      "temp": 38.9
+    },
+    "expected": {
+      "category": "urinary",
+      "level": [
+        2,
+        3
+      ],
+      "department": [
+        "emergency",
+        "opd_internal_medicine",
+        "opd_general"
+      ],
+      "undertriage_critical": false,
+      "must_ask": [
+        "ur_fever_flank"
+      ],
+      "must_not_leak": true
+    }
+  },
+  {
+    "id": "gen_th_unwell",
+    "language": "th",
+    "description": "Generic fall-through: 'ไม่ค่อยสบายตัว' บอกไม่ถูกว่าเป็นอะไร",
+    "opening": "รู้สึกไม่ค่อยสบายตัวมาสองสามวันค่ะ เพลียๆ บอกไม่ถูกเหมือนกันว่าเป็นอะไร",
+    "age": 38,
+    "answers": [
+      {
+        "match": "uq_breathing",
+        "reply": "หายใจปกติค่ะ"
+      },
+      {
+        "match": "gen_onset|onset",
+        "reply": "สองสามวันก่อนค่ะ"
+      },
+      {
+        "match": "gen_duration|duration",
+        "reply": "สองสามวันค่ะ"
+      },
+      {
+        "match": "gen_character|character",
+        "reply": "เพลียๆ ครั่นเนื้อครั่นตัวค่ะ"
+      },
+      {
+        "match": "gen_severity|severity|scale",
+        "reply": "สัก 3 ค่ะ"
+      },
+      {
+        "match": "gen_associated",
+        "reply": "ไม่มีค่ะ ไม่มีไข้ ไม่ท้องเสีย"
+      }
+    ],
+    "expected": {
+      "category": "generic",
+      "level": [
+        4,
+        5
+      ],
+      "department": "opd_general",
+      "undertriage_critical": false,
+      "must_ask": [],
+      "must_not_leak": true
+    }
+  },
+  {
+    "id": "gen_en_unwell",
+    "language": "en",
+    "description": "Generic fall-through: vague 'not feeling right' for a few days",
+    "opening": "I just haven't been feeling right for a few days. Tired, a bit off, can't really put my finger on it.",
+    "age": 45,
+    "answers": [
+      {
+        "match": "uq_breathing",
+        "reply": "breathing is fine"
+      },
+      {
+        "match": "gen_onset|onset",
+        "reply": "a few days ago"
+      },
+      {
+        "match": "gen_duration|duration",
+        "reply": "three or four days"
+      },
+      {
+        "match": "gen_character|character",
+        "reply": "just tired and washed out"
+      },
+      {
+        "match": "gen_severity|severity|scale",
+        "reply": "a 3"
+      },
+      {
+        "match": "gen_associated",
+        "reply": "no fever, no vomiting, nothing specific"
+      }
+    ],
+    "expected": {
+      "category": "generic",
+      "level": [
+        4,
+        5
+      ],
+      "department": "opd_general",
+      "undertriage_critical": false,
+      "must_ask": [],
+      "must_not_leak": true
+    }
+  },
+  {
+    "id": "gen_th_anaphylaxis",
+    "language": "th",
+    "description": "Undertriage trap: ปากบวม คันทั้งตัว แน่นคอ หลังกินกุ้ง — anaphylaxis ต้องฉุกเฉิน",
+    "opening": "เพิ่งกินกุ้งไปเมื่อกี้ค่ะ อยู่ดีๆ ปากก็บวม คันไปทั้งตัว แล้วรู้สึกแน่นๆ ในคอด้วย",
+    "age": 29,
+    "answers": [
+      {
+        "match": "uq_breathing",
+        "reply": "เริ่มแน่นๆ คอ หายใจไม่ค่อยสะดวกค่ะ"
+      },
+      {
+        "match": "gen_associated",
+        "reply": "ปากบวม มีผื่นคันขึ้นทั้งตัวค่ะ"
+      },
+      {
+        "match": "gen_onset|onset",
+        "reply": "เมื่อสิบห้านาทีก่อนค่ะ หลังกินกุ้ง"
+      }
+    ],
+    "expected": {
+      "category": "generic",
+      "category_v2": [
+        "skin_rash"
+      ],
+      "level": [
+        1,
+        2
+      ],
+      "department": "emergency",
+      "undertriage_critical": true,
+      "must_ask": [],
+      "must_not_leak": true
+    }
+  },
+  {
+    "id": "gen_en_palpitations",
+    "language": "en",
+    "description": "Generic fall-through: recurrent racing heart episodes — should reach cardiology",
+    "opening": "My heart keeps racing out of nowhere, like it's fluttering in my chest. It's happened three times this week.",
+    "age": 41,
+    "answers": [
+      {
+        "match": "uq_breathing",
+        "reply": "fine right now"
+      },
+      {
+        "match": "gen_onset|onset",
+        "reply": "it started this week"
+      },
+      {
+        "match": "gen_duration|duration",
+        "reply": "a few minutes each time, then it stops"
+      },
+      {
+        "match": "gen_character|character",
+        "reply": "a fast fluttering heartbeat, comes out of nowhere"
+      },
+      {
+        "match": "gen_severity|severity|scale",
+        "reply": "a 4 when it happens"
+      },
+      {
+        "match": "gen_associated",
+        "reply": "I get a bit lightheaded when it happens, no chest pain"
+      }
+    ],
+    "expected": {
+      "category": [
+        "generic",
+        "chest_pain"
+      ],
+      "category_v2": [
+        "palpitations"
+      ],
+      "level": [
+        2,
+        3
+      ],
+      "department": [
+        "opd_cardiology",
+        "emergency",
+        "opd_internal_medicine"
+      ],
+      "undertriage_critical": false,
+      "must_ask": [],
+      "must_not_leak": true
+    }
+  },
+  {
+    "id": "gen_th_palpitations_syncope",
+    "language": "th",
+    "description": "Undertriage trap: ใจสั่นเป็นพักๆ + วูบหน้ามืดเมื่อวาน อายุ 50 — เสี่ยง arrhythmia",
+    "opening": "ใจสั่นเป็นพักๆ ค่ะ แล้วเมื่อวานถึงขั้นหน้ามืดวูบไปแป๊บนึงเลย",
+    "age": 50,
+    "answers": [
+      {
+        "match": "uq_breathing",
+        "reply": "ตอนนี้หายใจปกติค่ะ"
+      },
+      {
+        "match": "gen_onset|onset",
+        "reply": "เป็นมาอาทิตย์นึงแล้วค่ะ"
+      },
+      {
+        "match": "gen_duration|duration",
+        "reply": "เป็นทีละไม่กี่นาทีค่ะ"
+      },
+      {
+        "match": "gen_character|character",
+        "reply": "ใจเต้นรัวๆ แรงๆ ค่ะ"
+      },
+      {
+        "match": "gen_severity|severity|scale",
+        "reply": "สัก 5 ค่ะ"
+      },
+      {
+        "match": "gen_associated",
+        "reply": "เมื่อวานหน้ามืดวูบไปรอบนึงค่ะ"
+      }
+    ],
+    "expected": {
+      "category": [
+        "generic",
+        "chest_pain"
+      ],
+      "category_v2": [
+        "palpitations"
+      ],
+      "level": [
+        1,
+        2
+      ],
+      "department": [
+        "emergency",
+        "opd_cardiology"
+      ],
+      "undertriage_critical": true,
+      "must_ask": [],
+      "must_not_leak": true
+    }
+  },
+  {
+    "id": "gen_en_rash",
+    "language": "en",
+    "description": "Generic fall-through: itchy arm rash three days, no systemic signs",
+    "opening": "I've got this itchy red rash on both arms, been there about three days. No swelling anywhere, just really itchy.",
+    "age": 26,
+    "answers": [
+      {
+        "match": "uq_breathing",
+        "reply": "breathing is fine"
+      },
+      {
+        "match": "gen_onset|onset",
+        "reply": "three days ago"
+      },
+      {
+        "match": "gen_duration|duration",
+        "reply": "three days"
+      },
+      {
+        "match": "gen_character|character",
+        "reply": "itchy red patches on both forearms"
+      },
+      {
+        "match": "gen_severity|severity|scale",
+        "reply": "a 2, it's mostly the itching"
+      },
+      {
+        "match": "gen_associated",
+        "reply": "no lip swelling or trouble breathing, just the rash"
+      }
+    ],
+    "expected": {
+      "category": "generic",
+      "category_v2": [
+        "skin_rash"
+      ],
+      "level": [
+        4,
+        5
+      ],
+      "department": "opd_general",
+      "undertriage_critical": false,
+      "must_ask": [],
+      "must_not_leak": true
+    }
+  },
+  {
+    "id": "gen_th_diarrhea",
+    "language": "th",
+    "description": "Generic fall-through: ท้องเสียถ่ายเหลวหลายรอบ ไม่มีเลือด ไม่ช็อก",
+    "opening": "ท้องเสียตั้งแต่เมื่อคืนค่ะ เข้าห้องน้ำไปห้าหกรอบแล้ว ถ่ายเป็นน้ำเลยแต่ไม่มีเลือดปน",
+    "age": 34,
+    "answers": [
+      {
+        "match": "uq_breathing",
+        "reply": "หายใจปกติค่ะ"
+      },
+      {
+        "match": "gen_onset|onset",
+        "reply": "เมื่อคืนค่ะ"
+      },
+      {
+        "match": "gen_duration|duration",
+        "reply": "ตั้งแต่เมื่อคืนค่ะ"
+      },
+      {
+        "match": "gen_character|character",
+        "reply": "ถ่ายเหลวเป็นน้ำค่ะ ปวดบิดๆ ท้อง"
+      },
+      {
+        "match": "gen_severity|severity|scale",
+        "reply": "สัก 4 ค่ะ"
+      },
+      {
+        "match": "gen_associated",
+        "reply": "คลื่นไส้นิดหน่อยค่ะ ไม่มีเลือดปน ยังพอดื่มน้ำได้"
+      }
+    ],
+    "expected": {
+      "category": [
+        "generic",
+        "abdominal_pain"
+      ],
+      "category_v2": [
+        "gi"
+      ],
+      "level": [
+        3,
+        4
+      ],
+      "department": [
+        "opd_general",
+        "opd_internal_medicine"
+      ],
+      "undertriage_critical": false,
+      "must_ask": [],
+      "must_not_leak": true
+    }
+  },
+  {
+    "id": "gen_en_diabetic_wound",
+    "language": "en",
+    "description": "Generic fall-through: non-healing foot sore in a diabetic, three weeks — surgery clinic",
+    "opening": "I've got a sore on the bottom of my foot that just won't heal. It's been three weeks. I'm diabetic, if that matters.",
+    "age": 55,
+    "answers": [
+      {
+        "match": "uq_breathing",
+        "reply": "breathing is fine"
+      },
+      {
+        "match": "gen_onset|onset",
+        "reply": "about three weeks ago"
+      },
+      {
+        "match": "gen_duration|duration",
+        "reply": "three weeks"
+      },
+      {
+        "match": "gen_character|character",
+        "reply": "an open sore that weeps a bit, doesn't hurt much"
+      },
+      {
+        "match": "gen_severity|severity|scale",
+        "reply": "a 2"
+      },
+      {
+        "match": "gen_associated",
+        "reply": "no fever, I have diabetes and take metformin"
+      }
+    ],
+    "expected": {
+      "category": "generic",
+      "category_v2": [
+        "wound_skin"
+      ],
+      "level": [
+        3,
+        4
+      ],
+      "department": [
+        "opd_surgery",
+        "opd_general"
+      ],
+      "undertriage_critical": false,
+      "must_ask": [],
+      "must_not_leak": true
+    }
+  },
+  {
+    "id": "gen_th_med_refill",
+    "language": "th",
+    "description": "Generic fall-through: มารับยาความดันต่อ ไม่มีอาการ",
+    "opening": "มารับยาความดันต่อค่ะ ยาที่หมอให้ใกล้หมดแล้ว ช่วงนี้ก็ไม่ได้มีอาการอะไร",
+    "age": 61,
+    "answers": [
+      {
+        "match": "uq_breathing",
+        "reply": "หายใจปกติค่ะ"
+      },
+      {
+        "match": "gen_onset|onset",
+        "reply": "ไม่ได้มีอาการค่ะ มาแค่รับยาต่อ"
+      },
+      {
+        "match": "gen_duration|duration",
+        "reply": "ไม่มีอาการค่ะ"
+      },
+      {
+        "match": "gen_character|character",
+        "reply": "สบายดีค่ะ มารับยาอย่างเดียว"
+      },
+      {
+        "match": "gen_severity|severity|scale",
+        "reply": "0 ค่ะ ไม่ปวดอะไร"
+      },
+      {
+        "match": "gen_associated",
+        "reply": "ไม่มีค่ะ"
+      }
+    ],
+    "expected": {
+      "category": "generic",
+      "category_v2": [
+        "chronic_followup"
+      ],
+      "level": 5,
+      "department": [
+        "opd_general",
+        "opd_internal_medicine"
+      ],
+      "undertriage_critical": false,
+      "must_ask": [],
+      "must_not_leak": true
+    }
+  },
+  {
+    "id": "gen_en_certificate",
+    "language": "en",
+    "description": "Generic fall-through: medical certificate request, currently well",
+    "opening": "I just need a medical certificate for work. I was out sick with a cold earlier this week but I'm fine now.",
+    "age": 23,
+    "answers": [
+      {
+        "match": "uq_breathing",
+        "reply": "breathing is fine"
+      },
+      {
+        "match": "gen_onset|onset",
+        "reply": "I'm not sick now, this is just paperwork"
+      },
+      {
+        "match": "gen_duration|duration",
+        "reply": "the cold lasted three days, it's gone"
+      },
+      {
+        "match": "gen_character|character",
+        "reply": "I feel fine now, honestly"
+      },
+      {
+        "match": "gen_severity|severity|scale",
+        "reply": "0"
+      },
+      {
+        "match": "gen_associated",
+        "reply": "nothing, I'm well"
+      }
+    ],
+    "expected": {
+      "category": "generic",
+      "category_v2": [
+        "administrative"
+      ],
+      "level": 5,
+      "department": "opd_general",
+      "undertriage_critical": false,
+      "must_ask": [],
+      "must_not_leak": true
+    }
+  },
+  {
+    "id": "gen_th_bp_trap",
+    "language": "th",
+    "description": "Undertriage trap: มาตรวจสุขภาพ ไม่มีอาการ แต่ความดันที่วัดได้ 200/120 — danger vitals เทิร์นแรก",
+    "opening": "มาตรวจสุขภาพประจำปีค่ะ ช่วงนี้ก็ปกติดี ไม่ได้มีอาการอะไรเลย",
+    "age": 47,
+    "initial_vitals": {
+      "sbp": 200,
+      "dbp": 120
+    },
+    "answers": [
+      {
+        "match": "uq_breathing",
+        "reply": "หายใจปกติค่ะ"
+      },
+      {
+        "match": "gen_associated",
+        "reply": "ไม่มีอาการอะไรเลยค่ะ"
+      }
+    ],
+    "expected": {
+      "category": "generic",
+      "level": [
+        1,
+        2
+      ],
+      "department": "emergency",
+      "undertriage_critical": true,
+      "must_ask": [],
+      "must_not_leak": true,
+      "category_v2": [
+        "chronic_followup",
+        "generic"
+      ]
+    }
+  },
+  {
+    "id": "gen_th_dizzy_bppv",
+    "language": "th",
+    "description": "Generic fall-through: เวียนหัวบ้านหมุนตอนเปลี่ยนท่า ไม่มีอาการทางระบบประสาท",
+    "opening": "เวียนหัวแบบบ้านหมุนเวลาลุกจากเตียงเร็วๆ ค่ะ เป็นแป๊บเดียวแล้วก็หาย เป็นมาสามวันแล้ว",
+    "age": 52,
+    "answers": [
+      {
+        "match": "uq_breathing",
+        "reply": "หายใจปกติค่ะ"
+      },
+      {
+        "match": "gen_onset|onset",
+        "reply": "สามวันก่อนค่ะ"
+      },
+      {
+        "match": "gen_duration|duration",
+        "reply": "สามวันแล้วค่ะ เป็นทีละไม่กี่วินาที"
+      },
+      {
+        "match": "gen_character|character",
+        "reply": "บ้านหมุนตอนเปลี่ยนท่า เช่นลุกเร็วๆ หรือพลิกตัวค่ะ"
+      },
+      {
+        "match": "gen_severity|severity|scale",
+        "reply": "สัก 4 ตอนที่หมุนค่ะ"
+      },
+      {
+        "match": "gen_associated",
+        "reply": "ไม่มีแขนขาอ่อนแรง พูดชัดปกติ ไม่อาเจียนค่ะ"
+      }
+    ],
+    "expected": {
+      "category": [
+        "generic",
+        "ear"
+      ],
+      "level": [
+        3,
+        4
+      ],
+      "department": [
+        "opd_ent",
+        "opd_general"
+      ],
+      "undertriage_critical": false,
+      "must_ask": [],
+      "must_not_leak": true
+    }
+  },
+  {
+    "id": "gen_en_overdose",
+    "language": "en",
+    "description": "Undertriage trap: paracetamol overdose mentioned casually — emergency + psych risk",
+    "opening": "I took a whole pack of paracetamol a few hours ago after a fight with my mum. I feel sick now and I'm scared.",
+    "age": 19,
+    "answers": [
+      {
+        "match": "uq_breathing",
+        "reply": "breathing is fine"
+      },
+      {
+        "match": "mh_suicide",
+        "reply": "I didn't really want to die, I just wanted it to stop"
+      },
+      {
+        "match": "gen_associated",
+        "reply": "I feel nauseous and my stomach hurts a bit"
+      },
+      {
+        "match": "gen_onset|onset",
+        "reply": "about three hours ago"
+      }
+    ],
+    "expected": {
+      "category": [
+        "generic",
+        "mental_health"
+      ],
+      "level": [
+        1,
+        2
+      ],
+      "department": "emergency",
+      "undertriage_critical": true,
+      "must_ask": [],
+      "must_not_leak": true
+    }
+  }
+]

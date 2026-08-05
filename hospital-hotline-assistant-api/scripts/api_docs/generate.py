@@ -42,4 +42,5 @@ except Exception as exc:  # keep the last committed openapi_his.json
 runpy.run_path(str(HERE / "gen_api_doc.py"))
 runpy.run_path(str(HERE / "assemble_docs.py"))
 runpy.run_path(str(HERE / "bruno_gen.py"))
-print("done: docs/api-reference*.md + bruno/ regenerated")
+runpy.run_path(str(HERE / "bruno_his_gen.py"))
+print("done: docs/api-reference*.md + bruno/ + bruno-his-integration/ regenerated")

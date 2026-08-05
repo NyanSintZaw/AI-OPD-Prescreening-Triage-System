@@ -249,3 +249,90 @@ async def test_question_paraphrase_validated_falls_back(criteria):
         session_id="s10", language="en", input_mode="text", content="stomach ache",
     )
     assert "level" not in r["reply"].lower()
+
+
+# ── Impossible values: re-ask once, then continue without the vital ───────
+
+async def test_impossible_spoken_temperature_is_reasked_then_skipped(criteria):
+    """A patient who reports 50 °C is told what's wrong and asked again; a
+    second impossible answer leaves the vital missing rather than looping."""
+    model = FakeChatModel()
+    # Turn 1: fever reported with the red flags cleared → temperature is the
+    # next thing the interview needs.
+    model.extractions.append(ext(
+        chief_complaint="fever",
+        complaint_category="fever",
+        findings={
+            "fever": "present", "confusion": "absent", "dyspnea": "absent",
+            "severe_respiratory_distress": "absent", "stiff_neck": "absent",
+            "recent_chemotherapy": "absent", "rash_vesicles": "absent",
+            "palm_sole_rash": "absent",
+        },
+    ))
+    # Turns 2 and 3: impossible temperatures.
+    model.extractions.append(ext(temperature_c=50))
+    model.extractions.append(ext(temperature_c=50))
+    engine = make_engine(criteria, model)
+
+    first = await engine.run_turn(
+        session_id="s1", language="en", input_mode="text",
+        content="I have a fever",
+        turn_context={"age_years": 30},
+    )
+    assert first["awaiting_measurement"] == "temp"
+
+    second = await engine.run_turn(
+        session_id="s1", language="en", input_mode="text", content="50",
+    )
+    # The refusal is explained in the reply, and the reading is asked for again.
+    assert second["awaiting_measurement"] == "temp"
+    assert "30" in second["reply"] and "45" in second["reply"]
+
+    third = await engine.run_turn(
+        session_id="s1", language="en", input_mode="text", content="50 again",
+    )
+    # Given up on: the interview moves on rather than asking a third time.
+    assert third["awaiting_measurement"] != "temp"
+
+    state = await engine._store.load("s1")
+    assert "temp" not in state.vitals, "an impossible temp must never be stored"
+    assert state.rejected_vitals["temp"]["value"] == 50
+    assert state.rejected_vitals["temp"]["attempts"] == 2
+
+
+async def test_impossible_cuff_reading_never_reaches_the_rules(criteria):
+    """turn_context is filtered before the red-flag gate: 300/220 must not
+    dispose an emergency the way a real 250/130 would."""
+    model = FakeChatModel()
+    model.extractions.append(ext(
+        chief_complaint="headache", complaint_category="headache",
+    ))
+    engine = make_engine(criteria, model)
+
+    result = await engine.run_turn(
+        session_id="s1", language="en", input_mode="text",
+        content="my head hurts",
+        turn_context={"age_years": 40, "vitals": {"systolic": 300, "diastolic": 220}},
+    )
+    assert "dv_adult_bp_crisis" not in result["classification"].get("red_flags", [])
+
+    state = await engine._store.load("s1")
+    assert "sbp" not in state.vitals and "dbp" not in state.vitals
+    assert state.rejected_vitals["dbp"]["source"] == "measured"
+
+
+async def test_real_crisis_cuff_reading_still_disposes(criteria):
+    """Control for the test above — the filter must not swallow real crises."""
+    model = FakeChatModel()
+    model.extractions.append(ext(
+        chief_complaint="headache", complaint_category="headache",
+    ))
+    engine = make_engine(criteria, model)
+
+    result = await engine.run_turn(
+        session_id="s2", language="en", input_mode="text",
+        content="my head hurts",
+        turn_context={"age_years": 40, "vitals": {"systolic": 250, "diastolic": 130}},
+    )
+    assert "dv_adult_bp_crisis" in result["classification"]["red_flags"]
+    assert result["classification"]["department_code"] == "emergency"

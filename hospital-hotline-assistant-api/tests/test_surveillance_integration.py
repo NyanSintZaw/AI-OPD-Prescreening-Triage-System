@@ -7,7 +7,7 @@ PostgreSQL database. Run with:
 
 What this test verifies:
   1. Create a session via POST /sessions
-  2. Send 3 realistic chat messages (simulating a COVID conversation)
+  2. Persist 3 realistic patient messages (simulating a COVID conversation)
   3. End the session via PATCH /sessions/{id}  { status: completed }
   4. Wait briefly for the background extraction task to finish
   5. Query the disease_surveillance table directly and assert keywords exist
@@ -88,20 +88,21 @@ def test_surveillance_captured_after_session_end(http):
     assert resp.status_code == 201
     session_id = resp.json()["id"]
 
-    # 2. Send 3 messages that mention diseases (bypasses Guard 1 & 2)
-    chat_messages = [
+    # 2. Persist 3 patient messages that mention diseases (bypasses Guard
+    #    1 & 2). Surveillance extraction reads the messages table on session
+    #    completion, so how the messages got there (voice turn or direct
+    #    insert) doesn't matter.
+    patient_messages = [
         "Hi, I need help.",
         "I tested positive on a COVID rapid test this morning.",
         "I also have a high fever around 38.5 degrees and I completely lost my sense of smell.",
     ]
-    for msg in chat_messages:
+    for msg in patient_messages:
         resp = http.post(
-            f"/sessions/{session_id}/chat/stream",
-            content=msg.encode(),
-            headers={"Content-Type": "text/plain"},
+            f"/sessions/{session_id}/messages",
+            json={"role": "user", "content": msg},
         )
-        # Streaming endpoint — just drain it, we don't inspect the AI reply here
-        _ = resp.read()
+        assert resp.status_code == 201
 
     # 3. End the session (triggers background extraction)
     resp = http.patch(f"/sessions/{session_id}", json={"status": "completed"})

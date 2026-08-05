@@ -1,0 +1,40 @@
+meta {
+  name: POST /patient-assignments (with SBAR)
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{imedBaseUrl}}/patient-assignments
+  body: json
+  auth: none
+}
+
+headers {
+  Authorization: Bearer {{hisToken}}
+  X-API-Key: {{hisToken}}
+}
+
+body:json {
+  {
+    "request_id": "THIRD-PARTY-20260724-000002",
+    "visit_id": "VISIT_ID_FROM_IMED",
+    "assign_spid": "SP_ER_01",
+    "base_department_id": "DEPT_ER",
+    "sbar": {
+      "situation": "ผู้ป่วยมีอาการเจ็บหน้าอก",
+      "background": "มีโรคความดันโลหิตสูง",
+      "assessment": "รู้สึกตัวดี vital signs คงที่",
+      "assessment_problem": "สงสัยภาวะกล้ามเนื้อหัวใจขาดเลือด",
+      "assessment_equipment": "ECG monitor",
+      "recommend": "ประเมินโดยแพทย์โดยเร็ว",
+      "documentation": "แนบผล ECG"
+    }
+  }
+}
+
+docs {
+  WE POST — the hospital's real iMed Patient Assignment API (spec: docs/imed-patient-assignment-api.md, from iMed Core's contract PDF). Sends a registered visit to a destination service point; replaces the current-contract routing call when we go live. Idempotent per request_id — retry a 409 with the SAME request_id. Sender identity and source service point come from the Bearer token, never from the body.
+  
+  SBAR variant — iMed uses assignSbarVisit and saves the handover.
+}

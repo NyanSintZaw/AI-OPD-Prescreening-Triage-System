@@ -8,7 +8,12 @@ import { MessageBubble } from '../components/MessageBubble';
 import { DoctorScheduleManager } from '../components/DoctorScheduleManager';
 import { useLanguage } from '../hooks/useSession';
 import { slipCode, slipSearchKey } from '../utils/slipCode';
-import type { AssessmentReviewOut, DepartmentOut, RoutingFeedbackOut } from '../api/types';
+import type {
+  AssessmentReviewOut,
+  DepartmentOut,
+  RejectedVital,
+  RoutingFeedbackOut,
+} from '../api/types';
 
 type NurseTab = 'reviews' | 'schedules';
 type ReviewModalTab = 'assessment' | 'conversation';
@@ -32,6 +37,39 @@ function formatBmi(weightKg?: number | null, heightCm?: number | null): string {
 function formatNumber(value?: number | null, digits = 0): string {
   if (value === null || value === undefined) return '—';
   return digits > 0 ? value.toFixed(digits) : String(value);
+}
+
+/**
+ * Flagged stand-in for a vital the engine refused as physiologically
+ * impossible. A blank "—" would read as "never measured", which is a very
+ * different clinical signal from "the patient told us 50 °C" — the nurse needs
+ * to see the number that was actually reported, struck through and explained.
+ */
+function RejectedVitalValue({
+  rejected,
+  vitals,
+  fallback,
+}: {
+  rejected?: Record<string, RejectedVital> | null;
+  /** Canonical vital keys this grid cell covers (BP covers sbp and dbp). */
+  vitals: string[];
+  fallback: React.ReactNode;
+}) {
+  const { t } = useTranslation();
+  const hit = vitals.map((key) => rejected?.[key]).find(Boolean);
+  if (!hit) return <strong>{fallback}</strong>;
+  return (
+    <strong className="nurse-vital-rejected" title={t('nurseRejectedVitals')}>
+      {'⚠ '}
+      <s>{hit.value}</s>
+      <span className="nurse-vital-rejected-note">
+        {' '}
+        {t(`nurseRejectedSource_${hit.source ?? 'reported'}`, { defaultValue: '' })}
+        {', '}
+        {t(`nurseRejectedReason_${hit.reason}`, { defaultValue: hit.reason })}
+      </span>
+    </strong>
+  );
 }
 
 export function NursePage() {
@@ -478,26 +516,64 @@ export function NursePage() {
                 {modalTab === 'assessment' && (
                   <section className="nurse-assessment-panel">
                     <p className="nurse-review-section-title">{t('nurseMeasuredAtBooth')}</p>
+                    {(selectedReview.missing_vitals?.length ?? 0) > 0 && (
+                      <p className="vitals-warning" role="alert">
+                        {'⚠ '}
+                        {t('nurseMissingVitals')}
+                        {': '}
+                        {selectedReview.missing_vitals!
+                          .map((key) => t(`nurseMissingVitalName_${key}`, { defaultValue: key }))
+                          .join(', ')}
+                      </p>
+                    )}
+                    {Object.keys(selectedReview.rejected_vitals ?? {}).length > 0 && (
+                      <p className="vitals-warning" role="alert">
+                        {'⚠ '}
+                        {t('nurseRejectedVitals')}
+                        {': '}
+                        {Object.entries(selectedReview.rejected_vitals!)
+                          .map(([key, hit]) =>
+                            `${t(`nurseMissingVitalName_${key}`, { defaultValue: key })} ${hit.value}`,
+                          )
+                          .join(', ')}
+                      </p>
+                    )}
                     <div className="nurse-vitals-grid">
                       <div className="nurse-vital-item">
                         <span className="nurse-card-dept-label">{t('nurseVitalBp')}</span>
-                        <strong>
-                          {selectedReview.vitals?.systolic && selectedReview.vitals?.diastolic
-                            ? `${selectedReview.vitals.systolic}/${selectedReview.vitals.diastolic}`
-                            : '—'}
-                        </strong>
+                        <RejectedVitalValue
+                          rejected={selectedReview.rejected_vitals}
+                          vitals={['sbp', 'dbp']}
+                          fallback={
+                            selectedReview.vitals?.systolic && selectedReview.vitals?.diastolic
+                              ? `${selectedReview.vitals.systolic}/${selectedReview.vitals.diastolic}`
+                              : '—'
+                          }
+                        />
                       </div>
                       <div className="nurse-vital-item">
                         <span className="nurse-card-dept-label">{t('nurseVitalPulse')}</span>
-                        <strong>{formatNumber(selectedReview.vitals?.pulse_bpm)}</strong>
+                        <RejectedVitalValue
+                          rejected={selectedReview.rejected_vitals}
+                          vitals={['hr']}
+                          fallback={formatNumber(selectedReview.vitals?.pulse_bpm)}
+                        />
                       </div>
                       <div className="nurse-vital-item">
                         <span className="nurse-card-dept-label">{t('nurseVitalWeight')}</span>
-                        <strong>{formatNumber(selectedReview.vitals?.weight_kg)}</strong>
+                        <RejectedVitalValue
+                          rejected={selectedReview.rejected_vitals}
+                          vitals={['weight']}
+                          fallback={formatNumber(selectedReview.vitals?.weight_kg)}
+                        />
                       </div>
                       <div className="nurse-vital-item">
                         <span className="nurse-card-dept-label">{t('nurseVitalHeight')}</span>
-                        <strong>{formatNumber(selectedReview.vitals?.height_cm)}</strong>
+                        <RejectedVitalValue
+                          rejected={selectedReview.rejected_vitals}
+                          vitals={['height']}
+                          fallback={formatNumber(selectedReview.vitals?.height_cm)}
+                        />
                       </div>
                       <div className="nurse-vital-item">
                         <span className="nurse-card-dept-label">BMI</span>
@@ -507,7 +583,11 @@ export function NursePage() {
                       </div>
                       <div className="nurse-vital-item">
                         <span className="nurse-card-dept-label">{t('nurseVitalTemp')}</span>
-                        <strong>{formatNumber(selectedReview.vitals?.temperature, 1)}</strong>
+                        <RejectedVitalValue
+                          rejected={selectedReview.rejected_vitals}
+                          vitals={['temp']}
+                          fallback={formatNumber(selectedReview.vitals?.temperature, 1)}
+                        />
                       </div>
                       <div className="nurse-vital-item">
                         <span className="nurse-card-dept-label">{t('nursePatientName')}</span>

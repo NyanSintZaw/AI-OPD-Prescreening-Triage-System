@@ -1,6 +1,7 @@
 """Deterministic MOPH ED Triage disposition.
 
-Order of authority (ESI v5 A/B/C/D style):
+Levels/colors/response times are MOPH ED Triage semantics.
+Order of authority (decision-point pattern after ESI — not an ESI implementation):
 level-1 hits → level-2 hits (danger vitals, fast tracks, department rules,
 triage tuples) → pain/distress scale escalation → resource-style banding for
 levels 3–5. The level is internal — patients only ever see the department.
@@ -25,6 +26,8 @@ LEVEL_META = {
 
 # Findings that make severe pain (>=8) an emergency rather than urgent —
 # ports the legacy evaluate_scale_override high-risk context.
+# Local acuity-escalation heuristic — NOT an ESI resource count; validated via
+# the on-demand eval harness + nurse re-routing review.
 HIGH_RISK_PAIN_FINDINGS = frozenset({
     "chest_pain", "headache", "abdominal_pain", "pregnancy", "major_trauma_mechanism",
     "dyspnea", "severe_bleeding", "active_bleeding", "confusion", "syncope_24h",
@@ -32,6 +35,8 @@ HIGH_RISK_PAIN_FINDINGS = frozenset({
 })
 
 # Present findings that indicate a systemic/multi-resource case for banding.
+# Local acuity-escalation heuristic — NOT an ESI resource count; validated via
+# the on-demand eval harness + nurse re-routing review.
 SYSTEMIC_FINDINGS = frozenset({
     "fever", "high_fever", "vomiting", "diarrhea", "dyspnea", "confusion",
     "syncope_24h", "vaginal_bleeding", "hemoptysis", "epistaxis", "edema",
@@ -62,7 +67,12 @@ def _scale_escalation(
     findings: Mapping[str, str],
     vitals: Mapping[str, float],
 ) -> tuple[int | None, DispositionReason | None]:
-    """Pain/distress scale overrides (legacy evaluate_scale_override parity)."""
+    """Pain/distress scale overrides (legacy evaluate_scale_override parity).
+
+    Local acuity-escalation heuristic — NOT an ESI resource count; thresholds
+    pattern after ESI's severe-pain consideration but are local; validated via
+    the on-demand eval harness + nurse re-routing review.
+    """
 
     pain = vitals.get("pain_score")
     distress = vitals.get("distress_score")
@@ -92,10 +102,24 @@ def _scale_escalation(
     return None, None
 
 
-def _resource_band(findings: Mapping[str, str]) -> int:
-    """Levels 3–5 by an ESI-style resource estimate over present findings."""
+def _resource_band(
+    findings: Mapping[str, str],
+    risk_factor_ids: frozenset[str] = frozenset(),
+) -> int:
+    """Levels 3–5 (MOPH ED Triage) by finding-count banding.
 
-    present = {fid for fid, state in findings.items() if state == "present"}
+    Local acuity-escalation heuristic — NOT an ESI resource count; validated
+    via the on-demand eval harness + nurse re-routing review.
+
+    Risk factors (``is_risk_factor`` in the finding catalog — smoking, chronic
+    conditions, HN-history stamps) are excluded from the count: they feed the
+    triage tuples, not acuity. Otherwise every returning patient with a rich
+    HN record bands one level up on an unrelated complaint.
+    """
+
+    present = {
+        fid for fid, state in findings.items() if state == "present"
+    } - risk_factor_ids
     systemic = present & SYSTEMIC_FINDINGS
     if len(systemic) >= 2 or len(present) >= 4:
         return 3
@@ -130,7 +154,11 @@ def decide(
             level = scale_level
             reasons.append(scale_reason)
         else:
-            level = _resource_band(findings)
+            risk_ids = frozenset(
+                fid for fid, entry in criteria.finding_catalog.items()
+                if entry.is_risk_factor
+            )
+            level = _resource_band(findings, risk_ids)
             reasons.append(DispositionReason(
                 rule_id=f"resource_band_level_{level}",
                 text_en=f"No red flags; symptom profile fits level {level}",

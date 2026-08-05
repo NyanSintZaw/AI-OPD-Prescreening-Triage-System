@@ -24,12 +24,17 @@ class _CapturedModel:
         self.kwargs = kwargs
 
 
-def _settings(model_name: str, thinking_level: str | None = "minimal") -> SimpleNamespace:
+def _settings(
+    model_name: str,
+    thinking_level: str | None = "minimal",
+    temperature: float = 0.1,
+) -> SimpleNamespace:
     return SimpleNamespace(
         screening_model_provider="vertexai",
         screening_model_name=model_name,
         screening_model_timeout_s=30.0,
         screening_thinking_level=thinking_level,
+        screening_model_temperature=temperature,
         google_cloud_project="test-project",
         google_cloud_location="global",
     )
@@ -42,9 +47,18 @@ def test_gemini3_gets_thinking_level_only(monkeypatch):
     model = _build(_settings("gemini-3.1-flash-lite"))
     assert model.kwargs["thinking_level"] == "minimal"
     assert "thinking_budget" not in model.kwargs
-    # Gemini 3 guidance: leave temperature at the model default (1.0).
-    assert "temperature" not in model.kwargs
+    # Extraction determinism: temperature is pinned for EVERY family,
+    # including Gemini 3.x (previously left at the 1.0 default).
+    assert model.kwargs["temperature"] == 0.1
     assert model.kwargs["location"] == "global"
+
+
+def test_gemini3_temperature_comes_from_settings(monkeypatch):
+    monkeypatch.setattr(
+        langchain_google_genai, "ChatGoogleGenerativeAI", _CapturedModel
+    )
+    model = _build(_settings("gemini-3.5-flash", temperature=0.0))
+    assert model.kwargs["temperature"] == 0.0
 
 
 def test_gemini2_gets_thinking_budget_zero(monkeypatch):
@@ -64,3 +78,4 @@ def test_thinking_level_none_sends_neither(monkeypatch):
     model = _build(_settings("gemini-3.5-flash", thinking_level=None))
     assert "thinking_level" not in model.kwargs
     assert "thinking_budget" not in model.kwargs
+    assert model.kwargs["temperature"] == 0.1

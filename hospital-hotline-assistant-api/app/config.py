@@ -54,6 +54,9 @@ class Settings(BaseSettings):
     # 2026 — benchmarked ~1.6s extraction / ~0.9s paraphrase vs 4.7s on
     # gemini-2.5-flash with default thinking (and 2.5 retires 2026-10-16).
     screening_model_name: str = "gemini-3.1-flash-lite"
+    # Sampling temperature for ALL screening-model families — extraction must
+    # be as deterministic as sampling allows, whatever model serves it.
+    screening_model_temperature: float = 0.1
     # Gemini 3+ reasoning depth: minimal|low|medium|high. "minimal" is the
     # latency floor (equivalent of thinking_budget=0 on 2.5 models). Ignored
     # for non-Gemini-3 models (they get thinking_budget=0 instead).

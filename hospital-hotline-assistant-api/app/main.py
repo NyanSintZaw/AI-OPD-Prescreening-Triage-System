@@ -45,8 +45,6 @@ from app.services.slip_code import slip_code_for
 
 logger = logging.getLogger(__name__)
 from app.schemas import (
-    ChatRequest,
-    ChatResponse,
     ConversationSummaryOut,
     AdminLoginRequest,
     AdminLoginResponse,
@@ -193,9 +191,13 @@ async def _serialize_review(
             s.metadata->'triage_classification'->>'symptoms_summary' AS ai_chief_complaint,
             s.metadata->'triage_classification'->>'key_reason' AS ai_illness_note,
             NULLIF(s.metadata->>'patient_follow_up', '') AS patient_follow_up,
-            s.metadata->'his_routing'->>'status' AS his_routing_status
+            s.metadata->'his_routing'->>'status' AS his_routing_status,
+            ss.state->'measured_vitals' AS screening_measured_vitals,
+            ss.state->'rejected_vitals' AS screening_rejected_vitals,
+            ss.state->>'phase' AS screening_phase
         FROM assessment_reviews ar
         JOIN sessions s ON s.id = ar.session_id
+        LEFT JOIN screening_sessions ss ON ss.session_id = ar.session_id
         LEFT JOIN admin_users reviewer ON reviewer.id = ar.reviewer_id
         LEFT JOIN departments pd ON pd.id = ar.proposed_department_id
         LEFT JOIN departments cd ON cd.id = ar.confirmed_department_id
@@ -205,7 +207,32 @@ async def _serialize_review(
     )
     if row is None:
         raise HTTPException(status_code=404, detail="Assessment review not found")
-    return dict(row)
+    return _attach_missing_vitals(dict(row))
+
+
+def _attach_missing_vitals(row: dict) -> dict:
+    """Vitals context for nurse review, in two distinct flavours.
+
+    ``missing_vitals``: core vitals (hr/rr/spo2/temp/sbp) never
+    instrument-measured — the undertriage caution.
+
+    ``rejected_vitals``: values that WERE reported but were physiologically
+    impossible and so never reached the rules. The nurse must see the reported
+    number flagged rather than a blank, because "patient said 50 °C" and "no
+    thermometer reading" mean very different things at the bedside.
+
+    Both are only meaningful once the engine disposed; interview/escalated
+    rows carry null.
+    """
+    from app.services.screening.vitals import missing_core_vitals
+
+    phase = row.pop("screening_phase", None)
+    measured = row.pop("screening_measured_vitals", None)
+    rejected = row.pop("screening_rejected_vitals", None)
+    disposed = phase in ("disposed", "follow_up", "done")
+    row["missing_vitals"] = missing_core_vitals(measured) if disposed else None
+    row["rejected_vitals"] = (rejected or None) if disposed else None
+    return row
 
 
 async def get_current_admin_user(
@@ -672,6 +699,14 @@ async def unlink_visit(
     return record_to_dict(record)
 
 
+def _screening_model():
+    """The engine's shared chat model (or None) for the gate backstop."""
+    try:
+        return app.state.triage_service.triage_engine._model
+    except AttributeError:
+        return None
+
+
 @app.post(
     "/sessions/{session_id}/confirm-visit-name",
     response_model=ConfirmVisitNameResponse,
@@ -685,10 +720,14 @@ async def confirm_visit_name(
 
     Buttons send ``confirmed=true/false``; typed/spoken replies send ``text``
     and are classified by the shared yes/no NLU. A ``no`` decision unlinks the
-    visit so the kiosk can re-prompt for VN.
+    visit so the kiosk can re-prompt for VN. An unclear reply returns 422 and
+    is re-asked at most MAX_IDENTITY_RETRIES times, then treated as rejected —
+    fail closed like the voice identity gate (never interview an unverified
+    identity).
     """
     from app.services.screening.nlu_yesno import classify_yes_no
     from app.services.visit_confirm import (
+        MAX_IDENTITY_RETRIES,
         NoVisitLinkedError,
         apply_confirm_decision,
     )
@@ -703,6 +742,59 @@ async def confirm_visit_name(
         raise HTTPException(
             status_code=400,
             detail="Provide confirmed=true/false or a non-empty text reply",
+        )
+
+    session_row = await connection.fetchrow(
+        "SELECT metadata, language FROM sessions WHERE id = $1", session_id
+    )
+    if session_row is None:
+        raise HTTPException(status_code=404, detail="Session not found")
+    metadata = dict(session_row["metadata"] or {})
+
+    if decision in ("uncertain", "other") and payload.text:
+        # LLM backstop before the fail-closed 422/retry path: rescue
+        # free-phrased confirms/denials the regex vocabulary misses. Any
+        # backstop failure → "unclear" → the retry flow below, unchanged.
+        from app.services.screening.nlu_backstop import confirm_gate
+
+        verdict = await confirm_gate(
+            _screening_model(),
+            "identity_yesno",
+            payload.text,
+            str(session_row.get("language") or "th"),
+            context=str((metadata.get("visit") or {}).get("patient_name") or ""),
+        )
+        if verdict in ("yes", "no"):
+            # Definitive answer — applied below; the counter reset happens in
+            # the shared definitive-decision block.
+            decision = str(verdict)
+
+    if decision in ("uncertain", "other"):
+        attempts = int(metadata.get("confirm_name_attempts") or 0) + 1
+        if attempts < MAX_IDENTITY_RETRIES:
+            metadata["confirm_name_attempts"] = attempts
+            await connection.execute(
+                "UPDATE sessions SET metadata = $2::jsonb WHERE id = $1",
+                session_id,
+                metadata,
+            )
+            raise HTTPException(
+                status_code=422,
+                detail={
+                    "code": "unclear",
+                    "retries_left": MAX_IDENTITY_RETRIES - attempts,
+                },
+            )
+        decision = "no"  # retry cap exhausted — reject, exactly like voice
+
+    if "confirm_name_attempts" in metadata:
+        # Definitive decision (or cap hit): reset the counter so a later
+        # re-link starts a fresh confirm.
+        metadata.pop("confirm_name_attempts")
+        await connection.execute(
+            "UPDATE sessions SET metadata = $2::jsonb WHERE id = $1",
+            session_id,
+            metadata,
         )
 
     try:
@@ -860,6 +952,12 @@ async def update_session_vitals(
     """Store a blood-pressure reading on the session so the triage agent
     (text chat and live voice) can factor it into the assessment.
     Called by the vitals gate UI after a cuff fetch or manual entry.
+
+    Plausibility is enforced by ``SessionVitalsUpdate`` (bounds from the
+    criteria defaults, plus systolic > diastolic), so an impossible reading is
+    rejected with a 422 BEFORE the hypertensive-crisis check below can see it.
+    That ordering is load-bearing: 300/220 must not open a 15-minute rest
+    window. See docs/vital-bounds.md.
     """
     from app.services.bp_rest import (
         get_active_rest,
@@ -1018,6 +1116,28 @@ async def update_session_measurement(
     return {"session_id": str(session_id), "vitals": vitals}
 
 
+@app.get("/screening/vital-bounds")
+async def get_vital_bounds(connection: asyncpg.Connection = Depends(get_connection)):
+    """Physiologically possible ranges from the active criteria version.
+
+    The kiosk reads these so the patient gets instant, correctly-worded
+    feedback instead of a bare 422 — and so the numbers live in exactly one
+    place (the criteria document) rather than being retyped in the client.
+    """
+    from app.services.screening.rules.criteria_store import get_active_criteria
+
+    _, criteria = await get_active_criteria(connection)
+    return {
+        "bounds": {
+            name: bound.model_dump() for name, bound in criteria.vital_bounds.items()
+        },
+        "cross_checks": {
+            check_id: check.model_dump()
+            for check_id, check in criteria.cross_checks.items()
+        },
+    }
+
+
 @app.get("/vitals/blood-pressure/rest-status", response_model=BpRestStatusOut)
 async def get_bp_rest_status(
     session_id: UUID | None = Query(default=None),
@@ -1090,7 +1210,7 @@ async def fetch_blood_pressure(
 
     A fresh reading is persisted to ``bp_readings`` immediately — before
     the patient decides to continue — so the measurement survives even if
-    they cancel the voice/chat flow right after measuring.
+    they cancel the voice flow right after measuring.
     """
     session_id = payload.session_id if payload else None
     blocked = await _session_rest_block(connection, session_id)
@@ -1275,132 +1395,6 @@ async def list_messages(session_id: UUID, connection: asyncpg.Connection = Depen
         session_id,
     )
     return records_to_dicts(records)
-
-@app.post("/sessions/{session_id}/chat", response_model=ChatResponse, status_code=status.HTTP_201_CREATED)
-async def chat(
-    session_id: UUID,
-    payload: ChatRequest,
-    request: Request,
-    connection: asyncpg.Connection = Depends(get_connection),
-):
-    triage_service: TriageService = request.app.state.triage_service
-    try:
-        result, assistant_message = await triage_service.process_chat(
-            connection=connection,
-            session_id=str(session_id),
-            language=payload.language,
-            input_mode=payload.input_mode,
-            content=payload.content,
-        )
-    except ValueError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
-
-    from app.services.ai.triage_payloads import assessment_status, severity_payload
-
-    return ChatResponse(
-        reply=result.reply,
-        severity=severity_payload(result),
-        assessment_status=assessment_status(result),
-        department={
-            "department_id": result.department_id,
-            "reason": result.department_reason,
-            "confidence": result.department_confidence,
-        }
-        if result.department_id
-        else None,
-        emergency={
-            "trigger_id": result.emergency_trigger_id,
-            "alert_message": result.emergency_alert_message,
-            "detected_symptoms": result.detected_symptoms,
-        }
-        if result.severity_level == "emergency"
-        else None,
-        symptoms={
-            "raw_text": result.raw_text,
-            "body_location": None,
-            "duration_text": None,
-            "pain_score": result.pain_score,
-            "pain_location": result.pain_location,
-            "distress_score": result.distress_score,
-            "distress_type": result.distress_type,
-            "red_flags": result.red_flags,
-        },
-        contact=result.contact,
-        follow_up_question=result.follow_up_question,
-        follow_up_reason=result.follow_up_reason,
-        model_name=result.model_name,
-        latency_ms=result.latency_ms,
-        alert_sent=result.alert_sent,
-        assistant_message_id=assistant_message.get("id"),
-        awaiting_measurement=result.awaiting_measurement,
-        reply_options=result.reply_options or [],
-        flow_complete=bool(result.flow_complete),
-    )
-
-@app.post("/sessions/{session_id}/chat/stream")
-async def chat_stream(
-    session_id: UUID,
-    payload: ChatRequest,
-    request: Request,
-):
-    """Server-Sent Events variant of :func:`chat`.
-
-    Streams the agent's response back to the client incrementally so
-    the UI can render tokens as they arrive (typewriter effect) and
-    kick off per-sentence TTS before the model finishes generating.
-    Persistence and rule-engine overrides run
-    exactly as in the non-streaming path — only the transport differs.
-
-    The stream emits NDJSON frames inside an SSE ``data:`` line so the
-    browser ``EventSource`` (or a fetch + ReadableStream consumer) can
-    parse each event with a single ``JSON.parse``. Frame schema is
-    defined by :meth:`TriageService.process_chat_stream` (look there
-    for the authoritative type list).
-
-    Note we acquire the DB connection INSIDE the generator (rather
-    than via ``Depends(get_connection)``) because FastAPI releases the
-    dependency connection back to the pool the moment the route
-    function returns — and for a StreamingResponse, that happens
-    before the generator runs. Acquiring inside keeps the connection
-    held for the lifetime of the stream.
-    """
-
-    triage_service: TriageService = request.app.state.triage_service
-    pool: asyncpg.Pool = request.app.state.db_pool
-
-    async def event_generator():
-        async with pool.acquire() as connection:
-            try:
-                async for event in triage_service.process_chat_stream(
-                    connection=connection,
-                    session_id=str(session_id),
-                    language=payload.language,
-                    input_mode=payload.input_mode,
-                    content=payload.content,
-                ):
-                    # SSE framing — one JSON payload per ``data:`` line,
-                    # terminated by a blank line. We use ``default=str``
-                    # so asyncpg datetimes / UUIDs (which appear in the
-                    # ``user_message`` and ``assistant_message`` events)
-                    # serialize without an extra coercion step.
-                    yield f"data: {json.dumps(event, default=str)}\n\n"
-            except Exception as exc:
-                logger.exception("chat_stream failed for session %s", session_id)
-                yield f"data: {json.dumps({'type': 'error', 'message': str(exc)})}\n\n"
-
-    return StreamingResponse(
-        event_generator(),
-        media_type="text/event-stream",
-        headers={
-            # Disable any intermediate buffering so each frame reaches
-            # the client immediately — nginx in particular adds 4 KB
-            # of buffering by default which would batch our deltas.
-            "Cache-Control": "no-cache, no-transform",
-            "X-Accel-Buffering": "no",
-            "Connection": "keep-alive",
-        },
-    )
-
 
 @app.post("/sessions/{session_id}/symptoms", status_code=status.HTTP_201_CREATED)
 async def create_symptom_entry(session_id: UUID, payload: SymptomEntryCreate, connection: asyncpg.Connection = Depends(get_connection)):
@@ -1784,9 +1778,13 @@ async def list_assessment_reviews(
             s.metadata->'triage_classification'->>'symptoms_summary' AS ai_chief_complaint,
             s.metadata->'triage_classification'->>'key_reason' AS ai_illness_note,
             NULLIF(s.metadata->>'patient_follow_up', '') AS patient_follow_up,
-            s.metadata->'his_routing'->>'status' AS his_routing_status
+            s.metadata->'his_routing'->>'status' AS his_routing_status,
+            ss.state->'measured_vitals' AS screening_measured_vitals,
+            ss.state->'rejected_vitals' AS screening_rejected_vitals,
+            ss.state->>'phase' AS screening_phase
         FROM assessment_reviews ar
         JOIN sessions s ON s.id = ar.session_id
+        LEFT JOIN screening_sessions ss ON ss.session_id = ar.session_id
         LEFT JOIN admin_users reviewer ON reviewer.id = ar.reviewer_id
         LEFT JOIN departments pd ON pd.id = ar.proposed_department_id
         LEFT JOIN departments cd ON cd.id = ar.confirmed_department_id
@@ -1800,7 +1798,7 @@ async def list_assessment_reviews(
         """,
         status,
     )
-    return records_to_dicts(rows)
+    return [_attach_missing_vitals(row) for row in records_to_dicts(rows)]
 
 
 async def _push_his_routing(
@@ -1872,9 +1870,11 @@ async def _push_his_routing(
 # HIS_MODE=http; degrades to an empty/unavailable response otherwise.
 
 async def _his_proxy_get(path: str) -> dict | None:
+    from app.services.screening.his import his_auth_headers
+
     if settings.his_mode != "http" or not settings.his_base_url:
         return None
-    headers = {"X-API-Key": settings.his_api_key} if settings.his_api_key else {}
+    headers = his_auth_headers(settings.his_api_key)
     url = f"{settings.his_base_url.rstrip('/')}{path}"
     try:
         async with httpx.AsyncClient(timeout=settings.his_timeout_seconds) as client:
@@ -1890,10 +1890,14 @@ async def _his_proxy_get(path: str) -> dict | None:
     return None
 
 
-async def _probe_his_endpoint(endpoint: str) -> tuple[bool, int | None, str | None]:
+async def _probe_his_endpoint(
+    endpoint: str, api_key: str | None = None
+) -> tuple[bool, int | None, str | None]:
     """Try the visits listing on a candidate HIS endpoint. Returns
     (connected, visit_count, error_message)."""
-    headers = {"X-API-Key": settings.his_api_key} if settings.his_api_key else {}
+    from app.services.screening.his import his_auth_headers
+
+    headers = his_auth_headers(api_key)
     url = f"{endpoint.rstrip('/')}/api/visits"
     try:
         async with httpx.AsyncClient(timeout=3.0) as client:
@@ -1901,7 +1905,7 @@ async def _probe_his_endpoint(endpoint: str) -> tuple[bool, int | None, str | No
     except httpx.HTTPError as exc:
         return False, None, f"Could not reach the database endpoint: {exc}"
     if resp.status_code == 401:
-        return False, None, "The database rejected our API key (401)."
+        return False, None, "The database rejected our access token (401)."
     if resp.status_code != 200:
         return False, None, f"The database answered with status {resp.status_code}."
     try:
@@ -1921,6 +1925,7 @@ def _his_connection_payload(
         connected=connected,
         visit_count=visit_count,
         message=message,
+        has_api_key=bool(settings.his_api_key),
     )
 
 
@@ -1931,7 +1936,9 @@ async def admin_his_connection(
     """Current hospital-DB connection state for the Database Settings tab."""
     if settings.his_mode != "http" or not settings.his_base_url:
         return _his_connection_payload(False, None, None)
-    connected, count, message = await _probe_his_endpoint(settings.his_base_url)
+    connected, count, message = await _probe_his_endpoint(
+        settings.his_base_url, settings.his_api_key
+    )
     return _his_connection_payload(connected, count, message)
 
 
@@ -1956,22 +1963,27 @@ async def admin_his_connect(
         raise HTTPException(
             status_code=422, detail="Endpoint must start with http:// or https://"
         )
-    connected, count, message = await _probe_his_endpoint(endpoint)
+    # Blank token field keeps the saved one (so admins can change the name or
+    # URL without re-typing the secret); disconnect is how you clear it.
+    api_key = (payload.api_key or "").strip() or settings.his_api_key
+    connected, count, message = await _probe_his_endpoint(endpoint, api_key)
     if not connected:
         raise HTTPException(status_code=422, detail=message or "Connection failed")
 
     settings.his_mode = "http"
     settings.his_base_url = endpoint
+    settings.his_api_key = api_key
     settings.his_display_name = payload.name.strip()
     request.app.state.his_adapter = HttpHisAdapter(
         base_url=endpoint,
-        api_key=settings.his_api_key,
+        api_key=api_key,
         timeout=settings.his_timeout_seconds,
     )
     try:
         persist_env_keys({
             "HIS_MODE": "http",
             "HIS_BASE_URL": endpoint,
+            "HIS_API_KEY": api_key or "",
             "HIS_DISPLAY_NAME": settings.his_display_name,
         })
     except OSError:
@@ -1990,15 +2002,17 @@ async def admin_his_disconnect(
     """Disconnect the hospital DB: back to the mock adapter, persisted.
 
     HIS_BASE_URL is kept in .env so reconnecting pre-fills the last endpoint;
-    only the mode flips. Booth flows keep working (mock accepts every visit,
-    write-backs are logged instead of sent)."""
+    the access token is cleared (re-typed on reconnect — it's a secret, and
+    this is the UI's only way to drop a stale one). Booth flows keep working
+    (mock accepts every visit, write-backs are logged instead of sent)."""
     from app.services.env_persist import persist_env_keys
     from app.services.screening.his import MockHisAdapter
 
     settings.his_mode = "mock"
+    settings.his_api_key = None
     request.app.state.his_adapter = MockHisAdapter()
     try:
-        persist_env_keys({"HIS_MODE": "mock"})
+        persist_env_keys({"HIS_MODE": "mock", "HIS_API_KEY": ""})
     except OSError:
         logger.exception("HIS disconnect applied but failed to persist .env")
     logger.info("HIS connection disconnected by admin")
@@ -3137,14 +3151,15 @@ async def get_triage_manual_status(
 
 # ── Screening criteria governance (SRS F31-F35) ───────────────────────────────
 #
-# Lifecycle: upload → draft (LLM extraction merges into the active payload in
-# the background) → head-nurse edit (PUT) → submit → approve → activate.
-# Activating retires the current active version in the same transaction;
-# activating a retired version is the rollback path. Sessions pin the version
-# they started with, so activation never changes an in-flight conversation.
+# Criteria are curated/seeded only (the document-upload extraction path was
+# removed by product decision). Lifecycle: draft → head-nurse edit (PUT) →
+# submit → approve → activate. Activating retires the current active version
+# in the same transaction; activating a retired version is the rollback path.
+# Sessions pin the version they started with, so activation never changes an
+# in-flight conversation.
 
-CRITERIA_UPLOAD_DIR = "app/data/uploads/criteria"
-CRITERIA_UPLOAD_SUFFIXES = {".pdf", ".txt", ".md", ".csv", ".docx"}
+# Legacy drafts created by the removed upload path may still carry this
+# change_summary prefix; keep flagging them as "processing" in listings.
 _CRITERIA_PROCESSING_PREFIX = "Extracting"
 
 
@@ -3181,131 +3196,6 @@ async def _active_criteria_payload(conn: asyncpg.Connection) -> dict:
     return json.loads(SEED_CRITERIA_PATH.read_text(encoding="utf-8"))
 
 
-async def _run_criteria_extract_task(
-    *,
-    pool: asyncpg.Pool,
-    version_id: str,
-    file_path: str,
-    filename: str,
-) -> None:
-    """Background task: extract rules from the uploaded document into the draft."""
-    from app.services.screening.criteria_upload import extract_criteria_draft
-    from app.services.screening.model_adapter import build_chat_model
-
-    try:
-        async with pool.acquire() as conn:
-            base = await _active_criteria_payload(conn)
-        model = build_chat_model(settings)
-        draft, warnings = await extract_criteria_draft(
-            file_path=file_path,
-            filename=filename,
-            model=model,
-            base_payload=base,
-        )
-        summary = f"Extracted from {filename}"
-        if warnings:
-            summary += f" — {len(warnings)} warning(s): " + "; ".join(warnings[:10])
-        async with pool.acquire() as conn:
-            await conn.execute(
-                """UPDATE screening_criteria_versions
-                      SET criteria = $1::jsonb, change_summary = $2
-                    WHERE id = $3""",
-                json.dumps(draft, ensure_ascii=False),
-                summary[:4000],
-                UUID(version_id),
-            )
-        logger.info("Criteria extraction complete for version %s", version_id)
-    except Exception as exc:
-        logger.exception("Criteria extraction failed for version %s", version_id)
-        try:
-            async with pool.acquire() as conn:
-                await conn.execute(
-                    """UPDATE screening_criteria_versions
-                          SET change_summary = $1 WHERE id = $2""",
-                    f"Extraction failed ({filename}): {exc}"[:2000],
-                    UUID(version_id),
-                )
-        except Exception:
-            logger.exception("Could not record extraction failure for %s", version_id)
-
-
-@app.post("/admin/criteria/upload")
-async def upload_screening_criteria(
-    request: Request,
-    file: UploadFile = File(..., description="Screening criteria document (PDF/TXT/MD/CSV/DOCX)"),
-    connection: asyncpg.Connection = Depends(get_connection),
-    admin_user: dict = Depends(require_roles("super_admin", "admin")),
-) -> JSONResponse:
-    """Upload a screening-criteria document and create a draft version.
-
-    The draft starts as a copy of the currently active criteria; a background
-    LLM extraction merges rules found in the document into it. The draft is
-    then reviewed/edited before submit → approve → activate.
-    """
-    import os
-    from pathlib import Path as _Path
-    from uuid import uuid4
-
-    suffix = _Path(file.filename or "").suffix.lower()
-    if suffix not in CRITERIA_UPLOAD_SUFFIXES:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Unsupported file type {suffix or '(none)'}; "
-                   f"accepted: {', '.join(sorted(CRITERIA_UPLOAD_SUFFIXES))}",
-        )
-
-    content = await file.read()
-    if not content:
-        raise HTTPException(status_code=400, detail="Uploaded file is empty.")
-    if len(content) > 50 * 1024 * 1024:
-        raise HTTPException(status_code=413, detail="File too large (max 50 MB).")
-
-    os.makedirs(CRITERIA_UPLOAD_DIR, exist_ok=True)
-    save_path = os.path.join(CRITERIA_UPLOAD_DIR, f"{uuid4()}{suffix}")
-    with open(save_path, "wb") as fh:
-        fh.write(content)
-
-    base = await _active_criteria_payload(connection)
-    uploader = admin_user.get("email") or admin_user.get("id") or "unknown"
-    row = await connection.fetchrow(
-        """
-        INSERT INTO screening_criteria_versions
-            (version_no, status, criteria, change_summary, uploaded_by)
-        VALUES (
-            (SELECT COALESCE(MAX(version_no), 0) + 1 FROM screening_criteria_versions),
-            'draft', $1::jsonb, $2, $3
-        )
-        RETURNING id, version_no, created_at
-        """,
-        json.dumps(base, ensure_ascii=False),
-        f"{_CRITERIA_PROCESSING_PREFIX} rules from {file.filename}…",
-        str(uploader),
-    )
-    version_id = str(row["id"])
-
-    pool: asyncpg.Pool = request.app.state.db_pool
-    asyncio.create_task(
-        _run_criteria_extract_task(
-            pool=pool,
-            version_id=version_id,
-            file_path=save_path,
-            filename=file.filename or f"upload{suffix}",
-        )
-    )
-
-    return JSONResponse(
-        status_code=202,
-        content={
-            "id": version_id,
-            "version_no": row["version_no"],
-            "status": "draft",
-            "processing": True,
-            "created_at": row["created_at"].isoformat(),
-            "message": "Upload received. Rule extraction is running in the background.",
-        },
-    )
-
-
 @app.get("/admin/criteria/versions")
 async def list_criteria_versions(
     _admin_user: dict = Depends(require_roles("super_admin", "admin", "viewer")),
@@ -3328,7 +3218,7 @@ async def get_criteria_version_detail(
     _admin_user: dict = Depends(require_roles("super_admin", "admin", "viewer")),
     connection: asyncpg.Connection = Depends(get_connection),
 ):
-    from app.services.screening.criteria_upload import validation_errors
+    from app.services.screening.rules.criteria_store import validation_errors
 
     row = await connection.fetchrow(
         "SELECT * FROM screening_criteria_versions WHERE id = $1", version_id
@@ -3352,7 +3242,7 @@ async def diff_criteria_version(
     connection: asyncpg.Connection = Depends(get_connection),
 ):
     """Section-level diff (added/removed/changed rule ids) vs another version."""
-    from app.services.screening.criteria_upload import diff_criteria
+    from app.services.screening.rules.criteria_store import diff_criteria
 
     row = await connection.fetchrow(
         "SELECT criteria FROM screening_criteria_versions WHERE id = $1", version_id
@@ -3393,7 +3283,7 @@ async def edit_criteria_version(
     the editor can fix them iteratively — but submit/activate require a clean
     document.
     """
-    from app.services.screening.criteria_upload import validation_errors
+    from app.services.screening.rules.criteria_store import validation_errors
 
     row = await connection.fetchrow(
         "SELECT status FROM screening_criteria_versions WHERE id = $1", version_id
@@ -3436,7 +3326,7 @@ async def _criteria_status_transition(
                    f"requires status in {list(from_statuses)}",
         )
 
-    from app.services.screening.criteria_upload import validation_errors
+    from app.services.screening.rules.criteria_store import validation_errors
 
     errors = validation_errors(_jsonb(row["criteria"]))
     if errors:

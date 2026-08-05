@@ -10,7 +10,13 @@ from ..extraction import ExtractionResult, build_extraction_prompt
 from ..nlu_yesno import BARE_AFFIRMATION, BARE_DENIAL, BARE_UNCERTAINTY, UNC_CORE_RE
 from ..rules.question_policy import get_template
 from ..state import OLDCARTS_SLOTS, Finding
-from ..vitals import FEVER_TEMP_C, apply_objective_findings
+from ..vitals import (
+    FEVER_TEMP_C,
+    apply_objective_findings,
+    check_vitals,
+    effective_vitals,
+    record_rejections,
+)
 from .base import GraphDeps, GraphState, ainvoke_with_timeout
 
 logger = logging.getLogger(__name__)
@@ -163,7 +169,7 @@ def _apply(state, criteria, result: ExtractionResult, user_text: str = "") -> No
         if keyword_category:
             state.complaint_category = keyword_category
 
-    measured_temp = state.vitals.get("temp")
+    measured_temp = effective_vitals(state).get("temp")
     for update in result.finding_updates:
         if update.id in criteria.finding_catalog:
             if (
@@ -180,16 +186,28 @@ def _apply(state, criteria, result: ExtractionResult, user_text: str = "") -> No
         if slot in OLDCARTS_SLOTS and value and str(value).strip():
             state.slots[slot] = str(value).strip()
 
-    if result.age_years is not None and 0 <= result.age_years <= 120:
-        state.age_years = float(result.age_years)
-    if result.pain_score is not None:
-        state.vitals["pain_score"] = float(result.pain_score)
-        state.slots.setdefault("severity", str(result.pain_score))
-    if result.distress_score is not None:
-        state.vitals["distress_score"] = float(result.distress_score)
-        state.slots.setdefault("severity", str(result.distress_score))
-    if result.temperature_c is not None and 30 <= result.temperature_c <= 45:
-        state.vitals["temp"] = float(result.temperature_c)
+    # Spoken numbers go through the same plausibility gate as the cuff — an
+    # impossible value is rejected with a re-ask, never silently dropped.
+    spoken = {
+        "age_years": result.age_years,
+        "pain_score": result.pain_score,
+        "distress_score": result.distress_score,
+        # A booth reading outranks speech, so don't even offer a spoken temp
+        # when the thermometer already spoke.
+        "temp": result.temperature_c if "temp" not in state.measured_vitals else None,
+    }
+    accepted, rejected = check_vitals(
+        {k: v for k, v in spoken.items() if v is not None}, criteria
+    )
+    if rejected:
+        record_rejections(state, rejected, source="reported")
+    if "age_years" in accepted:
+        state.age_years = accepted.pop("age_years")
+    for name, value in accepted.items():
+        state.vitals[name] = value
+    for name in ("pain_score", "distress_score"):
+        if name in accepted:
+            state.slots.setdefault("severity", str(int(accepted[name])))
     apply_objective_findings(state)
 
 

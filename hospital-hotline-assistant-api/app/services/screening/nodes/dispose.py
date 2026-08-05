@@ -11,15 +11,16 @@ from dataclasses import asdict
 
 from ..rules.disposition import DispositionResult, decide
 from ..chief_complaint import format_chief_complaint_summary
+from ..vitals import effective_vitals
 from .base import GraphDeps, GraphState
 
 
-def _summary(state) -> str:
+def _summary(state, criteria=None) -> str:
     """Nurse-facing chief complaint as a natural-language sentence."""
-    return format_chief_complaint_summary(state)
+    return format_chief_complaint_summary(state, criteria)
 
 
-def build_classification(state, disposition: DispositionResult) -> dict:
+def build_classification(state, disposition: DispositionResult, criteria=None) -> dict:
     language = state.language
     key_reason = "; ".join(
         (r.text_th if language == "th" else r.text_en)
@@ -37,7 +38,7 @@ def build_classification(state, disposition: DispositionResult) -> dict:
         "department_code": disposition.department_code,
         "response_time": disposition.response_time,
         "needs_emergency_contact": False,
-        "symptoms_summary": _summary(state),
+        "symptoms_summary": _summary(state, criteria),
         "pain_score": int(pain) if pain is not None else None,
         "pain_location": state.slots.get("location"),
         "distress_score": int(distress) if distress is not None else None,
@@ -66,7 +67,7 @@ def make_dispose_node(deps: GraphDeps):
 
         disposition = decide(
             findings=state.finding_states(),
-            vitals=state.vitals,
+            vitals=effective_vitals(state),
             age_years=state.age_years,
             complaint_category=state.complaint_category,
             criteria=criteria,
@@ -78,7 +79,7 @@ def make_dispose_node(deps: GraphDeps):
             "reasons": [asdict(r) for r in disposition.reasons],
             "rule_hits": [asdict(h) for h in disposition.rule_hits],
         }
-        state.classification = build_classification(state, disposition)
+        state.classification = build_classification(state, disposition, criteria)
         state.phase = "disposed"
         audit.append({
             "call_site": "disposition",

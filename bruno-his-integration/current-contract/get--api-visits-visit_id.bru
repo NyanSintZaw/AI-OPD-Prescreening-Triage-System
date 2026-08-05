@@ -1,0 +1,22 @@
+meta {
+  name: GET /api/visits/{visit_id}
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{hisBaseUrl}}/api/visits/{{visit_id}}
+  body: none
+  auth: none
+}
+
+headers {
+  Authorization: Bearer {{hisToken}}
+  X-API-Key: {{hisToken}}
+}
+
+docs {
+  WE GET — visit lookup: validate a visit id and pull patient name, birthdate, vitals, history (HttpHisAdapter.validate_visit).
+  
+  Get Visit
+}

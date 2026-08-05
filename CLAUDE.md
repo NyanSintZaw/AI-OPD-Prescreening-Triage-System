@@ -4,7 +4,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Overview
 
-AI-assisted hospital hotline triage system for Mae Fah Luang University (MFU) Medical Center. Anonymous patients describe symptoms via text chat or live voice call; an AI agent performs ER Five-Level triage, recommends a department (OPD-first policy), and stores results in Postgres for a nurse-review admin portal and disease-surveillance dashboard.
+AI-assisted OPD prescreening booth for Mae Fah Luang University (MFU) Medical Center. Patients describe symptoms in a live voice conversation at a kiosk booth; an AI agent performs ER Five-Level triage, recommends a department (OPD-first policy), and stores results in Postgres for a nurse-review admin portal and disease-surveillance dashboard. The old text-chat transport was removed — voice/kiosk is the only patient-facing flow.
+
+Per-area CLAUDE.md files (auto-loaded when working in that folder): `hospital-hotline-assistant-api/` (backend), `…-api/app/services/screening/` (AI engine), `hospital-hotline-assistant-web/` (frontend), `viewer/` (wayfinding map), `omblepy/` (BP cuff device), `hospital-his-mock/` (HIS mock), `e2e/` (voice E2E harness).
 
 Monorepo with three subprojects:
 - `hospital-hotline-assistant-api/` — FastAPI backend (Python 3.11, managed with **uv**)
@@ -88,7 +90,7 @@ All routes live in `app/main.py`; persistence is raw SQL via asyncpg (no ORM) th
 
 **RAG grounding** (`app/services/ai/rag_query.py` + `rag_ingest.py`): LlamaIndex over `PGVectorStore` (table `triage_knowledge`, 384-dim multilingual embeddings, **pgvector required** — use the `pgvector/pgvector:pg16` image). `POST /admin/triage-manual/upload` saves the manual PDF and re-ingests as a background task. The screening `explain` node retrieves top passages (`response_mode="no_text"`, so LlamaIndex's `MockLLM` is never used) to ground non-emergency explanations; decisions work without it.
 
-**Text triage flow** (`POST /sessions/{id}/chat` → `TriageService.process_chat`): prepare turn (persist message, load departments) → one screening-engine turn → finalize: persist the engine's severity + department OPD-first (levels 1–2 forced to `emergency`; interview turns stay `unknown`/no-department), rows written to `symptom_entries`, `severity_assessments`, `department_recommendations`, `assessment_reviews`, `disease_surveillance`. The `/chat/stream` variant emits SSE events and drives a `contact_flow` state machine in session metadata. `assessment_status` is `complete` iff `severity_level != "unknown"` — patient severity is redacted to `"unknown"` (`triage_payloads.py`).
+**Turn pipeline** (`TriageService.process_chat_stream`, driven only by the voice bridge — the HTTP `/chat` + `/chat/stream` endpoints were removed): prepare turn (persist message, load departments) → one screening-engine turn → finalize: persist the engine's severity + department OPD-first (levels 1–2 forced to `emergency`; interview turns stay `unknown`/no-department), rows written to `symptom_entries`, `severity_assessments`, `department_recommendations`, `assessment_reviews`, `disease_surveillance`. Stream events drive a `contact_flow` state machine in session metadata. `assessment_status` is `complete` iff `severity_level != "unknown"` — patient severity is redacted to `"unknown"` (`triage_payloads.py`).
 
 **Voice flow** (`WS /ws/voice/{session_id}`): browser streams 16 kHz PCM up / receives 24 kHz PCM down; every turn persists as it happens through `process_chat_stream`. Binary WS frames are mic PCM; JSON control frames are `mute`/`unmute`/`end_of_turn`/`end_call`.
 
@@ -98,11 +100,10 @@ Admin auth is in-memory bearer tokens (`admin_auth.py`, roles `super_admin`/`adm
 
 ### Frontend
 
-React 19 SPA, react-router v7 (`src/App.tsx`): patient routes `/patient`, `/call`, `/chat` (no auth); staff routes `/nurse`, `/admin` gated by `ProtectedRoute` with roles from localStorage. State is hand-rolled hooks + localStorage (react-query is installed but unused).
+React 19 SPA, react-router v7 (`src/App.tsx`): patient-facing kiosk routes `/kiosk`, `/kiosk/session` (no auth; legacy `/patient`/`/call` redirect there); staff routes `/nurse`, `/admin` gated by `ProtectedRoute` with roles from localStorage. State is hand-rolled hooks + localStorage (react-query is installed but unused).
 
 Backend communication (`src/api/client.ts`, base URL from `VITE_API_BASE_URL`):
 - REST via a single `api` fetch wrapper (`src/api/index.ts`), bearer token auto-injected
-- SSE: `api.chatStream()` parses `POST /sessions/{id}/chat/stream` events
 - WebSocket: `src/hooks/useVoiceCall.ts` (~1000 lines) is the live-call engine — an inline AudioWorklet downsamples mic audio to 16 kHz Int16 PCM sent as binary frames to `WS /ws/voice/{session_id}`; 24 kHz PCM replies play through a gap-free scheduler; JSON control frames carry transcripts, emergency banners, `assessment_complete`, mute/end-call.
 
 i18n: i18next with inline resources in `src/i18n/resources.ts` — exactly two languages (`th` default, `en`); update both blocks when adding strings. Styling is plain global CSS with design tokens in `src/styles/tokens.css` (MFU brand vars like `--mch-cyan`) — no Tailwind/CSS Modules. `RecommendationCard.tsx` renders triage results and embeds the static wayfinding map from `public/hospital-map/` via iframe.

@@ -57,6 +57,14 @@ class ScreeningState(BaseModel):
     slots: dict[str, str] = Field(default_factory=dict)  # OLDCARTS slot -> answer text
     findings: dict[str, Finding] = Field(default_factory=dict)
     vitals: dict[str, float] = Field(default_factory=dict)
+    # Objective (cuff/HIS) readings, canonical keys — a record of which vitals
+    # were instrument-measured; spoken/extracted values must never override.
+    measured_vitals: dict[str, float] = Field(default_factory=dict)
+    # Values rejected as physiologically impossible, keyed by canonical vital:
+    # {value, reason, source, attempts, turn, text_en, text_th}. Kept even once
+    # a good value arrives — nurse review shows the flagged number rather than
+    # a blank, and the question node uses it to word the re-ask.
+    rejected_vitals: dict[str, dict[str, Any]] = Field(default_factory=dict)
     age_years: float | None = None
     age_asked: bool = False
 

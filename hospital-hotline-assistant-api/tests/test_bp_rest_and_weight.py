@@ -139,3 +139,69 @@ def test_turn_context_strips_pending_recheck_bp():
     # Without the flag, BP flows to the engine untouched.
     ctx2 = _turn_context({"vitals": {"systolic": 190, "diastolic": 115}})
     assert ctx2 is not None and ctx2["vitals"]["systolic"] == 190
+
+
+# ── Cuff records that are not possible readings ───────────────────────────
+#
+# A slipped cuff or a record read mid-cycle can report numbers no body
+# produces. Those must be discarded at the parser, because 300/220 would
+# otherwise satisfy "sbp > 180" and both open a rest window and dispose an
+# emergency off a measurement that never happened.
+
+def _omblepy_stdout(records):
+    import json as _json
+
+    from app.services.blood_pressure import _RESULT_MARKER
+
+    return (
+        "communication finished\n"
+        + _RESULT_MARKER
+        + _json.dumps([records])
+        + "\n"
+    )
+
+
+def _record(sys_, dia, bpm, when):
+    return {"sys": sys_, "dia": dia, "bpm": bpm, "datetime": when}
+
+
+def test_parser_discards_implausible_records():
+    from app.services.blood_pressure import _parse_result_json
+
+    reading, discarded = _parse_result_json(_omblepy_stdout([
+        _record(300, 220, 80, "2026-08-03 10:00:00"),
+    ]))
+    assert reading is None
+    assert discarded == 1
+
+
+def test_parser_keeps_a_real_crisis_reading():
+    from app.services.blood_pressure import _parse_result_json
+
+    reading, discarded = _parse_result_json(_omblepy_stdout([
+        _record(250, 130, 92, "2026-08-03 10:00:00"),
+    ]))
+    assert discarded == 0
+    assert reading is not None and reading.systolic == 250
+
+
+def test_a_newer_garbage_record_cannot_mask_an_older_good_one():
+    """The newest record normally wins — but not when it isn't a reading."""
+    from app.services.blood_pressure import _parse_result_json
+
+    reading, discarded = _parse_result_json(_omblepy_stdout([
+        _record(118, 76, 70, "2026-08-03 10:00:00"),
+        _record(300, 220, 80, "2026-08-03 10:05:00"),  # newer, impossible
+    ]))
+    assert discarded == 1
+    assert reading is not None and reading.systolic == 118
+
+
+def test_implausible_only_batch_is_not_reported_as_no_records():
+    """The patient is told to measure again, not that the monitor is empty."""
+    from app.services.blood_pressure import _parse_result_json
+
+    reading, discarded = _parse_result_json(_omblepy_stdout([
+        _record(5, 3, 40, "2026-08-03 10:00:00"),
+    ]))
+    assert reading is None and discarded == 1

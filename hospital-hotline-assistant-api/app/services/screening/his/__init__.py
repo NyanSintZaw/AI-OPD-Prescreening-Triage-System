@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 
 from .adapter import HisAdapter, PatientHistory, VisitInfo
 from .department_map import his_department_name
-from .http_adapter import HttpHisAdapter
+from .http_adapter import HttpHisAdapter, his_auth_headers
 from .mock import MockHisAdapter
 
 if TYPE_CHECKING:
@@ -18,6 +18,7 @@ __all__ = [
     "PatientHistory",
     "MockHisAdapter",
     "HttpHisAdapter",
+    "his_auth_headers",
     "his_department_name",
     "build_his_adapter",
 ]

@@ -193,6 +193,14 @@ export interface AssessmentReviewOut {
     temperature?: number | null;
     source?: string | null;
   } | null;
+  /** Core vitals (hr/rr/spo2/temp/sbp) never instrument-measured this
+   *  session — shown as an undertriage caution. Null for non-disposed rows. */
+  missing_vitals?: string[] | null;
+  /** Values the patient or cuff reported that were refused as
+   *  physiologically impossible, keyed by canonical vital. Shown flagged with
+   *  the reported number — a blank would read as "never measured", which is a
+   *  different and much less alarming thing. Never published to the HIS. */
+  rejected_vitals?: Record<string, RejectedVital> | null;
   /** AI narrative (read-only originals the nurse can edit before publishing). */
   ai_chief_complaint?: string | null;
   ai_illness_note?: string | null;
@@ -236,13 +244,8 @@ export interface RoutingFeedbackOut {
   created_at: string;
 }
 
-export interface ChatRequestPayload {
-  content: string;
-  input_mode: InputMode;
-  language: LanguageCode;
-  history?: Array<Record<string, unknown>>;
-}
-
+/** Final assessment payload — the terminal `complete` stream event and the
+ *  voice WS `assessment_complete` frame both carry this shape. */
 export interface ChatResponsePayload {
   reply: string;
   severity: {
@@ -313,30 +316,6 @@ export interface SttResponsePayload {
   confidence: number | null;
   language_code: string;
 }
-
-/**
- * One frame emitted by ``POST /sessions/{id}/chat/stream``. The shape
- * mirrors :meth:`triage_service.process_chat_stream` — every frame
- * carries a ``type`` discriminator and the payload fields it needs.
- *
- * Frame ordering for a successful turn:
- *   1. ``user_message`` (once, with the persisted DB row)
- *   2. zero or more ``delta`` frames (typewriter text)
- *   3. zero or one ``classified`` frame (TriageAgent classified)
- *   4. ``complete`` (once, with full assessment + assistant DB row)
- * Errors interrupt with a single ``error`` frame.
- */
-export type ChatStreamEvent =
-  | { type: 'user_message'; message: MessageOut }
-  | { type: 'delta'; text: string }
-  | { type: 'reset' }
-  | { type: 'classified'; classification: Record<string, unknown> }
-  | {
-      type: 'complete';
-      result: ChatResponsePayload;
-      assistant_message: MessageOut;
-    }
-  | { type: 'error'; message: string };
 
 export interface ApiError {
   detail: string;
@@ -413,6 +392,9 @@ export type BloodPressureFetchStatus =
   | 'wrong_device'
   | 'timeout'
   | 'no_records'
+  /** Records came back but none were physiologically possible — re-measure
+   *  immediately (this is not a crisis reading, so no rest window). */
+  | 'implausible'
   | 'not_seen'
   | 'resting'
   | 'error';
@@ -439,6 +421,35 @@ export interface BpRestStatusOut {
   reason: string | null;
   hn: string | null;
   visit_id: string | null;
+}
+
+/** One value refused as physiologically impossible. `value` is what was
+ *  actually reported, kept so nurse review can show it flagged. */
+export interface RejectedVital {
+  vital: string;
+  value: number;
+  /** 'out_of_range' | 'sbp_le_dbp' | 'bmi_implausible' */
+  reason: string;
+  /** 'reported' (patient said it) | 'measured' (cuff/HIS sent it) */
+  source?: string;
+  attempts?: number;
+  turn?: number;
+  text_en?: string;
+  text_th?: string;
+}
+
+/** Physiologically possible range for one vital, from the active criteria. */
+export interface VitalBound {
+  min: number;
+  max: number;
+  unit: string;
+  retry_text_en: string;
+  retry_text_th: string;
+}
+
+export interface VitalBoundsOut {
+  bounds: Record<string, VitalBound>;
+  cross_checks: Record<string, { text_en: string; text_th: string }>;
 }
 
 export interface SessionVitalsUpdate {
@@ -545,11 +556,15 @@ export interface HisConnection {
   connected: boolean;
   visit_count?: number | null;
   message?: string | null;
+  /** A token is saved server-side; the token itself is never sent back. */
+  has_api_key?: boolean;
 }
 
 export interface HisConnectionUpdate {
   endpoint: string;
   name: string;
+  /** Optional bearer token; omit/blank keeps the saved one. */
+  api_key?: string;
 }
 
 export interface AdminManagedUser {
@@ -681,10 +696,6 @@ export interface BpPairResponse {
 
 // ── Disease Surveillance ──────────────────────────────────────────────────────
 
-export interface SessionLocationUpdate {
-  location_area: string;
-}
-
 export interface SymptomCount {
   keyword: string;
   count: number;
@@ -768,15 +779,6 @@ export interface CriteriaVersionSummary {
 export interface CriteriaVersionDetail extends CriteriaVersionSummary {
   criteria: Record<string, unknown>;
   validation_errors: string[];
-}
-
-export interface CriteriaUploadResponse {
-  id: string;
-  version_no: number;
-  status: CriteriaVersionStatus;
-  processing: boolean;
-  created_at: string;
-  message: string;
 }
 
 export interface CriteriaSectionDiff {

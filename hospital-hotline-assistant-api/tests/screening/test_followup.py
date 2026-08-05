@@ -8,10 +8,12 @@ from app.services.screening.nodes.base import GraphDeps
 from app.services.screening.nodes.followup import make_followup_node
 from app.services.screening.state import ScreeningState
 
+from .fakes import FakeChatModel
 
-def _deps() -> GraphDeps:
+
+def _deps(model=None) -> GraphDeps:
     return GraphDeps(
-        model=None,
+        model=model,
         question_budget=8,
         department_names={
             "opd_general": {"en": "OPD General Practice", "th": "OPD เวชปฏิบัติทั่วไป"},
@@ -20,7 +22,7 @@ def _deps() -> GraphDeps:
     )
 
 
-async def _run(language: str, utterance: str, phase: str = "follow_up"):
+async def _run_full(language: str, utterance: str, model=None, phase: str = "follow_up"):
     state = ScreeningState(
         session_id="fu",
         language=language,  # type: ignore[arg-type]
@@ -31,8 +33,14 @@ async def _run(language: str, utterance: str, phase: str = "follow_up"):
             "department_code": "opd_general",
         },
     )
-    node = make_followup_node(_deps())
-    result = await node({"s": state, "user_text": utterance, "criteria": None, "audit": []})
+    node = make_followup_node(_deps(model))
+    return await node(
+        {"s": state, "user_text": utterance, "criteria": None, "audit": []}
+    )
+
+
+async def _run(language: str, utterance: str, phase: str = "follow_up"):
+    result = await _run_full(language, utterance, phase=phase)
     return result["s"], result["output"]
 
 
@@ -87,3 +95,69 @@ async def test_question_content_recorded_even_with_leading_no():
     state, out = await _run("en", "No wait — can I eat before the blood test?")
     assert state.phase == "done"
     assert state.patient_follow_up == "No wait — can I eat before the blood test?"
+
+
+# ── LLM backstop behind the regex gate ───────────────────────────────────────
+
+
+async def test_novel_decline_rescued_by_backstop():
+    model = FakeChatModel()
+    model.structured.append("decline")
+    result = await _run_full("en", "no worries, I'm all set", model)
+    state, out = result["s"], result["output"]
+    assert state.phase == "done"
+    assert out.flow_complete is True
+    assert state.patient_follow_up is None  # nothing pushed to HIS
+    # Polite close, not the "noted for the doctor" ack.
+    from app.services.screening import templates
+
+    assert result["output"].reply == templates.follow_up_close(
+        None, "OPD General Practice", "en"
+    )
+    # The backstop call is audited.
+    entry = result["audit"][-1]
+    assert entry["call_site"] == "gate_backstop"
+    assert entry["kind"] == "followup_decline"
+    assert entry["regex_verdict"] == "content"
+    assert entry["llm_verdict"] == "decline"
+    assert entry["ok"] is True
+
+
+async def test_backstop_failure_stores_note_as_today():
+    model = FakeChatModel()  # empty structured queue → call fails → "unclear"
+    result = await _run_full("en", "no worries, I'm all set", model)
+    assert result["s"].patient_follow_up == "no worries, I'm all set"
+    assert result["audit"][-1]["ok"] is False
+    assert result["audit"][-1]["llm_verdict"] == "unclear"
+
+
+async def test_backstop_content_verdict_stores_note():
+    model = FakeChatModel()
+    model.structured.append("content")
+    result = await _run_full("en", "please tell the doctor I take warfarin", model)
+    assert result["s"].patient_follow_up == "please tell the doctor I take warfarin"
+
+
+@pytest.mark.parametrize("text", [
+    # Live-seen misses (2026-07-27) — now closed by the regex fast path
+    # without spending an LLM call; the backstop stays behind them.
+    "ไม่มีแล้วค่ะ ขอบคุณค่ะ",
+    "No, there isn't anything. I'm done.",
+    "no thanks",
+])
+async def test_regex_decline_never_calls_the_model(text):
+    model = FakeChatModel()  # would raise if consulted (empty queues)
+    result = await _run_full("en" if text.isascii() else "th", text, model)
+    assert result["s"].patient_follow_up is None
+    assert result["s"].phase == "done"
+    assert model.prompts == []  # no LLM call on the deterministic path
+
+
+@pytest.mark.parametrize("text", ["k", ".", "ๆ", "", "y"])
+async def test_sub_two_char_scrap_never_stored(text):
+    model = FakeChatModel()
+    result = await _run_full("en", text, model)
+    assert result["s"].patient_follow_up is None
+    assert result["s"].phase == "done"
+    assert result["output"].flow_complete is True
+    assert model.prompts == []  # too trivial to even ask the backstop

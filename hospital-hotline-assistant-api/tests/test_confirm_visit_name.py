@@ -67,3 +67,120 @@ async def test_reject_keeps_real_measurements():
     })
     await apply_confirm_decision(conn, "s-1", "no")
     assert conn.metadata["vitals"]["systolic"] == 132
+
+
+# ── REST endpoint fail-closed retry gate (parity with the voice path) ────────
+
+import pytest
+from fastapi import HTTPException
+
+
+def _linked_meta(**extra):
+    return {
+        "visit": {"visit_id": "990000000000000002", "patient_name": "สมชาย ใจดี"},
+        **extra,
+    }
+
+
+async def _call(conn, **payload_kwargs):
+    from app.main import confirm_visit_name
+    from app.schemas import ConfirmVisitNameRequest
+
+    return await confirm_visit_name(
+        "11111111-1111-1111-1111-111111111111",  # type: ignore[arg-type]
+        ConfirmVisitNameRequest(**payload_kwargs),
+        conn,
+    )
+
+
+async def test_unclear_returns_422_and_counts_attempt():
+    conn = _MetaConn(_linked_meta())
+    with pytest.raises(HTTPException) as exc:
+        await _call(conn, text="ไม่แน่ใจ")
+    assert exc.value.status_code == 422
+    assert exc.value.detail == {"code": "unclear", "retries_left": 1}
+    assert conn.metadata["confirm_name_attempts"] == 1
+    assert "visit" in conn.metadata  # link untouched while retrying
+
+
+async def test_unclear_at_retry_cap_rejects_fail_closed():
+    # One unclear answer already recorded → the next one exhausts the cap and
+    # is treated as an explicit "no": unlink + counter reset.
+    conn = _MetaConn(_linked_meta(confirm_name_attempts=1))
+    out = await _call(conn, text="ไม่แน่ใจ")
+    assert out.decision == "no"
+    assert out.unlinked is True
+    assert out.name_confirmed is False
+    assert "visit" not in conn.metadata
+    assert "confirm_name_attempts" not in conn.metadata
+
+
+async def test_definitive_yes_after_unclear_resets_counter():
+    conn = _MetaConn(_linked_meta(confirm_name_attempts=1))
+    out = await _call(conn, confirmed=True)
+    assert out.decision == "yes"
+    assert out.name_confirmed is True
+    assert conn.metadata["visit"]["name_confirmed"] is True
+    assert "confirm_name_attempts" not in conn.metadata
+
+
+# ── LLM backstop before the 422 retry path ───────────────────────────────────
+
+
+class _FakeStructured:
+    def __init__(self, verdict):
+        self._verdict = verdict
+
+    async def ainvoke(self, prompt):
+        if self._verdict is None:
+            raise RuntimeError("backstop model down")
+        return self._schema(verdict=self._verdict)
+
+
+class _FakeModel:
+    """Minimal with_structured_output surface for confirm_gate."""
+
+    def __init__(self, verdict: str | None):
+        self._verdict = verdict
+
+    def with_structured_output(self, schema):
+        s = _FakeStructured(self._verdict)
+        s._schema = schema
+        return s
+
+
+async def test_unclear_backstop_no_rejects_immediately(monkeypatch):
+    import app.main as main_mod
+
+    monkeypatch.setattr(main_mod, "_screening_model", lambda: _FakeModel("no"))
+    conn = _MetaConn(_linked_meta())
+    out = await _call(conn, text="banana banana")
+    assert out.decision == "no"
+    assert out.unlinked is True
+    assert "visit" not in conn.metadata
+    # No retry counter left behind — the answer was definitive.
+    assert "confirm_name_attempts" not in conn.metadata
+
+
+async def test_unclear_backstop_yes_confirms_and_resets_counter(monkeypatch):
+    import app.main as main_mod
+
+    monkeypatch.setattr(main_mod, "_screening_model", lambda: _FakeModel("yes"))
+    conn = _MetaConn(_linked_meta(confirm_name_attempts=1))
+    out = await _call(conn, text="banana banana")
+    assert out.decision == "yes"
+    assert out.name_confirmed is True
+    assert conn.metadata["visit"]["name_confirmed"] is True
+    assert "confirm_name_attempts" not in conn.metadata
+
+
+async def test_unclear_backstop_failure_keeps_422_flow(monkeypatch):
+    import app.main as main_mod
+
+    monkeypatch.setattr(main_mod, "_screening_model", lambda: _FakeModel(None))
+    conn = _MetaConn(_linked_meta())
+    with pytest.raises(HTTPException) as exc:
+        await _call(conn, text="banana banana")
+    assert exc.value.status_code == 422
+    assert exc.value.detail == {"code": "unclear", "retries_left": 1}
+    assert conn.metadata["confirm_name_attempts"] == 1

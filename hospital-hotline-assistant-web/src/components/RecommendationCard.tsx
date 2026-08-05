@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import type { ChatAssessment } from '../hooks/useChat';
+import type { ChatAssessment } from '../utils/assessment';
 
 interface RecommendationCardProps {
   assessment: ChatAssessment;

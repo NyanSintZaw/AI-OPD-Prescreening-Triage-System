@@ -8,10 +8,9 @@ import {
   type CriteriaVersionSummary,
 } from '../api';
 import type { CriteriaVersionStatus } from '../api/types';
+import { CriteriaSources, CriteriaViewer } from './CriteriaViewer';
 
 const POLL_INTERVAL_MS = 3000; // poll while background rule extraction runs
-const MAX_FILE_MB = 50;
-const ACCEPTED_EXTENSIONS = ['.pdf', '.txt', '.md', '.csv', '.docx'];
 
 function formatDate(iso: string | null | undefined): string {
   if (!iso) return '—';
@@ -24,7 +23,6 @@ export function CriteriaManager() {
   const [versions, setVersions] = useState<CriteriaVersionSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [uploading, setUploading] = useState(false);
   const [busy, setBusy] = useState(false);
 
   const [selected, setSelected] = useState<CriteriaVersionDetail | null>(null);
@@ -32,7 +30,6 @@ export function CriteriaManager() {
   const [editText, setEditText] = useState<string | null>(null);
   const [editErrors, setEditErrors] = useState<string[]>([]);
 
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const loadVersions = useCallback(async () => {
@@ -65,38 +62,17 @@ export function CriteriaManager() {
     };
   }, [anyProcessing, loadVersions]);
 
-  // ── upload ──────────────────────────────────────────────────────────────────
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (fileInputRef.current) fileInputRef.current.value = '';
-    if (!file) return;
-    const ext = file.name.slice(file.name.lastIndexOf('.')).toLowerCase();
-    if (!ACCEPTED_EXTENSIONS.includes(ext)) {
-      setError(t('criteriaUploadHint'));
-      return;
-    }
-    if (file.size > MAX_FILE_MB * 1024 * 1024) {
-      setError(`File too large (max ${MAX_FILE_MB} MB).`);
-      return;
-    }
-    setUploading(true);
-    setError(null);
-    try {
-      await api.uploadScreeningCriteria(file);
-      await loadVersions();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : t('error'));
-    } finally {
-      setUploading(false);
-    }
+  // ── selection / detail ──────────────────────────────────────────────────────
+  const closeDetail = () => {
+    setSelected(null);
+    setDiff(null);
+    setEditText(null);
+    setEditErrors([]);
   };
 
-  // ── selection / detail ──────────────────────────────────────────────────────
   const selectVersion = async (versionId: string) => {
     if (selected?.id === versionId) {
-      setSelected(null);
-      setDiff(null);
-      setEditText(null);
+      closeDetail();
       return;
     }
     setBusy(true);
@@ -194,28 +170,6 @@ export function CriteriaManager() {
         </p>
       )}
 
-      <div className="tm-actions cm-upload-row">
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept={ACCEPTED_EXTENSIONS.join(',')}
-          className="tm-file-input"
-          onChange={(e) => void handleFileChange(e)}
-          aria-hidden="true"
-          tabIndex={-1}
-        />
-        <button
-          type="button"
-          className="primary-btn"
-          disabled={uploading}
-          onClick={() => fileInputRef.current?.click()}
-        >
-          {uploading ? <span className="tm-spinner" aria-hidden="true" /> : null}
-          {t('criteriaUploadBtn')}
-        </button>
-        <span className="muted cm-upload-hint">{t('criteriaUploadHint')}</span>
-      </div>
-
       {loading ? (
         <p className="muted">{t('loading')}</p>
       ) : versions.length === 0 ? (
@@ -268,9 +222,21 @@ export function CriteriaManager() {
       )}
 
       {selected && (
-        <div className="cm-detail">
-          <div className="cm-detail-header">
-            <h3>
+        <div
+          className="nurse-review-modal"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="cm-modal-title"
+        >
+          <button
+            type="button"
+            className="nurse-review-modal-backdrop"
+            aria-label={t('close')}
+            onClick={closeDetail}
+          />
+          <div className="nurse-review-modal-card cm-modal-card">
+          <div className="nurse-review-modal-header">
+            <h3 id="cm-modal-title">
               v{selected.version_no} —{' '}
               <span className={`cm-status-pill cm-status-${selected.status}`}>
                 {statusLabel(selected.status)}
@@ -341,8 +307,18 @@ export function CriteriaManager() {
                   {t('criteriaEditBtn')}
                 </button>
               )}
+              <button
+                type="button"
+                className="secondary-btn nurse-review-modal-close"
+                onClick={closeDetail}
+              >
+                {t('close')}
+              </button>
             </div>
           </div>
+
+          <div className="cm-modal-body">
+          <CriteriaSources doc={selected.criteria} />
 
           {selected.validation_errors.length > 0 ? (
             <div className="cm-validation-errors" role="alert">
@@ -391,6 +367,8 @@ export function CriteriaManager() {
             </div>
           )}
 
+          {editText == null && <CriteriaViewer doc={selected.criteria} />}
+
           {editText != null && (
             <div className="cm-editor">
               {editErrors.length > 0 && (
@@ -432,6 +410,8 @@ export function CriteriaManager() {
               </div>
             </div>
           )}
+          </div>
+          </div>
         </div>
       )}
 

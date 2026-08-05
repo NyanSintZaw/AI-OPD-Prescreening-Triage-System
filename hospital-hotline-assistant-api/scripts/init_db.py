@@ -14,10 +14,11 @@ Readies BOTH databases the demo needs, in one command:
 4. Applies every ``migrations/NNN_*.sql`` file in lexicographic order
    inside a single transaction per file, then records it in
    ``schema_migrations``.  Already-recorded files are skipped.
-5. Seeds screening-criteria v1 (idempotent — same as
-   ``seed_screening_criteria.py``) so the criteria-governance UI shows an
-   active version. The engine also falls back to the bundled JSON, so this
-   is a convenience, not a hard requirement.
+5. Seeds screening-criteria v1 as active and v2 as a draft (idempotent —
+   same as ``seed_screening_criteria.py``) so the criteria-governance UI
+   shows an active version plus the v2 draft awaiting review. The engine
+   also falls back to the bundled JSON, so this is a convenience, not a
+   hard requirement.
 6. Prints a summary of tables + seed-table row counts.
 
 **Mock hospital DB (HIS, SQLite)**: a separate service that auto-seeds its
@@ -153,7 +154,8 @@ async def count_rows(conn: asyncpg.Connection, table: str) -> int | None:
 
 
 async def seed_criteria() -> None:
-    """Seed screening-criteria v1 (reuses seed_screening_criteria.main).
+    """Seed screening-criteria v1 (active) + v2 (draft); reuses
+    seed_screening_criteria.main, which prints a version/status summary.
 
     Runs after migrations so the screening_criteria_versions table exists.
     Non-fatal: the engine falls back to the bundled JSON if this fails."""

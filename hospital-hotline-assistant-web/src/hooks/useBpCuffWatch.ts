@@ -120,6 +120,11 @@ export function useBpCuffWatch(sessionId?: string | null): UseBpCuffWatchResult 
             setStatus('error');
             return;
           }
+          if (result.status === 'implausible') {
+            setErrorKey('vitalsErrImplausible');
+            setStatus('error');
+            return;
+          }
           if (result.status === 'ok' && result.measured_at) {
             const measuredMs = new Date(result.measured_at).getTime();
             if (measuredMs >= anchor - CLOCK_SKEW_MS) {
@@ -150,6 +155,14 @@ export function useBpCuffWatch(sessionId?: string | null): UseBpCuffWatchResult 
           if (watchTokenRef.current !== token) return;
           if (result.status === 'resting') {
             setErrorKey('vitalsErrResting');
+            setStatus('error');
+            return;
+          }
+          if (result.status === 'implausible') {
+            // The cuff produced a record, but not a possible one (slipped
+            // cuff, pulled off mid-cycle). Ask for an immediate re-measure —
+            // this is NOT a crisis reading, so no rest window applies.
+            setErrorKey('vitalsErrImplausible');
             setStatus('error');
             return;
           }

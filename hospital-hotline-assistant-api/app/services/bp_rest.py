@@ -13,7 +13,8 @@ from uuid import UUID
 
 import asyncpg
 
-# Matches dv_adult_bp_crisis in screening_criteria_v1.json
+# Must match dv_adult_bp_crisis in the seeded criteria (v1 and v2) —
+# pinned by tests/screening/test_guardrail_precedence.py's drift test.
 CRISIS_SBP = 180
 CRISIS_DBP = 110
 REST_DURATION = timedelta(minutes=15)

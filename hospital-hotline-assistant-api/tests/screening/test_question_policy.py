@@ -19,6 +19,7 @@ def inputs(
     measured_vitals=(),
     questions_asked=0,
     budget=8,
+    ask_counts=None,
 ):
     return InterviewInputs(
         complaint_category=category,
@@ -30,6 +31,7 @@ def inputs(
         measured_vitals=frozenset(measured_vitals),
         questions_asked=questions_asked,
         question_budget=budget,
+        ask_counts=ask_counts or {},
     )
 
 
@@ -353,3 +355,102 @@ def test_bilingual_texts_on_every_question(criteria):
     for q in all_questions:
         assert q.text_en.strip(), q.id
         assert q.text_th.strip(), q.id
+
+
+# ── Measurement re-ask: one retry when no usable value came back ──────────
+#
+# A measurement whose value never arrived — or arrived physiologically
+# impossible and was rejected — gets exactly ONE more attempt, then is left
+# missing so a patient typing nonsense can't loop the interview forever.
+
+
+FEBRILE = {
+    "fever": "present", "confusion": "absent", "dyspnea": "absent",
+    "severe_respiratory_distress": "absent", "stiff_neck": "absent",
+    "recent_chemotherapy": "absent", "rash_vesicles": "absent",
+    "palm_sole_rash": "absent",
+}
+
+
+def test_measurement_reasked_once_when_no_value_arrived(criteria):
+    """Asked once, still unmeasured → ask again."""
+    asked_once = inputs(
+        category="fever",
+        findings=FEBRILE,
+        asked=("fv_temp",),
+        ask_counts={"fv_temp": 1},
+    )
+    q = next_question(criteria, asked_once)
+    assert q is not None and q.id == "fv_temp"
+
+
+def test_measurement_gives_up_after_two_asks(criteria):
+    """Two asks with nothing usable → resolved (skipped), interview moves on."""
+    asked_twice = inputs(
+        category="fever",
+        findings=FEBRILE,
+        asked=("fv_temp",),
+        ask_counts={"fv_temp": 2},
+    )
+    q = next_question(criteria, asked_twice)
+    assert q is None or q.id != "fv_temp"
+
+
+def test_measurement_resolves_immediately_on_a_good_value(criteria):
+    """A plausible reading resolves it on the first ask — no pointless repeat."""
+    answered = inputs(
+        category="fever",
+        findings=FEBRILE,
+        asked=("fv_temp",),
+        ask_counts={"fv_temp": 1},
+        measured_vitals={"temp"},
+    )
+    q = next_question(criteria, answered)
+    assert q is None or q.id != "fv_temp"
+
+
+def test_measurement_reask_still_terminates_the_interview(criteria):
+    """The re-ask must not deadlock the completeness gate."""
+    spent = inputs(questions_asked=8, budget=8, ask_counts={"pd_weight_height": 1})
+    assert not is_interview_complete(criteria, spent, provisional_level=4)
+    assert next_question(criteria, spent).id == "pd_weight_height"
+
+    exhausted = inputs(questions_asked=8, budget=8, ask_counts={"pd_weight_height": 2})
+    assert is_interview_complete(criteria, exhausted, provisional_level=4)
+    assert next_question(criteria, exhausted) is None
+
+
+def test_measurement_holds_completeness_when_slots_fill_early(criteria):
+    """A complaint sentence that fills the minimum slots on turn 1 must not
+    dispose past the BP question (live E2E 2026-08-04: dizziness interview
+    disposed without ever measuring BP — a hypertensive crisis would have
+    walked through unmeasured)."""
+    findings = {
+        "dyspnea": "absent", "severe_respiratory_distress": "absent",
+        "chest_pain_radiating": "absent", "diaphoresis": "absent",
+        "pale_cold_sweaty": "absent",
+    }
+    ivs = inputs(
+        findings=findings,
+        answered_slots={"onset", "duration", "character"},
+        measured_vitals={"weight"},   # wrap-up done; BP still missing
+    )
+    assert not is_interview_complete(criteria, ivs, provisional_level=4)
+    q = next_question(criteria, ivs)
+    assert q is not None and q.id == "cp_bp"
+
+    # Once measured (or twice asked), the hold releases.
+    measured = inputs(
+        findings=findings,
+        answered_slots={"onset", "duration", "character"},
+        measured_vitals={"sbp", "weight"},
+    )
+    assert is_interview_complete(criteria, measured, provisional_level=4)
+    twice_asked = inputs(
+        findings=findings,
+        answered_slots={"onset", "duration", "character"},
+        measured_vitals={"weight"},
+        asked=("cp_bp",),
+        ask_counts={"cp_bp": 2},
+    )
+    assert is_interview_complete(criteria, twice_asked, provisional_level=4)

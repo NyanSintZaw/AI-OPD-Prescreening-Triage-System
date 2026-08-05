@@ -108,3 +108,35 @@ def test_thai_labels_present_on_all_hits(criteria):
     for hit in result.rule_hits:
         assert hit.label_th.strip()
         assert hit.label_en.strip()
+
+
+def test_risk_factors_do_not_inflate_resource_band(criteria):
+    """HN-history stamps (smoking, chronic conditions…) feed the tuples, not
+    acuity: an earache plus five risk factors is still level 4, not 3.
+    Live E2E 2026-08-04: every returning patient with a rich HN record banded
+    one level up on an unrelated complaint."""
+    history = {
+        "smoking": "present", "alcohol_use": "present",
+        "hypertension_history": "present", "past_surgery_history": "present",
+        "family_history_chronic": "present",
+    }
+    result = dispose(
+        criteria, {"ear_pain": "present", **history}, age=41, category="ear",
+    )
+    assert result.level == 4
+
+    # …but genuine symptom findings still band up exactly as before.
+    result = dispose(
+        criteria,
+        {"fever": "present", "vomiting": "present", "diarrhea": "present"},
+        age=41, category="fever",
+    )
+    assert result.level == 3
+
+    # …and risk factors keep their tuple power (pregnancy + HTN history).
+    result = dispose(
+        criteria,
+        {"pregnancy": "present", "hypertension_history": "present"},
+        age=33, category="pregnancy",
+    )
+    assert result.level == 2

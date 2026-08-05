@@ -24,6 +24,7 @@ from .nodes.question import interview_inputs, make_question_node
 from .nodes.terminal import make_escalate_node, make_repeat_node
 from .rules.disposition import decide
 from .rules.question_policy import is_interview_complete, next_question
+from .vitals import effective_vitals
 
 
 def build_screening_graph(deps: GraphDeps):
@@ -66,7 +67,7 @@ def build_screening_graph(deps: GraphDeps):
         # returns True immediately for a provisional level <= 2.
         provisional = decide(
             findings=state.finding_states(),
-            vitals=state.vitals,
+            vitals=effective_vitals(state),
             age_years=state.age_years,
             complaint_category=state.complaint_category,
             criteria=criteria,
