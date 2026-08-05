@@ -26,8 +26,10 @@ def ext(**kwargs):
     return ExtractionResult(finding_updates=updates, **kwargs)
 
 
-async def test_emergency_first_turn_no_interview(criteria):
-    """Chest pain + sweating -> level 2 emergency on the very first turn."""
+async def test_emergency_confirmed_before_firing(criteria):
+    """Chest pain + sweating from free text: the tuple only fires after the
+    patient confirms the extracted findings (confirm-before-fire) — an
+    emergency is never declared from inferred words alone."""
 
     model = FakeChatModel()
     model.extractions.append(ext(
@@ -41,6 +43,21 @@ async def test_emergency_first_turn_no_interview(criteria):
         session_id="s1", language="en", input_mode="text",
         content="I have chest pain and I'm sweating a lot",
     )
+    # Turn 1: no disposition — a verbatim confirm question instead.
+    assert not result["classification"].get("classified")
+    assert result["reply"]  # the confirm question text
+
+    # Confirm both driving findings (chip-style yes answers).
+    model.extractions.append(ext(findings={"chest_pain": "present"}))
+    result = await engine.run_turn(
+        session_id="s1", language="en", input_mode="button", content="Yes",
+    )
+    assert not result["classification"].get("classified")
+    model.extractions.append(ext(findings={"diaphoresis": "present"}))
+    result = await engine.run_turn(
+        session_id="s1", language="en", input_mode="button", content="Yes",
+    )
+
     classification = result["classification"]
     assert classification["classified"] is True
     assert classification["level"] == 2
@@ -50,6 +67,28 @@ async def test_emergency_first_turn_no_interview(criteria):
     assert "Emergency" in result["reply"]
     assert "level" not in result["reply"].lower()
     assert result["model_name"] == "screening:test"
+
+
+async def test_emergency_fires_immediately_from_measured_vitals(criteria):
+    """Objective inputs need no confirmation: a cuff crisis reading disposes
+    on the same turn it arrives."""
+
+    model = FakeChatModel()
+    model.extractions.append(ext(
+        chief_complaint="dizzy",
+        complaint_category="headache",
+        findings={"headache": "present"},
+    ))
+    engine = make_engine(criteria, model)
+    result = await engine.run_turn(
+        session_id="s-vitals", language="en", input_mode="text",
+        content="I feel dizzy",
+        turn_context={"age_years": 50, "vitals": {"sbp": 200, "dbp": 122}},
+    )
+    classification = result["classification"]
+    assert classification.get("classified") is True
+    assert classification["level"] == 2
+    assert "dv_adult_bp_crisis" in classification["red_flags"]
 
 
 async def test_cough_interview_loop_to_general_opd(criteria):
@@ -191,13 +230,15 @@ async def test_no_model_escalates(criteria):
 async def test_stream_event_sequence(criteria):
     model = FakeChatModel()
     model.extractions.append(ext(
-        chief_complaint="chest pain", complaint_category="chest_pain",
-        findings={"chest_pain": "present", "diaphoresis": "present"},
+        chief_complaint="dizzy", complaint_category="headache",
+        findings={"headache": "present"},
     ))
     engine = make_engine(criteria, model)
     events = []
+    # Measured crisis vitals dispose without confirmation (objective input).
     async for event in engine.run_turn_stream(
-        session_id="s8", language="en", input_mode="text", content="chest pain, sweating",
+        session_id="s8", language="en", input_mode="text", content="I feel dizzy",
+        turn_context={"age_years": 50, "vitals": {"sbp": 200, "dbp": 122}},
     ):
         events.append(event)
     types = [e["type"] for e in events]
@@ -211,10 +252,13 @@ async def test_repeat_guidance_after_done(criteria):
     engine = make_engine(criteria, model)
     session = "s9"
     model.extractions.append(ext(
-        chief_complaint="cough", complaint_category="dyspnea_cough",
-        findings={"chest_pain": "present", "diaphoresis": "present"},
+        chief_complaint="dizzy", complaint_category="headache",
+        findings={"headache": "present"},
     ))
-    await engine.run_turn(session_id=session, language="en", input_mode="text", content="hi")
+    await engine.run_turn(
+        session_id=session, language="en", input_mode="text", content="hi",
+        turn_context={"age_years": 50, "vitals": {"sbp": 200, "dbp": 122}},
+    )
     # a later plain turn repeats guidance instead of restarting the interview
     r = await engine.run_turn(
         session_id=session, language="en", input_mode="text", content="so where do I go?",

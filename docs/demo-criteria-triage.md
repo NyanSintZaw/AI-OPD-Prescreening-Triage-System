@@ -163,8 +163,12 @@ measurement — and the gate stops the interview the moment it fires.
 | 1 | 🎙 **"เจ็บแน่นหน้าอก ร้าวไปที่กราม แล้วก็เหงื่อแตกครับ"** ("chest tightness radiating to my jaw, and I'm sweating") | `chest_pain`, `chest_pain_radiating`, `diaphoresis` extracted |
 | 2 | — | **Emergency banner immediately.** No BP card, no weight/height, no follow-up question |
 
-**Verdict: Level 2 (Orange) → Emergency.** Two independent rules fired on the
-same turn:
+**Verdict: Level 2 (Orange) → Emergency.** One nuance to narrate (added Aug
+2026): findings inferred from the opening sentence are **confirmed with one
+verbatim question each before the banner** — the booth never declares an
+emergency from inferred words alone, only from what the patient confirmed or
+a machine measured. Expect one or two quick ใช่/ไม่ questions between the
+sentence and the alert. Two independent rules then fire:
 
 - `ft_mi_chest_pain` — heart-attack fast track (chest pain radiating to
   neck/jaw/shoulder)

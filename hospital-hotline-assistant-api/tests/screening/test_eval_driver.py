@@ -99,7 +99,9 @@ async def test_eval_driver_end_to_end(criteria, tmp_path):
     assert hit["department_actual"] == "emergency"
     assert not hit["undertriage_critical_fail"]
     assert hit["leaks"] == []
-    assert hit["turns"] == 1  # emergency disposed on the very first turn
+    # Confirm-before-fire: the extracted findings are confirmed via their
+    # verbatim questions before the tuple may fire — no longer turn 1.
+    assert 1 < hit["turns"] <= driver.TURN_CAP
 
     miss = by_id["t_synthetic_miss"]
     assert not miss["passed"]

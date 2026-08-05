@@ -88,3 +88,33 @@ def evaluate_red_flags(
 
     hits.sort(key=lambda h: h.level)
     return hits
+
+
+def _condition_finding_ids(condition) -> set[str]:
+    ids: set[str] = set()
+    if condition.finding_id is not None:
+        ids.add(condition.finding_id)
+    for sub in [*(condition.all_of or []), *(condition.any_of or [])]:
+        ids |= _condition_finding_ids(sub)
+    return ids
+
+
+def hit_finding_ids(criteria: ScreeningCriteria, hit: RuleHit) -> set[str]:
+    """Finding ids a fired rule references — used by the confirm-before-fire
+    gate to decide which extraction-sourced findings need confirmation."""
+
+    by_source = {
+        "level1": criteria.level1_criteria,
+        "danger_vitals": criteria.danger_vitals,
+        "fast_track": criteria.fast_tracks,
+        "department_rule": criteria.department_rules,
+    }
+    if hit.source == "triage_tuple":
+        for tup in criteria.triage_tuples:
+            if tup.id == hit.rule_id:
+                return {*tup.findings_all, *tup.risk_factors_any}
+        return set()
+    for rule in by_source.get(hit.source, []):
+        if rule.id == hit.rule_id:
+            return _condition_finding_ids(rule.condition)
+    return set()

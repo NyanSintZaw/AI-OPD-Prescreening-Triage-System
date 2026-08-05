@@ -162,8 +162,9 @@ async def test_golden_en_cough_full_journey(criteria):
 
 
 async def test_golden_th_chest_pain_emergency_journey(criteria):
-    """TH: chest pain + sweating → emergency on turn 1, no interview loop →
-    repeat guidance. Thai replies throughout."""
+    """TH: chest pain + sweating spoken free-text → confirm-before-fire asks
+    the driving findings verbatim, then emergency → repeat guidance. Thai
+    replies throughout."""
 
     j = Journey(criteria, "th", "g2")
 
@@ -174,6 +175,15 @@ async def test_golden_th_chest_pain_emergency_journey(criteria):
             complaint_category="chest_pain",
             findings={"chest_pain": "present", "diaphoresis": "present"},
         ),
+    )
+    # No emergency from inferred words alone — a confirm question comes first.
+    assert not r["classification"].get("classified")
+
+    r = await j.turn("ใช่ค่ะ", ext(findings={"chest_pain": "present"}))
+    assert not r["classification"].get("classified")
+    r = await j.turn(
+        "ใช่ค่ะ เหงื่อแตกค่ะ",
+        ext(findings={"diaphoresis": "present"}),
         department_code="emergency",
         is_emergency=True,
     )
@@ -181,8 +191,8 @@ async def test_golden_th_chest_pain_emergency_journey(criteria):
     assert classification["classified"] is True
     assert classification["level"] <= 2
     assert classification["department_code"] == "emergency"
-    # emergency decided on the very first turn — no interview questions
-    assert len(j.replies) == 1
+    # two confirm questions, then the emergency reply — no interview loop
+    assert len(j.replies) == 3
 
     # post-completion turn repeats guidance, never restarts the interview
     r = await j.turn("แล้วต้องไปไหนนะคะ")

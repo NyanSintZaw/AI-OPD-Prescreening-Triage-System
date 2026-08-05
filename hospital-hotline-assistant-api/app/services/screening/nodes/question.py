@@ -15,7 +15,11 @@ from pydantic import BaseModel, Field
 
 from .. import templates
 from ..rules.criteria_models import QuestionTemplate
-from ..rules.question_policy import InterviewInputs, next_question
+from ..rules.question_policy import (
+    InterviewInputs,
+    confirm_question_for,
+    next_question,
+)
 from ..state import TurnOutput
 from ..validator import validate_reply
 from .base import GraphDeps, GraphState, ainvoke_with_timeout
@@ -181,7 +185,14 @@ def make_question_node(deps: GraphDeps):
         criteria = graph_state["criteria"]
         audit = graph_state.get("audit") or []
 
-        selected = next_question(criteria, interview_inputs(state, deps))
+        is_confirm = bool(state.pending_confirm)
+        if is_confirm:
+            # Confirm-before-fire: a level-1/2 verdict is waiting on this
+            # extraction-sourced finding. Ask its verbatim confirm question —
+            # never paraphrased, so the answer maps mechanically.
+            selected = confirm_question_for(criteria, state.pending_confirm[0])
+        else:
+            selected = next_question(criteria, interview_inputs(state, deps))
         if selected is None:
             # Router guarantees a question exists; guard anyway.
             state.phase = "history"
@@ -205,7 +216,7 @@ def make_question_node(deps: GraphDeps):
             if explanation:
                 reply = f"{explanation}\n\n{verbatim}"
 
-        if deps.model is not None and selected.kind in PARAPHRASABLE_KINDS:
+        if deps.model is not None and selected.kind in PARAPHRASABLE_KINDS and not is_confirm:
             prompt = _PARAPHRASE_PROMPT[state.language].format(
                 context=state.chief_complaint or "-",
                 known=known_answers_line(state),

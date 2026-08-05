@@ -27,11 +27,22 @@ MAX_EXTRACTION_FAILURES = 2
 def _pending_question(state, criteria):
     if not state.pending_question_id:
         return None
+    if state.pending_question_id.startswith("confirm_"):
+        # Synthesized confirm-before-fire question (single finding).
+        from ..rules.question_policy import confirm_question_for
+
+        return confirm_question_for(
+            criteria, state.pending_question_id.removeprefix("confirm_")
+        )
     template = get_template(criteria, state.complaint_category)
     questions = [
         *criteria.universal_questions,
         *template.questions,
         *criteria.pre_disposition_questions,
+        # Confirm-before-fire may serve a single-finding question borrowed
+        # from ANOTHER template (best verbatim wording wins) — search them all
+        # so the answer still maps back to the question that was asked.
+        *(q for t in criteria.complaint_templates for q in t.questions),
     ]
     for question in questions:
         if question.id == state.pending_question_id:
@@ -146,6 +157,12 @@ def _closest_category(raw: str, known: set[str]) -> str | None:
     return scores[0][1]
 
 
+def _normalize_for_evidence(text: str | None) -> str:
+    """Whitespace-free casefold, so a quote check survives spacing/case drift
+    (Thai has no spaces; English quotes may differ only in casing)."""
+    return "".join((text or "").split()).casefold()
+
+
 def _apply(state, criteria, result: ExtractionResult, user_text: str = "") -> None:
     turn = state.turn_count
     if result.chief_complaint and not state.chief_complaint:
@@ -170,6 +187,12 @@ def _apply(state, criteria, result: ExtractionResult, user_text: str = "") -> No
             state.complaint_category = keyword_category
 
     measured_temp = effective_vitals(state).get("temp")
+    # Findings the pending question explicitly checks: answering it (chip tap
+    # or spoken yes/no) CONFIRMS those findings — everything else in this
+    # message is free-text extraction and stays unconfirmed until asked.
+    pending = _pending_question(state, criteria)
+    pending_fids = set(pending.finding_ids) if pending is not None else set()
+    normalized_text = _normalize_for_evidence(user_text)
     for update in result.finding_updates:
         if update.id in criteria.finding_catalog:
             if (
@@ -179,8 +202,25 @@ def _apply(state, criteria, result: ExtractionResult, user_text: str = "") -> No
                 and float(measured_temp) >= FEVER_TEMP_C
             ):
                 continue  # the booth thermometer outranks chat extraction
+            previous = state.findings.get(update.id)
+            evidence = (update.evidence or "").strip() or None
             state.findings[update.id] = Finding(
                 state=update.state, value=update.value, source_turn=turn,
+                confirmed=(
+                    update.id in pending_fids
+                    # A re-extraction must not silently demote a finding the
+                    # patient already confirmed (same state only — a flip
+                    # starts over as unconfirmed).
+                    or (previous is not None
+                        and previous.confirmed
+                        and previous.state == update.state)
+                ),
+                evidence=evidence,
+                evidence_verified=(
+                    _normalize_for_evidence(evidence) in normalized_text
+                    if evidence and normalized_text
+                    else None
+                ),
             )
     for slot, value in result.slot_updates.items():
         if slot in OLDCARTS_SLOTS and value and str(value).strip():

@@ -25,6 +25,17 @@ class Finding(BaseModel):
     state: Literal["present", "absent"]
     value: str | None = None
     source_turn: int = 0
+    # True when this finding was established by something stronger than
+    # free-text extraction: the patient answered the question that checks it
+    # (chip tap or verbatim ask), it came from the HIS record / history
+    # intake, or it was derived from an instrument reading. Rules that would
+    # alone dispose level 1–2 only fire on confirmed findings — an emergency
+    # is never declared from inferred words (see graph.route_after_ingest).
+    confirmed: bool = False
+    # Exact patient words the extractor cited for this finding, and whether
+    # they actually appear in the utterance — the nurse-trace audit line.
+    evidence: str | None = None
+    evidence_verified: bool | None = None
 
 
 class TurnOutput(BaseModel):
@@ -71,6 +82,10 @@ class ScreeningState(BaseModel):
     asked_question_ids: list[str] = Field(default_factory=list)
     questions_asked: int = 0
     pending_question_id: str | None = None
+    # Present-but-unconfirmed finding ids currently blocking a level-1/2
+    # disposition; the question node serves their confirm questions first.
+    # Recomputed every turn by the red-flag gate — derived state, not history.
+    pending_confirm: list[str] = Field(default_factory=list)
     awaiting_measurement: str | None = None  # vital the booth must measure next
     extraction_failures: int = 0
 

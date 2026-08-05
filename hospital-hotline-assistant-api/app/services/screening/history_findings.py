@@ -87,6 +87,9 @@ def _set_present(state, finding_id: str, value: str | None = None) -> None:
         state="present",
         value=value,
         source_turn=state.turn_count,
+        # HIS record / explicit history-intake answer — not free-text
+        # inference, so rules may fire on it without re-confirmation.
+        confirmed=True,
     )
 
 

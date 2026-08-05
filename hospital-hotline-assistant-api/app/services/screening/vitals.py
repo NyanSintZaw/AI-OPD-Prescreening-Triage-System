@@ -106,6 +106,7 @@ def apply_objective_findings(state) -> None:
                 state="present",
                 value=f"measured {float(temp):.1f}C",
                 source_turn=state.turn_count,
+                confirmed=True,  # instrument reading, not inference
             )
 
 

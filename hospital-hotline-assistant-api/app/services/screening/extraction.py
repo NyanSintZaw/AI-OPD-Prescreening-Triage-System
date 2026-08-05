@@ -26,6 +26,11 @@ class FindingUpdate(BaseModel):
     value: str | None = Field(
         default=None, description="Optional detail, e.g. '3 days' or 'left side'"
     )
+    evidence: str | None = Field(
+        default=None,
+        description="The exact words from the patient's message that state this "
+        "finding, copied verbatim (same language, no paraphrase)",
+    )
 
 
 class ExtractionResult(BaseModel):
@@ -125,6 +130,9 @@ def _pending_question_finding_ids(
     qid = state.pending_question_id
     if not qid:
         return []
+    if qid.startswith("confirm_"):
+        # Synthesized confirm-before-fire question — checks exactly one finding.
+        return [qid.removeprefix("confirm_")]
     all_questions = [
         *criteria.universal_questions,
         *criteria.pre_disposition_questions,
@@ -192,6 +200,9 @@ Rules:
   if they are DISTINCT symptoms (e.g. confusion vs stiff_neck) -> record NO
   finding updates (the assistant will ask which one). When the patient names
   specific symptoms, record exactly those as "present".
+- For EVERY finding update, fill evidence with the exact words from the
+  patient's message that state it — copied verbatim, never paraphrased or
+  translated. If you cannot quote supporting words, do not record the finding.
 - Numbers 0-10 answering a pain/breathing question -> pain_score or distress_score.
 - A timeframe answering when it started or how long it has lasted (e.g.
   "2-3 days", "since yesterday") -> fill BOTH slot_updates.onset and
