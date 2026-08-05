@@ -13,6 +13,7 @@ from pydantic import BaseModel, Field
 
 from .rules.criteria_models import ScreeningCriteria
 from .rules.question_policy import get_template
+from .rules.red_flags import critical_finding_ids
 from .state import ScreeningState
 
 
@@ -87,18 +88,13 @@ def _catalog_lines(criteria: ScreeningCriteria, state: ScreeningState) -> list[s
         if present & set(tup.findings_all):
             wanted.update(tup.findings_all)
             wanted.update(tup.risk_factors_any)
-    # Always allow the critical universals so an unprompted "he collapsed and
-    # isn't breathing" is never dropped.
-    wanted.update({
-        "cardiac_arrest", "unresponsive", "seizure_now", "dyspnea",
-        "severe_respiratory_distress", "chest_pain", "active_bleeding",
-        "blue_lips", "pale_cold_sweaty", "suicidal_ideation", "pregnancy",
-        # High-risk findings patients volunteer in openers that the bounded
-        # turn-1 catalog silently dropped (July 28 eval: anaphylaxis lip
-        # swelling, palpitations+syncope, head injury with brief LOC).
-        "lip_swelling", "rash_itching", "palpitations", "syncope_24h",
-        "head_injury", "loc_transient",
-    })
+    # Always offer every finding a level-1/2 rule references, so an
+    # unprompted "อ้วกเป็นเลือด" or a BEFAST opener is never dropped for
+    # want of vocabulary. The Aug 5 extraction eval measured the previous
+    # hand-maintained list at 30/60 on critical phrasings — worse, the model
+    # substituted the nearest OFFERED id (a cold pale leg → the level-1
+    # shock-skin finding). Criteria-derived, so new rules extend it for free.
+    wanted.update(critical_finding_ids(criteria))
     # …and the symptoms patients most often volunteer in an opener, so a
     # first message like "fever but no cough" can record BOTH sides before
     # any complaint template is selected (live E2E finding, July 22: the

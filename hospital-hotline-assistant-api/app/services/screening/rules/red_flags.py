@@ -118,3 +118,23 @@ def hit_finding_ids(criteria: ScreeningCriteria, hit: RuleHit) -> set[str]:
         if rule.id == hit.rule_id:
             return _condition_finding_ids(rule.condition)
     return set()
+
+
+def critical_finding_ids(criteria: ScreeningCriteria) -> set[str]:
+    """Every finding id referenced by a rule that can dispose level 1–2.
+
+    The extraction prompt offers ALL of these on every turn — the Aug 5
+    extraction eval showed the hand-maintained opener list silently dropped
+    most of them (melena, BEFAST in an opener, chemical eye burns…), and the
+    model then substituted the nearest offered id, over-matching level-1
+    findings from unrelated complaints."""
+
+    ids: set[str] = set()
+    for rule in [
+        *criteria.level1_criteria, *criteria.danger_vitals,
+        *criteria.fast_tracks, *criteria.department_rules,
+    ]:
+        ids |= _condition_finding_ids(rule.condition)
+    for tup in criteria.triage_tuples:
+        ids |= {*tup.findings_all, *tup.risk_factors_any}
+    return ids

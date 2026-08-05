@@ -9,4 +9,4 @@
 - LLM access only through `model_adapter.py` (`ChatGoogleGenerativeAI` vertexai, gemini-3.1-flash-lite, thinking minimal; `openai_compatible` for local models). Always use `ainvoke_with_timeout`; Gemini 3 needs `response.text` not `.content`. Ingest normalizes near-miss category ids the model invents.
 - Every LLM call + rules decision audits to `ai_inference_audit`. Replies validated by `validator.py` in th AND en — no level/color/diagnosis leaks.
 - `voice_bridge.py` (`TurnVoiceService`) is the only voice service; it reuses `process_chat_stream` per turn.
-- Tests: `tests/screening/` — table-driven rules tests from seed criteria, `FakeChatModel` graph tests, golden transcripts validator-checked in both languages.
+- Tests: `tests/screening/` — table-driven rules tests from seed criteria, `FakeChatModel` graph tests, golden transcripts validator-checked in both languages. Extraction quality: `scripts/run_extraction_eval.py` over `evals/extraction_phrases.json` (single-utterance, real LLM, per-finding recall/over-match) — run it after touching the extraction prompt, catalog vocabulary, or finding synonyms.
