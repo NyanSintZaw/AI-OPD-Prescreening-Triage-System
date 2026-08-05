@@ -121,7 +121,7 @@ async def admin_list_users(
     rows = await connection.fetch(
         """
         SELECT * FROM admin_users
-        WHERE role = 'admin'
+        WHERE role = 'nurse'
         ORDER BY created_at DESC
         """
     )
@@ -149,7 +149,7 @@ async def admin_create_user(
     row = await connection.fetchrow(
         """
         INSERT INTO admin_users (email, password_hash, full_name, role, is_active)
-        VALUES ($1, $2, $3, 'admin', TRUE)
+        VALUES ($1, $2, $3, 'nurse', TRUE)
         RETURNING *
         """,
         email,
