@@ -184,6 +184,22 @@ export interface AssessmentReviewOut {
   /** Booth context: linked HIS visit + measurements taken at the kiosk. */
   visit_id?: string | null;
   patient_name?: string | null;
+  patient_hn?: string | null;
+  /** HN-level history snapshot — the same record the admin Patient (HN) view
+   *  shows: copied from the HIS at visit link (returning patients) or written
+   *  by the first-time booth intake. Null for anonymous sessions. */
+  patient_history?: {
+    is_first_time?: boolean | null;
+    smoking_alcohol?: string | null;
+    allergies?: string | null;
+    chronic_conditions?: string | null;
+    past_surgeries?: string | null;
+    family_history?: string | null;
+    recorded_at?: string | null;
+    last_weight_kg?: number | null;
+    last_height_cm?: number | null;
+    vitals_measured_at?: string | null;
+  } | null;
   vitals?: {
     systolic?: number | null;
     diastolic?: number | null;

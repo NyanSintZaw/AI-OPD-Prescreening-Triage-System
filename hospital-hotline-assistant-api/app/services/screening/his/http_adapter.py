@@ -43,6 +43,7 @@ def _parse_patient_history(patient: dict[str, Any] | None) -> PatientHistory | N
         chronic_conditions=history.get("chronic_conditions"),
         past_surgeries=history.get("past_surgeries"),
         family_history=history.get("family_history"),
+        recorded_at=history.get("recorded_at"),
         last_weight_kg=last_vitals.get("weight"),
         last_height_cm=last_vitals.get("height"),
         vitals_measured_at=last_vitals.get("measured_at"),

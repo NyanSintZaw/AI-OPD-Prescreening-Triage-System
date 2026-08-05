@@ -16,7 +16,7 @@ import type {
 } from '../api/types';
 
 type NurseTab = 'reviews' | 'schedules';
-type ReviewModalTab = 'assessment' | 'conversation';
+type ReviewModalTab = 'assessment' | 'conversation' | 'history';
 type ReviewFilter = 'all' | 'pending' | 'reviewed';
 
 function truncateId(id: string): string {
@@ -510,6 +510,15 @@ export function NursePage() {
                     {sessionMessagesLoading ? '…' : ` ${sessionMessages.length}`}
                   </span>
                 </button>
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={modalTab === 'history'}
+                  className={`nurse-tab-btn ${modalTab === 'history' ? 'active' : ''}`}
+                  onClick={() => setModalTab('history')}
+                >
+                  {t('nurseHistoryTab')}
+                </button>
               </div>
 
               <div className="nurse-review-modal-body nurse-review-modal-tabbed">
@@ -774,6 +783,50 @@ export function NursePage() {
                           <MessageBubble key={message.id} message={message} />
                         ))}
                       </div>
+                    )}
+                  </section>
+                )}
+
+                {modalTab === 'history' && (
+                  <section className="nurse-assessment-panel">
+                    <p className="nurse-review-section-title">{t('hdbGroupHistory')}</p>
+                    {selectedReview.patient_history ? (
+                      <div className="nurse-review-facts">
+                        {selectedReview.patient_hn ? (
+                          <div>
+                            <span className="nurse-card-dept-label">HN</span>
+                            <strong><code>{selectedReview.patient_hn}</code></strong>
+                          </div>
+                        ) : null}
+                        <div>
+                          <span className="nurse-card-dept-label">{t('hdbSmokingAlcohol')}</span>
+                          <strong>{selectedReview.patient_history.smoking_alcohol || '—'}</strong>
+                        </div>
+                        <div>
+                          <span className="nurse-card-dept-label">{t('hdbAllergies')}</span>
+                          <strong>{selectedReview.patient_history.allergies || '—'}</strong>
+                        </div>
+                        <div>
+                          <span className="nurse-card-dept-label">{t('hdbChronicConditions')}</span>
+                          <strong>{selectedReview.patient_history.chronic_conditions || '—'}</strong>
+                        </div>
+                        <div>
+                          <span className="nurse-card-dept-label">{t('hdbPastSurgeries')}</span>
+                          <strong>{selectedReview.patient_history.past_surgeries || '—'}</strong>
+                        </div>
+                        <div>
+                          <span className="nurse-card-dept-label">{t('hdbFamilyHistory')}</span>
+                          <strong>{selectedReview.patient_history.family_history || '—'}</strong>
+                        </div>
+                        <div>
+                          <span className="nurse-card-dept-label">{t('hdbHistoryRecordedAt')}</span>
+                          <strong>
+                            {formatDateAbsolute(selectedReview.patient_history.recorded_at ?? null)}
+                          </strong>
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="muted">{t('nurseHistoryNone')}</p>
                     )}
                   </section>
                 )}

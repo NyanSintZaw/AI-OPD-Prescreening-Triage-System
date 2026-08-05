@@ -111,6 +111,7 @@ async def link_visit(
             "chronic_conditions": info.patient_history.chronic_conditions,
             "past_surgeries": info.patient_history.past_surgeries,
             "family_history": info.patient_history.family_history,
+            "recorded_at": info.patient_history.recorded_at,
             "last_weight_kg": info.patient_history.last_weight_kg,
             "last_height_cm": info.patient_history.last_height_cm,
             "vitals_measured_at": info.patient_history.vitals_measured_at,

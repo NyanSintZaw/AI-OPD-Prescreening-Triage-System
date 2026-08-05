@@ -30,7 +30,7 @@ CRITERIA_PATH = (
 
 @pytest.fixture(scope="module")
 def criteria():
-    return parse_criteria(json.loads(CRITERIA_PATH.read_text()))
+    return parse_criteria(json.loads(CRITERIA_PATH.read_text(encoding="utf-8")))
 
 
 def _state(**kwargs) -> ScreeningState:

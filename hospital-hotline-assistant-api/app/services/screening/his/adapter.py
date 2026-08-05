@@ -30,6 +30,7 @@ class PatientHistory:
     chronic_conditions: str | None = None
     past_surgeries: str | None = None
     family_history: str | None = None
+    recorded_at: str | None = None  # ISO timestamp the history was taken, HIS-side
     last_weight_kg: float | None = None
     last_height_cm: float | None = None
     vitals_measured_at: str | None = None  # ISO timestamp, HIS-side

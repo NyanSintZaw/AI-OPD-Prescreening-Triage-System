@@ -520,6 +520,11 @@ class AssessmentReviewOut(BaseModel):
     # is published to the HIS at Stage 2.
     visit_id: str | None = None
     patient_name: str | None = None
+    patient_hn: str | None = None
+    # HN-level history snapshot from session metadata: written at visit link
+    # (returning patients, copied from the HIS master record) or by the
+    # first-time intake — the same record the admin Patient (HN) view shows.
+    patient_history: dict[str, Any] | None = None
     vitals: dict[str, Any] | None = None
     # Undertriage caution: core vitals (hr/rr/spo2/temp/sbp) never
     # instrument-measured this session. Null until the engine disposed.
