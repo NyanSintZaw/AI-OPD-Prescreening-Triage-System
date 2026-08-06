@@ -64,29 +64,45 @@ def _clean(value: Any) -> str | None:
 
 
 def _vitals_line(vitals: dict[str, Any]) -> str | None:
-    """Booth measurements as one Thai line, with provenance."""
-    parts: list[str] = []
+    """Booth measurements as one Thai line, **grouped by how we got them**.
+
+    A cuff reading and a number the patient said out loud are not the same
+    evidence, and a clinician reading the handover has to be able to tell
+    them apart. ``vitals["sources"]`` carries provenance per vital; the older
+    whole-dict ``source`` is the fallback for sessions recorded before that.
+    """
+    labels: list[tuple[str, str]] = []
     sbp, dbp = vitals.get("systolic"), vitals.get("diastolic")
     if sbp and dbp:
-        parts.append(f"ความดัน {sbp}/{dbp}")
+        labels.append(("systolic", f"ความดัน {sbp}/{dbp}"))
     if vitals.get("pulse_bpm"):
-        parts.append(f"ชีพจร {vitals['pulse_bpm']}")
+        labels.append(("pulse_bpm", f"ชีพจร {vitals['pulse_bpm']}"))
     if vitals.get("temperature"):
-        parts.append(f"อุณหภูมิ {vitals['temperature']}")
+        labels.append(("temperature", f"อุณหภูมิ {vitals['temperature']}"))
     if vitals.get("weight_kg"):
-        parts.append(f"น้ำหนัก {vitals['weight_kg']} กก.")
+        labels.append(("weight_kg", f"น้ำหนัก {vitals['weight_kg']} กก."))
     if vitals.get("height_cm"):
-        parts.append(f"ส่วนสูง {vitals['height_cm']} ซม.")
-    if not parts:
+        labels.append(("height_cm", f"ส่วนสูง {vitals['height_cm']} ซม."))
+    if not labels:
         return None
-    line = " ".join(parts)
-    # "measured by a cuff at the booth" and "the patient said so" are very
-    # different things to a clinician.
-    if vitals.get("source") == "device":
-        line += " (วัดที่บูธ)"
-    elif vitals.get("source") == "manual":
-        line += " (ผู้ป่วยแจ้ง)"
-    return line
+
+    sources = vitals.get("sources") or {}
+    default = vitals.get("source")
+    measured = [text for key, text in labels
+                if (sources.get(key, default)) == "device"]
+    stated = [text for key, text in labels
+              if (sources.get(key, default)) in ("stated", "manual")]
+    unknown = [text for key, text in labels
+               if sources.get(key, default) not in ("device", "stated", "manual")]
+
+    parts = []
+    if measured:
+        parts.append("วัดที่บูธ: " + " ".join(measured))
+    if stated:
+        parts.append("ผู้ป่วยแจ้ง: " + " ".join(stated))
+    if unknown:
+        parts.append(" ".join(unknown))
+    return " | ".join(parts)
 
 
 def _history_line(history: dict[str, Any]) -> str | None:

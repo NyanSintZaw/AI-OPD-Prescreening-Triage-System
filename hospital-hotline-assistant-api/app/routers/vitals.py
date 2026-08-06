@@ -171,6 +171,21 @@ async def update_session_vitals(
         "source": payload.source,
         "recorded_at": datetime.now(timezone.utc).isoformat(),
     }
+    # Per-vital provenance. A single ``source`` on the whole dict was wrong the
+    # moment a patient-stated weight landed beside a cuff reading: the nurse
+    # (and the hospital's SBAR) would be told the whole line was instrument
+    # measured. ``source`` is kept for backwards compatibility as the default.
+    sources = dict(vitals.get("sources") or {})
+    for field in ("systolic", "diastolic", "pulse_bpm"):
+        sources[field] = payload.source
+    for field, value in (
+        ("weight_kg", payload.weight_kg),
+        ("height_cm", payload.height_cm),
+        ("temperature", payload.temperature_c),
+    ):
+        if value is not None:
+            sources[field] = payload.source
+    vitals["sources"] = sources
     if recheck_pending:
         vitals["bp_recheck_pending"] = True
     if payload.weight_kg is not None:
@@ -259,6 +274,12 @@ async def update_session_measurement(
     vitals = dict(metadata.get("vitals") or {})
     key = _MEASUREMENT_METADATA_KEY.get(payload.vital, payload.vital)
     vitals[key] = payload.value
+    # This endpoint is the mid-interview popup / spoken answer: the patient is
+    # telling us the number, we did not measure it. Recorded per-vital so a
+    # stated weight is never presented as a booth measurement.
+    sources = dict(vitals.get("sources") or {})
+    sources[key] = "stated"
+    vitals["sources"] = sources
     vitals["recorded_at"] = datetime.now(timezone.utc).isoformat()
     metadata["vitals"] = vitals
     await connection.execute(

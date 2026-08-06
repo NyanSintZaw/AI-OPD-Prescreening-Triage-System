@@ -12,7 +12,11 @@ METADATA = {
     "vitals": {
         "systolic": 158, "diastolic": 94, "pulse_bpm": 96,
         "temperature": 36.8, "weight_kg": 72.5, "height_cm": 165,
-        "source": "device",
+        # Cuff for BP/pulse; the patient told us the rest.
+        "sources": {
+            "systolic": "device", "diastolic": "device", "pulse_bpm": "device",
+            "temperature": "stated", "weight_kg": "stated", "height_cm": "stated",
+        },
     },
     "patient_history": {
         "chronic_conditions": "ความดันโลหิตสูง",
@@ -60,13 +64,26 @@ def test_assessment_carries_vitals_and_the_triage_level():
     assert "158/94" in assessment
     assert "ระดับคัดกรอง 3" in assessment
     assert "Urgent" in assessment
-    assert "(วัดที่บูธ)" in assessment  # provenance: cuff, not patient-stated
 
 
-def test_patient_stated_vitals_are_marked_as_such():
-    meta = {**METADATA, "vitals": {**METADATA["vitals"], "source": "manual"}}
-    sbar = build_sbar(meta, department_th="x")
-    assert "(ผู้ป่วยแจ้ง)" in sbar["assessment"]
+def test_measured_and_stated_vitals_are_grouped_separately():
+    """A cuff reading and a number the patient said are different evidence.
+    Before this, one `source` flag covered the whole dict, so a patient-stated
+    weight beside a cuff BP was reported to the clinician as booth-measured."""
+    assessment = _build()["assessment"]
+    measured, stated = assessment.split(" | ")[0], assessment.split(" | ")[1]
+    assert measured.startswith("วัดที่บูธ:")
+    assert "158/94" in measured and "ชีพจร 96" in measured
+    assert stated.startswith("ผู้ป่วยแจ้ง:")
+    assert "น้ำหนัก 72.5" in stated and "ส่วนสูง 165" in stated
+    # the cuff reading must never end up on the patient-stated side
+    assert "158/94" not in stated
+
+
+def test_legacy_whole_dict_source_still_understood():
+    """Sessions recorded before per-vital provenance existed."""
+    meta = {"vitals": {"systolic": 158, "diastolic": 94, "source": "manual"}}
+    assert "ผู้ป่วยแจ้ง:" in build_sbar(meta, department_th="x")["assessment"]
 
 
 def test_problem_uses_thai_reasons_with_citation_not_english_key_reason():

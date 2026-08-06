@@ -15,7 +15,7 @@ description: |
   | In `mfu_prescreen` | Change request | Why it matters |
   |---|---|---|
   | `triage_level`, `triage_scale`, `triage_label` | **CR 1 — highest value** | The 5-level triage is our system's whole output. With no field it is buried in SBAR prose, so your destination queue sorts by arrival time instead of by how sick the patient is. `triage_level` is the integer 1–5 our engine already produces; `triage_scale` is `MOPH-5`, the Thai MOPH ED Triage 5-level guideline (กรมการแพทย์ 2561) our criteria are built on — see `docs/criteria-standards.md`. Name them whatever suits your schema; the value is what matters. |
-  | `vitals` (structured, with `measured_at` and `source`) | CR 2 | We measure with a real cuff at the booth and know whether a value was instrument-measured or patient-stated. Today all of it flattens into one sentence. |
+  | `vitals` (structured, with `measured_at` and a per-field `sources` map) | CR 2 | **Provenance is per field, not per reading.** The BP and pulse come off an Omron cuff; the weight, height and often the temperature are what the patient told us. Treating them as one kind of evidence would let a self-reported weight be charted as a booth measurement. Today all of it flattens into one sentence in `sbar.assessment`, grouped as `วัดที่บูธ:` / `ผู้ป่วยแจ้ง:` — structured fields would let you store the distinction properly. |
   | `confirmed_by` | CR 3 | Sender identity comes from the token, so iMed records "the MFU triage system", not the nurse who signed off. Matters for audit after an incident. |
   | `source_ref` | CR 4 | Lets your staff open the full transcript and the AI's cited reasoning, not just the summary. **`slip_code` and `session_ref` are the same identity, not two keys** — the slip code is the first and last four characters of the session id (`…1ba646bb…811eb` → `MCH-1BA6-11EB`). Store `session_ref` if you store one: the derivation is one-way, so a slip code cannot be resolved back. The slip code exists because it is short enough to print on the patient's paper slip and read out. Neither contains patient data. |
   | `rerouted` | — | We know when a nurse overrode the AI's department. There is no iMed field, so today it can only go into `sbar.recommend` as prose. |
@@ -40,7 +40,7 @@ body:
       "sbar": {
         "situation": "แน่นหน้าอกมา 2 ชั่วโมง ร้าวไปแขนซ้าย (อายุ 58 ปี)",
         "background": "โรคประจำตัว: ความดันโลหิตสูง | แพ้ยา/แพ้สาร: ไม่มี",
-        "assessment": "ความดัน 158/94 ชีพจร 96 อุณหภูมิ 36.8 น้ำหนัก 72.5 กก. ส่วนสูง 165 ซม. (วัดที่บูธ) | ระดับคัดกรอง 3 (Urgent) | ระดับความเจ็บปวด 6/10",
+        "assessment": "วัดที่บูธ: ความดัน 158/94 ชีพจร 96 อุณหภูมิ 36.8 น้ำหนัก 72.5 กก. ส่วนสูง 165 ซม. | ระดับคัดกรอง 3 (Urgent) | ระดับความเจ็บปวด 6/10",
         "assessment_problem": "เจ็บหน้าอกร่วมกับปัจจัยเสี่ยงโรคหัวใจ (คู่มือคัดกรอง MFU ข้อ 4.2)",
         "recommend": "ส่งต่อ แผนก OPD MED (อายุรกรรม) | ควรได้รับการตรวจภายใน 30 นาที",
         "documentation": "รหัสสลิป MCH-A1B2-C3D4"
@@ -57,7 +57,14 @@ body:
           "weight_kg": 72.5,
           "height_cm": 165,
           "measured_at": "2026-08-07T09:12:00+07:00",
-          "source": "cuff"
+          "sources": {
+            "systolic": "device",
+            "diastolic": "device",
+            "pulse_bpm": "device",
+            "temperature_c": "patient_stated",
+            "weight_kg": "patient_stated",
+            "height_cm": "patient_stated"
+          }
         },
         "confirmed_by": "OPD Nurse (สมหญิง)",
         "source_ref": {
