@@ -340,6 +340,41 @@ still needs a hospital-side answer:
 | `PUT /api/patients/{hn}/history` | booth-updated patient history | no iMed equivalent — keep internal unless hospital wants it |
 | `PUT /api/visits/{id}/follow-up` | follow-up note | same as above |
 
+### Workflow decisions (settled 2026-08-06)
+
+**Booth as a service point** — the hospital will register it and issue the
+token; our system is deployed inside their infrastructure. Not our task, but
+the token we receive must be bound to the booth's service point, since iMed
+takes the *source* service point and sender identity from the token alone.
+
+**Assignment clears the patient's previous queue** (their `AssignVisitCommand`
+inserts the new `visit_queue` row and clears the prior one), so a nurse click
+moves a real patient in the live queue. Accepted — mitigate with a
+**confirmation dialog in the nurse review modal** before the assignment fires.
+*To build; not implemented yet.*
+
+**Queue number timing is a non-issue** — the intended flow is physical:
+
+1. Booth prints the patient's slip carrying our **slip code**
+   (`MCH-XXXX-YYYY`, derived from the session id — `slip_code.py` /
+   `src/utils/slipCode.ts`).
+2. The patient shows that slip to the nurse.
+3. The nurse identifies them by slip code **plus VN** (both already shown and
+   searchable in the review queue).
+4. The nurse confirms → we call `POST /patient-assignments` → iMed returns
+   `queue_number` → **the nurse hands the queue number to the patient**.
+
+So the slip never needs to carry the iMed queue number; it only has to be
+enough for the nurse to find the right session. Nothing to change in the slip.
+
+**Emergency (level 1–2) routing — OPEN, documented not decided.** For a true
+level-1 case the patient is escorted to ER, not queued behind others, so
+sending them through `/patient-assignments` may be the wrong model entirely.
+Options: (a) skip the API for emergencies and rely on the in-person escort,
+(b) still assign so ER sees them coming, (c) assign immediately at disposition
+rather than waiting for nurse confirm. Needs a clinical decision with the
+hospital — do not implement either way until then.
+
 ### Still needed from the hospital
 
 - UAT host + access token (issuance/rotation policy).

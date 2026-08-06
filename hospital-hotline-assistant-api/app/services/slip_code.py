@@ -2,7 +2,7 @@
 
 The patient's printed slip shows a short human-readable code; the nurse at
 the destination department types it to pull up the session. Must match the
-frontend derivation in ``PatientIdPass.tsx`` (``shortVisitId``) exactly.
+frontend derivation in ``src/utils/slipCode.ts`` exactly.
 """
 
 from __future__ import annotations
