@@ -67,38 +67,49 @@ def _fake_his_handler():
         assert request.headers.get("X-API-Key") == "k"
         assert request.headers.get("Authorization") == "Bearer k"
         path = request.url.path
-        if request.method == "GET" and path == "/api/visits/V1":
+        # The visit read carries identity + age band + is-it-open only; the
+        # history lives behind a separate patient read (see the proposals).
+        if request.method == "GET" and path == "/api/v1/visits/V1":
             return httpx.Response(200, json={
                 "visit_id": "V1", "hn": "HN1", "birthdate": "1980-05-01",
-                "appointment": True,
+                "active": True, "appointment": True,
                 "vitals": {"systolic": 120, "diastolic": 80},
-                "patient": {
-                    "hn": "HN1",
-                    "is_first_time": False,
-                    "history": {
-                        "smoking_alcohol": "smokes daily",
-                        "allergies": "penicillin",
-                        "chronic_conditions": "hypertension",
-                        "past_surgeries": None,
-                        "family_history": "father: diabetes",
-                    },
-                    "last_vitals": {
-                        "weight": 70.5, "height": 171, "measured_at": "2025-01-01",
-                    },
+            })
+        if request.method == "GET" and path == "/api/v1/patients/HN1":
+            return httpx.Response(200, json={
+                "hn": "HN1",
+                "is_first_time": False,
+                "history": {
+                    "smoking_alcohol": "smokes daily",
+                    "allergies": "penicillin",
+                    "chronic_conditions": "hypertension",
+                    "past_surgeries": None,
+                    "family_history": "father: diabetes",
+                },
+                "last_vitals": {
+                    "weight": 70.5, "height": 171, "measured_at": "2025-01-01",
                 },
             })
-        if request.method == "GET" and path == "/api/visits/V2":
-            # Visit with no nested patient object at all (e.g. an HIS that
-            # doesn't support HN-level history yet).
+        if request.method == "GET" and path == "/api/v1/visits/V2":
             return httpx.Response(200, json={
                 "visit_id": "V2", "hn": "HN2", "birthdate": "1990-01-01",
+                "active": True,
             })
-        if request.method == "GET" and path == "/api/visits/MISSING":
+        if request.method == "GET" and path == "/api/v1/patients/HN2":
+            # Hospital declined the patient read, or has no record: the booth
+            # must still work, it just asks the patient their history.
             return httpx.Response(404, json={"detail": "not found"})
-        if request.method == "POST" and path == "/api/visits/V1/prescreen":
+        if request.method == "GET" and path == "/api/v1/visits/MISSING":
+            return httpx.Response(404, json={"detail": "not found"})
+        if request.method == "POST" and path == "/api/v1/patient-prescreens":
             body = json.loads(request.content)
             state["prescreens"]["V1"] = body
-            return httpx.Response(201, json={"status": "pending"})
+            return httpx.Response(200, json={
+                "request_id": body.get("session_ref", ""),
+                "status": "STATUS_SUCCESS",
+                "result": {"visit_id": body["visit_id"],
+                           "prescreen_status": "AWAITING_CONFIRMATION"},
+            })
         if request.method == "POST" and path == "/api/v1/patient-assignments":
             body = json.loads(request.content)
             state["assignment"] = body
@@ -119,7 +130,7 @@ def _fake_his_handler():
                     "sbar_id": "SBAR-1" if body.get("sbar") else None,
                 },
             })
-        if request.method == "PUT" and path == "/api/patients/HN1/history":
+        if request.method == "PUT" and path == "/api/v1/patients/HN1/history":
             state["patient_history"] = json.loads(request.content)
             return httpx.Response(200, json={"hn": "HN1", "is_first_time": False})
         return httpx.Response(500)
@@ -288,3 +299,47 @@ async def test_assignment_non_json_body_is_unknown():
     adapter = _adapter_with(handler)
     result = await adapter.confirm_routing("V1", request_id="R1", assign_spid="SP_X")
     assert result.status == "unknown"
+
+
+async def test_visit_read_survives_the_patient_read_being_refused():
+    """The patient read is optional by design — the hospital may decline it.
+    When it 404s the booth must still start; it just asks the patient their
+    history instead of skipping the interview."""
+    handler, _ = _fake_his_handler()
+    adapter = _adapter_with(handler)
+    info = await adapter.validate_visit("V2")
+    assert info is not None            # the session can still start
+    assert info.patient_id == "HN2"
+    assert info.patient_history is None  # -> booth runs the history intake
+
+
+async def test_inactive_visit_is_refused():
+    """A locked or financially discharged visit must never be screened."""
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json={
+            "visit_id": "V9", "hn": "HN9", "active": False,
+        })
+
+    assert await _adapter_with(handler).validate_visit("V9") is None
+
+
+async def test_prescreen_never_carries_the_ai_recommendation():
+    """Stage 1 is objective data only. If the department or the reasoning
+    leaked into it, unreviewed machine judgement would reach the hospital
+    before a nurse signed it off, and the confirm step would be decorative."""
+    handler, state = _fake_his_handler()
+    adapter = _adapter_with(handler)
+    ok = await adapter.push_referral({
+        "visit_id": "V1", "session_ref": "s1", "slip_code": "MCH-1",
+        "recommended_department": "แผนก OPD MED (อายุรกรรม)",
+        "complaint": "chest tightness", "reason": "cardiac risk factors",
+        "reasons": ["rule fired"],
+        "vitals": {"systolic": 158, "diastolic": 94},
+    })
+    assert ok is True
+    sent = state["prescreens"]["V1"]
+    assert sent["visit_id"] == "V1"
+    assert sent["vitals"]["systolic"] == 158
+    assert sent["location"]["id"] == "AI-BOOTH-01"
+    for leaked in ("recommended_department", "complaint", "reason", "reasons"):
+        assert leaked not in sent

@@ -179,9 +179,9 @@ still needs a hospital-side answer:
 
 | Our call | Purpose | Ask to hospital |
 |---|---|---|
-| `GET /api/visits/{visit_id}` | visit lookup at the booth (validate VN, patient name/birthdate, last vitals/history) | **blocking** — without it we cannot link a booth patient to a visit; which iMed API provides this? |
-| `POST /api/visits/{id}/prescreen` (Stage 1) | AI prescreen result right after the booth session | no iMed equivalent — either the SBAR at Stage 2 carries it (current plan) or hospital exposes a field for it |
-| `PUT /api/patients/{hn}/history` | booth-updated patient history | no iMed equivalent — keep internal unless hospital wants it |
+| `GET /api/v1/visits/{visit_id}` + `GET /api/v1/patients/{hn}` | visit lookup at the booth, split by purpose | **blocking** — without the visit read we cannot link a booth patient at all. The patient read is optional: if it fails we ask the patient their history. |
+| `POST /api/v1/patient-prescreens` (Stage 1) | patient pre-screened, awaiting confirmation — **objective data only** | CR 14. The clinical narrative is deliberately not sent here; it travels in the SBAR at Stage 2, after nurse sign-off. |
+| `PUT /api/v1/patients/{hn}/history` | history collected from a first-time patient | CR 13. Only ever fills an empty history; never overwrites theirs. |
 | `PUT /api/visits/{id}/follow-up` | follow-up note | same as above |
 
 ## SBAR — what we send (agreed 2026-08-06)

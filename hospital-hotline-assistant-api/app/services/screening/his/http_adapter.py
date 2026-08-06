@@ -21,7 +21,18 @@ logger = logging.getLogger(__name__)
 # The hospital's assignment endpoint. Their UAT/PROD base URLs are documented
 # with the /api/v1 suffix already on them — configure HIS_BASE_URL WITHOUT it,
 # the way the mock is mounted at http://localhost:8001.
+# Every call we make to the hospital. All under /api/v1, all proposed to them
+# in the `HIS Integration (hospital-facing)` Postman collection — only
+# ASSIGNMENTS_PATH comes from iMed's own contract.
 ASSIGNMENTS_PATH = "/api/v1/patient-assignments"
+VISIT_PATH = "/api/v1/visits/{visit_id}"
+PATIENT_PATH = "/api/v1/patients/{hn}"
+PATIENT_HISTORY_PATH = "/api/v1/patients/{hn}/history"
+PRESCREENS_PATH = "/api/v1/patient-prescreens"
+
+# The station identity the hospital assigns our booth, sent with a prescreen
+# so their attendance trail shows where the measurements were taken.
+BOOTH_LOCATION = {"id": "AI-BOOTH-01", "name": "AI Pre-Screening Booth"}
 
 
 def his_auth_headers(api_key: str | None) -> dict[str, str]:
@@ -99,51 +110,92 @@ class HttpHisAdapter:
             return None
 
     async def validate_visit(self, visit_id: str) -> VisitInfo | None:
+        """Resolve the VN the patient typed at the booth.
+
+        Two calls, because the reads are split by purpose: the visit gives us
+        identity, the age band and whether the visit is open — everything
+        needed to *start* safely. The patient read only saves us re-asking
+        history, so a failure there degrades to "ask them again" rather than
+        blocking the booth.
+        """
         if not visit_id.strip():
             return None
-        resp = await self._request("GET", f"/api/visits/{visit_id.strip()}")
+        resp = await self._request("GET", VISIT_PATH.format(visit_id=visit_id.strip()))
         if resp is None or resp.status_code == 404:
             return None
         if resp.status_code != 200:
             logger.warning("[HIS] validate_visit %s → %s", visit_id, resp.status_code)
             return None
         data = resp.json()
+        # A locked or financially discharged visit must not be screened.
+        if data.get("active") is False:
+            logger.info("[HIS] visit %s is not active", visit_id)
+            return None
         birthdate = data.get("birthdate")
+        # Prefer "hn"; "hnx" is the older export spelling.
+        hn = data.get("hn") or data.get("hnx")
         return VisitInfo(
             visit_id=data.get("visit_id", visit_id),
-            # Prefer "hn" (the field name we standardized on in the mock
-            # HIS); fall back to "hnx" in case the real hospital HIS export
-            # only carries that name (see docs/his-integration.md §6.1).
-            patient_id=data.get("hn") or data.get("hnx"),
+            patient_id=hn,
             patient_name=data.get("patient_name"),
             is_active=True,
             birthdate=birthdate,
             age_years=_age_from_birthdate(birthdate),
             vitals=data.get("vitals") or {},
             appointment=bool(data.get("appointment")),
-            patient_history=_parse_patient_history(data.get("patient")),
+            patient_history=await self._patient_history(hn),
             raw=data,
         )
 
+    async def _patient_history(self, hn: str | None) -> PatientHistory | None:
+        """Best-effort HN read. None simply means the booth asks the patient,
+        so the hospital can decline this endpoint without breaking anything."""
+        if not hn:
+            return None
+        resp = await self._request("GET", PATIENT_PATH.format(hn=hn))
+        if resp is None or resp.status_code != 200:
+            logger.info("[HIS] no patient record for hn=%s; will ask the patient", hn)
+            return None
+        return _parse_patient_history(resp.json())
+
     async def push_referral(self, referral: dict[str, Any]) -> bool:
+        """Mark the patient pre-screened and awaiting nurse confirmation.
+
+        **Objective data only.** The recommended department, the complaint
+        summary and the AI's reasoning are deliberately dropped here — they
+        travel later, inside the SBAR of the assignment, once a nurse has
+        signed them off. Sending them now would put unreviewed machine
+        judgement in the hospital's record and make the confirm step
+        decorative.
+        """
         visit_id = referral.get("visit_id")
         if not visit_id:
             return False
-        resp = await self._request(
-            "POST", f"/api/visits/{visit_id}/prescreen", json=referral
-        )
-        if resp is None or resp.status_code not in (200, 201):
+        vitals = referral.get("vitals") or {}
+        body = {
+            "visit_id": visit_id,
+            "session_ref": referral.get("session_ref"),
+            "slip_code": referral.get("slip_code"),
+            "location": BOOTH_LOCATION,
+            "measured_at": vitals.get("measured_at") or vitals.get("recorded_at"),
+            "vitals": vitals,
+        }
+        resp = await self._request("POST", PRESCREENS_PATH, json=body)
+        if resp is None or not resp.is_success:
             logger.warning(
-                "[HIS] push_referral visit=%s → %s",
+                "[HIS] prescreen visit=%s → %s",
                 visit_id,
                 None if resp is None else resp.status_code,
             )
             return False
-        return True
+        try:
+            return resp.json().get("status") == "STATUS_SUCCESS"
+        except ValueError:
+            return False
 
     async def push_patient_history(self, hn: str, history: dict[str, Any]) -> bool:
         resp = await self._request(
-            "PUT", f"/api/patients/{hn}/history", json=history
+            "PUT", PATIENT_HISTORY_PATH.format(hn=hn), json=history
         )
         if resp is None or resp.status_code != 200:
             logger.warning(
@@ -155,6 +207,9 @@ class HttpHisAdapter:
         return True
 
     async def push_follow_up(self, visit_id: str, follow_up: str) -> bool:
+        # iMed documents no counterpart and we have not proposed one: the same
+        # text reaches them in `sbar.documentation` when the nurse confirms.
+        # This call is mock-only and simply drops away at go-live.
         resp = await self._request(
             "PUT",
             f"/api/visits/{visit_id}/follow-up",
