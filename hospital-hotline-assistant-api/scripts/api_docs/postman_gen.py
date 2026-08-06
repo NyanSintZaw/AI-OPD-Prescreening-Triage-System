@@ -301,10 +301,6 @@ ADAPTER_CALLS = [
      "⚠️ **OUR ASSUMPTION — iMed documents no counterpart (change request 6).**\n\n"
      "**WE GET** — visit lookup: validate a visit id and pull patient name, birthdate, vitals, history (`HttpHisAdapter.validate_visit`). "
      "**Blocking for go-live**: without a real equivalent the booth cannot link a patient to a visit, and there is then no `visit_id` to assign."),
-    ("get", "/api/departments",
-     "⚠️ **OUR ASSUMPTION — iMed documents no counterpart (change request 6).**\n\n"
-     "**WE GET** — list of department names for routing (`HttpHisAdapter.get_departments`). "
-     "Replaceable by a one-time master-data sheet instead of an API."),
     ("post", "/api/visits/{visit_id}/prescreen",
      "**WE POST** — Stage 1 write-back: AI prescreen result right after the booth session (`HttpHisAdapter.push_referral`)."),
     ("put", "/api/visits/{visit_id}/follow-up",
@@ -813,6 +809,71 @@ reads_items.append({
 })
 
 
+STAGE1_DESC = """⚠️ **Not in your contract — change request 14.**
+
+Your contract has one write: the assignment, which fires when a nurse
+confirms. That leaves a gap: **if a patient uses the booth and walks out
+before reaching a nurse, iMed never learns they were there** — including the
+blood pressure we measured with a real cuff.
+
+This would record the objective half at the end of the booth session, before
+any human review.
+
+### Deliberately NOT included
+
+**No triage level. No recommended department. No AI reasoning.** Nothing a
+clinician could act on arrives here.
+
+That is the whole point. Our safety rule is that no machine judgement reaches
+your record until a nurse signs it off — if this call carried the
+recommendation, someone downstream could act on unreviewed AI output and the
+nurse-confirm step would be decorative. So this carries only what an
+instrument measured and the fact that the patient was at the booth. The
+clinical narrative stays with us until `POST /patient-assignments`.
+
+### What it would carry
+
+| Field | Source |
+|---|---|
+| `vitals` | measured at the booth — cuff BP and pulse, plus temperature/weight/height when taken. `source` marks instrument vs patient-stated |
+| `measured_at` | when, so a later reading supersedes it |
+| `location` | that the patient passed through the AI pre-screening booth — your attendance/audit trail |
+| `session_ref`, `slip_code` | so staff can find the full record (same identity, see the assignment request) |
+
+Where it lands is yours to decide: onto the visit row, into an observations
+table, or somewhere provisional. If you would rather receive nothing before
+nurse sign-off, that is a legitimate answer — we would keep the measurements
+on our side and they would reach you in the SBAR at assignment time instead.
+"""
+
+reads_items.append({
+    "name": "POST /visits/{visit_id}/observations",
+    "request": {
+        "method": "POST",
+        "header": JSON_HDR,
+        "url": pm_url("/visits/{imedVisitId}/observations", "imedBaseUrl"),
+        "description": STAGE1_DESC,
+        "body": json_body({
+            "session_ref": "{{session_id}}",
+            "slip_code": "MCH-A1B2-C3D4",
+            "location": {
+                "id": "AI-BOOTH-01",
+                "name": "AI Pre-Screening Booth",
+            },
+            "measured_at": "2026-08-07T09:12:00+07:00",
+            "vitals": {
+                "systolic": 158,
+                "diastolic": 94,
+                "pulse_bpm": 96,
+                "temperature_c": 36.8,
+                "weight_kg": 72.5,
+                "height_cm": 165,
+                "source": "cuff",
+            },
+        }),
+    },
+})
+
 his_desc = (
     "What our system sends to the hospital's real **iMed Patient Assignment "
     "API** — the integration surface for the hospital IT team.\n\n"
@@ -860,6 +921,9 @@ what we mean.
 * **PUT /patients/{hn}/history** — write back the history the booth collected
   from a first-time patient (CR 13). Pairs with the read: without it every
   visit is a first visit.
+* **POST /visits/{visit_id}/observations** — booth measurements recorded at
+  the end of the session, **objective data only, no AI judgement** (CR 14).
+  Without it a patient who leaves before seeing a nurse leaves no trace.
 
 Anything you accept, we implement our side. Anything you reject, we drop —
 these are questions, not requirements.

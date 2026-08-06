@@ -10,7 +10,7 @@ import type { KioskStats } from '../api/types';
 export function useKioskStats(pollMs = 45000): KioskStats {
   const [stats, setStats] = useState<KioskStats>({
     date: '',
-    visitors_today: 0,
+    booth_patients_today: 0,
     navigated_today: 0,
     sessions_today: 0,
   });

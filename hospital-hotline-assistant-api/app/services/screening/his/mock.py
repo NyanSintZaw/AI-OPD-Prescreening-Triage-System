@@ -30,9 +30,6 @@ class MockHisAdapter:
             raw={"source": "mock"},
         )
 
-    async def get_departments(self) -> list[dict[str, Any]]:
-        return []
-
     async def push_referral(self, referral: dict[str, Any]) -> bool:
         logger.info("[MockHIS] stage-1 referral push: %s", referral)
         return True

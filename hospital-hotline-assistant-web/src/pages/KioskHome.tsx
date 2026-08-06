@@ -282,7 +282,7 @@ export function KioskHome() {
                   pre: t('kioskStatSent1Pre'),
                   post: t('kioskStatSent1Post'),
                   sub: t('kioskStatSent1Sub'),
-                  value: stats.visitors_today,
+                  value: stats.booth_patients_today,
                 },
                 {
                   accent: 'green',

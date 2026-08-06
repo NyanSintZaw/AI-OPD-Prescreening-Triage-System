@@ -125,12 +125,6 @@ class HttpHisAdapter:
             raw=data,
         )
 
-    async def get_departments(self) -> list[dict[str, Any]]:
-        resp = await self._request("GET", "/api/departments")
-        if resp is None or resp.status_code != 200:
-            return []
-        return [{"name": name} for name in resp.json().get("departments", [])]
-
     async def push_referral(self, referral: dict[str, Any]) -> bool:
         visit_id = referral.get("visit_id")
         if not visit_id:

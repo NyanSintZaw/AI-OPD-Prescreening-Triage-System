@@ -692,7 +692,7 @@ export interface KioskStats {
   /** ISO date the counts are for (server local date). */
   date: string;
   /** Hospital visits registered in the HIS today. */
-  visitors_today: number;
+  booth_patients_today: number;
   /** Nurse-approved/corrected assessments today. */
   navigated_today: number;
   /** Triage sessions started at the booth today. */

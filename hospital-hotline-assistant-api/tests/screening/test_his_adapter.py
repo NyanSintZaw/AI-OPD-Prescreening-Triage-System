@@ -122,8 +122,6 @@ def _fake_his_handler():
         if request.method == "PUT" and path == "/api/patients/HN1/history":
             state["patient_history"] = json.loads(request.content)
             return httpx.Response(200, json={"hn": "HN1", "is_first_time": False})
-        if request.method == "GET" and path == "/api/departments":
-            return httpx.Response(200, json={"departments": ["แผนก ER (อุบัติเหตุและฉุกเฉิน)"]})
         return httpx.Response(500)
 
     return handler, state
@@ -234,7 +232,6 @@ async def test_http_tolerates_transport_errors():
     )
     assert unknown.status == "unknown"
     assert unknown.request_id == "R1"
-    assert await adapter.get_departments() == []
 
 
 # --- assignment outcome mapping ----------------------------------------------

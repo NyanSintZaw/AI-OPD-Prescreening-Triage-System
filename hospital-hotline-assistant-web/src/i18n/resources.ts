@@ -44,7 +44,7 @@ export const resources = {
       kioskTapToBegin: 'Tap the button below to begin',
       // Rotating stat banner — number is injected between Pre and Post.
       kioskStatSent1Pre: '',
-      kioskStatSent1Post: 'people visited the hospital today',
+      kioskStatSent1Post: 'patients pre-screened at this booth today',
       kioskStatSent1Sub: 'Our hospital is ready to care for everyone today',
       kioskStatSent2Pre: '',
       kioskStatSent2Post: 'patients successfully guided to their department',
@@ -805,7 +805,7 @@ export const resources = {
       kioskEndConversation: 'จบการสนทนา',
       kioskTapToBegin: 'แตะปุ่มด้านล่างเพื่อเริ่ม',
       // Rotating stat banner — number is injected between Pre and Post.
-      kioskStatSent1Pre: 'วันนี้มีผู้มารับบริการโรงพยาบาลแล้ว',
+      kioskStatSent1Pre: 'วันนี้มีผู้รับการคัดกรองที่จุดนี้แล้ว',
       kioskStatSent1Post: 'คน',
       kioskStatSent1Sub: 'โรงพยาบาลของเราพร้อมดูแลทุกท่านด้วยความใส่ใจ',
       kioskStatSent2Pre: 'ระบบนำทางผู้ป่วยไปแผนกสำเร็จแล้ว',

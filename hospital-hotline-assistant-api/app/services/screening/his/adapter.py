@@ -88,9 +88,6 @@ class HisAdapter(Protocol):
         HIS already holds, so the booth can pre-fill without asking.
         """
 
-    async def get_departments(self) -> list[dict[str, Any]]:
-        """Approved department names/locations from the HIS, when supported."""
-
     async def push_referral(self, referral: dict[str, Any]) -> bool:
         """Stage 1: send the AI booth's pending pre-screening referral to
         the HIS (recommended department, complaint, vitals, reasons)."""

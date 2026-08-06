@@ -19,9 +19,6 @@ class RecordingAdapter:
     async def validate_visit(self, visit_id):
         return None
 
-    async def get_departments(self):
-        return []
-
     async def push_referral(self, referral):
         self.pushed.append(referral)
         return self.ok

@@ -1,0 +1,64 @@
+$kind: http-request
+name: POST /visits/{visit_id}/observations
+description: |
+  ⚠️ **Not in your contract — change request 14.**
+
+  Your contract has one write: the assignment, which fires when a nurse
+  confirms. That leaves a gap: **if a patient uses the booth and walks out
+  before reaching a nurse, iMed never learns they were there** — including the
+  blood pressure we measured with a real cuff.
+
+  This would record the objective half at the end of the booth session, before
+  any human review.
+
+  ### Deliberately NOT included
+
+  **No triage level. No recommended department. No AI reasoning.** Nothing a
+  clinician could act on arrives here.
+
+  That is the whole point. Our safety rule is that no machine judgement reaches
+  your record until a nurse signs it off — if this call carried the
+  recommendation, someone downstream could act on unreviewed AI output and the
+  nurse-confirm step would be decorative. So this carries only what an
+  instrument measured and the fact that the patient was at the booth. The
+  clinical narrative stays with us until `POST /patient-assignments`.
+
+  ### What it would carry
+
+  | Field | Source |
+  |---|---|
+  | `vitals` | measured at the booth — cuff BP and pulse, plus temperature/weight/height when taken. `source` marks instrument vs patient-stated |
+  | `measured_at` | when, so a later reading supersedes it |
+  | `location` | that the patient passed through the AI pre-screening booth — your attendance/audit trail |
+  | `session_ref`, `slip_code` | so staff can find the full record (same identity, see the assignment request) |
+
+  Where it lands is yours to decide: onto the visit row, into an observations
+  table, or somewhere provisional. If you would rather receive nothing before
+  nurse sign-off, that is a legitimate answer — we would keep the measurements
+  on our side and they would reach you in the SBAR at assignment time instead.
+url: "{{imedBaseUrl}}/visits/{{imedVisitId}}/observations"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: |-
+    {
+      "session_ref": "{{session_id}}",
+      "slip_code": "MCH-A1B2-C3D4",
+      "location": {
+        "id": "AI-BOOTH-01",
+        "name": "AI Pre-Screening Booth"
+      },
+      "measured_at": "2026-08-07T09:12:00+07:00",
+      "vitals": {
+        "systolic": 158,
+        "diastolic": 94,
+        "pulse_bpm": 96,
+        "temperature_c": 36.8,
+        "weight_kg": 72.5,
+        "height_cm": 165,
+        "source": "cuff"
+      }
+    }
+order: 6000
