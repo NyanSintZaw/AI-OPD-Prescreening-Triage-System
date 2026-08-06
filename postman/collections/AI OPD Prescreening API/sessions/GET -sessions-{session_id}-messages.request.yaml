@@ -1,0 +1,11 @@
+$kind: http-request
+name: GET /sessions/{session_id}/messages
+description: |-
+  List Messages
+
+  **Auth:** none (patient-facing).
+url: "{{baseUrl}}/sessions/{{session_id}}/messages"
+method: GET
+auth:
+  type: noauth
+order: 13000

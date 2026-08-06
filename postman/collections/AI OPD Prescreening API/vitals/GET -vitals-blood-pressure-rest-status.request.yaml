@@ -1,0 +1,15 @@
+$kind: http-request
+name: GET /vitals/blood-pressure/rest-status
+description: |-
+  Whether this patient must wait before another BP measurement.
+
+  **Auth:** none (patient-facing).
+url: "{{baseUrl}}/vitals/blood-pressure/rest-status?session_id=&hn=&visit_id="
+method: GET
+queryParams:
+  session_id: ""
+  hn: ""
+  visit_id: ""
+auth:
+  type: noauth
+order: 1000

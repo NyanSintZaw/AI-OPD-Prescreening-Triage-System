@@ -1,0 +1,11 @@
+$kind: http-request
+name: GET /emergency-triggers
+description: |-
+  List Emergency Triggers
+
+  **Auth:** none (patient-facing).
+url: "{{baseUrl}}/emergency-triggers"
+method: GET
+auth:
+  type: noauth
+order: 1000

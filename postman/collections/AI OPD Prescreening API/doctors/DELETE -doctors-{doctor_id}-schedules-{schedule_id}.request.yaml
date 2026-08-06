@@ -1,0 +1,9 @@
+$kind: http-request
+name: DELETE /doctors/{doctor_id}/schedules/{schedule_id}
+description: |-
+  Delete a schedule entry.
+
+  **Roles:** super_admin, nurse
+url: "{{baseUrl}}/doctors/{{doctor_id}}/schedules/{{schedule_id}}"
+method: DELETE
+order: 8000

@@ -1,0 +1,26 @@
+$kind: http-request
+name: POST /sessions/{session_id}/messages
+description: |-
+  Create Message
+
+  **Auth:** none (patient-facing).
+url: "{{baseUrl}}/sessions/{{session_id}}/messages"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: |-
+    {
+      "role": "user",
+      "input_mode": "voice",
+      "content": "string",
+      "audio_url": "string",
+      "transcript_confidence": 0.0,
+      "model_name": "string",
+      "response_latency_ms": 0,
+      "metadata": {}
+    }
+auth:
+  type: noauth
+order: 12000

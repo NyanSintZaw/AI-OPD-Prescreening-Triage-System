@@ -1,0 +1,20 @@
+$kind: http-request
+name: POST /admin/users
+description: |-
+  Admin Create User
+
+  **Roles:** super_admin
+url: "{{baseUrl}}/admin/users"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: |-
+    {
+      "email": "string",
+      "full_name": "string",
+      "password": "string",
+      "role": "nurse"
+    }
+order: 2000

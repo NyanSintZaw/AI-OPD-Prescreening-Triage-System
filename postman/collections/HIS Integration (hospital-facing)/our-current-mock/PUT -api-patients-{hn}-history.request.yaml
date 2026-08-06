@@ -1,0 +1,29 @@
+$kind: http-request
+name: PUT /api/patients/{hn}/history
+description: |-
+  ⚠️ **OUR ASSUMPTION — iMed documents no counterpart (change request 6).**
+
+  **WE PUT** — patient history (allergies, chronic conditions, …) updated at the booth (`HttpHisAdapter.push_patient_history`).
+
+  Record first-time-patient history collected at the booth.
+
+  Upserts the full history (no partial-field merge, matching this
+  service's other write-back endpoints) and stamps
+  ``history_recorded_at`` — from this point on the patient is no
+  longer first-time, on this visit and any future one.
+url: "{{hisBaseUrl}}/api/patients/{{hn}}/history"
+method: PUT
+headers:
+  X-API-Key: "{{hisToken}}"
+  Content-Type: application/json
+body:
+  type: json
+  content: |-
+    {
+      "smoking_alcohol": "string",
+      "allergies": "string",
+      "chronic_conditions": "string",
+      "past_surgeries": "string",
+      "family_history": "string"
+    }
+order: 5000

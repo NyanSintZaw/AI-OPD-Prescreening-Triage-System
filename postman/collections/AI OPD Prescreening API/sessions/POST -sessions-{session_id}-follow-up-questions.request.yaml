@@ -1,0 +1,20 @@
+$kind: http-request
+name: POST /sessions/{session_id}/follow-up-questions
+description: |-
+  Create Follow Up Question
+
+  **Auth:** none (patient-facing).
+url: "{{baseUrl}}/sessions/{{session_id}}/follow-up-questions"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: |-
+    {
+      "question_text": "string",
+      "reason": "string"
+    }
+auth:
+  type: noauth
+order: 16000

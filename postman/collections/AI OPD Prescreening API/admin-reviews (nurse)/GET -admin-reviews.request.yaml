@@ -1,0 +1,11 @@
+$kind: http-request
+name: GET /admin/reviews
+description: |-
+  List Assessment Reviews
+
+  **Roles:** nurse, super_admin, viewer
+url: "{{baseUrl}}/admin/reviews?status=pending"
+method: GET
+queryParams:
+  status: pending
+order: 2000

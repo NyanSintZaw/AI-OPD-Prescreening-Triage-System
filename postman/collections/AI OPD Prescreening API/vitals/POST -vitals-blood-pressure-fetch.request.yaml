@@ -1,0 +1,27 @@
+$kind: http-request
+name: POST /vitals/blood-pressure/fetch
+description: |-
+  Pull the latest reading from the Omron cuff over Bluetooth.
+
+  Runs omblepy on the API host. Always returns 200 with a ``status``
+  field so the kiosk UI can branch on failure modes (device not
+  advertising, busy, ...) without an error-handling side channel.
+
+  A fresh reading is persisted to ``bp_readings`` immediately — before
+  the patient decides to continue — so the measurement survives even if
+  they cancel the voice flow right after measuring.
+
+  **Auth:** none (patient-facing).
+url: "{{baseUrl}}/vitals/blood-pressure/fetch"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: |-
+    {
+      "session_id": "00000000-0000-0000-0000-000000000000"
+    }
+auth:
+  type: noauth
+order: 2000

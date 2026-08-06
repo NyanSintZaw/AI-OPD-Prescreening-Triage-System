@@ -1,0 +1,24 @@
+$kind: http-request
+name: PUT /api/visits/{visit_id}/follow-up
+description: |-
+  ⚠️ **OUR ASSUMPTION — iMed documents no counterpart (change request 6).**
+
+  **WE PUT** — follow-up note captured during the interview (`HttpHisAdapter.push_follow_up`).
+
+  Record the patient's own follow-up question/concern from the booth.
+
+  Written as soon as the patient states it (end of the booth flow) —
+  unlike the nurse narrative it needs no human sign-off, it IS the
+  patient's verbatim words for the doctor.
+url: "{{hisBaseUrl}}/api/visits/{{visit_id}}/follow-up"
+method: PUT
+headers:
+  X-API-Key: "{{hisToken}}"
+  Content-Type: application/json
+body:
+  type: json
+  content: |-
+    {
+      "follow_up": "string"
+    }
+order: 4000

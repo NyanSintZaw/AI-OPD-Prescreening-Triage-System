@@ -1,0 +1,13 @@
+$kind: http-request
+name: GET /doctors
+description: |-
+  List all doctors, optionally filtering by active status.
+
+  **Auth:** none (patient-facing).
+url: "{{baseUrl}}/doctors?active_only=True"
+method: GET
+queryParams:
+  active_only: "True"
+auth:
+  type: noauth
+order: 1000

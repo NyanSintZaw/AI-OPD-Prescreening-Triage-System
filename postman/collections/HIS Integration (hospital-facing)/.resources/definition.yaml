@@ -1,0 +1,17 @@
+$kind: collection
+id: 3b030caa-3d85-59d5-a249-4c1fc684d500
+name: HIS Integration (hospital-facing)
+description: |-
+  Only the calls **our system makes to the hospital HIS** — the integration surface for the hospital IT team.
+
+  **imed-assignment** — what we intend to send to your real iMed `POST /patient-assignments`, plus the fields we are asking for. Start here.
+
+  **our-current-mock** — what our adapter calls today against our own mock HIS. Everything in it that iMed does not document is marked ⚠️ **OUR ASSUMPTION**; the visit lookup is the blocking one.
+
+  Auth: both schemes are sent from the single `hisToken` variable (`Authorization: Bearer` for iMed, `X-API-Key` for our mock) — matching `his_auth_headers()` in the backend. On the real API we will send Bearer only.
+auth:
+  - id: 6d6c8f6c-2441-4f32-a811-eb16c74ca8c0
+    type: bearer
+    name: bearer auth
+    credentials:
+      token: "{{hisToken}}"

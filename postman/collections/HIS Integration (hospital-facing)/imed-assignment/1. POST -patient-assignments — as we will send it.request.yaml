@@ -1,0 +1,62 @@
+$kind: http-request
+name: 1. POST /patient-assignments — as we will send it
+description: |
+  **WE POST** — this is *our intended payload*, not a transcription of your
+  contract. The contract itself is transcribed verbatim in
+  `docs/imed-patient-assignment-api.md`.
+
+  ⚠️ `assign_spid` is a **placeholder** pending your master-data codes.
+
+  ### Deliberately absent
+
+  | Field | Why |
+  |---|---|
+  | `queue_number` | you generate it — your queue rules own sequencing, prefixes and daily resets. We display what you return and the nurse hands it to the patient. |
+  | `base_department_id` | you derive it from the service point; one less code for us to keep in sync |
+  | `assign_eid` | we route to a *department*, never a named doctor. If any destination requires one, that is a product decision for us — see per-department question 2. |
+  | `sbar.assessment_equipment` | a clinical judgement our system does not make; left for the nurse |
+
+  ### Where each value comes from
+
+  | iMed field | our source |
+  |---|---|
+  | `request_id` | allocated at nurse-confirm and **stored**; reused on retry, new one on a genuine reroute |
+  | `visit_id` | `session.metadata.visit.visit_id`, captured when the patient enters their VN at the booth |
+  | `assign_spid` | our department code → `department_map.CODE_TO_SPID` ⚠️ |
+  | `sbar.situation` | nurse-edited chief complaint, else `metadata.triage_classification.symptoms_summary` |
+  | `sbar.background` | `metadata.patient_history` (chronic_conditions, allergies, past_surgeries, family_history, smoking_alcohol) + age |
+  | `sbar.assessment` | `metadata.vitals` measured at the booth **+ the triage level** (it has nowhere else to go — see change request 1) |
+  | `sbar.assessment_problem` | `triage_classification.key_reason` + `disposition_reasons[].text_th` with its manual `citation` |
+  | `sbar.recommend` | destination department + urgency; a reroute is noted here because iMed has no `rerouted` flag |
+
+  SBAR is always sent in **Thai**, regardless of the language the patient used
+  at the booth.
+
+  ### Timeout is not failure
+
+  Postman cannot express this as a saved example, so stated here: if this call
+  **times out**, we do not know whether the queue row was created. We record it
+  as `unknown` — never as failed — and any retry reuses the **same**
+  `request_id`, so it cannot double-book the patient. This is why change
+  requests 7 and 8 matter.
+url: "{{imedBaseUrl}}/patient-assignments"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: |-
+    {
+      "request_id": "MFU-20260807-A1B2C3",
+      "visit_id": "{{imedVisitId}}",
+      "assign_spid": "SP_OPD_MED_01",
+      "sbar": {
+        "situation": "แน่นหน้าอกมา 2 ชั่วโมง ร้าวไปแขนซ้าย",
+        "background": "ความดันโลหิตสูง กินยาสม่ำเสมอ ไม่มีประวัติแพ้ยา อายุ 58 ปี",
+        "assessment": "BP 158/94, ชีพจร 96, อุณหภูมิ 36.8, SpO2 97% (วัดที่บูธ) — ระดับการคัดกรอง 3",
+        "assessment_problem": "เจ็บหน้าอกร่วมกับปัจจัยเสี่ยงโรคหัวใจ (คู่มือคัดกรอง MFU ข้อ 4.2)",
+        "recommend": "ส่งตรวจอายุรกรรม ประเมินโดยแพทย์"
+      }
+    }
+examples: ./.resources/1. POST -patient-assignments — as we will send it.resources/examples
+order: 1000

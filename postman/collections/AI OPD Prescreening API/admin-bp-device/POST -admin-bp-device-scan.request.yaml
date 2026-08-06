@@ -1,0 +1,12 @@
+$kind: http-request
+name: POST /admin/bp-device/scan
+description: |-
+  Sweep for nearby BLE devices (~6s) so the admin can pick the cuff.
+
+  Mirrors omblepy's interactive selection table: likely Omron monitors
+  are flagged and sorted first.
+
+  **Roles:** super_admin, nurse
+url: "{{baseUrl}}/admin/bp-device/scan"
+method: POST
+order: 2000

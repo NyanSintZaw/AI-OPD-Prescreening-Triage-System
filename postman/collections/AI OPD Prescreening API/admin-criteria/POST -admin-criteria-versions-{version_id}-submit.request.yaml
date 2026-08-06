@@ -1,0 +1,9 @@
+$kind: http-request
+name: POST /admin/criteria/versions/{version_id}/submit
+description: |-
+  Submit Criteria Version
+
+  **Roles:** super_admin, nurse
+url: "{{baseUrl}}/admin/criteria/versions/{{version_id}}/submit"
+method: POST
+order: 5000

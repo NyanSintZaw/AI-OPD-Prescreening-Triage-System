@@ -1,0 +1,15 @@
+$kind: http-request
+name: GET /screening/vital-bounds
+description: |-
+  Physiologically possible ranges from the active criteria version.
+
+  The kiosk reads these so the patient gets instant, correctly-worded
+  feedback instead of a bare 422 — and so the numbers live in exactly one
+  place (the criteria document) rather than being retyped in the client.
+
+  **Auth:** none (patient-facing).
+url: "{{baseUrl}}/screening/vital-bounds"
+method: GET
+auth:
+  type: noauth
+order: 1000

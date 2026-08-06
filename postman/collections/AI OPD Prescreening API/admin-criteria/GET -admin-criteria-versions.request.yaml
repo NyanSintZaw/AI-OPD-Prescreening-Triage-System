@@ -1,0 +1,9 @@
+$kind: http-request
+name: GET /admin/criteria/versions
+description: |-
+  List Criteria Versions
+
+  **Roles:** super_admin, nurse, viewer
+url: "{{baseUrl}}/admin/criteria/versions"
+method: GET
+order: 1000

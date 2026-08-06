@@ -1,0 +1,9 @@
+$kind: http-request
+name: GET /conversation-summary
+description: |-
+  Conversation Summary
+
+  **Roles:** super_admin, viewer, nurse
+url: "{{baseUrl}}/conversation-summary"
+method: GET
+order: 1000

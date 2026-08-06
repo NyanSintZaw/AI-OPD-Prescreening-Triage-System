@@ -1,0 +1,27 @@
+$kind: http-request
+name: 3. GET /patient-assignments/{request_id} — PROPOSED lookup
+description: |
+  **This endpoint does not exist yet — it is a request.** It covers three
+  asks at once.
+
+  **CR 8 — an idempotency key we cannot query leaves us blind.** If our call
+  times out we cannot tell whether the assignment landed. Today the only way to
+  find out is to send it again and interpret the error. A read endpoint turns a
+  guess into a fact, and enables end-of-day reconciliation against your gateway
+  logs.
+
+  **CR 7 — a duplicate should return the original `result`.** Standard
+  idempotency behaviour is 200 with the first response replayed. Without it, a
+  timeout-then-retry leaves the patient queued while the nurse has no queue
+  number to give them.
+
+  **CR 5 — SBAR read-back.** SBAR is currently write-only for us: we get an
+  `sbar_id` and nothing else. Reading it back lets us show the nurse what was
+  actually handed over.
+
+  *Returns 404 against our mock — deliberately not built, because it is a
+  request to you, not something we have decided for you.*
+url: "{{imedBaseUrl}}/patient-assignments/{{imedRequestId}}"
+method: GET
+examples: ./.resources/3. GET -patient-assignments-{request_id} — PROPOSED lookup.resources/examples
+order: 3000

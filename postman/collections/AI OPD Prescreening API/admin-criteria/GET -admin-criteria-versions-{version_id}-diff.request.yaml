@@ -1,0 +1,11 @@
+$kind: http-request
+name: GET /admin/criteria/versions/{version_id}/diff
+description: |-
+  Section-level diff (added/removed/changed rule ids) vs another version.
+
+  **Roles:** super_admin, nurse, viewer
+url: "{{baseUrl}}/admin/criteria/versions/{{version_id}}/diff?against="
+method: GET
+queryParams:
+  against: ""
+order: 4000

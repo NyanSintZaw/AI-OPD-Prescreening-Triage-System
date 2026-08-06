@@ -1,0 +1,26 @@
+$kind: http-request
+name: POST /sessions/{session_id}/patient-history
+description: |-
+  Persist first-time-patient history to session metadata and the HIS HN.
+
+  Gated for booth intake after name confirmation. Writes through
+  ``HisAdapter.push_patient_history`` so returning visits see the data.
+
+  **Auth:** none (patient-facing).
+url: "{{baseUrl}}/sessions/{{session_id}}/patient-history"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: |-
+    {
+      "smoking_alcohol": "string",
+      "allergies": "string",
+      "chronic_conditions": "string",
+      "past_surgeries": "string",
+      "family_history": "string"
+    }
+auth:
+  type: noauth
+order: 5000

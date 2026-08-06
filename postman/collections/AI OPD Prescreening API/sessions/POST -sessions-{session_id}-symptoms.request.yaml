@@ -1,0 +1,30 @@
+$kind: http-request
+name: POST /sessions/{session_id}/symptoms
+description: |-
+  Create Symptom Entry
+
+  **Auth:** none (patient-facing).
+url: "{{baseUrl}}/sessions/{{session_id}}/symptoms"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: |-
+    {
+      "message_id": "00000000-0000-0000-0000-000000000000",
+      "raw_text": "string",
+      "normalized_symptoms": [],
+      "body_location": "string",
+      "duration_text": "string",
+      "pain_score": 0,
+      "pain_location": "string",
+      "distress_score": 0,
+      "distress_type": "string",
+      "red_flags": [
+        "string"
+      ]
+    }
+auth:
+  type: noauth
+order: 14000

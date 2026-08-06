@@ -1,0 +1,12 @@
+$kind: http-request
+name: GET /admin/triage-manual/status
+description: |-
+  Return the latest triage manual upload record.
+
+  The frontend polls this endpoint after uploading to track ingest progress.
+  Returns ``null`` when no manual has been uploaded yet.
+
+  **Roles:** super_admin, nurse
+url: "{{baseUrl}}/admin/triage-manual/status"
+method: GET
+order: 2000

@@ -1,0 +1,11 @@
+$kind: http-request
+name: GET /admin/surveillance
+description: |-
+  Aggregate disease-surveillance data for the admin outbreak dashboard.
+
+  **Roles:** super_admin, nurse, viewer
+url: "{{baseUrl}}/admin/surveillance?days=7"
+method: GET
+queryParams:
+  days: "7"
+order: 1000

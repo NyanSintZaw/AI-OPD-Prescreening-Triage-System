@@ -1,0 +1,25 @@
+$kind: http-request
+name: PATCH /doctors/{doctor_id}/schedules/{schedule_id}
+description: |-
+  Update an existing schedule entry.
+
+  **Roles:** super_admin, nurse
+url: "{{baseUrl}}/doctors/{{doctor_id}}/schedules/{{schedule_id}}"
+method: PATCH
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: |-
+    {
+      "schedule_date": "string",
+      "start_time": "string",
+      "end_time": "string",
+      "break_start": "string",
+      "break_end": "string",
+      "room": "string",
+      "slot_label": "string",
+      "is_available": true,
+      "notes": "string"
+    }
+order: 7000

@@ -1,0 +1,44 @@
+$kind: http-example
+request:
+  url: "{{imedBaseUrl}}/patient-assignments"
+  method: POST
+  headers:
+    Content-Type: application/json
+  body:
+    type: json
+    content: |-
+      {
+        "request_id": "MFU-20260807-A1B2C3",
+        "visit_id": "{{imedVisitId}}",
+        "assign_spid": "SP_OPD_MED_01",
+        "sbar": {
+          "situation": "แน่นหน้าอกมา 2 ชั่วโมง ร้าวไปแขนซ้าย",
+          "background": "ความดันโลหิตสูง กินยาสม่ำเสมอ ไม่มีประวัติแพ้ยา อายุ 58 ปี",
+          "assessment": "BP 158/94, ชีพจร 96, อุณหภูมิ 36.8, SpO2 97% (วัดที่บูธ) — ระดับการคัดกรอง 3",
+          "assessment_problem": "เจ็บหน้าอกร่วมกับปัจจัยเสี่ยงโรคหัวใจ (คู่มือคัดกรอง MFU ข้อ 4.2)",
+          "recommend": "ส่งตรวจอายุรกรรม ประเมินโดยแพทย์"
+        }
+      }
+response:
+  statusCode: 200
+  statusText: OK
+  headers:
+    Content-Type: application/json
+  body:
+    type: json
+    content: |-
+      // Nurse sees: the queue number, and gives it to the patient.
+      {
+        "request_id": "MFU-20260807-A1B2C3",
+        "status": "STATUS_SUCCESS",
+        "result": {
+          "visit_id": "VN-2026-0001",
+          "visit_queue_id": "VQ-8F2C1A9D44",
+          "assign_spid": "SP_OPD_MED_01",
+          "assign_eid": "EMP00001",
+          "queue_number": "A014",
+          "queue_status": "WAITING",
+          "sbar_id": "SBAR-4B7E22"
+        }
+      }
+order: 1000

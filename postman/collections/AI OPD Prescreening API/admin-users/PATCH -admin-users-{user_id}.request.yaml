@@ -1,0 +1,19 @@
+$kind: http-request
+name: PATCH /admin/users/{user_id}
+description: |-
+  Admin Update User
+
+  **Roles:** super_admin
+url: "{{baseUrl}}/admin/users/{{user_id}}"
+method: PATCH
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: |-
+    {
+      "full_name": "string",
+      "password": "string",
+      "is_active": false
+    }
+order: 3000

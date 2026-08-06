@@ -1,0 +1,13 @@
+$kind: http-request
+name: GET /admin/sessions/{session_id}/trace
+description: |-
+  Full AI decision trace for one session (SRS Explainability / F40).
+
+  Returns the screening engine state (findings, slots, disposition with
+  fired rules + manual citations) and the per-call ai_inference_audit
+  timeline. Only available for sessions run by the screening engine v2.
+
+  **Roles:** nurse, super_admin, viewer
+url: "{{baseUrl}}/admin/sessions/{{session_id}}/trace"
+method: GET
+order: 1000

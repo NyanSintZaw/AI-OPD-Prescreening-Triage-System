@@ -1,0 +1,19 @@
+$kind: http-request
+name: PATCH /sessions/{session_id}/follow-up-questions/{question_id}/answer
+description: |-
+  Answer Follow Up Question
+
+  **Auth:** none (patient-facing).
+url: "{{baseUrl}}/sessions/{{session_id}}/follow-up-questions/{{question_id}}/answer"
+method: PATCH
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: |-
+    {
+      "answer_message_id": "00000000-0000-0000-0000-000000000000"
+    }
+auth:
+  type: noauth
+order: 18000

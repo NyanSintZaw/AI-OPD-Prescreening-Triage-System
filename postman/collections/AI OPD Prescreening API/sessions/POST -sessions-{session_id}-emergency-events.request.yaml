@@ -1,0 +1,22 @@
+$kind: http-request
+name: POST /sessions/{session_id}/emergency-events
+description: |-
+  Create Emergency Event
+
+  **Auth:** none (patient-facing).
+url: "{{baseUrl}}/sessions/{{session_id}}/emergency-events"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: |-
+    {
+      "trigger_id": "00000000-0000-0000-0000-000000000000",
+      "source_message_id": "00000000-0000-0000-0000-000000000000",
+      "detected_symptoms": [],
+      "alert_message": "string"
+    }
+auth:
+  type: noauth
+order: 20000

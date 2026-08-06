@@ -1,0 +1,23 @@
+$kind: http-request
+name: POST /sessions/{session_id}/measurement
+description: |-
+  Record a single vital the screening engine asked for mid-interview
+  (temperature-on-demand). Merges into the session's stored vitals so the
+  next turn's ``turn_context`` carries it — without requiring the booth to
+  re-send the blood-pressure reading.
+
+  **Auth:** none (patient-facing).
+url: "{{baseUrl}}/sessions/{{session_id}}/measurement"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: |-
+    {
+      "vital": "temp",
+      "value": 0.0
+    }
+auth:
+  type: noauth
+order: 11000

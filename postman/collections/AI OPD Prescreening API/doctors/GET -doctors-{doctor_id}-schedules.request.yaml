@@ -1,0 +1,13 @@
+$kind: http-request
+name: GET /doctors/{doctor_id}/schedules
+description: |-
+  List schedule entries for a doctor, optionally from a start date.
+
+  **Auth:** none (patient-facing).
+url: "{{baseUrl}}/doctors/{{doctor_id}}/schedules?from_date="
+method: GET
+queryParams:
+  from_date: ""
+auth:
+  type: noauth
+order: 5000

@@ -1,0 +1,23 @@
+$kind: http-request
+name: POST /doctors
+description: |-
+  Create a new doctor profile. Requires admin or nurse role.
+
+  **Roles:** super_admin, nurse
+url: "{{baseUrl}}/doctors"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: |-
+    {
+      "full_name": "string",
+      "title": "Dr.",
+      "specialization": "string",
+      "department_id": "00000000-0000-0000-0000-000000000000",
+      "phone_ext": "string",
+      "notes": "string",
+      "is_active": true
+    }
+order: 2000

@@ -1,0 +1,64 @@
+$kind: http-request
+name: 2. POST /patient-assignments — PROPOSED additions (NOT in your contract)
+description: |
+  **Nothing here is in your contract yet — this is the ask.**
+
+  Identical to request 1, plus a single additive `proposed` object. It is
+  deliberately one wrapper rather than loose top-level fields, so there is no
+  chance of reading it as something we already send. **We are not asking you to
+  adopt this shape** — only to tell us where these values should live.
+
+  | In `proposed` | Change request | Why it matters |
+  |---|---|---|
+  | `acuity_level`, `acuity_scale` | **CR 1 — highest value** | The 5-level triage is our system's whole output. With no field it is buried in SBAR prose, so your destination queue sorts by arrival time instead of by how sick the patient is. |
+  | `vitals` (structured, with `measured_at` and `source`) | CR 2 | We measure with a real cuff at the booth and know whether a value was instrument-measured or patient-stated. Today all of it flattens into one sentence. |
+  | `confirmed_by` | CR 3 | Sender identity comes from the token, so iMed records "the MFU triage system", not the nurse who signed off. Matters for audit after an incident. |
+  | `source_ref` | CR 4 | Lets your staff open the full transcript and the AI's cited reasoning, not just the summary. |
+  | `rerouted` | — | We know when a nurse overrode the AI's department. There is no iMed field, so today it can only go into `sbar.recommend` as prose. |
+
+  If any of these are accepted we implement them our side and this request
+  becomes request 1.
+
+  *Against our mock this reuses request 1's `request_id`, so it replays request
+  1's result rather than queueing the patient twice — that is the idempotency
+  rule working, not the proposed fields being ignored.*
+url: "{{imedBaseUrl}}/patient-assignments"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: |-
+    {
+      "request_id": "MFU-20260807-A1B2C3",
+      "visit_id": "{{imedVisitId}}",
+      "assign_spid": "SP_OPD_MED_01",
+      "sbar": {
+        "situation": "แน่นหน้าอกมา 2 ชั่วโมง ร้าวไปแขนซ้าย",
+        "background": "ความดันโลหิตสูง กินยาสม่ำเสมอ ไม่มีประวัติแพ้ยา อายุ 58 ปี",
+        "assessment": "BP 158/94, ชีพจร 96, อุณหภูมิ 36.8, SpO2 97% (วัดที่บูธ) — ระดับการคัดกรอง 3",
+        "assessment_problem": "เจ็บหน้าอกร่วมกับปัจจัยเสี่ยงโรคหัวใจ (คู่มือคัดกรอง MFU ข้อ 4.2)",
+        "recommend": "ส่งตรวจอายุรกรรม ประเมินโดยแพทย์"
+      },
+      "proposed": {
+        "acuity_level": 3,
+        "acuity_scale": "MOPH-5",
+        "vitals": {
+          "systolic": 158,
+          "diastolic": 94,
+          "pulse_bpm": 96,
+          "temperature_c": 36.8,
+          "weight_kg": 72.5,
+          "height_cm": 165,
+          "measured_at": "2026-08-07T09:12:00+07:00",
+          "source": "cuff"
+        },
+        "confirmed_by": "OPD Nurse (สมหญิง)",
+        "source_ref": {
+          "slip_code": "MCH-A1B2-C3D4",
+          "session_ref": "{{session_id}}"
+        },
+        "rerouted": false
+      }
+    }
+order: 2000

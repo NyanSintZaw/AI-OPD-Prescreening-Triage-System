@@ -1,0 +1,26 @@
+$kind: http-request
+name: POST /sessions/{session_id}/link-visit
+description: |-
+  Link a hospital visit to this session.
+
+  The patient types (or scans) the visit ID issued at the registration
+  booth; we validate it against the HIS and pull demographics (birthdate →
+  age) and any HIS-recorded vitals into session metadata so the screening
+  engine can pre-fill them. Unknown visit → ``linked=false`` and the
+  patient continues anonymously.
+
+  **Auth:** none (patient-facing).
+url: "{{baseUrl}}/sessions/{{session_id}}/link-visit"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: |-
+    {
+      "visit_id": "string",
+      "preconfirmed": false
+    }
+auth:
+  type: noauth
+order: 2000

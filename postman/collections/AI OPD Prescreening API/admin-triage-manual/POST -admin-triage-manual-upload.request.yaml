@@ -1,0 +1,20 @@
+$kind: http-request
+name: POST /admin/triage-manual/upload
+description: |-
+  Upload a new triage manual PDF and trigger background RAG ingestion.
+
+  Replaces any previously uploaded manual.  The old pgvector embeddings are
+  deleted automatically before the new ones are stored.
+
+  Returns a JSON object with the upload ``id`` and initial ``status``.
+
+  **Roles:** super_admin, nurse
+url: "{{baseUrl}}/admin/triage-manual/upload"
+method: POST
+body:
+  type: formdata
+  content:
+    - type: file
+      key: file
+      src: []
+order: 1000

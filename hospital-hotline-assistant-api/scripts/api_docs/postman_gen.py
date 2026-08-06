@@ -5,14 +5,22 @@ Two collections, both straight from the OpenAPI dumps — nothing hand-written:
   - his-integration          : ONLY the calls we make TO the hospital HIS
                                (adapter calls + the real iMed contract)
 
-Postman Collection Format v2.1. Ids are uuid5-derived so regenerating does
-not churn git. Auth is collection-level bearer; public routes opt out with
-"noauth", so Postman's Auth tab shows the truth per request.
+Built as Collection Format v2.1 (which is what maps cleanly from OpenAPI),
+then converted to **v3 YAML** with `postman collection migrate` — Postman's
+Local Mode dropped JSON support, so v3 is what the desktop app reads. The
+CLI does the conversion rather than us hand-writing YAML, so the format is
+always whatever Postman actually expects.
+
+Ids are uuid5-derived so regenerating does not churn git. Auth is
+collection-level bearer; public routes opt out with "noauth", so Postman's
+Auth tab shows the truth per request.
 """
 import json
 import os
 import re
 import shutil
+import subprocess
+import tempfile
 import uuid
 from pathlib import Path
 
@@ -128,6 +136,55 @@ def environment(name: str, values: dict[str, str]) -> dict:
     }
 
 
+def _yaml_scalar(value: str) -> str:
+    """YAML is a superset of JSON, so a JSON-quoted string is always a valid
+    (and correctly escaped) YAML scalar — no quoting rules to get wrong."""
+    return json.dumps(value, ensure_ascii=False)
+
+
+def write_environment_v3(name: str, values: dict[str, str]) -> Path:
+    """Environments in Local Mode are `<name>.environment.yaml`.
+
+    Hand-written rather than migrated: `postman collection migrate` only
+    handles collections, and the shape is two keys deep.
+    """
+    lines = [f"name: {_yaml_scalar(name)}", "values:"]
+    for key, value in values.items():
+        lines.append(f"  - key: {_yaml_scalar(key)}")
+        lines.append(f"    value: {_yaml_scalar(value)}")
+    dest = ENVIRONMENTS / f"{name}.environment.yaml"
+    dest.write_text("\n".join(lines) + "\n")
+    return dest
+
+
+def write_collection_v3(name: str, payload: dict) -> Path:
+    """Write a v2.1 collection through `postman collection migrate` into the
+    v3 directory Local Mode reads.
+
+    The target is replaced wholesale, not merged: a renamed or deleted request
+    would otherwise leave its old .request.yaml behind and Postman would keep
+    showing it.
+    """
+    dest = COLLECTIONS / name
+    with tempfile.TemporaryDirectory() as tmp:
+        src = Path(tmp) / "collection.json"
+        src.write_text(json.dumps(payload, indent=2, ensure_ascii=False))
+        staged = Path(tmp) / "v3"
+        result = subprocess.run(
+            ["postman", "collection", "migrate", str(src), "-o", str(staged)],
+            capture_output=True, text=True,
+        )
+        if result.returncode != 0 or not staged.exists():
+            raise SystemExit(
+                "postman collection migrate failed — is the Postman CLI installed?\n"
+                f"  {result.stdout.strip()} {result.stderr.strip()}"
+            )
+        if dest.exists():
+            shutil.rmtree(dest)
+        shutil.move(str(staged), str(dest))
+    return dest
+
+
 # ── 1. our API ────────────────────────────────────────────────────────────────
 def folder_for(path: str) -> str:
     seg = [s for s in path.split("/") if s and not s.startswith("{")]
@@ -218,8 +275,9 @@ api_desc = (
 )
 COLLECTIONS.mkdir(parents=True, exist_ok=True)
 ENVIRONMENTS.mkdir(parents=True, exist_ok=True)
-(COLLECTIONS / "ai-opd-prescreening-api.postman_collection.json").write_text(
-    json.dumps(collection("AI OPD Prescreening API", api_desc, api_items, "token"), indent=2, ensure_ascii=False) + "\n"
+write_collection_v3(
+    "AI OPD Prescreening API",
+    collection("AI OPD Prescreening API", api_desc, api_items, "token"),
 )
 
 env_values = {
@@ -232,9 +290,7 @@ env_values = {
     "session_id": "",
 }
 env_values.update({v: "" for v in sorted(path_vars) if v != "session_id"})
-(ENVIRONMENTS / "local.postman_environment.json").write_text(
-    json.dumps(environment("mfu-triage local", env_values), indent=2) + "\n"
-)
+write_environment_v3("mfu-triage local", env_values)
 
 # ── 2. HIS integration (what WE call on the hospital) ────────────────────────
 # Keep in sync with HttpHisAdapter's methods.
@@ -512,14 +568,14 @@ The **visit lookup** is blocking: the booth starts from a patient entering
 their VN, and without a real equivalent we cannot identify them, cannot pull
 history, and have no `visit_id` to assign later.
 """
-(COLLECTIONS / "his-integration.postman_collection.json").write_text(
-    json.dumps(collection("HIS Integration (hospital-facing)", his_desc, [
+write_collection_v3(
+    "HIS Integration (hospital-facing)",
+    collection("HIS Integration (hospital-facing)", his_desc, [
         {"name": "imed-assignment", "description": IMED_FOLDER_DESC, "item": imed_items},
         {"name": "our-current-mock", "description": MOCK_FOLDER_DESC, "item": current_items},
-    ], "hisToken"), indent=2, ensure_ascii=False) + "\n"
+    ], "hisToken"),
 )
-(ENVIRONMENTS / "his-local.postman_environment.json").write_text(
-    json.dumps(environment("mfu-his local", {
+write_environment_v3("mfu-his local", {
         "hisBaseUrl": "http://localhost:8001",
         # Points at our mock's future /api/v1 mount so the same collection runs
         # locally; swap for the hospital's UAT host when they issue it.
@@ -532,8 +588,7 @@ history, and have no `visit_id` to assign later.
         "imedVisitId": "990000000000000001",
         "imedRequestId": "MFU-20260807-A1B2C3",
         "session_id": "",
-    }), indent=2) + "\n"
-)
+    })
 
 print(f"postman: {sum(len(v) for v in folders.values())} requests in {len(folders)} folders"
       f" + {len(current_items) + len(imed_items)} HIS requests -> {OUT}")
@@ -544,5 +599,10 @@ print(f"postman: {sum(len(v) for v in folders.values())} requests in {len(folder
 mirror = os.environ.get("POSTMAN_MIRROR_DIR")
 if mirror:
     dest = Path(mirror) / "postman"
+    # Replace, don't merge: a renamed collection/request would otherwise leave
+    # its old files behind and Postman would keep listing them.
+    for sub in ("collections", "environments"):
+        if (dest / sub).exists():
+            shutil.rmtree(dest / sub)
     shutil.copytree(OUT, dest, dirs_exist_ok=True)
     print(f"mirrored to {dest}")

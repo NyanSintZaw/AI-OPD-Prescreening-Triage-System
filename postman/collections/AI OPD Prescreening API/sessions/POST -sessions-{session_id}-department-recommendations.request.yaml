@@ -1,0 +1,22 @@
+$kind: http-request
+name: POST /sessions/{session_id}/department-recommendations
+description: |-
+  Create Department Recommendation
+
+  **Auth:** none (patient-facing).
+url: "{{baseUrl}}/sessions/{{session_id}}/department-recommendations"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: |-
+    {
+      "assessment_id": "00000000-0000-0000-0000-000000000000",
+      "department_id": "00000000-0000-0000-0000-000000000000",
+      "confidence": 0.0,
+      "reason": "string"
+    }
+auth:
+  type: noauth
+order: 19000

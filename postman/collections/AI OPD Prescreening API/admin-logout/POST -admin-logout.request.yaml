@@ -1,0 +1,12 @@
+$kind: http-request
+name: POST /admin/logout
+description: |-
+  Revoke the bearer token server-side. Idempotent: unknown or already
+  expired tokens are a no-op (still 204) so the client can always call it.
+
+  **Auth:** none (patient-facing).
+url: "{{baseUrl}}/admin/logout"
+method: POST
+auth:
+  type: noauth
+order: 1000

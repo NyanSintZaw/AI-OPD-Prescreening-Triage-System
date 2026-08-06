@@ -1,0 +1,15 @@
+$kind: http-request
+name: GET /sessions/by-visit/{visit_id}
+description: |-
+  Return the most recent active session linked to this hospital visit (VN).
+
+  Used by the kiosk before creating a new session: if the patient hung up
+  or walked away mid-interview and re-enters the same VN, resume the prior
+  session (screening engine state is already in Postgres).
+
+  **Auth:** none (patient-facing).
+url: "{{baseUrl}}/sessions/by-visit/{{visit_id}}"
+method: GET
+auth:
+  type: noauth
+order: 4000

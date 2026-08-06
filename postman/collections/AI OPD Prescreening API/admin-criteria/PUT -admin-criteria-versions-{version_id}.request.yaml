@@ -1,0 +1,18 @@
+$kind: http-request
+name: PUT /admin/criteria/versions/{version_id}
+description: |-
+  Replace a draft's criteria JSON (the pressure valve for imperfect extraction).
+
+  Saves even when the document has validation errors — they are returned so
+  the editor can fix them iteratively — but submit/activate require a clean
+  document.
+
+  **Roles:** super_admin, nurse
+url: "{{baseUrl}}/admin/criteria/versions/{{version_id}}"
+method: PUT
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: "{}"
+order: 3000

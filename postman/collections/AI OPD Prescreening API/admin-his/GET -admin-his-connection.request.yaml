@@ -1,0 +1,9 @@
+$kind: http-request
+name: GET /admin/his/connection
+description: |-
+  Current hospital-DB connection state for the Database Settings tab.
+
+  **Roles:** super_admin, nurse, viewer
+url: "{{baseUrl}}/admin/his/connection"
+method: GET
+order: 1000

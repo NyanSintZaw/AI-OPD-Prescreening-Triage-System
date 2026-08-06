@@ -1,0 +1,29 @@
+$kind: http-request
+name: POST /admin/reviews/{assessment_id}/approve
+description: |-
+  Approve Assessment Review
+
+  **Roles:** nurse, super_admin
+url: "{{baseUrl}}/admin/reviews/{{assessment_id}}/approve"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: |-
+    {
+      "notes": "string",
+      "ai_assessment_score": 0,
+      "chief_complaint": "string",
+      "illness_note": "string",
+      "sbar": {
+        "situation": "string",
+        "background": "string",
+        "assessment": "string",
+        "assessment_problem": "string",
+        "assessment_equipment": "string",
+        "recommend": "string",
+        "documentation": "string"
+      }
+    }
+order: 4000

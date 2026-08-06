@@ -1,0 +1,14 @@
+$kind: http-request
+name: DELETE /admin/his/connection
+description: |-
+  Disconnect the hospital DB: back to the mock adapter, persisted.
+
+  HIS_BASE_URL is kept in .env so reconnecting pre-fills the last endpoint;
+  the access token is cleared (re-typed on reconnect — it's a secret, and
+  this is the UI's only way to drop a stale one). Booth flows keep working
+  (mock accepts every visit, write-backs are logged instead of sent).
+
+  **Roles:** super_admin
+url: "{{baseUrl}}/admin/his/connection"
+method: DELETE
+order: 3000

@@ -3,12 +3,24 @@
 Generated from the FastAPI app's own OpenAPI definition — never hand-edited,
 so they cannot drift from the code.
 
-| File | What |
+| Path | What |
 |---|---|
-| `collections/ai-opd-prescreening-api.postman_collection.json` | our whole API (75 requests, folders by URL prefix) |
-| `collections/his-integration.postman_collection.json` | only the calls **we make to the hospital HIS** (adapter calls + the real iMed contract) — this is the one to share with hospital IT |
-| `environments/local.postman_environment.json` | `baseUrl`, seeded login, auto-filled `token` / `session_id` |
-| `environments/his-local.postman_environment.json` | `hisBaseUrl`, `imedBaseUrl`, `hisToken` |
+| `collections/AI OPD Prescreening API/` | our whole API (76 requests, folders by URL prefix) |
+| `collections/HIS Integration (hospital-facing)/` | only the calls **we make to the hospital HIS** — this is the one to share with hospital IT |
+| `environments/mfu-triage local.environment.yaml` | `baseUrl`, seeded login, auto-filled `token` / `session_id` |
+| `environments/mfu-his local.environment.yaml` | `hisBaseUrl`, `imedBaseUrl`, `hisToken`, seeded VN/HN |
+
+**Format is Postman v3 YAML**, not the old single-file JSON — Local Mode
+dropped JSON support, so a `.json` collection here makes the desktop app show
+an "Upgrade files" banner instead of loading it. Each collection is a
+*directory*: one `.request.yaml` per request, `.resources/definition.yaml` for
+the collection/folder metadata, and saved response examples under
+`.resources/<request>.resources/examples/`.
+
+The generator builds v2.1 (which maps cleanly from OpenAPI) and then runs
+`postman collection migrate` to produce v3, so the format is whatever Postman
+actually expects rather than something we hand-wrote. **This means the Postman
+CLI must be installed to regenerate** — the generator fails loudly if it is not.
 
 The `collections/` + `environments/` split is **required**: Postman's local
 workspace auto-registers everything inside a `postman/` folder and ignores
@@ -27,11 +39,9 @@ regenerating produces no spurious git diff. A folder-backed Postman workspace
 
 ## Connecting
 
-Both collections validate cleanly against Postman's official v2.1.0 schema,
-so if an **Import** shows a red (!) with "Retry", that is Postman's
-cloud-sync step failing, not a malformed file — retry, or skip importing and
-use one of the file-backed options below (which are better anyway, because
-regenerating updates Postman instead of leaving a stale copy).
+Do **not** import these — Local Mode reads them from disk, which is the point:
+regenerating updates Postman instead of leaving a stale copy behind. (Import
+also used to fail on the cloud-sync step for these files.)
 
 **Desktop app — "Work with your local codebase"** (recommended). Point it at a
 *workspace root* — the folder that **contains** `postman/`, not `postman/`
@@ -62,17 +72,24 @@ Postman workspace; the same cloud-sync caveat applies to its importer.
 with). It runs the repo files as they are:
 
 ```bash
-# whole collection
-postman collection run postman/collections/ai-opd-prescreening-api.postman_collection.json \
-  -e postman/environments/local.postman_environment.json
+# whole collection (point at the DIRECTORY, not a file)
+postman collection run "postman/collections/AI OPD Prescreening API" \
+  -e "postman/environments/mfu-triage local.environment.yaml"
 
 # just a few requests
-postman collection run postman/collections/ai-opd-prescreening-api.postman_collection.json \
-  -e postman/environments/local.postman_environment.json \
+postman collection run "postman/collections/AI OPD Prescreening API" \
+  -e "postman/environments/mfu-triage local.environment.yaml" \
   -i "POST /admin/login" -i "GET /admin/reviews"
+
+# the hospital-facing one, against the mock HIS
+postman collection run "postman/collections/HIS Integration (hospital-facing)" \
+  -e "postman/environments/mfu-his local.environment.yaml"
 
 # override a variable without editing the file
 ... --env-var baseUrl=http://staging-host:8000
+
+# static check, no server needed
+postman collection lint "postman/collections/AI OPD Prescreening API"
 ```
 
 ## How auth works
@@ -95,7 +112,7 @@ as the nurse, `/admin/users` correctly returns 403.
 ## Not included
 
 `WS /ws/voice/{session_id}` — Postman supports WebSocket requests but they
-aren't expressible in the v2.1 collection format. Create one by hand against
+aren't expressible in the collection format. Create one by hand against
 `ws://localhost:8000/ws/voice/<session_id>?language=th`; the binary/JSON frame
 contract is in `docs/api-reference.md`.
 

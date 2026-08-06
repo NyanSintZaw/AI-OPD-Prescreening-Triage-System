@@ -1,0 +1,27 @@
+$kind: http-request
+name: POST /sessions/{session_id}/confirm-visit-name
+description: |-
+  Confirm or reject the HIS patient name after link-visit.
+
+  Buttons send ``confirmed=true/false``; typed/spoken replies send ``text``
+  and are classified by the shared yes/no NLU. A ``no`` decision unlinks the
+  visit so the kiosk can re-prompt for VN. An unclear reply returns 422 and
+  is re-asked at most MAX_IDENTITY_RETRIES times, then treated as rejected —
+  fail closed like the voice identity gate (never interview an unverified
+  identity).
+
+  **Auth:** none (patient-facing).
+url: "{{baseUrl}}/sessions/{{session_id}}/confirm-visit-name"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: |-
+    {
+      "confirmed": false,
+      "text": "string"
+    }
+auth:
+  type: noauth
+order: 6000

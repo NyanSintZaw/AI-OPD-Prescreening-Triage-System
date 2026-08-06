@@ -1,0 +1,20 @@
+$kind: http-request
+name: PUT /sessions/{session_id}/location
+description: |-
+  Save the patient-reported area for a session.
+  Called by the chat UI after the user answers the location prompt.
+
+  **Auth:** none (patient-facing).
+url: "{{baseUrl}}/sessions/{{session_id}}/location"
+method: PUT
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: |-
+    {
+      "location_area": "string"
+    }
+auth:
+  type: noauth
+order: 9000
