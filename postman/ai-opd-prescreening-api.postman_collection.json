@@ -1,0 +1,2220 @@
+{
+  "info": {
+    "_postman_id": "3ab0d8a5-bd7a-5705-8ea9-fe9df01b8bbf",
+    "name": "AI OPD Prescreening API",
+    "description": "AI OPD Prescreening & Triage System — generated from the FastAPI app's own OpenAPI definition (`scripts/api_docs/generate.py`), so it never drifts from the code.\n\n**Getting started:** select the `local` environment, then run `POST /admin/login` — the token is captured automatically and every role-protected request inherits it.\n\nSeeded logins: `opd.nurse@mfu.local` / `nurse1234` (role `nurse`), `ops.admin@mfu.local` / `admin1234` (role `super_admin`).\n\nNot included: `WS /ws/voice/{session_id}` — create it as a Postman WebSocket request (see `docs/api-reference.md` for the frame contract).",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "item": [
+    {
+      "name": "admin-login",
+      "item": [
+        {
+          "name": "POST /admin/login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "login"
+              ]
+            },
+            "description": "Admin Login\n\n**Auth:** none (patient-facing).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{email}}\",\n  \"password\": \"{{password}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('2xx', () => pm.response.to.be.success);",
+                  "const v = pm.response.json().access_token;",
+                  "if (pm.environment.name) {",
+                  "  pm.environment.set('token', v);",
+                  "} else {",
+                  "  pm.collectionVariables.set('token', v);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "admin-ai-metrics",
+      "item": [
+        {
+          "name": "GET /admin/ai-metrics",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/ai-metrics?from=&to=",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "ai-metrics"
+              ],
+              "query": [
+                {
+                  "key": "from",
+                  "value": "",
+                  "description": ""
+                },
+                {
+                  "key": "to",
+                  "value": "",
+                  "description": ""
+                }
+              ]
+            },
+            "description": "Aggregate AI transparency metrics over ai_inference_audit (SRS F40).\n\nFeeds the head-nurse governance panel: call volumes/ok-rates/latency per\nLLM call site, dispositions by level and department, validator violation\ncounts, and escalation totals.\n\n**Roles:** super_admin, nurse, viewer"
+          }
+        }
+      ]
+    },
+    {
+      "name": "admin-bp-device",
+      "item": [
+        {
+          "name": "GET /admin/bp-device",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/bp-device",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "bp-device"
+              ]
+            },
+            "description": "Current cuff configuration for the admin portal device manager.\n\n**Roles:** super_admin, nurse, viewer"
+          }
+        },
+        {
+          "name": "POST /admin/bp-device/scan",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/bp-device/scan",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "bp-device",
+                "scan"
+              ]
+            },
+            "description": "Sweep for nearby BLE devices (~6s) so the admin can pick the cuff.\n\nMirrors omblepy's interactive selection table: likely Omron monitors\nare flagged and sorted first.\n\n**Roles:** super_admin, nurse"
+          }
+        },
+        {
+          "name": "POST /admin/bp-device/pair",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/bp-device/pair",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "bp-device",
+                "pair"
+              ]
+            },
+            "description": "Program the pairing key into the selected cuff and make it the\nactive kiosk device (persists to .env, effective immediately).\n\n**Roles:** super_admin, nurse",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"mac\": \"string\",\n  \"device_name\": \"string\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "admin-criteria",
+      "item": [
+        {
+          "name": "GET /admin/criteria/versions",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/criteria/versions",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "criteria",
+                "versions"
+              ]
+            },
+            "description": "List Criteria Versions\n\n**Roles:** super_admin, nurse, viewer"
+          }
+        },
+        {
+          "name": "GET /admin/criteria/versions/{version_id}",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/criteria/versions/{{version_id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "criteria",
+                "versions",
+                "{{version_id}}"
+              ]
+            },
+            "description": "Get Criteria Version Detail\n\n**Roles:** super_admin, nurse, viewer"
+          }
+        },
+        {
+          "name": "PUT /admin/criteria/versions/{version_id}",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/criteria/versions/{{version_id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "criteria",
+                "versions",
+                "{{version_id}}"
+              ]
+            },
+            "description": "Replace a draft's criteria JSON (the pressure valve for imperfect extraction).\n\nSaves even when the document has validation errors — they are returned so\nthe editor can fix them iteratively — but submit/activate require a clean\ndocument.\n\n**Roles:** super_admin, nurse",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "GET /admin/criteria/versions/{version_id}/diff",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/criteria/versions/{{version_id}}/diff?against=",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "criteria",
+                "versions",
+                "{{version_id}}",
+                "diff"
+              ],
+              "query": [
+                {
+                  "key": "against",
+                  "value": "",
+                  "description": ""
+                }
+              ]
+            },
+            "description": "Section-level diff (added/removed/changed rule ids) vs another version.\n\n**Roles:** super_admin, nurse, viewer"
+          }
+        },
+        {
+          "name": "POST /admin/criteria/versions/{version_id}/submit",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/criteria/versions/{{version_id}}/submit",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "criteria",
+                "versions",
+                "{{version_id}}",
+                "submit"
+              ]
+            },
+            "description": "Submit Criteria Version\n\n**Roles:** super_admin, nurse"
+          }
+        },
+        {
+          "name": "POST /admin/criteria/versions/{version_id}/approve",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/criteria/versions/{{version_id}}/approve",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "criteria",
+                "versions",
+                "{{version_id}}",
+                "approve"
+              ]
+            },
+            "description": "Approve Criteria Version\n\n**Roles:** super_admin, nurse"
+          }
+        },
+        {
+          "name": "POST /admin/criteria/versions/{version_id}/activate",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/criteria/versions/{{version_id}}/activate",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "criteria",
+                "versions",
+                "{{version_id}}",
+                "activate"
+              ]
+            },
+            "description": "Activate an approved version. Activating a retired version = rollback.\n\n**Roles:** super_admin, nurse"
+          }
+        }
+      ]
+    },
+    {
+      "name": "admin-feedback",
+      "item": [
+        {
+          "name": "GET /admin/feedback",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/feedback",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "feedback"
+              ]
+            },
+            "description": "List Routing Feedback\n\n**Roles:** nurse, super_admin, viewer"
+          }
+        }
+      ]
+    },
+    {
+      "name": "admin-his",
+      "item": [
+        {
+          "name": "GET /admin/his/connection",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/his/connection",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "his",
+                "connection"
+              ]
+            },
+            "description": "Current hospital-DB connection state for the Database Settings tab.\n\n**Roles:** super_admin, nurse, viewer"
+          }
+        },
+        {
+          "name": "PUT /admin/his/connection",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/his/connection",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "his",
+                "connection"
+              ]
+            },
+            "description": "Establish (or change) the hospital-DB connection from the admin page.\n\nProbes the endpoint first — an unreachable endpoint is rejected without\nsaving, so the demo can never end up pointed at a dead database. On\nsuccess the adapter is swapped live (no restart) and the config is\npersisted to .env.\n\n**Roles:** super_admin",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"endpoint\": \"string\",\n  \"name\": \"string\",\n  \"api_key\": \"string\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "DELETE /admin/his/connection",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/his/connection",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "his",
+                "connection"
+              ]
+            },
+            "description": "Disconnect the hospital DB: back to the mock adapter, persisted.\n\nHIS_BASE_URL is kept in .env so reconnecting pre-fills the last endpoint;\nthe access token is cleared (re-typed on reconnect — it's a secret, and\nthis is the UI's only way to drop a stale one). Booth flows keep working\n(mock accepts every visit, write-backs are logged instead of sent).\n\n**Roles:** super_admin"
+          }
+        },
+        {
+          "name": "GET /admin/his/visits",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/his/visits",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "his",
+                "visits"
+              ]
+            },
+            "description": "Admin His Visits\n\n**Roles:** super_admin, nurse, viewer"
+          }
+        },
+        {
+          "name": "GET /admin/his/visits/{visit_id}",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/his/visits/{{visit_id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "his",
+                "visits",
+                "{{visit_id}}"
+              ]
+            },
+            "description": "Admin His Visit Detail\n\n**Roles:** super_admin, nurse, viewer"
+          }
+        },
+        {
+          "name": "GET /admin/his/patients",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/his/patients",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "his",
+                "patients"
+              ]
+            },
+            "description": "HN master records from the connected hospital DB — the admin\nDatabase tab's patient (HN) view. Each row already carries the full\nhistory + last-vitals payload, so no per-patient detail proxy is needed.\n\n**Roles:** super_admin, nurse, viewer"
+          }
+        }
+      ]
+    },
+    {
+      "name": "admin-logout",
+      "item": [
+        {
+          "name": "POST /admin/logout",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/logout",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "logout"
+              ]
+            },
+            "description": "Revoke the bearer token server-side. Idempotent: unknown or already\nexpired tokens are a no-op (still 204) so the client can always call it.\n\n**Auth:** none (patient-facing).",
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "admin-reviews (nurse)",
+      "item": [
+        {
+          "name": "GET /admin/reviews/pending-count",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/reviews/pending-count",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "reviews",
+                "pending-count"
+              ]
+            },
+            "description": "Count Pending Reviews\n\n**Roles:** nurse, super_admin, viewer"
+          }
+        },
+        {
+          "name": "GET /admin/reviews",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/reviews?status=pending",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "reviews"
+              ],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "pending",
+                  "description": ""
+                }
+              ]
+            },
+            "description": "List Assessment Reviews\n\n**Roles:** nurse, super_admin, viewer"
+          }
+        },
+        {
+          "name": "POST /admin/reviews/{assessment_id}/approve",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/reviews/{{assessment_id}}/approve",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "reviews",
+                "{{assessment_id}}",
+                "approve"
+              ]
+            },
+            "description": "Approve Assessment Review\n\n**Roles:** nurse, super_admin",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"notes\": \"string\",\n  \"ai_assessment_score\": 0,\n  \"chief_complaint\": \"string\",\n  \"illness_note\": \"string\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "POST /admin/reviews/{assessment_id}/correct",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/reviews/{{assessment_id}}/correct",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "reviews",
+                "{{assessment_id}}",
+                "correct"
+              ]
+            },
+            "description": "Correct Assessment Review\n\n**Roles:** nurse, super_admin",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"confirmed_department_id\": \"00000000-0000-0000-0000-000000000000\",\n  \"reason\": \"string\",\n  \"ai_assessment_score\": 0,\n  \"chief_complaint\": \"string\",\n  \"illness_note\": \"string\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "admin-sessions",
+      "item": [
+        {
+          "name": "GET /admin/sessions/{session_id}/trace",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/sessions/{{session_id}}/trace",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "sessions",
+                "{{session_id}}",
+                "trace"
+              ]
+            },
+            "description": "Full AI decision trace for one session (SRS Explainability / F40).\n\nReturns the screening engine state (findings, slots, disposition with\nfired rules + manual citations) and the per-call ai_inference_audit\ntimeline. Only available for sessions run by the screening engine v2.\n\n**Roles:** nurse, super_admin, viewer"
+          }
+        }
+      ]
+    },
+    {
+      "name": "admin-surveillance",
+      "item": [
+        {
+          "name": "GET /admin/surveillance",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/surveillance?days=7",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "surveillance"
+              ],
+              "query": [
+                {
+                  "key": "days",
+                  "value": "7",
+                  "description": ""
+                }
+              ]
+            },
+            "description": "Aggregate disease-surveillance data for the admin outbreak dashboard.\n\n**Roles:** super_admin, nurse, viewer"
+          }
+        }
+      ]
+    },
+    {
+      "name": "admin-triage-manual",
+      "item": [
+        {
+          "name": "POST /admin/triage-manual/upload",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/triage-manual/upload",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "triage-manual",
+                "upload"
+              ]
+            },
+            "description": "Upload a new triage manual PDF and trigger background RAG ingestion.\n\nReplaces any previously uploaded manual.  The old pgvector embeddings are\ndeleted automatically before the new ones are stored.\n\nReturns a JSON object with the upload ``id`` and initial ``status``.\n\n**Roles:** super_admin, nurse",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": []
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET /admin/triage-manual/status",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/triage-manual/status",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "triage-manual",
+                "status"
+              ]
+            },
+            "description": "Return the latest triage manual upload record.\n\nThe frontend polls this endpoint after uploading to track ingest progress.\nReturns ``null`` when no manual has been uploaded yet.\n\n**Roles:** super_admin, nurse"
+          }
+        }
+      ]
+    },
+    {
+      "name": "admin-users",
+      "item": [
+        {
+          "name": "GET /admin/users",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/users",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "users"
+              ]
+            },
+            "description": "Admin List Users\n\n**Roles:** super_admin"
+          }
+        },
+        {
+          "name": "POST /admin/users",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/users",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "users"
+              ]
+            },
+            "description": "Admin Create User\n\n**Roles:** super_admin",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"string\",\n  \"full_name\": \"string\",\n  \"password\": \"string\",\n  \"role\": \"nurse\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "PATCH /admin/users/{user_id}",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/users/{{user_id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "users",
+                "{{user_id}}"
+              ]
+            },
+            "description": "Admin Update User\n\n**Roles:** super_admin",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"full_name\": \"string\",\n  \"password\": \"string\",\n  \"is_active\": false\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "DELETE /admin/users/{user_id}",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/admin/users/{{user_id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "users",
+                "{{user_id}}"
+              ]
+            },
+            "description": "Hard delete a nurse account. Review history survives — reviewer FKs\nare ON DELETE SET NULL, so signed reviews just show a blank reviewer.\n\n**Roles:** super_admin"
+          }
+        }
+      ]
+    },
+    {
+      "name": "conversation-summary",
+      "item": [
+        {
+          "name": "GET /conversation-summary",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/conversation-summary",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "conversation-summary"
+              ]
+            },
+            "description": "Conversation Summary\n\n**Roles:** super_admin, viewer, nurse"
+          }
+        }
+      ]
+    },
+    {
+      "name": "departments",
+      "item": [
+        {
+          "name": "GET /departments",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/departments",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "departments"
+              ]
+            },
+            "description": "List Departments\n\n**Auth:** none (patient-facing).",
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "doctors",
+      "item": [
+        {
+          "name": "GET /doctors",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/doctors?active_only=True",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "doctors"
+              ],
+              "query": [
+                {
+                  "key": "active_only",
+                  "value": "True",
+                  "description": ""
+                }
+              ]
+            },
+            "description": "List all doctors, optionally filtering by active status.\n\n**Auth:** none (patient-facing).",
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "POST /doctors",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/doctors",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "doctors"
+              ]
+            },
+            "description": "Create a new doctor profile. Requires admin or nurse role.\n\n**Roles:** super_admin, nurse",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"full_name\": \"string\",\n  \"title\": \"Dr.\",\n  \"specialization\": \"string\",\n  \"department_id\": \"00000000-0000-0000-0000-000000000000\",\n  \"phone_ext\": \"string\",\n  \"notes\": \"string\",\n  \"is_active\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "GET /doctors/{doctor_id}",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/doctors/{{doctor_id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "doctors",
+                "{{doctor_id}}"
+              ]
+            },
+            "description": "Get a doctor with their full weekly schedule.\n\n**Auth:** none (patient-facing).",
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "PATCH /doctors/{doctor_id}",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/doctors/{{doctor_id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "doctors",
+                "{{doctor_id}}"
+              ]
+            },
+            "description": "Update a doctor profile. Requires admin or nurse role.\n\n**Roles:** super_admin, nurse",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"full_name\": \"string\",\n  \"title\": \"string\",\n  \"specialization\": \"string\",\n  \"department_id\": \"00000000-0000-0000-0000-000000000000\",\n  \"phone_ext\": \"string\",\n  \"notes\": \"string\",\n  \"is_active\": false\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "GET /doctors/{doctor_id}/schedules",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/doctors/{{doctor_id}}/schedules?from_date=",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "doctors",
+                "{{doctor_id}}",
+                "schedules"
+              ],
+              "query": [
+                {
+                  "key": "from_date",
+                  "value": "",
+                  "description": ""
+                }
+              ]
+            },
+            "description": "List schedule entries for a doctor, optionally from a start date.\n\n**Auth:** none (patient-facing).",
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "POST /doctors/{doctor_id}/schedules",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/doctors/{{doctor_id}}/schedules",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "doctors",
+                "{{doctor_id}}",
+                "schedules"
+              ]
+            },
+            "description": "Add a date-specific schedule entry for a doctor.\n\n**Roles:** super_admin, nurse",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"schedule_date\": \"string\",\n  \"start_time\": \"string\",\n  \"end_time\": \"string\",\n  \"break_start\": \"string\",\n  \"break_end\": \"string\",\n  \"room\": \"string\",\n  \"slot_label\": \"string\",\n  \"is_available\": true,\n  \"notes\": \"string\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "PATCH /doctors/{doctor_id}/schedules/{schedule_id}",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/doctors/{{doctor_id}}/schedules/{{schedule_id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "doctors",
+                "{{doctor_id}}",
+                "schedules",
+                "{{schedule_id}}"
+              ]
+            },
+            "description": "Update an existing schedule entry.\n\n**Roles:** super_admin, nurse",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"schedule_date\": \"string\",\n  \"start_time\": \"string\",\n  \"end_time\": \"string\",\n  \"break_start\": \"string\",\n  \"break_end\": \"string\",\n  \"room\": \"string\",\n  \"slot_label\": \"string\",\n  \"is_available\": true,\n  \"notes\": \"string\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "DELETE /doctors/{doctor_id}/schedules/{schedule_id}",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/doctors/{{doctor_id}}/schedules/{{schedule_id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "doctors",
+                "{{doctor_id}}",
+                "schedules",
+                "{{schedule_id}}"
+              ]
+            },
+            "description": "Delete a schedule entry.\n\n**Roles:** super_admin, nurse"
+          }
+        }
+      ]
+    },
+    {
+      "name": "emergency-triggers",
+      "item": [
+        {
+          "name": "GET /emergency-triggers",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/emergency-triggers",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "emergency-triggers"
+              ]
+            },
+            "description": "List Emergency Triggers\n\n**Auth:** none (patient-facing).",
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "health",
+      "item": [
+        {
+          "name": "GET /health",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/health",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "health"
+              ]
+            },
+            "description": "Health\n\n**Auth:** none (patient-facing).",
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "kiosk",
+      "item": [
+        {
+          "name": "GET /kiosk/stats",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/kiosk/stats",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "kiosk",
+                "stats"
+              ]
+            },
+            "description": "Public counters for the kiosk home / attract screen (no auth).\n\nThree \"today\" numbers the booth shows patients:\n  - ``visitors_today``  : hospital visits registered in the HIS today\n                          (falls back to the full visit list when the mock\n                          seed carries no ``modify_time``).\n  - ``navigated_today`` : nurse-approved/corrected assessments today.\n  - ``sessions_today``  : triage sessions started at the booth today.\nEvery source degrades to 0 rather than erroring so the screen never breaks.\n\n**Auth:** none (patient-facing).",
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "misc",
+      "item": [
+        {
+          "name": "GET /",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": []
+            },
+            "description": "Root\n\n**Auth:** none (patient-facing).",
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "routing-rules",
+      "item": [
+        {
+          "name": "GET /routing-rules",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/routing-rules",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "routing-rules"
+              ]
+            },
+            "description": "List Routing Rules\n\n**Auth:** none (patient-facing).",
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "schedules",
+      "item": [
+        {
+          "name": "GET /schedules/available",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/schedules/available?schedule_date=&department_id=",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "schedules",
+                "available"
+              ],
+              "query": [
+                {
+                  "key": "schedule_date",
+                  "value": "",
+                  "description": ""
+                },
+                {
+                  "key": "department_id",
+                  "value": "",
+                  "description": ""
+                }
+              ]
+            },
+            "description": "Return doctors with their available schedule entries for a given date\n(defaults to today). Old entries are never deleted — only today's are surfaced.\nUsed by the AI to answer patient availability queries.\n\n**Auth:** none (patient-facing).",
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "screening",
+      "item": [
+        {
+          "name": "GET /screening/vital-bounds",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/screening/vital-bounds",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "screening",
+                "vital-bounds"
+              ]
+            },
+            "description": "Physiologically possible ranges from the active criteria version.\n\nThe kiosk reads these so the patient gets instant, correctly-worded\nfeedback instead of a bare 422 — and so the numbers live in exactly one\nplace (the criteria document) rather than being retyped in the client.\n\n**Auth:** none (patient-facing).",
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "sessions",
+      "item": [
+        {
+          "name": "POST /sessions",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/sessions",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "sessions"
+              ]
+            },
+            "description": "Create Session\n\n**Auth:** none (patient-facing).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"language\": \"th\",\n  \"user_agent\": \"string\",\n  \"ip_hash\": \"string\",\n  \"metadata\": {}\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('2xx', () => pm.response.to.be.success);",
+                  "const v = pm.response.json().id;",
+                  "if (pm.environment.name) {",
+                  "  pm.environment.set('session_id', v);",
+                  "} else {",
+                  "  pm.collectionVariables.set('session_id', v);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /sessions/{session_id}/link-visit",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/sessions/{{session_id}}/link-visit",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "sessions",
+                "{{session_id}}",
+                "link-visit"
+              ]
+            },
+            "description": "Link a hospital visit to this session.\n\nThe patient types (or scans) the visit ID issued at the registration\nbooth; we validate it against the HIS and pull demographics (birthdate →\nage) and any HIS-recorded vitals into session metadata so the screening\nengine can pre-fill them. Unknown visit → ``linked=false`` and the\npatient continues anonymously.\n\n**Auth:** none (patient-facing).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"visit_id\": \"string\",\n  \"preconfirmed\": false\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "DELETE /sessions/{session_id}/link-visit",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/sessions/{{session_id}}/link-visit",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "sessions",
+                "{{session_id}}",
+                "link-visit"
+              ]
+            },
+            "description": "Clear the linked hospital visit so the patient can re-enter a VN.\n\nUsed when name confirmation fails (\"Is this you?\" → No). Does not delete\nthe session or screening state — drops ``metadata.visit`` plus any\nHIS-derived prefill (history, HIS-sourced vitals) of the wrong patient.\n\n**Auth:** none (patient-facing).",
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "GET /sessions/by-visit/{visit_id}",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/sessions/by-visit/{{visit_id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "sessions",
+                "by-visit",
+                "{{visit_id}}"
+              ]
+            },
+            "description": "Return the most recent active session linked to this hospital visit (VN).\n\nUsed by the kiosk before creating a new session: if the patient hung up\nor walked away mid-interview and re-enters the same VN, resume the prior\nsession (screening engine state is already in Postgres).\n\n**Auth:** none (patient-facing).",
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "POST /sessions/{session_id}/patient-history",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/sessions/{{session_id}}/patient-history",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "sessions",
+                "{{session_id}}",
+                "patient-history"
+              ]
+            },
+            "description": "Persist first-time-patient history to session metadata and the HIS HN.\n\nGated for booth intake after name confirmation. Writes through\n``HisAdapter.push_patient_history`` so returning visits see the data.\n\n**Auth:** none (patient-facing).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"smoking_alcohol\": \"string\",\n  \"allergies\": \"string\",\n  \"chronic_conditions\": \"string\",\n  \"past_surgeries\": \"string\",\n  \"family_history\": \"string\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "POST /sessions/{session_id}/confirm-visit-name",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/sessions/{{session_id}}/confirm-visit-name",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "sessions",
+                "{{session_id}}",
+                "confirm-visit-name"
+              ]
+            },
+            "description": "Confirm or reject the HIS patient name after link-visit.\n\nButtons send ``confirmed=true/false``; typed/spoken replies send ``text``\nand are classified by the shared yes/no NLU. A ``no`` decision unlinks the\nvisit so the kiosk can re-prompt for VN. An unclear reply returns 422 and\nis re-asked at most MAX_IDENTITY_RETRIES times, then treated as rejected —\nfail closed like the voice identity gate (never interview an unverified\nidentity).\n\n**Auth:** none (patient-facing).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"confirmed\": false,\n  \"text\": \"string\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "GET /sessions/{session_id}",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/sessions/{{session_id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "sessions",
+                "{{session_id}}"
+              ]
+            },
+            "description": "Get Session\n\n**Auth:** none (patient-facing).",
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "PATCH /sessions/{session_id}",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/sessions/{{session_id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "sessions",
+                "{{session_id}}"
+              ]
+            },
+            "description": "Update Session\n\n**Auth:** none (patient-facing).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"active\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "PUT /sessions/{session_id}/location",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/sessions/{{session_id}}/location",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "sessions",
+                "{{session_id}}",
+                "location"
+              ]
+            },
+            "description": "Save the patient-reported area for a session.\nCalled by the chat UI after the user answers the location prompt.\n\n**Auth:** none (patient-facing).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"location_area\": \"string\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "PUT /sessions/{session_id}/vitals",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/sessions/{{session_id}}/vitals",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "sessions",
+                "{{session_id}}",
+                "vitals"
+              ]
+            },
+            "description": "Store a blood-pressure reading on the session so the triage agent\n(text chat and live voice) can factor it into the assessment.\nCalled by the vitals gate UI after a cuff fetch or manual entry.\n\nPlausibility is enforced by ``SessionVitalsUpdate`` (bounds from the\ncriteria defaults, plus systolic > diastolic), so an impossible reading is\nrejected with a 422 BEFORE the hypertensive-crisis check below can see it.\nThat ordering is load-bearing: 300/220 must not open a 15-minute rest\nwindow. See docs/vital-bounds.md.\n\n**Auth:** none (patient-facing).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"systolic\": 0,\n  \"diastolic\": 0,\n  \"pulse_bpm\": 0,\n  \"weight_kg\": 0.0,\n  \"height_cm\": 0.0,\n  \"temperature_c\": 0.0,\n  \"measured_at\": \"2026-08-04T09:00:00Z\",\n  \"source\": \"device\",\n  \"reading_id\": \"00000000-0000-0000-0000-000000000000\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "POST /sessions/{session_id}/measurement",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/sessions/{{session_id}}/measurement",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "sessions",
+                "{{session_id}}",
+                "measurement"
+              ]
+            },
+            "description": "Record a single vital the screening engine asked for mid-interview\n(temperature-on-demand). Merges into the session's stored vitals so the\nnext turn's ``turn_context`` carries it — without requiring the booth to\nre-send the blood-pressure reading.\n\n**Auth:** none (patient-facing).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"vital\": \"temp\",\n  \"value\": 0.0\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "POST /sessions/{session_id}/messages",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/sessions/{{session_id}}/messages",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "sessions",
+                "{{session_id}}",
+                "messages"
+              ]
+            },
+            "description": "Create Message\n\n**Auth:** none (patient-facing).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"role\": \"user\",\n  \"input_mode\": \"voice\",\n  \"content\": \"string\",\n  \"audio_url\": \"string\",\n  \"transcript_confidence\": 0.0,\n  \"model_name\": \"string\",\n  \"response_latency_ms\": 0,\n  \"metadata\": {}\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "GET /sessions/{session_id}/messages",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/sessions/{{session_id}}/messages",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "sessions",
+                "{{session_id}}",
+                "messages"
+              ]
+            },
+            "description": "List Messages\n\n**Auth:** none (patient-facing).",
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "POST /sessions/{session_id}/symptoms",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/sessions/{{session_id}}/symptoms",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "sessions",
+                "{{session_id}}",
+                "symptoms"
+              ]
+            },
+            "description": "Create Symptom Entry\n\n**Auth:** none (patient-facing).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"message_id\": \"00000000-0000-0000-0000-000000000000\",\n  \"raw_text\": \"string\",\n  \"normalized_symptoms\": [],\n  \"body_location\": \"string\",\n  \"duration_text\": \"string\",\n  \"pain_score\": 0,\n  \"pain_location\": \"string\",\n  \"distress_score\": 0,\n  \"distress_type\": \"string\",\n  \"red_flags\": [\n    \"string\"\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "POST /sessions/{session_id}/severity-assessments",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/sessions/{{session_id}}/severity-assessments",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "sessions",
+                "{{session_id}}",
+                "severity-assessments"
+              ]
+            },
+            "description": "Create Severity Assessment\n\n**Auth:** none (patient-facing).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"source_message_id\": \"00000000-0000-0000-0000-000000000000\",\n  \"severity\": \"unknown\",\n  \"confidence\": 0.0,\n  \"explanation\": \"string\",\n  \"detected_triggers\": []\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "POST /sessions/{session_id}/follow-up-questions",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/sessions/{{session_id}}/follow-up-questions",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "sessions",
+                "{{session_id}}",
+                "follow-up-questions"
+              ]
+            },
+            "description": "Create Follow Up Question\n\n**Auth:** none (patient-facing).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"question_text\": \"string\",\n  \"reason\": \"string\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "GET /sessions/{session_id}/follow-up-questions",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/sessions/{{session_id}}/follow-up-questions",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "sessions",
+                "{{session_id}}",
+                "follow-up-questions"
+              ]
+            },
+            "description": "List Follow Up Questions\n\n**Auth:** none (patient-facing).",
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "PATCH /sessions/{session_id}/follow-up-questions/{question_id}/answer",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/sessions/{{session_id}}/follow-up-questions/{{question_id}}/answer",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "sessions",
+                "{{session_id}}",
+                "follow-up-questions",
+                "{{question_id}}",
+                "answer"
+              ]
+            },
+            "description": "Answer Follow Up Question\n\n**Auth:** none (patient-facing).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"answer_message_id\": \"00000000-0000-0000-0000-000000000000\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "POST /sessions/{session_id}/department-recommendations",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/sessions/{{session_id}}/department-recommendations",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "sessions",
+                "{{session_id}}",
+                "department-recommendations"
+              ]
+            },
+            "description": "Create Department Recommendation\n\n**Auth:** none (patient-facing).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"assessment_id\": \"00000000-0000-0000-0000-000000000000\",\n  \"department_id\": \"00000000-0000-0000-0000-000000000000\",\n  \"confidence\": 0.0,\n  \"reason\": \"string\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "POST /sessions/{session_id}/emergency-events",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/sessions/{{session_id}}/emergency-events",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "sessions",
+                "{{session_id}}",
+                "emergency-events"
+              ]
+            },
+            "description": "Create Emergency Event\n\n**Auth:** none (patient-facing).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"trigger_id\": \"00000000-0000-0000-0000-000000000000\",\n  \"source_message_id\": \"00000000-0000-0000-0000-000000000000\",\n  \"detected_symptoms\": [],\n  \"alert_message\": \"string\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "GET /sessions/{session_id}/emergency-events",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/sessions/{{session_id}}/emergency-events",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "sessions",
+                "{{session_id}}",
+                "emergency-events"
+              ]
+            },
+            "description": "List Emergency Events\n\n**Auth:** none (patient-facing).",
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "stt",
+      "item": [
+        {
+          "name": "POST /stt",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/stt",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "stt"
+              ]
+            },
+            "description": "Transcribe a short audio clip. Returns the recognized text.\n\n**Auth:** none (patient-facing).",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": []
+                }
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "tts",
+      "item": [
+        {
+          "name": "POST /tts",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/tts",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "tts"
+              ]
+            },
+            "description": "Synthesize speech for the given text. Returns audio/mpeg (MP3) bytes.\n\n**Auth:** none (patient-facing).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"text\": \"string\",\n  \"language\": \"en\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "vitals",
+      "item": [
+        {
+          "name": "GET /vitals/blood-pressure/rest-status",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/vitals/blood-pressure/rest-status?session_id=&hn=&visit_id=",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "vitals",
+                "blood-pressure",
+                "rest-status"
+              ],
+              "query": [
+                {
+                  "key": "session_id",
+                  "value": "",
+                  "description": ""
+                },
+                {
+                  "key": "hn",
+                  "value": "",
+                  "description": ""
+                },
+                {
+                  "key": "visit_id",
+                  "value": "",
+                  "description": ""
+                }
+              ]
+            },
+            "description": "Whether this patient must wait before another BP measurement.\n\n**Auth:** none (patient-facing).",
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "POST /vitals/blood-pressure/fetch",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/vitals/blood-pressure/fetch",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "vitals",
+                "blood-pressure",
+                "fetch"
+              ]
+            },
+            "description": "Pull the latest reading from the Omron cuff over Bluetooth.\n\nRuns omblepy on the API host. Always returns 200 with a ``status``\nfield so the kiosk UI can branch on failure modes (device not\nadvertising, busy, ...) without an error-handling side channel.\n\nA fresh reading is persisted to ``bp_readings`` immediately — before\nthe patient decides to continue — so the measurement survives even if\nthey cancel the voice flow right after measuring.\n\n**Auth:** none (patient-facing).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"session_id\": \"00000000-0000-0000-0000-000000000000\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "POST /vitals/blood-pressure/watch",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/vitals/blood-pressure/watch",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "vitals",
+                "blood-pressure",
+                "watch"
+              ]
+            },
+            "description": "Long-poll: wait for the cuff's finished-measurement broadcast, then\nfetch and return the reading immediately.\n\nThe cuff is silent while measuring and starts advertising the moment\nit finishes — that advertisement is the real \"patient is done\" signal,\nso the fetch begins ~1s after the measurement ends. Returns status\n``not_seen`` when nothing appeared within ``timeout_seconds`` so the\nkiosk can re-arm without any dead time.\n\n**Auth:** none (patient-facing).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"session_id\": \"00000000-0000-0000-0000-000000000000\",\n  \"timeout_seconds\": 25\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

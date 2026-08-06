@@ -259,7 +259,8 @@ Error semantics for the adapter:
 ### Calls with NO iMed counterpart yet (our current mock-HIS contract)
 
 The assignment contract covers only Stage 2. Everything else our adapter
-does today (see the `bruno-his-integration/current-contract/` collection)
+does today (see the `his-integration` Postman collection, folder
+`current-contract`)
 still needs a hospital-side answer:
 
 | Our call | Purpose | Ask to hospital |

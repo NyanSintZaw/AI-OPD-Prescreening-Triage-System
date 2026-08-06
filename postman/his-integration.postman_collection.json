@@ -1,0 +1,291 @@
+{
+  "info": {
+    "_postman_id": "3b030caa-3d85-59d5-a249-4c1fc684d500",
+    "name": "HIS Integration (hospital-facing)",
+    "description": "Only the calls **our system makes to the hospital HIS** — the integration surface for the hospital IT team.\n\n**current-contract**: what `HttpHisAdapter` calls today (bodies from the mock-HIS OpenAPI spec, which is our present integration contract).\n\n**imed-real-contract**: the hospital's own iMed API, bodies verbatim from their contract PDF.\n\nBoth auth schemes are sent (`Authorization: Bearer` for iMed, `X-API-Key` for the mock) from the single `hisToken` variable — matching `his_auth_headers()` in the backend.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{hisToken}}",
+        "type": "string"
+      }
+    ]
+  },
+  "item": [
+    {
+      "name": "current-contract",
+      "item": [
+        {
+          "name": "GET /api/visits/{visit_id}",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-API-Key",
+                "value": "{{hisToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{hisBaseUrl}}/api/visits/{{visit_id}}",
+              "host": [
+                "{{hisBaseUrl}}"
+              ],
+              "path": [
+                "api",
+                "visits",
+                "{{visit_id}}"
+              ]
+            },
+            "description": "**WE GET** — visit lookup: validate a visit id and pull patient name, birthdate, vitals, history (`HttpHisAdapter.validate_visit`).\n\nGet Visit"
+          }
+        },
+        {
+          "name": "GET /api/departments",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "X-API-Key",
+                "value": "{{hisToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{hisBaseUrl}}/api/departments",
+              "host": [
+                "{{hisBaseUrl}}"
+              ],
+              "path": [
+                "api",
+                "departments"
+              ]
+            },
+            "description": "**WE GET** — list of department names for routing (`HttpHisAdapter.get_departments`).\n\nList Departments"
+          }
+        },
+        {
+          "name": "POST /api/visits/{visit_id}/prescreen",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "X-API-Key",
+                "value": "{{hisToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{hisBaseUrl}}/api/visits/{{visit_id}}/prescreen",
+              "host": [
+                "{{hisBaseUrl}}"
+              ],
+              "path": [
+                "api",
+                "visits",
+                "{{visit_id}}",
+                "prescreen"
+              ]
+            },
+            "description": "**WE POST** — Stage 1 write-back: AI prescreen result right after the booth session (`HttpHisAdapter.push_referral`).\n\nStage 1 write-back — objective booth data only.\n\nWrites the measurements taken at our booth + the booth as\nfirst_location/measure onto the visit row. The clinical narrative\n(complaint summary, reason) and the recommended department are HELD\nin prescreen_results (pending) and NOT published to the visit row\nuntil a nurse confirms at the destination (Stage 2).",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"session_ref\": \"string\",\n  \"slip_code\": \"string\",\n  \"recommended_department\": \"string\",\n  \"complaint\": \"string\",\n  \"reason\": \"string\",\n  \"vitals\": {},\n  \"reasons\": [\n    \"string\"\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "PUT /api/visits/{visit_id}/routing",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "X-API-Key",
+                "value": "{{hisToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{hisBaseUrl}}/api/visits/{{visit_id}}/routing",
+              "host": [
+                "{{hisBaseUrl}}"
+              ],
+              "path": [
+                "api",
+                "visits",
+                "{{visit_id}}",
+                "routing"
+              ]
+            },
+            "description": "**WE PUT** — Stage 2 write-back: nurse-confirmed department routing (`HttpHisAdapter.confirm_routing`). Real-iMed counterpart: `POST /patient-assignments`.\n\nStage 2 write-back — publish the clinical narrative + routing.\n\nHuman sign-off. Promotes the held complaint summary + reason into the\nnurse_* fields and writes second_location (the confirmed/rerouted\ndepartment) onto the visit row.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"department\": \"string\",\n  \"complaint\": \"string\",\n  \"illness_note\": \"string\",\n  \"confirmed_by\": \"string\",\n  \"rerouted\": false\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "PUT /api/visits/{visit_id}/follow-up",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "X-API-Key",
+                "value": "{{hisToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{hisBaseUrl}}/api/visits/{{visit_id}}/follow-up",
+              "host": [
+                "{{hisBaseUrl}}"
+              ],
+              "path": [
+                "api",
+                "visits",
+                "{{visit_id}}",
+                "follow-up"
+              ]
+            },
+            "description": "**WE PUT** — follow-up note captured during the interview (`HttpHisAdapter.push_follow_up`).\n\nRecord the patient's own follow-up question/concern from the booth.\n\nWritten as soon as the patient states it (end of the booth flow) —\nunlike the nurse narrative it needs no human sign-off, it IS the\npatient's verbatim words for the doctor.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"follow_up\": \"string\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "PUT /api/patients/{hn}/history",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "X-API-Key",
+                "value": "{{hisToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{hisBaseUrl}}/api/patients/{{hn}}/history",
+              "host": [
+                "{{hisBaseUrl}}"
+              ],
+              "path": [
+                "api",
+                "patients",
+                "{{hn}}",
+                "history"
+              ]
+            },
+            "description": "**WE PUT** — patient history (allergies, chronic conditions, …) updated at the booth (`HttpHisAdapter.push_patient_history`).\n\nRecord first-time-patient history collected at the booth.\n\nUpserts the full history (no partial-field merge, matching this\nservice's other write-back endpoints) and stamps\n``history_recorded_at`` — from this point on the patient is no\nlonger first-time, on this visit and any future one.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"smoking_alcohol\": \"string\",\n  \"allergies\": \"string\",\n  \"chronic_conditions\": \"string\",\n  \"past_surgeries\": \"string\",\n  \"family_history\": \"string\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "imed-real-contract",
+      "item": [
+        {
+          "name": "POST /patient-assignments (normal)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{imedBaseUrl}}/patient-assignments",
+              "host": [
+                "{{imedBaseUrl}}"
+              ],
+              "path": [
+                "patient-assignments"
+              ]
+            },
+            "description": "**WE POST** — the hospital's real iMed Patient Assignment API (spec: `docs/imed-patient-assignment-api.md`, from iMed Core's contract PDF).\n\nSends a registered visit to a destination service point; replaces the current-contract routing call at go-live. Idempotent per `request_id` — retry a 409 with the SAME `request_id`. Sender identity and source service point come from the Bearer token, never from the body.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"request_id\": \"THIRD-PARTY-20260724-000001\",\n  \"visit_id\": \"VISIT_ID_FROM_IMED\",\n  \"assign_spid\": \"SP_DOCTOR_01\",\n  \"assign_eid\": \"EMP00001\",\n  \"base_department_id\": \"DEPT_MED\",\n  \"queue_number\": \"A001\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "POST /patient-assignments (with SBAR)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{imedBaseUrl}}/patient-assignments",
+              "host": [
+                "{{imedBaseUrl}}"
+              ],
+              "path": [
+                "patient-assignments"
+              ]
+            },
+            "description": "**WE POST** — the hospital's real iMed Patient Assignment API (spec: `docs/imed-patient-assignment-api.md`, from iMed Core's contract PDF).\n\nSends a registered visit to a destination service point; replaces the current-contract routing call at go-live. Idempotent per `request_id` — retry a 409 with the SAME `request_id`. Sender identity and source service point come from the Bearer token, never from the body.\n\nSBAR variant — iMed uses `assignSbarVisit` and saves the handover.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"request_id\": \"THIRD-PARTY-20260724-000002\",\n  \"visit_id\": \"VISIT_ID_FROM_IMED\",\n  \"assign_spid\": \"SP_ER_01\",\n  \"base_department_id\": \"DEPT_ER\",\n  \"sbar\": {\n    \"situation\": \"ผู้ป่วยมีอาการเจ็บหน้าอก\",\n    \"background\": \"มีโรคความดันโลหิตสูง\",\n    \"assessment\": \"รู้สึกตัวดี vital signs คงที่\",\n    \"assessment_problem\": \"สงสัยภาวะกล้ามเนื้อหัวใจขาดเลือด\",\n    \"assessment_equipment\": \"ECG monitor\",\n    \"recommend\": \"ประเมินโดยแพทย์โดยเร็ว\",\n    \"documentation\": \"แนบผล ECG\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

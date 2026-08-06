@@ -2088,6 +2088,16 @@ timeline. Only available for sessions run by the screening engine v2.
 
 ---
 
+### `GET /admin/reviews/pending-count`
+
+Count Pending Reviews.
+
+**Auth:** bearer token (roles: nurse, super_admin, viewer)
+
+**Response 200:** JSON (Successful Response)
+
+---
+
 ### `GET /admin/reviews`
 
 List Assessment Reviews.
@@ -2131,6 +2141,8 @@ Example response:
     "notes": "string",
     "visit_id": "string",
     "patient_name": "string",
+    "patient_hn": "string",
+    "patient_history": {},
     "vitals": {},
     "missing_vitals": [
       "string"
@@ -2209,6 +2221,8 @@ Example response:
   "notes": "string",
   "visit_id": "string",
   "patient_name": "string",
+  "patient_hn": "string",
+  "patient_history": {},
   "vitals": {},
   "missing_vitals": [
     "string"
@@ -2288,6 +2302,8 @@ Example response:
   "notes": "string",
   "visit_id": "string",
   "patient_name": "string",
+  "patient_hn": "string",
+  "patient_history": {},
   "vitals": {},
   "missing_vitals": [
     "string"
@@ -2738,6 +2754,8 @@ Row in the admin User Settings table (nurse accounts).
 | `notes` | string or null | N | Notes |
 | `visit_id` | string or null | N | Visit Id |
 | `patient_name` | string or null | N | Patient Name |
+| `patient_hn` | string or null | N | Patient Hn |
+| `patient_history` | object or null | N | Patient History |
 | `vitals` | object or null | N | Vitals |
 | `missing_vitals` | array of string or null | N | Missing Vitals |
 | `rejected_vitals` | object or null | N | Rejected Vitals |

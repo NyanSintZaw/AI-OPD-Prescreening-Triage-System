@@ -100,7 +100,7 @@ async def unique_violation_handler(request: Request, exc: asyncpg.UniqueViolatio
 
 
 # Routers, in (approximately) the original registration order of main.py so
-# the OpenAPI path listing stays stable for the docs/Bruno generator.
+# the OpenAPI path listing stays stable for the docs/Postman generator.
 from app.routers import (  # noqa: E402
     admin_analytics,
     admin_criteria,
