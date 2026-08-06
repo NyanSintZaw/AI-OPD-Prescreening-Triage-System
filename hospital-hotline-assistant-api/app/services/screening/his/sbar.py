@@ -115,13 +115,19 @@ def build_sbar(
 
     ``chief_complaint`` / ``illness_note`` are the nurse's signed-off
     overrides; each falls back to the engine's value when not provided.
+
+    The seven output keys are the HOSPITAL's names, fixed by their contract —
+    do not rename them. Ours map in as: chief complaint → ``situation``,
+    illness note → ``assessment_problem``. ``recommend`` has no narrative
+    field of ours behind it; it is derived from the department and response
+    time.
     """
     classification = metadata.get("triage_classification") or {}
     vitals = metadata.get("vitals") or {}
     history = metadata.get("patient_history") or {}
     visit = metadata.get("visit") or {}
 
-    # S — what is happening now.
+    # S — what is happening now. Our chief complaint.
     situation = _clean(chief_complaint) or _clean(classification.get("symptoms_summary"))
     age = visit.get("age_years")
     if situation and age:
@@ -142,8 +148,8 @@ def build_sbar(
         assessment_parts.append(f"ระดับความเจ็บปวด {classification['pain_score']}/10")
     assessment = " | ".join(assessment_parts) or None
 
-    # A(problem) — the clinical reasoning, with the manual citations that
-    # justify it, so the destination can check our work.
+    # A(problem) — our illness note, plus the manual citations that justify
+    # the routing, so the destination can check our work.
     problem_parts = [p for p in (_clean(illness_note),) if p]
     reasons = disposition_reason_texts(classification, prefer_thai=True)
     if reasons:

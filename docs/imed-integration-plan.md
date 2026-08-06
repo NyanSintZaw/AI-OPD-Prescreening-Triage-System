@@ -194,10 +194,10 @@ adds Documentation — seven fields. Sending it switches their code path to
 
 | iMed field | Our source | Notes |
 |---|---|---|
-| `situation` | nurse-edited chief complaint, else AI `symptoms_summary` | |
+| `situation` | our **chief complaint** — nurse-edited, else the AI's (`triage_classification.symptoms_summary`, surfaced as `ai_chief_complaint`) | |
 | `background` | `metadata.patient_history` (chronic conditions, allergies, past surgeries, family history, smoking/alcohol) + age + first-visit flag | |
 | `assessment` | `metadata.vitals` (cuff BP, pulse, temp, weight/height) **+ the triage level** | level goes here until/unless they add a real triage-level field |
-| `assessment_problem` | `key_reason` + `disposition_reasons` — structured `{rule_id, citation, text_en, text_th}`, so we can cite which MFU-manual criterion fired | |
+| `assessment_problem` | our **illness note** — nurse-edited, else the AI's (`triage_classification.key_reason`, surfaced as `ai_illness_note`) — plus `disposition_reasons` `{rule_id, citation, text_th}` so we can cite which MFU-manual criterion fired | |
 | `assessment_equipment` | **not auto-filled** — a clinical judgement our system does not make; leave blank or nurse-filled | |
 | `recommend` | recommended department + urgency; if rerouted, say so (iMed has no `rerouted` flag) | |
 | `documentation` | candidate home for the back-link to our session/transcript | |
