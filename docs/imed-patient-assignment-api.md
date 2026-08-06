@@ -148,7 +148,17 @@ All fields optional strings.
 ### Error responses
 
 All errors return `"status": "STATUS_BUSINESS_ERROR"` with a `message`
-code and a Thai `message_th`.
+code and a Thai `message_th`. **Every error example in the PDF carries these
+three keys and no `result`** — the `result.*` fields in the table above appear
+only in the 200 example:
+
+```json
+{
+  "status": "STATUS_BUSINESS_ERROR",
+  "message": "VISIT_QUEUE_ALREADY_EXIST",
+  "message_th": "Patient is already in the queue of the destination service point"
+}
+```
 
 | HTTP | `message` | Meaning (`message_th`) |
 |---|---|---|

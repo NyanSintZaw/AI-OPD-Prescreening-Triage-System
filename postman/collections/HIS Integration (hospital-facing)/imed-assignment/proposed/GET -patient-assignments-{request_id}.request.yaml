@@ -4,11 +4,12 @@ description: |
   **This endpoint does not exist yet — it is a request.** It covers three
   asks at once.
 
-  **CR 8 — an idempotency key we cannot query leaves us blind.** If our call
-  times out we cannot tell whether the assignment landed. Today the only way to
-  find out is to send it again and interpret the error. A read endpoint turns a
-  guess into a fact, and enables end-of-day reconciliation against your gateway
-  logs.
+  **CR 8 — an idempotency key we cannot query leaves us blind.** Your contract
+  documents one endpoint, `POST /patient-assignments`, so there is no way to
+  read an assignment back. If our call times out, the only way to find out
+  whether it landed is to send it again and interpret the answer. A read
+  endpoint turns a guess into a fact, and enables end-of-day reconciliation
+  against your gateway logs. Largely redundant if CR 7 is granted.
 
   **CR 7 — does a duplicate return the original `result`?** Your Response
   Definition documents `result.queue_number`; your Error responses section says
