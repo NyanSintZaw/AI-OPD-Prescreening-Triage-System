@@ -72,3 +72,6 @@ e2e/
 
 # runtime artifacts
 his_mock.db
+
+# Postman local-workspace metadata (contains an account-specific workspace id)
+.postman/

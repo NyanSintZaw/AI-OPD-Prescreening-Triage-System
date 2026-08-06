@@ -20,7 +20,13 @@ from gen_api_doc import auth_map, example_from_schema
 
 SCRATCH = Path(__file__).parent
 ROOT = Path(__file__).resolve().parents[3]
+# Postman's local-workspace layout: the workspace root (our repo root) holds a
+# `postman/` folder, and everything inside it is auto-registered in Local View
+# (see .postman/resources.yaml, which Postman writes itself). Loose files at
+# the folder root are ignored — hence the collections/ + environments/ split.
 OUT = ROOT / "postman"
+COLLECTIONS = OUT / "collections"
+ENVIRONMENTS = OUT / "environments"
 SCHEMA = "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
 
 spec = json.load(open(SCRATCH / "openapi.json"))
@@ -191,8 +197,9 @@ api_desc = (
     "Not included: `WS /ws/voice/{session_id}` — create it as a Postman "
     "WebSocket request (see `docs/api-reference.md` for the frame contract)."
 )
-(OUT).mkdir(exist_ok=True)
-(OUT / "ai-opd-prescreening-api.postman_collection.json").write_text(
+COLLECTIONS.mkdir(parents=True, exist_ok=True)
+ENVIRONMENTS.mkdir(parents=True, exist_ok=True)
+(COLLECTIONS / "ai-opd-prescreening-api.postman_collection.json").write_text(
     json.dumps(collection("AI OPD Prescreening API", api_desc, api_items, "token"), indent=2, ensure_ascii=False) + "\n"
 )
 
@@ -206,7 +213,7 @@ env_values = {
     "session_id": "",
 }
 env_values.update({v: "" for v in sorted(path_vars) if v != "session_id"})
-(OUT / "local.postman_environment.json").write_text(
+(ENVIRONMENTS / "local.postman_environment.json").write_text(
     json.dumps(environment("mfu-triage local", env_values), indent=2) + "\n"
 )
 
@@ -307,13 +314,13 @@ his_desc = (
     "for the mock) from the single `hisToken` variable — matching "
     "`his_auth_headers()` in the backend."
 )
-(OUT / "his-integration.postman_collection.json").write_text(
+(COLLECTIONS / "his-integration.postman_collection.json").write_text(
     json.dumps(collection("HIS Integration (hospital-facing)", his_desc, [
         {"name": "current-contract", "item": current_items},
         {"name": "imed-real-contract", "item": imed_items},
     ], "hisToken"), indent=2, ensure_ascii=False) + "\n"
 )
-(OUT / "his-local.postman_environment.json").write_text(
+(ENVIRONMENTS / "his-local.postman_environment.json").write_text(
     json.dumps(environment("mfu-his local", {
         "hisBaseUrl": "http://localhost:8001",
         "imedBaseUrl": "https://uat-host/api/v1",
@@ -331,8 +338,6 @@ print(f"postman: {sum(len(v) for v in folders.values())} requests in {len(folder
 # Postman can watch. Unset (the default) = repo files are the only copy.
 mirror = os.environ.get("POSTMAN_MIRROR_DIR")
 if mirror:
-    dest = Path(mirror)
-    dest.mkdir(parents=True, exist_ok=True)
-    for f in sorted(OUT.glob("*.json")) + [OUT / "README.md"]:
-        shutil.copy2(f, dest / f.name)
+    dest = Path(mirror) / "postman"
+    shutil.copytree(OUT, dest, dirs_exist_ok=True)
     print(f"mirrored to {dest}")
