@@ -20,19 +20,21 @@ then regenerating Postman.
 
 ## Request mapping — what we send today → `POST /patient-assignments`
 
-| iMed field | Our source (today's code) | Status |
+| iMed field | Our source | Status |
 |---|---|---|
-| `request_id` | allocated at nurse-confirm and **stored** in session `metadata["his_routing"]["request_id"]` — see below | decided 2026-08-06, to implement |
-| `visit_id` | `session.metadata.visit.visit_id` (captured at `POST /sessions/{id}/link-visit`) | ✅ available |
-| `assign_spid` | our department code → real service-point id via `screening/his/department_map.py` | ⏳ needs master-data codes from hospital |
-| `assign_eid` | not modeled — we route to a department, never a named doctor | ask: does any OPD destination require it? |
-| `base_department_id` | same department map, or omit (iMed derives it from the service point) | ⏳ needs master-data codes |
-| `queue_number` | omit — iMed generates by its own queue rules | — |
-| `sbar.situation` | nurse-edited chief complaint (falls back to the AI `symptoms_summary`) | ✅ |
-| `sbar.background` | patient history risk factors (`metadata.patient_history`: chronic conditions, allergies, …) | ✅ |
-| `sbar.assessment` | booth-measured vitals (`metadata.vitals`: cuff BP, temp, weight/height) | ✅ |
-| `sbar.assessment_problem` | nurse illness note / engine `key_reason` | ✅ |
-| `sbar.recommend` | disposition reasons (cited criteria texts); if the nurse **rerouted**, note that here — iMed has no `rerouted` flag | ✅ |
+| `request_id` | allocated at nurse-confirm and **stored** in `metadata["his_routing"]["request_id"]` — see below | ✅ implemented |
+| `visit_id` | `session.metadata.visit.visit_id`, captured at link-visit | ✅ implemented |
+| `assign_spid` | our department code → `department_map.CODE_TO_SPID` | ⏳ **placeholder codes** — needs their master data |
+| `assign_eid` | not sent. We route to a department, never a named doctor | ❓ ask: does any OPD destination require one? |
+| `base_department_id` | not sent — iMed derives it from the service point, so sending it is one more code to keep in sync | ✅ decided: omit |
+| `queue_number` | not sent — their queue rules own sequencing | ✅ decided: omit |
+| `sbar` | seven fields — **see [SBAR — what we send](#sbar--what-we-send-agreed-2026-08-06)** | ✅ implemented |
+
+The SBAR breakdown lives in its own section below and is the single source of
+truth for it. An earlier version of this table duplicated it and drifted —
+notably claiming `recommend` carried the cited disposition reasons, when
+those belong in `assessment_problem` and `recommend` is derived from the
+department and response time.
 
 ## `request_id` — allocate once, store, reuse (decided 2026-08-06)
 
@@ -198,8 +200,25 @@ adds Documentation — seven fields. Sending it switches their code path to
 | `assessment` | composed at send time | `metadata.vitals` with provenance **+ the triage level**, which is here only because their contract has no field for it (CR 1) |
 | `assessment_problem` | **yes, a real field** | our **illness note** — nurse-editable, falls back to `key_reason` (`ai_illness_note`) — plus `disposition_reasons` with citations |
 | `assessment_equipment` | **no — we do not provide it** | a clinical judgement our system does not make; omitted entirely unless the nurse types something |
-| `recommend` | **no — we hold no recommendation field** | the routing decision is a department code, and it is already `assign_spid`. This restates it in words + `response_time`, and carries the reroute note since iMed has no `rerouted` flag |
+| `recommend` | **no — we hold no recommendation field** | the routing decision is a department code, and it is already `assign_spid`. We pre-fill this with that destination + the manual's target `response_time`, and the reroute note (iMed has no `rerouted` flag). **A nurse reviews and can rewrite it before it sends** — see the note below |
 | `documentation` | composed at send time | slip code + the patient's own follow-up question when there is one |
+
+### `recommend` — their sample is a clinician's words, and ours is pre-filled
+
+Their contract samples this field as *"ประเมินโดยแพทย์โดยเร็ว"* (doctor to
+assess promptly) — a clinical recommendation, the kind a referring clinician
+writes. Our system does not make that judgement and must not pretend to.
+
+What we put there instead is factual: the destination department and the
+target response time the MOPH criteria set for that triage level — not an
+LLM's opinion, a number from the manual. Then the **nurse sees it in the
+confirm dialog and can rewrite it entirely** before it sends. So the text that
+reaches the destination is clinician-reviewed; we only save them typing the
+routine part.
+
+If the hospital would rather this field arrive empty unless a nurse actually
+writes something, that is a one-line change on our side. Worth asking, since
+it is their clinical convention, not ours.
 
 Only two SBAR fields have a stored field of ours behind them (`situation`,
 `assessment_problem`) — and those are exactly the two the nurse already edits
