@@ -639,6 +639,20 @@ depends on this one.
 We are not asking for a patient search. **One visit, looked up by the VN the
 patient themselves presented** — no browsing, no enumeration.
 
+### Why these fields and not others
+
+We split the two reads by **purpose, not by table**. This one carries only
+what is needed to *safely start* a session: who the patient is, whether the
+visit is open, and the age band the triage rules need. The patient read is
+pure optimisation — it saves us re-asking questions — and you can decline it
+without breaking anything.
+
+**If `patient_name` and `birthdate` live only on your patient record and not
+on the visit, tell us.** We can fetch them from `GET /patients/{hn}` instead,
+but then that endpoint stops being optional and becomes as blocking as this
+one, because without a name we cannot confirm we are triaging the right
+person, and without a birthdate we cannot apply paediatric thresholds.
+
 ### What we read (and why)
 
 | Field | What we do with it |
@@ -661,6 +675,12 @@ the visit lookup: useful, not blocking.
 Read-only access to the patient (HN) record, so the booth does not
 re-interview someone you already know. Today we ask every patient the full
 history; with this we only ask first-timers.
+
+**Safe to decline.** Everything here is an optimisation — nothing the booth
+needs in order to run. Identity and the age band come from the visit read, so
+refusing this one costs the patient a few extra questions and nothing else.
+(The exception is if your visit record cannot carry `patient_name` and
+`birthdate` — see that request. Then this becomes blocking too.)
 
 ### What we read (and why)
 

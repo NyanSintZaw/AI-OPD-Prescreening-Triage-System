@@ -8,6 +8,12 @@ description: |
   re-interview someone you already know. Today we ask every patient the full
   history; with this we only ask first-timers.
 
+  **Safe to decline.** Everything here is an optimisation — nothing the booth
+  needs in order to run. Identity and the age band come from the visit read, so
+  refusing this one costs the patient a few extra questions and nothing else.
+  (The exception is if your visit record cannot carry `patient_name` and
+  `birthdate` — see that request. Then this becomes blocking too.)
+
   ### What we read (and why)
 
   | Field | What we do with it |
