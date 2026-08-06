@@ -340,6 +340,52 @@ still needs a hospital-side answer:
 | `PUT /api/patients/{hn}/history` | booth-updated patient history | no iMed equivalent — keep internal unless hospital wants it |
 | `PUT /api/visits/{id}/follow-up` | follow-up note | same as above |
 
+### SBAR — what we send (agreed 2026-08-06)
+
+SBAR is the standard clinical handover format (Situation, Background,
+Assessment, Recommendation). iMed's variant splits Assessment into three and
+adds Documentation — seven fields. Sending it switches their code path to
+`assignSbarVisit` and returns an `sbar_id`.
+
+| iMed field | Our source | Notes |
+|---|---|---|
+| `situation` | nurse-edited chief complaint, else AI `symptoms_summary` | |
+| `background` | `metadata.patient_history` (chronic conditions, allergies, past surgeries, family history, smoking/alcohol) + age + first-visit flag | |
+| `assessment` | `metadata.vitals` (cuff BP, pulse, temp, weight/height) **+ the triage level** | level goes here until/unless they add a real acuity field |
+| `assessment_problem` | `key_reason` + `disposition_reasons` — structured `{rule_id, citation, text_en, text_th}`, so we can cite which MFU-manual criterion fired | |
+| `assessment_equipment` | **not auto-filled** — a clinical judgement our system does not make; leave blank or nurse-filled | |
+| `recommend` | recommended department + urgency; if rerouted, say so (iMed has no `rerouted` flag) | |
+| `documentation` | candidate home for the back-link to our session/transcript | |
+
+Decisions:
+
+- **Always Thai.** Hospital staff read Thai regardless of the language the
+  patient chose at the booth. Note `_disposition_reason_texts` currently
+  prefers `text_en` — must prefer `text_th` for SBAR.
+- **Nurse-reviewed before it fires.** An AI-written clinical handover should
+  not be sent unreviewed; show the SBAR in the confirmation dialog (same
+  dialog as the queue-move warning) and let the nurse edit it.
+- **SBAR is clinician-facing, so the triage level BELONGS in it.** Our
+  patient-facing redaction (`validator.py`, `triage_payloads.py`) strips
+  level/colour/diagnosis — that redaction must **not** be applied to SBAR.
+- SBAR is currently **write-only** for us: the response carries only
+  `sbar_id`. Read access requested (below).
+
+### Change requests for the hospital (Fri 2026-08-07 meeting)
+
+The PDF is a draft contract, not final — these are fields/behaviours to ask
+for. If accepted, we implement them our side and show them in the Postman
+collection on the day.
+
+| # | Request | Why |
+|---|---|---|
+| 1 | An **acuity / triage-level field** on the assignment | Our system's core output is a 5-level triage. With no field it is buried in SBAR prose, so the destination queue sorts by arrival instead of by how sick the patient is. Highest-value request. |
+| 2 | **Structured vitals** fields | We capture BP/pulse/temp/weight/height with timestamps *and* provenance (cuff vs patient-stated); otherwise all of it flattens into one sentence. |
+| 3 | **Nurse attribution** (e.g. `confirmed_by`) | Sender identity comes from the token, so iMed records "the MFU system", not the nurse who confirmed. Matters for audit after an incident. |
+| 4 | **Back-link field** for our slip code / session ref | Lets destination staff open the full transcript and reasoning, not just the summary. |
+| 5 | **Read access to SBAR** | Currently write-only (`sbar_id` only). Reading it back lets us show the nurse what was actually handed over, and detect drift. |
+| 6 | **Visit lookup by VN** *and* **patient read by HN** | Two different needs: VN confirms today's encounter is active and gives us `visit_id` (blocking — the booth cannot link a patient without it); HN gives history/allergies/last vitals. Our mock returns both in one call, which may be the shape to propose. |
+
 ### Workflow decisions (settled 2026-08-06)
 
 **Booth as a service point** — the hospital will register it and issue the
