@@ -1,4 +1,6 @@
 import logging
+from urllib.parse import urlsplit
+
 import httpx
 from fastapi import (
     Depends,
@@ -91,9 +93,29 @@ async def admin_his_connect(
         raise HTTPException(
             status_code=422, detail="Endpoint must start with http:// or https://"
         )
+    # Outside development the access token must never cross the wire in clear
+    # text. Plain http:// stays allowed in dev so the local mock HIS works.
+    if settings.environment != "development" and not endpoint.startswith("https://"):
+        raise HTTPException(
+            status_code=422,
+            detail="Endpoint must use https:// — a plain http:// connection would "
+            "send the hospital access token in clear text.",
+        )
     # Blank token field keeps the saved one (so admins can change the name or
     # URL without re-typing the secret); disconnect is how you clear it.
     api_key = (payload.api_key or "").strip() or settings.his_api_key
+    # ...but only for the SAME host. Reusing the saved token against a new host
+    # would let anyone who can edit this form point us at a server they control
+    # and have us hand over the hospital's token during the probe below — so
+    # reject before any outbound request is made.
+    if not (payload.api_key or "").strip():
+        new_host = urlsplit(endpoint).netloc.lower()
+        saved_host = urlsplit(settings.his_base_url or "").netloc.lower()
+        if api_key and new_host != saved_host:
+            raise HTTPException(
+                status_code=422,
+                detail="Re-enter the access token when changing the hospital host.",
+            )
     connected, count, message = await _probe_his_endpoint(endpoint, api_key)
     if not connected:
         raise HTTPException(status_code=422, detail=message or "Connection failed")
