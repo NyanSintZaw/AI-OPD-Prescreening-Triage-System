@@ -14,6 +14,9 @@ description: |
     never obtain the `visit_id` the assignment call requires (CR 6).
   * **GET /patients/{hn}** — read-only patient record, so we do not re-interview
     someone you already know (CR 6). Useful, not blocking.
+  * **PUT /patients/{hn}/history** — write back the history the booth collected
+    from a first-time patient (CR 13). Pairs with the read: without it every
+    visit is a first visit.
 
   Anything you accept, we implement our side. Anything you reject, we drop —
   these are questions, not requirements.

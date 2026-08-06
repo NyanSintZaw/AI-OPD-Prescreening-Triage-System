@@ -754,6 +754,65 @@ reads_items = [
     },
 ]
 
+HISTORY_WRITE_DESC = """⚠️ **Not in your contract — the other half of change request 6 (CR 13).**
+
+The read above lets us skip re-interviewing a patient you already know. This
+is what makes that possible in the first place: when a patient has no history
+on file, the booth asks them during the voice interview, and this writes the
+answers back to their HN record.
+
+**Read without write is only half useful.** If we can see that a history is
+missing but can never record one, then every visit is a first visit and we
+ask the same patient the same five questions forever.
+
+### What we would send
+
+Exactly the five fields in the read, plus nothing else. All optional strings,
+max 500 characters, verbatim from `PatientHistoryIntakeRequest` in our
+backend — we do not summarise or interpret them.
+
+| Field | Example |
+|---|---|
+| `allergies` | แพ้ยาเพนนิซิลลิน |
+| `chronic_conditions` | ความดันโลหิตสูง เบาหวาน |
+| `past_surgeries` | ผ่าตัดไส้ติ่ง 2562 |
+| `family_history` | บิดาเป็นโรคหัวใจ |
+| `smoking_alcohol` | สูบบุหรี่วันละ 5 มวน ไม่ดื่มสุรา |
+
+### Points worth deciding together
+
+* **Who owns the record.** These are the patient's own words, captured by a
+  machine, not a nurse's chart entry. If you would rather they land somewhere
+  provisional for staff to confirm before they touch the master record, that
+  works for us — tell us where.
+* **Overwrite or append.** We would only ever write when the history is
+  empty, never overwrite an existing one. Say if you want a different rule.
+* **Who is recorded as the author.** As with the assignment, the token
+  identifies our system, not the patient or a nurse (CR 3).
+
+If this is not acceptable at all, the read still has value — we would simply
+ask every patient every time, and you would carry the history only in your
+own records.
+"""
+
+reads_items.append({
+    "name": "PUT /patients/{hn}/history",
+    "request": {
+        "method": "PUT",
+        "header": JSON_HDR,
+        "url": pm_url("/patients/{imedHn}/history", "imedBaseUrl"),
+        "description": HISTORY_WRITE_DESC,
+        "body": json_body({
+            "allergies": "แพ้ยาเพนนิซิลลิน",
+            "chronic_conditions": "ความดันโลหิตสูง",
+            "past_surgeries": None,
+            "family_history": "บิดาเป็นโรคหัวใจ",
+            "smoking_alcohol": "สูบบุหรี่วันละ 5 มวน ไม่ดื่มสุรา",
+        }),
+    },
+})
+
+
 his_desc = (
     "What our system sends to the hospital's real **iMed Patient Assignment "
     "API** — the integration surface for the hospital IT team.\n\n"
@@ -798,6 +857,9 @@ what we mean.
   never obtain the `visit_id` the assignment call requires (CR 6).
 * **GET /patients/{hn}** — read-only patient record, so we do not re-interview
   someone you already know (CR 6). Useful, not blocking.
+* **PUT /patients/{hn}/history** — write back the history the booth collected
+  from a first-time patient (CR 13). Pairs with the read: without it every
+  visit is a first visit.
 
 Anything you accept, we implement our side. Anything you reject, we drop —
 these are questions, not requirements.

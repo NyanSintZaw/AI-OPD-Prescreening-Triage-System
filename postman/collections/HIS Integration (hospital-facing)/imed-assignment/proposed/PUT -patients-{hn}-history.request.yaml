@@ -1,0 +1,57 @@
+$kind: http-request
+name: PUT /patients/{hn}/history
+description: |
+  ⚠️ **Not in your contract — the other half of change request 6 (CR 13).**
+
+  The read above lets us skip re-interviewing a patient you already know. This
+  is what makes that possible in the first place: when a patient has no history
+  on file, the booth asks them during the voice interview, and this writes the
+  answers back to their HN record.
+
+  **Read without write is only half useful.** If we can see that a history is
+  missing but can never record one, then every visit is a first visit and we
+  ask the same patient the same five questions forever.
+
+  ### What we would send
+
+  Exactly the five fields in the read, plus nothing else. All optional strings,
+  max 500 characters, verbatim from `PatientHistoryIntakeRequest` in our
+  backend — we do not summarise or interpret them.
+
+  | Field | Example |
+  |---|---|
+  | `allergies` | แพ้ยาเพนนิซิลลิน |
+  | `chronic_conditions` | ความดันโลหิตสูง เบาหวาน |
+  | `past_surgeries` | ผ่าตัดไส้ติ่ง 2562 |
+  | `family_history` | บิดาเป็นโรคหัวใจ |
+  | `smoking_alcohol` | สูบบุหรี่วันละ 5 มวน ไม่ดื่มสุรา |
+
+  ### Points worth deciding together
+
+  * **Who owns the record.** These are the patient's own words, captured by a
+    machine, not a nurse's chart entry. If you would rather they land somewhere
+    provisional for staff to confirm before they touch the master record, that
+    works for us — tell us where.
+  * **Overwrite or append.** We would only ever write when the history is
+    empty, never overwrite an existing one. Say if you want a different rule.
+  * **Who is recorded as the author.** As with the assignment, the token
+    identifies our system, not the patient or a nurse (CR 3).
+
+  If this is not acceptable at all, the read still has value — we would simply
+  ask every patient every time, and you would carry the history only in your
+  own records.
+url: "{{imedBaseUrl}}/patients/{{imedHn}}/history"
+method: PUT
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: |-
+    {
+      "allergies": "แพ้ยาเพนนิซิลลิน",
+      "chronic_conditions": "ความดันโลหิตสูง",
+      "past_surgeries": null,
+      "family_history": "บิดาเป็นโรคหัวใจ",
+      "smoking_alcohol": "สูบบุหรี่วันละ 5 มวน ไม่ดื่มสุรา"
+    }
+order: 5000
