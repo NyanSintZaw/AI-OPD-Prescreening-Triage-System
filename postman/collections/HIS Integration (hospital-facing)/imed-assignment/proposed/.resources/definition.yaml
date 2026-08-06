@@ -17,9 +17,9 @@ description: |
   * **PUT /patients/{hn}/history** — write back the history the booth collected
     from a first-time patient (CR 13). Pairs with the read: without it every
     visit is a first visit.
-  * **POST /visits/{visit_id}/observations** — booth measurements recorded at
-    the end of the session, **objective data only, no AI judgement** (CR 14).
-    Without it a patient who leaves before seeing a nurse leaves no trace.
+  * **POST /visit-measurements** — what the booth measured, recorded at the end
+    of the session: **objective data only, no AI judgement** (CR 14). Without it
+    a patient who leaves before seeing a nurse leaves no trace.
 
   Anything you accept, we implement our side. Anything you reject, we drop —
   these are questions, not requirements.

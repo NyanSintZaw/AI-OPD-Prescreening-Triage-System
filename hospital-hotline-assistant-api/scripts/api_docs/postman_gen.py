@@ -857,6 +857,14 @@ nurse-confirm step would be decorative. So this carries only what an
 instrument measured and the fact that the patient was at the booth. The
 clinical narrative stays with us until `POST /patient-assignments`.
 
+### Why "measurements"
+
+Named after your own vocabulary rather than ours: the Prescreen export already
+has `measure_spid`, `measure_name` and `measure_department` for exactly this —
+who took the numbers and where. Deliberately **not** "observations", which in
+clinical systems implies an assessment; nothing here is assessed. Plural,
+hyphenated, visit-scoped, to sit alongside `POST /patient-assignments`.
+
 ### Identifying the patient — VN only, same as the assignment
 
 `visit_id` is in the body, shaped like your `POST /patient-assignments`
@@ -889,11 +897,11 @@ on our side and they would reach you in the SBAR at assignment time instead.
 """
 
 reads_items.append({
-    "name": "POST /observations",
+    "name": "POST /visit-measurements",
     "request": {
         "method": "POST",
         "header": JSON_HDR,
-        "url": pm_url("/observations", "imedBaseUrl"),
+        "url": pm_url("/visit-measurements", "imedBaseUrl"),
         "description": STAGE1_DESC,
         "body": json_body({
             "visit_id": "{{imedVisitId}}",
@@ -971,9 +979,9 @@ what we mean.
 * **PUT /patients/{hn}/history** — write back the history the booth collected
   from a first-time patient (CR 13). Pairs with the read: without it every
   visit is a first visit.
-* **POST /visits/{visit_id}/observations** — booth measurements recorded at
-  the end of the session, **objective data only, no AI judgement** (CR 14).
-  Without it a patient who leaves before seeing a nurse leaves no trace.
+* **POST /visit-measurements** — what the booth measured, recorded at the end
+  of the session: **objective data only, no AI judgement** (CR 14). Without it
+  a patient who leaves before seeing a nurse leaves no trace.
 
 Anything you accept, we implement our side. Anything you reject, we drop —
 these are questions, not requirements.

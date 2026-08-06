@@ -1,5 +1,5 @@
 $kind: http-request
-name: POST /observations
+name: POST /visit-measurements
 description: |
   ⚠️ **Not in your contract — change request 14.**
 
@@ -22,6 +22,14 @@ description: |
   nurse-confirm step would be decorative. So this carries only what an
   instrument measured and the fact that the patient was at the booth. The
   clinical narrative stays with us until `POST /patient-assignments`.
+
+  ### Why "measurements"
+
+  Named after your own vocabulary rather than ours: the Prescreen export already
+  has `measure_spid`, `measure_name` and `measure_department` for exactly this —
+  who took the numbers and where. Deliberately **not** "observations", which in
+  clinical systems implies an assessment; nothing here is assessed. Plural,
+  hyphenated, visit-scoped, to sit alongside `POST /patient-assignments`.
 
   ### Identifying the patient — VN only, same as the assignment
 
@@ -52,7 +60,7 @@ description: |
   table, or somewhere provisional. If you would rather receive nothing before
   nurse sign-off, that is a legitimate answer — we would keep the measurements
   on our side and they would reach you in the SBAR at assignment time instead.
-url: "{{imedBaseUrl}}/observations"
+url: "{{imedBaseUrl}}/visit-measurements"
 method: POST
 headers:
   Content-Type: application/json
