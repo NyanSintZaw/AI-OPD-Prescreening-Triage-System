@@ -50,6 +50,9 @@ CREATE TABLE IF NOT EXISTS visits (
     nurse_chief_complaint       TEXT,
     nurse_patient_illness       TEXT,
     follow_up                   TEXT,
+    -- NULL / NON_DISCHARGE = routable. LOCKED / FINANCIAL_DISCHARGE make
+    -- POST /api/v1/patient-assignments answer 403, as iMed does.
+    visit_lock_status           TEXT,
     first_location_id           TEXT,
     first_location_name         TEXT,
     first_location_department   TEXT,
@@ -92,7 +95,65 @@ CREATE TABLE IF NOT EXISTS prescreen_results (
     created_at             TEXT NOT NULL DEFAULT (datetime('now')),
     updated_at             TEXT NOT NULL DEFAULT (datetime('now'))
 );
+
+-- Destination service points for POST /api/v1/patient-assignments.
+-- Seeded from SERVICE_POINTS below.
+CREATE TABLE IF NOT EXISTS service_points (
+    spid          TEXT PRIMARY KEY,
+    name          TEXT,
+    department_id TEXT,
+    queue_prefix  TEXT,
+    is_open       INTEGER NOT NULL DEFAULT 1
+);
+
+-- Named after iMed's own table, since this repo doubles as documentation
+-- for the hospital's team. request_id is UNIQUE: idempotency is a database
+-- constraint, not something the handler has to remember to enforce.
+CREATE TABLE IF NOT EXISTS visit_queue (
+    visit_queue_id     TEXT PRIMARY KEY,
+    request_id         TEXT UNIQUE,
+    visit_id           TEXT REFERENCES visits(visit_id),
+    next_location_spid TEXT,
+    next_department_id TEXT,
+    next_operate_eid   TEXT,
+    queue_number       TEXT,
+    queue_status       TEXT NOT NULL DEFAULT 'WAITING',
+    sbar               TEXT,
+    sbar_id            TEXT,
+    created_at         TEXT NOT NULL DEFAULT (datetime('now'))
+);
 """
+
+# ⚠️ PLACEHOLDER MASTER DATA — INVENTED BY US, NOT CONFIRMED BY THE HOSPITAL.
+# Shaped like the contract's samples (SP_ER_01 / DEPT_ER). Must stay in lockstep
+# with CODE_TO_SPID in the backend's screening/his/department_map.py. Replace
+# every spid/department_id here with iMed's real codes before any UAT call.
+# Source table: docs/imed-integration-plan.md §Department master data.
+SERVICE_POINTS = (
+    # spid, name (verbatim HIS string), department_id, queue_prefix
+    ("SP_ER_01", "แผนก ER (อุบัติเหตุและฉุกเฉิน)", "DEPT_ER", "E"),
+    ("SP_OPD_GP_01", "แผนก OPD GP (ทั่วไป ชั้น1)", "DEPT_GP", "G"),
+    ("SP_OPD_MED_01", "แผนก OPD MED (อายุรกรรม)", "DEPT_MED", "M"),
+    ("SP_OPD_PED_01", "แผนก OPD PEDIATRIC (กุมารเวชกรรม)", "DEPT_PED", "P"),
+    ("SP_OPD_HEART_01", "แผนก OPD HEART (หน่วยตรวจหัวใจและหลอดเลือด)", "DEPT_HEART", "H"),
+    ("SP_OPD_ORTHO_01", "แผนก OPD ORTHOPEDIC (โรคกระดูกและข้อ)", "DEPT_ORTHO", "O"),
+    ("SP_OPD_ENT_01", "แผนก OPD E.N.T (หู คอ จมูก)", "DEPT_ENT", "T"),
+    ("SP_OPD_SURG_01", "แผนก OPD SURGICAL (ศัลยศาสตร์)", "DEPT_SURG", "S"),
+    ("SP_OPD_EYE_01", "แผนก OPD EYE (ตา)", "DEPT_EYE", "Y"),
+    ("SP_OPD_PSY_01", "แผนก จิตเวช", "DEPT_PSY", "J"),
+    ("SP_OPD_OBGYN_01", "แผนก OPD OB-GYN (สูติ-นรีเวชกรรม)", "DEPT_OBGYN", "B"),
+)
+
+
+def seed_service_points(conn: sqlite3.Connection) -> None:
+    """INSERT OR IGNORE so an operator's manual ``is_open = 0`` (used to demo
+    the 422 closed-service-point path) survives a restart."""
+    conn.executemany(
+        "INSERT OR IGNORE INTO service_points "
+        "(spid, name, department_id, queue_prefix, is_open) VALUES (?, ?, ?, ?, 1)",
+        SERVICE_POINTS,
+    )
+    conn.commit()
 
 # Columns the hospital already knows at registration (we only READ these).
 PRE_REGISTRATION_COLUMNS = (
@@ -109,7 +170,7 @@ def connect(db_path: str | Path) -> sqlite3.Connection:
     # CREATE IF NOT EXISTS won't extend a pre-existing DB file: patch in
     # columns added after the first release.
     existing = {r["name"] for r in conn.execute("PRAGMA table_info(visits)")}
-    for column in ("patient_name", "follow_up"):
+    for column in ("patient_name", "follow_up", "visit_lock_status"):
         if column not in existing:
             conn.execute(f"ALTER TABLE visits ADD COLUMN {column} TEXT")
     conn.commit()

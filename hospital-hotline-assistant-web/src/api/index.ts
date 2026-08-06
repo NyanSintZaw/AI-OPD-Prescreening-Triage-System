@@ -47,6 +47,8 @@ import type {
   KioskStats,
   RoutingRuleOut,
   RoutingFeedbackOut,
+  SbarFields,
+  SbarPreviewRequest,
   SessionByVisitOut,
   SessionCreate,
   SessionOut,
@@ -265,6 +267,14 @@ export const api = {
     request<AssessmentReviewOut>(`/admin/reviews/${assessmentId}/correct`, {
       method: 'POST',
       body: JSON.stringify(payload),
+    }),
+
+  /** Build the SBAR the nurse is about to send, from their current draft, so
+   *  it can be reviewed and edited before it fires. */
+  previewReviewSbar: (assessmentId: string, draft: SbarPreviewRequest) =>
+    request<SbarFields>(`/admin/reviews/${assessmentId}/sbar-preview`, {
+      method: 'POST',
+      body: JSON.stringify(draft),
     }),
 
   listRoutingFeedback: () => request<RoutingFeedbackOut[]>('/admin/feedback'),

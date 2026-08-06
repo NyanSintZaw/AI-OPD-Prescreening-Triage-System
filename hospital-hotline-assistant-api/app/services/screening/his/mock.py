@@ -10,12 +10,15 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from .adapter import PatientHistory, VisitInfo
+from .adapter import AssignmentResult, PatientHistory, VisitInfo
 
 logger = logging.getLogger(__name__)
 
 
 class MockHisAdapter:
+    def __init__(self) -> None:
+        self._queue_seq = 0
+
     async def validate_visit(self, visit_id: str) -> VisitInfo | None:
         if not visit_id.strip():
             return None
@@ -48,19 +51,23 @@ class MockHisAdapter:
         self,
         visit_id: str,
         *,
-        department: str,
-        complaint: str | None = None,
-        note: str | None = None,
-        confirmed_by: str,
-        rerouted: bool = False,
-    ) -> bool:
+        request_id: str,
+        assign_spid: str,
+        sbar: dict[str, str | None] | None = None,
+    ) -> AssignmentResult:
+        self._queue_seq += 1
         logger.info(
-            "[MockHIS] stage-2 routing %s visit=%s dept=%s by=%s complaint=%s note=%s",
-            "reroute" if rerouted else "confirm",
-            visit_id,
-            department,
-            confirmed_by,
-            complaint,
-            note,
+            "[MockHIS] assignment visit=%s spid=%s request_id=%s sbar=%s",
+            visit_id, assign_spid, request_id, bool(sbar),
         )
-        return True
+        # A plausible queue number so HIS_MODE=mock demos still show the nurse
+        # something to hand the patient.
+        return AssignmentResult(
+            status="pushed",
+            request_id=request_id,
+            queue_number=f"A{self._queue_seq:03d}",
+            visit_queue_id=f"VQ-MOCK{self._queue_seq:04d}",
+            queue_status="WAITING",
+            sbar_id="SBAR-MOCK" if sbar else None,
+            http_status=200,
+        )

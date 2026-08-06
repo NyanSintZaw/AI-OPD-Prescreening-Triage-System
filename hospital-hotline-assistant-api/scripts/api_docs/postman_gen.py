@@ -249,8 +249,6 @@ ADAPTER_CALLS = [
      "Replaceable by a one-time master-data sheet instead of an API."),
     ("post", "/api/visits/{visit_id}/prescreen",
      "**WE POST** — Stage 1 write-back: AI prescreen result right after the booth session (`HttpHisAdapter.push_referral`)."),
-    ("put", "/api/visits/{visit_id}/routing",
-     "**WE PUT** — Stage 2 write-back: nurse-confirmed department routing (`HttpHisAdapter.confirm_routing`). Real-iMed counterpart: `POST /patient-assignments`."),
     ("put", "/api/visits/{visit_id}/follow-up",
      "⚠️ **OUR ASSUMPTION — iMed documents no counterpart (change request 6).**\n\n"
      "**WE PUT** — follow-up note captured during the interview (`HttpHisAdapter.push_follow_up`)."),
@@ -432,6 +430,10 @@ adopt this shape** — only to tell us where these values should live.
 
 If any of these are accepted we implement them our side and this request
 becomes request 1.
+
+*Against our mock this reuses request 1's `request_id`, so it replays request
+1's result rather than queueing the patient twice — that is the idempotency
+rule working, not the proposed fields being ignored.*
 """,
             "body": json_body(PROPOSED_BODY),
         },
@@ -459,6 +461,9 @@ number to give them.
 **CR 5 — SBAR read-back.** SBAR is currently write-only for us: we get an
 `sbar_id` and nothing else. Reading it back lets us show the nurse what was
 actually handed over.
+
+*Returns 404 against our mock — deliberately not built, because it is a
+request to you, not something we have decided for you.*
 """,
         },
         "response": [

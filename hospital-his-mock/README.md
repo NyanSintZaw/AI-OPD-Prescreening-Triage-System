@@ -22,7 +22,7 @@ is blank. Then our system fills the blanks in two stages:
 - **Stage 1** (`POST /api/visits/{id}/prescreen`, at the patient's receipt):
   measurements (`pressure`, `pulse`, `weight`, `height`, `bmi`, `temperature`)
   + our booth as `measure_*`/`first_location_*`. Status → `screened`.
-- **Stage 2** (`PUT /api/visits/{id}/routing`, on nurse confirm): the held
+- **Stage 2** (`POST /api/v1/patient-assignments`, on nurse confirm): the held
   clinical narrative (`nurse_chief_complaint`, `nurse_patient_illness`) +
   `second_location` (department). Status → `routed`.
 
@@ -92,7 +92,7 @@ All endpoints require `X-API-Key` (default `demo-his-key`, override with
 | GET | `/api/visits` | List all visits with `screening_status` (registered/screened/routed) — powers the admin Hospital DB tab |
 | GET | `/api/visits/{visit_id}` | Full visit row (demographics + any filled screening fields) plus a nested `patient` object (HN history + last-known vitals) and both `hnx`/`hn` keys; booth reads this after the patient types their visit ID |
 | POST | `/api/visits/{visit_id}/prescreen` | **Stage 1**: write booth measurements + booth location; hold dept/complaint/reason pending |
-| PUT | `/api/visits/{visit_id}/routing` | **Stage 2**: nurse confirms/reroutes → publish narrative + second_location |
+| POST | `/api/v1/patient-assignments` | **Stage 2**, iMed-shaped: queue the patient at a destination service point → returns `queue_number`. Idempotent per `request_id`. |
 | GET | `/api/visits/{visit_id}/prescreen` | Read the held/finalized prescreen record |
 | GET | `/api/patients/{hn}` | HN master record: demographics, history, last-known vitals, `is_first_time` |
 | PUT | `/api/patients/{hn}/history` | Record booth-collected history (smoking/alcohol, allergies, chronic conditions, surgeries, family history); stamps `history_recorded_at` |

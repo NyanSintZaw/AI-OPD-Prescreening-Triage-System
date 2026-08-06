@@ -219,19 +219,26 @@
     }
    }
   },
-  "/api/visits/{visit_id}/routing": {
-   "put": {
-    "summary": "Confirm Routing",
-    "description": "Stage 2 write-back — publish the clinical narrative + routing.\n\nHuman sign-off. Promotes the held complaint summary + reason into the\nnurse_* fields and writes second_location (the confirmed/rerouted\ndepartment) onto the visit row.",
-    "operationId": "confirm_routing_api_visits__visit_id__routing_put",
+  "/api/v1/patient-assignments": {
+   "post": {
+    "summary": "Create Patient Assignment",
+    "description": "Send a registered visit to a destination service point.\n\nMirrors the hospital's real iMed contract\n(``docs/imed-patient-assignment-api.md``) — same envelope, same error\ncodes, same idempotency rule. Replaces the retired\n``PUT /api/visits/{id}/routing``.\n\nTwo deliberate divergences, both flagged for the hospital meeting:\n\n* A repeated ``request_id`` returns **200 with the original result**\n  rather than a bare 409. That is our *change request 7* — an\n  idempotency key is useless if a retry after a timeout cannot tell us\n  the queue number. Implemented here so the proposal is runnable.\n* ``confirmed_by`` is left NULL and a reroute cannot be marked as such:\n  iMed derives the sender from the access token and has no reroute\n  flag (change requests 3 and 4). The empty column is the demo.",
+    "operationId": "create_patient_assignment_api_v1_patient_assignments_post",
     "parameters": [
      {
-      "name": "visit_id",
-      "in": "path",
-      "required": true,
+      "name": "authorization",
+      "in": "header",
+      "required": false,
       "schema": {
-       "type": "string",
-       "title": "Visit Id"
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Authorization"
       }
      },
      {
@@ -256,7 +263,7 @@
      "content": {
       "application/json": {
        "schema": {
-        "$ref": "#/components/schemas/RoutingIn"
+        "$ref": "#/components/schemas/AssignmentIn"
        }
       }
      }
@@ -683,6 +690,73 @@
  },
  "components": {
   "schemas": {
+   "AssignmentIn": {
+    "properties": {
+     "request_id": {
+      "type": "string",
+      "title": "Request Id"
+     },
+     "visit_id": {
+      "type": "string",
+      "title": "Visit Id"
+     },
+     "assign_spid": {
+      "type": "string",
+      "title": "Assign Spid"
+     },
+     "assign_eid": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Assign Eid"
+     },
+     "base_department_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Base Department Id"
+     },
+     "queue_number": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Queue Number"
+     },
+     "sbar": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/SbarIn"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     }
+    },
+    "type": "object",
+    "required": [
+     "request_id",
+     "visit_id",
+     "assign_spid"
+    ],
+    "title": "AssignmentIn",
+    "description": "Body of POST /api/v1/patient-assignments — mirrors the hospital's iMed\ncontract (docs/imed-patient-assignment-api.md).\n\nWe never send patient_id / fix_visit_type_id / any timestamp: iMed derives\nthose from the visit and from the access-token identity."
+   },
    "FollowUpIn": {
     "properties": {
      "follow_up": {
@@ -886,13 +960,9 @@
     "type": "object",
     "title": "ResetIn"
    },
-   "RoutingIn": {
+   "SbarIn": {
     "properties": {
-     "department": {
-      "type": "string",
-      "title": "Department"
-     },
-     "complaint": {
+     "situation": {
       "anyOf": [
        {
         "type": "string"
@@ -901,9 +971,9 @@
         "type": "null"
        }
       ],
-      "title": "Complaint"
+      "title": "Situation"
      },
-     "illness_note": {
+     "background": {
       "anyOf": [
        {
         "type": "string"
@@ -912,24 +982,67 @@
         "type": "null"
        }
       ],
-      "title": "Illness Note"
+      "title": "Background"
      },
-     "confirmed_by": {
-      "type": "string",
-      "title": "Confirmed By"
+     "assessment": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Assessment"
      },
-     "rerouted": {
-      "type": "boolean",
-      "title": "Rerouted",
-      "default": false
+     "assessment_problem": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Assessment Problem"
+     },
+     "assessment_equipment": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Assessment Equipment"
+     },
+     "recommend": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Recommend"
+     },
+     "documentation": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Documentation"
      }
     },
     "type": "object",
-    "required": [
-     "department",
-     "confirmed_by"
-    ],
-    "title": "RoutingIn"
+    "title": "SbarIn",
+    "description": "Clinical handover, all fields optional per the iMed contract."
    },
    "ValidationError": {
     "properties": {

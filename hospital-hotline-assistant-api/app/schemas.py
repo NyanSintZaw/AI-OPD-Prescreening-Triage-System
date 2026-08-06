@@ -476,6 +476,33 @@ class AdminLoginResponse(BaseModel):
     user: AdminUserOut
 
 
+class SbarPayload(BaseModel):
+    """Clinical handover sent to the hospital with a patient assignment.
+
+    All seven fields are nurse-editable in the review dialog. When a request
+    omits ``sbar`` entirely the server rebuilds it from the engine, so
+    non-UI callers (Postman, scripts) need not construct one. When it IS
+    present it is authoritative **in full** — a field the nurse deliberately
+    blanked must stay blank, so there is no per-field merge.
+    """
+
+    situation: str | None = None
+    background: str | None = None
+    assessment: str | None = None
+    assessment_problem: str | None = None
+    assessment_equipment: str | None = None
+    recommend: str | None = None
+    documentation: str | None = None
+
+
+class SbarPreviewRequest(BaseModel):
+    """The nurse's current draft, since SBAR depends on all three."""
+
+    department_id: UUID | None = None
+    chief_complaint: str | None = None
+    illness_note: str | None = None
+
+
 class AssessmentReviewApproveRequest(BaseModel):
     notes: str | None = None
     ai_assessment_score: int | None = Field(default=None, ge=1, le=10)
@@ -483,6 +510,7 @@ class AssessmentReviewApproveRequest(BaseModel):
     # to the HIS at Stage 2. None keeps the AI's values.
     chief_complaint: str | None = None
     illness_note: str | None = None
+    sbar: SbarPayload | None = None
 
 
 class AssessmentReviewCorrectRequest(BaseModel):
@@ -491,6 +519,7 @@ class AssessmentReviewCorrectRequest(BaseModel):
     ai_assessment_score: int | None = Field(default=None, ge=1, le=10)
     chief_complaint: str | None = None
     illness_note: str | None = None
+    sbar: SbarPayload | None = None
 
 
 class AssessmentReviewOut(BaseModel):
@@ -538,7 +567,13 @@ class AssessmentReviewOut(BaseModel):
     patient_follow_up: str | None = None
     chief_complaint: str | None = None
     illness_note: str | None = None
+    # Stage-2 outcome. status: pushed | denied | unavailable | invalid |
+    # unknown | skipped (see AssignmentResult). queue_number is what the nurse
+    # reads out to the patient; message_th is the hospital's own Thai wording.
     his_routing_status: str | None = None
+    his_queue_number: str | None = None
+    his_routing_message_th: str | None = None
+    his_request_id: str | None = None
     reviewed_at: datetime | None = None
     created_at: datetime
     updated_at: datetime

@@ -583,6 +583,40 @@
           }
         },
         {
+          "name": "POST /admin/reviews/{assessment_id}/sbar-preview",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/reviews/{{assessment_id}}/sbar-preview",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "admin",
+                "reviews",
+                "{{assessment_id}}",
+                "sbar-preview"
+              ]
+            },
+            "description": "Build the SBAR handover the nurse is about to send, so it can be shown\nand edited before it fires.\n\nA POST because the draft it depends on (complaint, note, chosen\ndepartment) is free text the nurse has not saved yet. Called once when the\nconfirm dialog opens — deliberately NOT a field on the review list, which\nwould build an SBAR for every row on every poll.\n\n**Roles:** nurse, super_admin",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"department_id\": \"00000000-0000-0000-0000-000000000000\",\n  \"chief_complaint\": \"string\",\n  \"illness_note\": \"string\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
           "name": "POST /admin/reviews/{assessment_id}/approve",
           "request": {
             "method": "POST",
@@ -607,7 +641,7 @@
             "description": "Approve Assessment Review\n\n**Roles:** nurse, super_admin",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"notes\": \"string\",\n  \"ai_assessment_score\": 0,\n  \"chief_complaint\": \"string\",\n  \"illness_note\": \"string\"\n}",
+              "raw": "{\n  \"notes\": \"string\",\n  \"ai_assessment_score\": 0,\n  \"chief_complaint\": \"string\",\n  \"illness_note\": \"string\",\n  \"sbar\": {\n    \"situation\": \"string\",\n    \"background\": \"string\",\n    \"assessment\": \"string\",\n    \"assessment_problem\": \"string\",\n    \"assessment_equipment\": \"string\",\n    \"recommend\": \"string\",\n    \"documentation\": \"string\"\n  }\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -641,7 +675,7 @@
             "description": "Correct Assessment Review\n\n**Roles:** nurse, super_admin",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"confirmed_department_id\": \"00000000-0000-0000-0000-000000000000\",\n  \"reason\": \"string\",\n  \"ai_assessment_score\": 0,\n  \"chief_complaint\": \"string\",\n  \"illness_note\": \"string\"\n}",
+              "raw": "{\n  \"confirmed_department_id\": \"00000000-0000-0000-0000-000000000000\",\n  \"reason\": \"string\",\n  \"ai_assessment_score\": 0,\n  \"chief_complaint\": \"string\",\n  \"illness_note\": \"string\",\n  \"sbar\": {\n    \"situation\": \"string\",\n    \"background\": \"string\",\n    \"assessment\": \"string\",\n    \"assessment_problem\": \"string\",\n    \"assessment_equipment\": \"string\",\n    \"recommend\": \"string\",\n    \"documentation\": \"string\"\n  }\n}",
               "options": {
                 "raw": {
                   "language": "json"

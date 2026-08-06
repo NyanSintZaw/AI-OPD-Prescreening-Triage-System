@@ -548,6 +548,31 @@ export const resources = {
       nurseNarrativeHint:
         'Pre-filled from the AI screening. Edit if needed — what you confirm here is published to the hospital record.',
       nurseConfirmPublish: 'Confirm & publish to HIS',
+      // ── Patient assignment (Stage 2 → hospital iMed) ──
+      nurseAssignWarning:
+        'This queues the patient at the destination in the hospital system and clears any earlier queue number they were given.',
+      nurseSbarHint:
+        'Handover sent to the receiving clinician. Edit anything before sending.',
+      nurseSbarEquipmentPlaceholder: 'e.g. ECG monitor (your call — the AI leaves this blank)',
+      nurseSbar_situation: 'Situation',
+      nurseSbar_background: 'Background',
+      nurseSbar_assessment: 'Assessment (vitals + triage level)',
+      nurseSbar_assessment_problem: 'Problem found',
+      nurseSbar_assessment_equipment: 'Equipment to prepare',
+      nurseSbar_recommend: 'Recommendation',
+      nurseSbar_documentation: 'Supporting information',
+      nurseAssignSend: 'Send to hospital',
+      nurseAssignQueued: 'Patient queued',
+      nurseAssignGiveNumber: 'Give this queue number to the patient.',
+      nurseAssignNoNumber:
+        'Already queued at this destination, but the hospital did not return the queue number — look it up in iMed.',
+      nurseAssignNotQueued: 'Not queued',
+      nurseAssignDenied: 'This visit is closed or discharged. Send the patient to the front desk.',
+      nurseAssignUnavailable: 'That destination is not open. Choose another department and try again.',
+      nurseAssignInvalid: 'System error — contact IT. Nothing was sent.',
+      nurseAssignUnknown:
+        'Not confirmed — we did not get a reply. Check iMed before sending again; re-sending is safe and will not queue the patient twice.',
+      nurseAssignSkipped: 'Not sent to the hospital (no linked visit for this session).',
       nurseConfirmReroute: 'Confirm reroute & publish to HIS',
       nurseHisPublished: 'Published to HIS',
       nurseHisPushFailed: 'HIS sync failed',
@@ -1273,6 +1298,30 @@ export const resources = {
       nurseNarrativeHint:
         'ระบบ AI กรอกให้ล่วงหน้า แก้ไขได้ตามต้องการ — ข้อความที่ยืนยันจะถูกบันทึกเข้าระเบียนโรงพยาบาล',
       nurseConfirmPublish: 'ยืนยันและส่งเข้า HIS',
+      // ── การส่งผู้ป่วยเข้าคิว (Stage 2 → iMed) ──
+      nurseAssignWarning:
+        'การยืนยันจะส่งผู้ป่วยเข้าคิวของจุดบริการปลายทางในระบบโรงพยาบาล และยกเลิกหมายเลขคิวเดิมที่ผู้ป่วยได้รับไว้',
+      nurseSbarHint: 'ข้อมูลส่งต่อถึงผู้ให้การรักษาปลายทาง แก้ไขได้ก่อนส่ง',
+      nurseSbarEquipmentPlaceholder: 'เช่น ECG monitor (พยาบาลระบุเอง — ระบบไม่เติมให้)',
+      nurseSbar_situation: 'อาการปัจจุบัน (S)',
+      nurseSbar_background: 'ประวัติที่เกี่ยวข้อง (B)',
+      nurseSbar_assessment: 'ผลการประเมิน (A) — สัญญาณชีพ + ระดับคัดกรอง',
+      nurseSbar_assessment_problem: 'ปัญหาที่พบ',
+      nurseSbar_assessment_equipment: 'อุปกรณ์ที่ต้องเตรียม',
+      nurseSbar_recommend: 'ข้อเสนอแนะ (R)',
+      nurseSbar_documentation: 'ข้อมูลประกอบ',
+      nurseAssignSend: 'ส่งเข้าระบบโรงพยาบาล',
+      nurseAssignQueued: 'ส่งผู้ป่วยเข้าคิวแล้ว',
+      nurseAssignGiveNumber: 'แจ้งหมายเลขคิวนี้แก่ผู้ป่วย',
+      nurseAssignNoNumber:
+        'ผู้ป่วยอยู่ในคิวปลายทางแล้ว แต่ระบบโรงพยาบาลไม่ได้ส่งหมายเลขคิวกลับมา กรุณาตรวจสอบใน iMed',
+      nurseAssignNotQueued: 'ยังไม่ได้เข้าคิว',
+      nurseAssignDenied: 'visit นี้ถูกปิดหรือจำหน่ายแล้ว กรุณาส่งผู้ป่วยไปที่เวชระเบียน',
+      nurseAssignUnavailable: 'จุดบริการปลายทางไม่พร้อมให้บริการ กรุณาเลือกแผนกอื่นแล้วลองใหม่',
+      nurseAssignInvalid: 'ระบบขัดข้อง กรุณาแจ้งฝ่าย IT (ยังไม่ได้ส่งข้อมูล)',
+      nurseAssignUnknown:
+        'ยังไม่ยืนยัน — ไม่ได้รับการตอบกลับ กรุณาตรวจสอบใน iMed ก่อนส่งซ้ำ การส่งซ้ำปลอดภัยและจะไม่ทำให้ผู้ป่วยเข้าคิวซ้ำ',
+      nurseAssignSkipped: 'ไม่ได้ส่งเข้าระบบโรงพยาบาล (เซสชันนี้ไม่ได้ผูกกับ visit)',
       nurseConfirmReroute: 'ยืนยันการเปลี่ยนแผนกและส่งเข้า HIS',
       nurseHisPublished: 'ส่งเข้า HIS แล้ว',
       nurseHisPushFailed: 'ส่งเข้า HIS ไม่สำเร็จ',

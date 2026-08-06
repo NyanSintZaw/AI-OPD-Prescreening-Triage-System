@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from .adapter import HisAdapter, PatientHistory, VisitInfo
-from .department_map import his_department_name
+from .adapter import AssignmentResult, HisAdapter, PatientHistory, VisitInfo
+from .department_map import his_department_name, his_service_point
 from .http_adapter import HttpHisAdapter, his_auth_headers
 from .mock import MockHisAdapter
 
@@ -13,6 +13,7 @@ if TYPE_CHECKING:
     from app.config import Settings
 
 __all__ = [
+    "AssignmentResult",
     "HisAdapter",
     "VisitInfo",
     "PatientHistory",
@@ -20,6 +21,7 @@ __all__ = [
     "HttpHisAdapter",
     "his_auth_headers",
     "his_department_name",
+    "his_service_point",
     "build_his_adapter",
 ]
 

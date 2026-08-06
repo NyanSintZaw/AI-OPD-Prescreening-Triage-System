@@ -10,6 +10,7 @@ import { useLanguage } from '../hooks/useSession';
 import { slipCode, slipSearchKey } from '../utils/slipCode';
 import type {
   AssessmentReviewOut,
+  SbarFields,
   DepartmentOut,
   RejectedVital,
   RoutingFeedbackOut,
@@ -18,6 +19,79 @@ import type {
 type NurseTab = 'reviews' | 'schedules';
 type ReviewModalTab = 'assessment' | 'conversation' | 'history';
 type ReviewFilter = 'all' | 'pending' | 'reviewed';
+
+
+// The seven iMed SBAR fields, in handover order. `assessment_equipment` is the
+// one our system deliberately never fills — it is a clinical judgement.
+const SBAR_FIELDS = [
+  'situation',
+  'background',
+  'assessment',
+  'assessment_problem',
+  'assessment_equipment',
+  'recommend',
+  'documentation',
+] as const;
+
+/**
+ * What the hospital said. Branch on `his_routing_status`, NOT on the HTTP
+ * status: approve/correct return 200 whatever the HIS did, so the outcome
+ * only exists in the body.
+ */
+function ConfirmResult({
+  review,
+  onDone,
+}: {
+  review: AssessmentReviewOut;
+  onDone: () => void;
+}) {
+  const { t } = useTranslation();
+  const status = review.his_routing_status ?? 'unknown';
+  const detail = review.his_routing_message_th;
+
+  if (status === 'pushed') {
+    return (
+      <>
+        <h3>{t('nurseAssignQueued')}</h3>
+        {review.his_queue_number ? (
+          <>
+            <p className="nurse-queue-number">{review.his_queue_number}</p>
+            <p className="nurse-sbar-hint">{t('nurseAssignGiveNumber')}</p>
+          </>
+        ) : (
+          // 409 without a result body: the patient IS queued, but the hospital
+          // did not tell us the number (our change request 7).
+          <p className="nurse-sbar-warning">{t('nurseAssignNoNumber')}</p>
+        )}
+        <div className="tm-confirm-actions">
+          <button type="button" className="nurse-approve-btn" onClick={onDone}>
+            {t('close')}
+          </button>
+        </div>
+      </>
+    );
+  }
+
+  const messages: Record<string, string> = {
+    denied: t('nurseAssignDenied'),
+    unavailable: t('nurseAssignUnavailable'),
+    invalid: t('nurseAssignInvalid'),
+    unknown: t('nurseAssignUnknown'),
+    skipped: t('nurseAssignSkipped'),
+  };
+  return (
+    <>
+      <h3>{t('nurseAssignNotQueued')}</h3>
+      <p className="nurse-sbar-warning">{messages[status] ?? t('nurseHisPushFailed')}</p>
+      {detail ? <p className="error-text">{detail}</p> : null}
+      <div className="tm-confirm-actions">
+        <button type="button" onClick={onDone}>
+          {t('close')}
+        </button>
+      </div>
+    </>
+  );
+}
 
 function truncateId(id: string): string {
   return `${id.slice(0, 8)}…`;
@@ -110,6 +184,15 @@ export function NursePage() {
   const [editDeptId, setEditDeptId] = useState('');
   const [editReason, setEditReason] = useState('');
   const [editScore, setEditScore] = useState('');
+  // Confirm-before-publish: assigning moves a real patient in the hospital's
+  // live queue and clears their previous one, so it gets its own step.
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [sbarDraft, setSbarDraft] = useState<SbarFields | null>(null);
+  const [sbarLoading, setSbarLoading] = useState(false);
+  // Errors from the dialog must render INSIDE it — the page-level authError
+  // sits above the review modal and is invisible behind the overlay.
+  const [confirmError, setConfirmError] = useState<string | null>(null);
+  const [assignResult, setAssignResult] = useState<AssessmentReviewOut | null>(null);
 
   const staffEmail = getAdminEmail() ?? t('loginNurseTab');
   const loginPathForRole = () => (getAdminRole() === 'nurse' ? '/login/nurse' : '/login/admin');
@@ -176,32 +259,74 @@ export function NursePage() {
 
   // One button: an unchanged department confirms/approves; a changed one is
   // recorded as a correction + HIS reroute. Complaint/note edits go either way.
+  const isReroute = (review: AssessmentReviewOut) =>
+    Boolean(editDeptId) && editDeptId !== review.proposed_department_id;
+
+  /** Step 1: show the nurse exactly what will be sent to the hospital. */
+  const handleOpenConfirm = async (review: AssessmentReviewOut) => {
+    setConfirmOpen(true);
+    setConfirmError(null);
+    setAssignResult(null);
+    setSbarLoading(true);
+    try {
+      const draft = await api.previewReviewSbar(review.assessment_id, {
+        department_id: editDeptId || null,
+        chief_complaint: editComplaint.trim() || null,
+        illness_note: editNote.trim() || null,
+      });
+      setSbarDraft(draft);
+    } catch (err) {
+      // The handover can still be sent — the server rebuilds it when the
+      // request omits `sbar` — so this is a warning, not a blocker.
+      setSbarDraft(null);
+      setConfirmError(err instanceof Error ? err.message : t('error'));
+    } finally {
+      setSbarLoading(false);
+    }
+  };
+
+  const handleCloseConfirm = () => {
+    setConfirmOpen(false);
+    setSbarDraft(null);
+    setConfirmError(null);
+    setAssignResult(null);
+  };
+
+  /** Step 2: publish. The response carries the hospital's outcome — the queue
+   *  number the nurse reads to the patient — so it must not be discarded. */
   const handleConfirm = async (review: AssessmentReviewOut) => {
     setReviewActionLoading(review.assessment_id);
+    setConfirmError(null);
     const narrative = {
       ai_assessment_score: editScore ? Number(editScore) : null,
       chief_complaint: editComplaint.trim() || null,
       illness_note: editNote.trim() || null,
+      sbar: sbarDraft,
     };
-    const rerouted = Boolean(editDeptId) && editDeptId !== review.proposed_department_id;
+    const rerouted = isReroute(review);
     try {
-      if (rerouted) {
-        await api.correctAssessmentReview(review.assessment_id, {
-          confirmed_department_id: editDeptId,
-          reason: editReason.trim() || null,
-          ...narrative,
-        });
-      } else {
-        await api.approveAssessmentReview(review.assessment_id, narrative);
-      }
+      const updated = rerouted
+        ? await api.correctAssessmentReview(review.assessment_id, {
+            confirmed_department_id: editDeptId,
+            reason: editReason.trim() || null,
+            ...narrative,
+          })
+        : await api.approveAssessmentReview(review.assessment_id, narrative);
+      setAssignResult(updated);
+      // Refresh behind the dialog; the nurse dismisses once they've read the
+      // queue number out.
       await loadReviewData(reviewFilter);
-      setSelectedReview(null);
-      setSessionMessages([]);
     } catch (err) {
-      setAuthError(err instanceof Error ? err.message : t('error'));
+      setConfirmError(err instanceof Error ? err.message : t('error'));
     } finally {
       setReviewActionLoading(null);
     }
+  };
+
+  const handleFinishConfirm = () => {
+    handleCloseConfirm();
+    setSelectedReview(null);
+    setSessionMessages([]);
   };
 
   const handleOpenReview = async (review: AssessmentReviewOut) => {
@@ -227,6 +352,13 @@ export function NursePage() {
   const handleCloseReview = () => {
     setSelectedReview(null);
     setSessionMessages([]);
+  };
+
+  /** Human name for a department id, from the list already loaded. */
+  const departmentLabel = (departmentId?: string | null) => {
+    const dept = departments.find((d) => d.id === departmentId);
+    if (!dept) return '—';
+    return language === 'th' ? dept.name_th ?? dept.name_en : dept.name_en;
   };
 
   const reviewDeptLabel = (review: AssessmentReviewOut) =>
@@ -716,7 +848,7 @@ export function NursePage() {
                             type="button"
                             className="nurse-approve-btn"
                             disabled={reviewActionLoading === selectedReview.assessment_id}
-                            onClick={() => void handleConfirm(selectedReview)}
+                            onClick={() => void handleOpenConfirm(selectedReview)}
                           >
                             <span aria-hidden="true">{'✓'}</span>
                             {editDeptId && editDeptId !== selectedReview.proposed_department_id
@@ -872,6 +1004,76 @@ export function NursePage() {
           )}
         </section>}
       </section>
+      {/* Confirm-before-publish. Reuses the .tm-confirm-* overlay (z-index
+          1000) which already stacks over .nurse-review-modal (80), so this
+          needs no new overlay CSS. */}
+      {confirmOpen && selectedReview ? (
+        <div className="tm-confirm-overlay" role="alertdialog" aria-modal="true">
+          <div className="tm-confirm-box nurse-sbar-box">
+            {assignResult ? (
+              <ConfirmResult review={assignResult} onDone={handleFinishConfirm} />
+            ) : (
+              <>
+                <h3>
+                  {isReroute(selectedReview)
+                    ? t('nurseConfirmReroute')
+                    : t('nurseConfirmPublish')}
+                </h3>
+                <p className="nurse-sbar-warning">{t('nurseAssignWarning')}</p>
+                <p className="nurse-sbar-dept">
+                  {departmentLabel(editDeptId || selectedReview.proposed_department_id)}
+                  {selectedReview.patient_name ? ` · ${selectedReview.patient_name}` : ''}
+                  {selectedReview.visit_id ? ` · VN ${selectedReview.visit_id}` : ''}
+                </p>
+
+                <p className="nurse-sbar-hint">{t('nurseSbarHint')}</p>
+                {sbarLoading ? (
+                  <p>{t('loading')}</p>
+                ) : (
+                  <div className="nurse-sbar-fields">
+                    {SBAR_FIELDS.map((field) => (
+                      <label key={field}>
+                        <span>{t(`nurseSbar_${field}`)}</span>
+                        <textarea
+                          rows={field === 'assessment_equipment' ? 1 : 2}
+                          value={sbarDraft?.[field] ?? ''}
+                          placeholder={
+                            field === 'assessment_equipment'
+                              ? t('nurseSbarEquipmentPlaceholder')
+                              : undefined
+                          }
+                          onChange={(event) =>
+                            setSbarDraft((prev: SbarFields | null) => ({
+                              ...(prev ?? {}),
+                              [field]: event.target.value,
+                            }))
+                          }
+                        />
+                      </label>
+                    ))}
+                  </div>
+                )}
+
+                {confirmError ? <p className="error-text">{confirmError}</p> : null}
+
+                <div className="tm-confirm-actions">
+                  <button type="button" onClick={handleCloseConfirm}>
+                    {t('cancel')}
+                  </button>
+                  <button
+                    type="button"
+                    className="nurse-approve-btn"
+                    disabled={reviewActionLoading === selectedReview.assessment_id}
+                    onClick={() => void handleConfirm(selectedReview)}
+                  >
+                    {t('nurseAssignSend')}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      ) : null}
     </Layout>
   );
 }

@@ -128,27 +128,12 @@ def _turn_context(metadata: dict[str, Any]) -> dict[str, Any] | None:
     return ctx or None
 
 
-def _disposition_reason_texts(classification: dict[str, Any]) -> list[str]:
-    """Flatten the engine's disposition_reasons into plain strings for the
-    HIS referral. Handles both string lists and the structured
-    ``{rule_id, citation, text_en, text_th}`` shape."""
-    reasons = classification.get("disposition_reasons") or []
-    out: list[str] = []
-    for item in reasons:
-        if isinstance(item, str):
-            text = item.strip()
-        elif isinstance(item, dict):
-            text = str(
-                item.get("text_en") or item.get("text_th") or item.get("rule_id") or ""
-            ).strip()
-            citation = str(item.get("citation") or "").strip()
-            if text and citation:
-                text = f"{text} ({citation})"
-        else:
-            text = str(item).strip()
-        if text:
-            out.append(text)
-    return out
+# Moved to screening/his/sbar.py so the Stage-1 referral and the clinician-facing
+# SBAR share one flattener (SBAR asks for prefer_thai=True). Re-exported under
+# the old private name to keep this module's call site and its tests unchanged.
+from app.services.screening.his.sbar import (  # noqa: E402
+    disposition_reason_texts as _disposition_reason_texts,
+)
 
 
 def _classification_red_flags(value: Any) -> list[str]:

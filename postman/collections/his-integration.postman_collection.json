@@ -282,7 +282,7 @@
                 "patient-assignments"
               ]
             },
-            "description": "**Nothing here is in your contract yet — this is the ask.**\n\nIdentical to request 1, plus a single additive `proposed` object. It is\ndeliberately one wrapper rather than loose top-level fields, so there is no\nchance of reading it as something we already send. **We are not asking you to\nadopt this shape** — only to tell us where these values should live.\n\n| In `proposed` | Change request | Why it matters |\n|---|---|---|\n| `acuity_level`, `acuity_scale` | **CR 1 — highest value** | The 5-level triage is our system's whole output. With no field it is buried in SBAR prose, so your destination queue sorts by arrival time instead of by how sick the patient is. |\n| `vitals` (structured, with `measured_at` and `source`) | CR 2 | We measure with a real cuff at the booth and know whether a value was instrument-measured or patient-stated. Today all of it flattens into one sentence. |\n| `confirmed_by` | CR 3 | Sender identity comes from the token, so iMed records \"the MFU triage system\", not the nurse who signed off. Matters for audit after an incident. |\n| `source_ref` | CR 4 | Lets your staff open the full transcript and the AI's cited reasoning, not just the summary. |\n| `rerouted` | — | We know when a nurse overrode the AI's department. There is no iMed field, so today it can only go into `sbar.recommend` as prose. |\n\nIf any of these are accepted we implement them our side and this request\nbecomes request 1.\n",
+            "description": "**Nothing here is in your contract yet — this is the ask.**\n\nIdentical to request 1, plus a single additive `proposed` object. It is\ndeliberately one wrapper rather than loose top-level fields, so there is no\nchance of reading it as something we already send. **We are not asking you to\nadopt this shape** — only to tell us where these values should live.\n\n| In `proposed` | Change request | Why it matters |\n|---|---|---|\n| `acuity_level`, `acuity_scale` | **CR 1 — highest value** | The 5-level triage is our system's whole output. With no field it is buried in SBAR prose, so your destination queue sorts by arrival time instead of by how sick the patient is. |\n| `vitals` (structured, with `measured_at` and `source`) | CR 2 | We measure with a real cuff at the booth and know whether a value was instrument-measured or patient-stated. Today all of it flattens into one sentence. |\n| `confirmed_by` | CR 3 | Sender identity comes from the token, so iMed records \"the MFU triage system\", not the nurse who signed off. Matters for audit after an incident. |\n| `source_ref` | CR 4 | Lets your staff open the full transcript and the AI's cited reasoning, not just the summary. |\n| `rerouted` | — | We know when a nurse overrode the AI's department. There is no iMed field, so today it can only go into `sbar.recommend` as prose. |\n\nIf any of these are accepted we implement them our side and this request\nbecomes request 1.\n\n*Against our mock this reuses request 1's `request_id`, so it replays request\n1's result rather than queueing the patient twice — that is the idempotency\nrule working, not the proposed fields being ignored.*\n",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"request_id\": \"MFU-20260807-A1B2C3\",\n  \"visit_id\": \"{{imedVisitId}}\",\n  \"assign_spid\": \"SP_OPD_MED_01\",\n  \"sbar\": {\n    \"situation\": \"แน่นหน้าอกมา 2 ชั่วโมง ร้าวไปแขนซ้าย\",\n    \"background\": \"ความดันโลหิตสูง กินยาสม่ำเสมอ ไม่มีประวัติแพ้ยา อายุ 58 ปี\",\n    \"assessment\": \"BP 158/94, ชีพจร 96, อุณหภูมิ 36.8, SpO2 97% (วัดที่บูธ) — ระดับการคัดกรอง 3\",\n    \"assessment_problem\": \"เจ็บหน้าอกร่วมกับปัจจัยเสี่ยงโรคหัวใจ (คู่มือคัดกรอง MFU ข้อ 4.2)\",\n    \"recommend\": \"ส่งตรวจอายุรกรรม ประเมินโดยแพทย์\"\n  },\n  \"proposed\": {\n    \"acuity_level\": 3,\n    \"acuity_scale\": \"MOPH-5\",\n    \"vitals\": {\n      \"systolic\": 158,\n      \"diastolic\": 94,\n      \"pulse_bpm\": 96,\n      \"temperature_c\": 36.8,\n      \"weight_kg\": 72.5,\n      \"height_cm\": 165,\n      \"measured_at\": \"2026-08-07T09:12:00+07:00\",\n      \"source\": \"cuff\"\n    },\n    \"confirmed_by\": \"OPD Nurse (สมหญิง)\",\n    \"source_ref\": {\n      \"slip_code\": \"MCH-A1B2-C3D4\",\n      \"session_ref\": \"{{session_id}}\"\n    },\n    \"rerouted\": false\n  }\n}",
@@ -309,7 +309,7 @@
                 "{{imedRequestId}}"
               ]
             },
-            "description": "**This endpoint does not exist yet — it is a request.** It covers three\nasks at once.\n\n**CR 8 — an idempotency key we cannot query leaves us blind.** If our call\ntimes out we cannot tell whether the assignment landed. Today the only way to\nfind out is to send it again and interpret the error. A read endpoint turns a\nguess into a fact, and enables end-of-day reconciliation against your gateway\nlogs.\n\n**CR 7 — a duplicate should return the original `result`.** Standard\nidempotency behaviour is 200 with the first response replayed. Without it, a\ntimeout-then-retry leaves the patient queued while the nurse has no queue\nnumber to give them.\n\n**CR 5 — SBAR read-back.** SBAR is currently write-only for us: we get an\n`sbar_id` and nothing else. Reading it back lets us show the nurse what was\nactually handed over.\n"
+            "description": "**This endpoint does not exist yet — it is a request.** It covers three\nasks at once.\n\n**CR 8 — an idempotency key we cannot query leaves us blind.** If our call\ntimes out we cannot tell whether the assignment landed. Today the only way to\nfind out is to send it again and interpret the error. A read endpoint turns a\nguess into a fact, and enables end-of-day reconciliation against your gateway\nlogs.\n\n**CR 7 — a duplicate should return the original `result`.** Standard\nidempotency behaviour is 200 with the first response replayed. Without it, a\ntimeout-then-retry leaves the patient queued while the nurse has no queue\nnumber to give them.\n\n**CR 5 — SBAR read-back.** SBAR is currently write-only for us: we get an\n`sbar_id` and nothing else. Reading it back lets us show the nurse what was\nactually handed over.\n\n*Returns 404 against our mock — deliberately not built, because it is a\nrequest to you, not something we have decided for you.*\n"
           },
           "response": [
             {
@@ -425,44 +425,6 @@
             "body": {
               "mode": "raw",
               "raw": "{\n  \"session_ref\": \"string\",\n  \"slip_code\": \"string\",\n  \"recommended_department\": \"string\",\n  \"complaint\": \"string\",\n  \"reason\": \"string\",\n  \"vitals\": {},\n  \"reasons\": [\n    \"string\"\n  ]\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            }
-          }
-        },
-        {
-          "name": "PUT /api/visits/{visit_id}/routing",
-          "request": {
-            "method": "PUT",
-            "header": [
-              {
-                "key": "X-API-Key",
-                "value": "{{hisToken}}"
-              },
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "url": {
-              "raw": "{{hisBaseUrl}}/api/visits/{{visit_id}}/routing",
-              "host": [
-                "{{hisBaseUrl}}"
-              ],
-              "path": [
-                "api",
-                "visits",
-                "{{visit_id}}",
-                "routing"
-              ]
-            },
-            "description": "**WE PUT** — Stage 2 write-back: nurse-confirmed department routing (`HttpHisAdapter.confirm_routing`). Real-iMed counterpart: `POST /patient-assignments`.\n\nStage 2 write-back — publish the clinical narrative + routing.\n\nHuman sign-off. Promotes the held complaint summary + reason into the\nnurse_* fields and writes second_location (the confirmed/rerouted\ndepartment) onto the visit row.",
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"department\": \"string\",\n  \"complaint\": \"string\",\n  \"illness_note\": \"string\",\n  \"confirmed_by\": \"string\",\n  \"rerouted\": false\n}",
               "options": {
                 "raw": {
                   "language": "json"

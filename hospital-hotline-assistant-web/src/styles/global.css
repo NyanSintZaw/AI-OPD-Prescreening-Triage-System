@@ -5526,3 +5526,63 @@ body:has(.hdb-modal-backdrop) .reviews-fab { display: none; }
 @media print {
   .reviews-fab { display: none; }
 }
+/* ── Nurse: patient-assignment confirm dialog ──────────────────────────────
+   Reuses .tm-confirm-overlay / .tm-confirm-box / .tm-confirm-actions, which
+   already sit at z-index 1000 above .nurse-review-modal (80). Only the width
+   changes: .tm-confirm-box caps at 500px and seven textareas need more. */
+.nurse-sbar-box {
+  max-width: 720px;
+  max-height: 85vh;
+  overflow-y: auto;
+  text-align: left;
+}
+
+.nurse-sbar-warning {
+  color: var(--mch-warning, #b45309);
+  font-weight: 600;
+}
+
+.nurse-sbar-dept {
+  font-weight: 600;
+}
+
+.nurse-sbar-hint {
+  color: var(--mch-text-muted, #64748b);
+  font-size: 0.9rem;
+}
+
+.nurse-sbar-fields {
+  display: grid;
+  gap: 0.6rem;
+  margin: 0.75rem 0;
+}
+
+.nurse-sbar-fields label {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.nurse-sbar-fields label > span {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--mch-text-muted, #64748b);
+}
+
+.nurse-sbar-fields textarea {
+  width: 100%;
+  resize: vertical;
+  font: inherit;
+  padding: 0.45rem 0.6rem;
+  border: 1px solid var(--mch-border, #cbd5e1);
+  border-radius: 8px;
+}
+
+/* The number the nurse reads out to the patient — the point of the dialog. */
+.nurse-queue-number {
+  font-size: 3rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-align: center;
+  margin: 0.5rem 0;
+  color: var(--mch-cyan, #0891b2);
+}

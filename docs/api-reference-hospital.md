@@ -2154,11 +2154,66 @@ Example response:
     "chief_complaint": "string",
     "illness_note": "string",
     "his_routing_status": "string",
+    "his_queue_number": "string",
+    "his_routing_message_th": "string",
+    "his_request_id": "string",
     "reviewed_at": "2026-08-04T09:00:00Z",
     "created_at": "2026-08-04T09:00:00Z",
     "updated_at": "2026-08-04T09:00:00Z"
   }
 ]
+```
+
+---
+
+### `POST /admin/reviews/{assessment_id}/sbar-preview`
+
+Preview Review Sbar.
+
+Build the SBAR handover the nurse is about to send, so it can be shown
+and edited before it fires.
+
+A POST because the draft it depends on (complaint, note, chosen
+department) is free text the nurse has not saved yet. Called once when the
+confirm dialog opens — deliberately NOT a field on the review list, which
+would build an SBAR for every row on every poll.
+
+**Auth:** bearer token (roles: nurse, super_admin)
+
+**Path params:** `assessment_id`
+
+**Request body** (`application/json`, `SbarPreviewRequest`):
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `department_id` | string (uuid) or null | N | Department Id |
+| `chief_complaint` | string or null | N | Chief Complaint |
+| `illness_note` | string or null | N | Illness Note |
+
+Example request:
+
+```json
+{
+  "department_id": "00000000-0000-0000-0000-000000000000",
+  "chief_complaint": "string",
+  "illness_note": "string"
+}
+```
+
+**Response 200:** `SbarPayload`
+
+Example response:
+
+```json
+{
+  "situation": "string",
+  "background": "string",
+  "assessment": "string",
+  "assessment_problem": "string",
+  "assessment_equipment": "string",
+  "recommend": "string",
+  "documentation": "string"
+}
 ```
 
 ---
@@ -2179,6 +2234,7 @@ Approve Assessment Review.
 | `ai_assessment_score` | integer or null | N | Ai Assessment Score |
 | `chief_complaint` | string or null | N | Chief Complaint |
 | `illness_note` | string or null | N | Illness Note |
+| `sbar` | SbarPayload or null | N |  |
 
 Example request:
 
@@ -2187,7 +2243,16 @@ Example request:
   "notes": "string",
   "ai_assessment_score": 0,
   "chief_complaint": "string",
-  "illness_note": "string"
+  "illness_note": "string",
+  "sbar": {
+    "situation": "string",
+    "background": "string",
+    "assessment": "string",
+    "assessment_problem": "string",
+    "assessment_equipment": "string",
+    "recommend": "string",
+    "documentation": "string"
+  }
 }
 ```
 
@@ -2234,6 +2299,9 @@ Example response:
   "chief_complaint": "string",
   "illness_note": "string",
   "his_routing_status": "string",
+  "his_queue_number": "string",
+  "his_routing_message_th": "string",
+  "his_request_id": "string",
   "reviewed_at": "2026-08-04T09:00:00Z",
   "created_at": "2026-08-04T09:00:00Z",
   "updated_at": "2026-08-04T09:00:00Z"
@@ -2259,6 +2327,7 @@ Correct Assessment Review.
 | `ai_assessment_score` | integer or null | N | Ai Assessment Score |
 | `chief_complaint` | string or null | N | Chief Complaint |
 | `illness_note` | string or null | N | Illness Note |
+| `sbar` | SbarPayload or null | N |  |
 
 Example request:
 
@@ -2268,7 +2337,16 @@ Example request:
   "reason": "string",
   "ai_assessment_score": 0,
   "chief_complaint": "string",
-  "illness_note": "string"
+  "illness_note": "string",
+  "sbar": {
+    "situation": "string",
+    "background": "string",
+    "assessment": "string",
+    "assessment_problem": "string",
+    "assessment_equipment": "string",
+    "recommend": "string",
+    "documentation": "string"
+  }
 }
 ```
 
@@ -2315,6 +2393,9 @@ Example response:
   "chief_complaint": "string",
   "illness_note": "string",
   "his_routing_status": "string",
+  "his_queue_number": "string",
+  "his_routing_message_th": "string",
+  "his_request_id": "string",
   "reviewed_at": "2026-08-04T09:00:00Z",
   "created_at": "2026-08-04T09:00:00Z",
   "updated_at": "2026-08-04T09:00:00Z"
@@ -2717,6 +2798,7 @@ Row in the admin User Settings table (nurse accounts).
 | `ai_assessment_score` | integer or null | N | Ai Assessment Score |
 | `chief_complaint` | string or null | N | Chief Complaint |
 | `illness_note` | string or null | N | Illness Note |
+| `sbar` | SbarPayload or null | N |  |
 
 ### `AssessmentReviewCorrectRequest`
 
@@ -2727,6 +2809,7 @@ Row in the admin User Settings table (nurse accounts).
 | `ai_assessment_score` | integer or null | N | Ai Assessment Score |
 | `chief_complaint` | string or null | N | Chief Complaint |
 | `illness_note` | string or null | N | Illness Note |
+| `sbar` | SbarPayload or null | N |  |
 
 ### `AssessmentReviewOut`
 
@@ -2765,6 +2848,9 @@ Row in the admin User Settings table (nurse accounts).
 | `chief_complaint` | string or null | N | Chief Complaint |
 | `illness_note` | string or null | N | Illness Note |
 | `his_routing_status` | string or null | N | His Routing Status |
+| `his_queue_number` | string or null | N | His Queue Number |
+| `his_routing_message_th` | string or null | N | His Routing Message Th |
+| `his_request_id` | string or null | N | His Request Id |
 | `reviewed_at` | string (date-time) or null | N | Reviewed At |
 | `created_at` | string (date-time) | Y | Created At |
 | `updated_at` | string (date-time) | Y | Updated At |
@@ -3216,6 +3302,30 @@ First-time-patient structured history collected at the booth.
 | `severity_override` | string — one of `emergency` \| `urgent` \| `general` \| `unknown` or null | N | Severity Override |
 | `priority` | integer | Y | Priority |
 | `is_active` | boolean | Y | Is Active |
+
+### `SbarPayload`
+
+Clinical handover sent to the hospital with a patient assignment.  All seven fields are nurse-editable in the review dialog. When a request omits ``sbar`` entirely the server rebuilds it from the engine, so non-UI callers (Postman, scripts) need not construct one. When it IS present it is authoritative **in full** — a field the nurse deliberately blanked must stay blank, so there is no per-field merge.
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `situation` | string or null | N | Situation |
+| `background` | string or null | N | Background |
+| `assessment` | string or null | N | Assessment |
+| `assessment_problem` | string or null | N | Assessment Problem |
+| `assessment_equipment` | string or null | N | Assessment Equipment |
+| `recommend` | string or null | N | Recommend |
+| `documentation` | string or null | N | Documentation |
+
+### `SbarPreviewRequest`
+
+The nurse's current draft, since SBAR depends on all three.
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `department_id` | string (uuid) or null | N | Department Id |
+| `chief_complaint` | string or null | N | Chief Complaint |
+| `illness_note` | string or null | N | Illness Note |
 
 ### `SessionByVisitOut`
 

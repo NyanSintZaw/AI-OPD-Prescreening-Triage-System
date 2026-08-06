@@ -1,6 +1,7 @@
 import logging
 from datetime import datetime, timezone
-from uuid import UUID
+from typing import Any
+from uuid import UUID, uuid4
 import asyncpg
 from fastapi import (
     Depends,
@@ -15,6 +16,8 @@ from app.schemas import (
     AssessmentReviewCorrectRequest,
     AssessmentReviewOut,
     RoutingFeedbackOut,
+    SbarPayload,
+    SbarPreviewRequest,
 )
 
 from fastapi import APIRouter
@@ -48,6 +51,9 @@ async def _serialize_review(
             s.metadata->'triage_classification'->>'key_reason' AS ai_illness_note,
             NULLIF(s.metadata->>'patient_follow_up', '') AS patient_follow_up,
             s.metadata->'his_routing'->>'status' AS his_routing_status,
+            s.metadata->'his_routing'->>'queue_number' AS his_queue_number,
+            s.metadata->'his_routing'->>'message_th' AS his_routing_message_th,
+            s.metadata->'his_routing'->>'request_id' AS his_request_id,
             ss.state->'measured_vitals' AS screening_measured_vitals,
             ss.state->'rejected_vitals' AS screening_rejected_vitals,
             ss.state->>'phase' AS screening_phase
@@ -188,6 +194,9 @@ async def list_assessment_reviews(
             s.metadata->'triage_classification'->>'key_reason' AS ai_illness_note,
             NULLIF(s.metadata->>'patient_follow_up', '') AS patient_follow_up,
             s.metadata->'his_routing'->>'status' AS his_routing_status,
+            s.metadata->'his_routing'->>'queue_number' AS his_queue_number,
+            s.metadata->'his_routing'->>'message_th' AS his_routing_message_th,
+            s.metadata->'his_routing'->>'request_id' AS his_request_id,
             ss.state->'measured_vitals' AS screening_measured_vitals,
             ss.state->'rejected_vitals' AS screening_rejected_vitals,
             ss.state->>'phase' AS screening_phase
@@ -210,6 +219,23 @@ async def list_assessment_reviews(
     return [_attach_missing_vitals(row) for row in records_to_dicts(rows)]
 
 
+def _resolve_request_id(prior: dict[str, Any] | None, department_code: str) -> str:
+    """Idempotency key for one patient assignment.
+
+    Reuse the stored key when the destination is unchanged, so a retry after a
+    timeout cannot create a second queue row. Allocate a fresh one when the
+    nurse genuinely reroutes, because that IS a different assignment and must
+    not be deduplicated away by the hospital.
+
+    Pure, so the rule is testable without a database. Shaped like the
+    hospital's own sample (prefix + date + sequence) for their support team.
+    """
+    prior = prior or {}
+    if prior.get("request_id") and prior.get("department_code") == department_code:
+        return str(prior["request_id"])
+    return f"MFU-{datetime.now(timezone.utc):%Y%m%d}-{uuid4().hex[:6].upper()}"
+
+
 async def _push_his_routing(
     request: Request,
     connection: asyncpg.Connection,
@@ -220,63 +246,193 @@ async def _push_his_routing(
     rerouted: bool,
     chief_complaint: str | None = None,
     illness_note: str | None = None,
+    sbar: SbarPayload | None = None,
 ) -> None:
-    """Stage-2 HIS write-back: record the nurse's confirmation/reroute of a
-    routing against the linked visit, publishing the nurse-signed narrative
-    (edited chief complaint / illness note when provided; the HIS falls back
-    to the held Stage-1 values otherwise). Best-effort; status stored on the
-    session metadata for transparency, never raises into the endpoint."""
-    if not department_id:
-        return
+    """Stage-2 HIS write-back: send the visit to its destination service point
+    now that a nurse has signed off (the hospital's patient-assignment API).
+
+    Best-effort — never raises into the endpoint. The whole outcome is stored
+    on ``session.metadata.his_routing`` so the nurse sees the queue number, or
+    an actionable reason. Cases we cannot even attempt are recorded as
+    ``skipped`` with a reason rather than silently doing nothing, so "not
+    applicable" is distinguishable from "never ran".
+    """
+    from app.services.screening.his import (
+        AssignmentResult,
+        his_department_name,
+        his_service_point,
+    )
+    from app.services.screening.his.sbar import build_sbar
+
     session_row = await connection.fetchrow(
         "SELECT metadata FROM sessions WHERE id = $1", session_id
     )
     if session_row is None:
+        # Nowhere to record anything; the endpoint's own 404 covers the caller.
+        logger.warning("[session=%s] HIS stage-2: session vanished", session_id)
         return
     metadata = dict(session_row["metadata"] or {})
-    visit = metadata.get("visit") or {}
-    visit_id = visit.get("visit_id")
+    prior = metadata.get("his_routing") or {}
+
+    async def _record(block: dict[str, Any]) -> None:
+        metadata["his_routing"] = {
+            **block,
+            "rerouted": rerouted,
+            "confirmed_by": confirmed_by,
+            "at": datetime.now(timezone.utc).isoformat(),
+        }
+        await connection.execute(
+            "UPDATE sessions SET metadata = $2::jsonb WHERE id = $1",
+            session_id,
+            metadata,
+        )
+
+    if not department_id:
+        await _record({"status": "skipped", "reason": "no_department"})
+        return
+    visit_id = (metadata.get("visit") or {}).get("visit_id")
     if not visit_id:
-        return  # anonymous session — nothing to write back
+        await _record({"status": "skipped", "reason": "no_visit_link"})
+        return
     dept = await connection.fetchrow(
         "SELECT code, name_th FROM departments WHERE id = $1", department_id
     )
     if dept is None:
+        await _record({"status": "skipped", "reason": "unknown_department"})
         return
-    from app.services.screening.his import his_department_name
 
     his_dept = his_department_name(dept["code"]) or dept["name_th"] or dept["code"]
+    assign_spid = his_service_point(dept["code"])
+    if not assign_spid:
+        # Never invent a service-point id: the hospital would queue the patient
+        # somewhere real, or reject the call.
+        await _record(
+            {
+                "status": "skipped",
+                "reason": "no_service_point",
+                "department": his_dept,
+                "department_code": dept["code"],
+            }
+        )
+        return
+
+    engine_sbar = build_sbar(
+        metadata,
+        department_th=his_dept,
+        rerouted=rerouted,
+        chief_complaint=chief_complaint,
+        illness_note=illness_note,
+    )
+    sent_sbar = sbar.model_dump() if sbar is not None else engine_sbar
+    edited = sent_sbar != engine_sbar
+
+    request_id = _resolve_request_id(prior, dept["code"])
     adapter = request.app.state.his_adapter
-    ok = False
     try:
-        ok = await adapter.confirm_routing(
+        result = await adapter.confirm_routing(
             visit_id,
-            department=his_dept,
-            complaint=chief_complaint,
-            note=illness_note,
-            confirmed_by=confirmed_by,
-            rerouted=rerouted,
+            request_id=request_id,
+            assign_spid=assign_spid,
+            sbar=sent_sbar,
         )
     except Exception:  # pragma: no cover - defensive
-        logger.exception("[session=%s] HIS stage-2 routing raised", session_id)
-    metadata["his_routing"] = {
-        "status": "pushed" if ok else "failed",
+        logger.exception("[session=%s] HIS stage-2 assignment raised", session_id)
+        # "unknown", never "failed": the queue row may exist, and the stored
+        # request_id makes a retry safe.
+        result = AssignmentResult(status="unknown", request_id=request_id)
+
+    block: dict[str, Any] = {
+        "status": result.status,
+        "request_id": result.request_id,
         "department": his_dept,
-        "rerouted": rerouted,
-        "confirmed_by": confirmed_by,
-        "at": datetime.now(timezone.utc).isoformat(),
+        "department_code": dept["code"],
+        "assign_spid": assign_spid,
+        "queue_number": result.queue_number,
+        "visit_queue_id": result.visit_queue_id,
+        "queue_status": result.queue_status,
+        "sbar_id": result.sbar_id,
+        "message": result.message,
+        "message_th": result.message_th,
+        # Audit: what actually went to the hospital, and the engine's original
+        # when the nurse changed it. Presence of sbar_engine == it was edited.
+        "sbar": sent_sbar,
+        "sbar_edited": edited,
     }
-    await connection.execute(
-        "UPDATE sessions SET metadata = $2::jsonb WHERE id = $1",
-        session_id,
-        metadata,
-    )
+    if edited:
+        block["sbar_engine"] = engine_sbar
+    await _record(block)
 
 
 # ── Hospital DB (mock HIS) read-only proxy for the admin dashboard ──────────
 # Lets the demo show the visit record go blank → screened → routed inside our
 # app, framed as "the admin also oversees the hospital DB". Only meaningful in
 # HIS_MODE=http; degrades to an empty/unavailable response otherwise.
+@router.post(
+    "/admin/reviews/{assessment_id}/sbar-preview", response_model=SbarPayload
+)
+async def preview_review_sbar(
+    assessment_id: UUID,
+    payload: SbarPreviewRequest,
+    connection: asyncpg.Connection = Depends(get_connection),
+    _admin_user: dict = Depends(require_roles("nurse", "super_admin")),
+):
+    """Build the SBAR handover the nurse is about to send, so it can be shown
+    and edited before it fires.
+
+    A POST because the draft it depends on (complaint, note, chosen
+    department) is free text the nurse has not saved yet. Called once when the
+    confirm dialog opens — deliberately NOT a field on the review list, which
+    would build an SBAR for every row on every poll.
+    """
+    row = await connection.fetchrow(
+        """
+        SELECT ar.session_id, ar.proposed_department_id, ar.confirmed_department_id,
+               s.metadata
+        FROM assessment_reviews ar
+        JOIN sessions s ON s.id = ar.session_id
+        WHERE ar.assessment_id = $1
+        """,
+        assessment_id,
+    )
+    if row is None:
+        raise HTTPException(status_code=404, detail="Assessment review not found")
+
+    from app.services.screening.his import his_department_name
+    from app.services.screening.his.sbar import build_sbar
+
+    department_id = (
+        payload.department_id
+        or row["confirmed_department_id"]
+        or row["proposed_department_id"]
+    )
+    dept = (
+        await connection.fetchrow(
+            "SELECT code, name_th FROM departments WHERE id = $1", department_id
+        )
+        if department_id
+        else None
+    )
+    his_dept = ""
+    if dept is not None:
+        his_dept = his_department_name(dept["code"]) or dept["name_th"] or dept["code"]
+
+    metadata = dict(row["metadata"] or {})
+    return SbarPayload(
+        **build_sbar(
+            metadata,
+            department_th=his_dept,
+            # The nurse is previewing whatever they currently have selected;
+            # whether that counts as a reroute is only settled on submit.
+            rerouted=bool(
+                payload.department_id
+                and payload.department_id != row["proposed_department_id"]
+            ),
+            chief_complaint=payload.chief_complaint,
+            illness_note=payload.illness_note,
+        )
+    )
+
+
 @router.post("/admin/reviews/{assessment_id}/approve", response_model=AssessmentReviewOut)
 async def approve_assessment_review(
     assessment_id: UUID,
@@ -335,6 +491,7 @@ async def approve_assessment_review(
         rerouted=False,
         chief_complaint=payload.chief_complaint,
         illness_note=payload.illness_note,
+        sbar=payload.sbar,
     )
 
     return await _serialize_review(connection, assessment_id)
@@ -432,6 +589,7 @@ async def correct_assessment_review(
         rerouted=True,
         chief_complaint=payload.chief_complaint,
         illness_note=payload.illness_note,
+        sbar=payload.sbar,
     )
 
     return await _serialize_review(connection, assessment_id)

@@ -14,9 +14,14 @@ from typing import Any
 
 import httpx
 
-from .adapter import PatientHistory, VisitInfo
+from .adapter import AssignmentResult, PatientHistory, VisitInfo
 
 logger = logging.getLogger(__name__)
+
+# The hospital's assignment endpoint. Their UAT/PROD base URLs are documented
+# with the /api/v1 suffix already on them — configure HIS_BASE_URL WITHOUT it,
+# the way the mock is mounted at http://localhost:8001.
+ASSIGNMENTS_PATH = "/api/v1/patient-assignments"
 
 
 def his_auth_headers(api_key: str | None) -> dict[str, str]:
@@ -174,28 +179,73 @@ class HttpHisAdapter:
         self,
         visit_id: str,
         *,
-        department: str,
-        complaint: str | None = None,
-        note: str | None = None,
-        confirmed_by: str,
-        rerouted: bool = False,
-    ) -> bool:
-        resp = await self._request(
-            "PUT",
-            f"/api/visits/{visit_id}/routing",
-            json={
-                "department": department,
-                "complaint": complaint,
-                "illness_note": note,
-                "confirmed_by": confirmed_by,
-                "rerouted": rerouted,
-            },
-        )
-        if resp is None or resp.status_code != 200:
-            logger.warning(
-                "[HIS] confirm_routing visit=%s → %s",
-                visit_id,
-                None if resp is None else resp.status_code,
+        request_id: str,
+        assign_spid: str,
+        sbar: dict[str, str | None] | None = None,
+    ) -> AssignmentResult:
+        body: dict[str, Any] = {
+            "request_id": request_id,
+            "visit_id": visit_id,
+            "assign_spid": assign_spid,
+        }
+        # Omitted on purpose: queue_number (their queue rules own sequencing),
+        # base_department_id (they derive it from the service point) and
+        # assign_eid (we route to a department, never a named doctor).
+        if sbar and any(v for v in sbar.values()):
+            body["sbar"] = {k: v for k, v in sbar.items() if v}
+
+        resp = await self._request("POST", ASSIGNMENTS_PATH, json=body)
+        if resp is None:
+            # Transport error or timeout: the queue row MAY have been created.
+            # Never report this as a failure — see AssignmentResult.
+            logger.warning("[HIS] assignment visit=%s → no response", visit_id)
+            return AssignmentResult(status="unknown", request_id=request_id)
+
+        try:
+            payload = resp.json()
+        except ValueError:
+            logger.warning("[HIS] assignment visit=%s → non-JSON body", visit_id)
+            return AssignmentResult(
+                status="unknown", request_id=request_id, http_status=resp.status_code
             )
-            return False
-        return True
+
+        result = payload.get("result") or {}
+
+        def build(status: str, *, with_queue: bool = False) -> AssignmentResult:
+            # Echo their request_id when they send one, but never let it be
+            # None — it is the key a retry depends on.
+            return AssignmentResult(
+                status=status,
+                request_id=str(payload.get("request_id") or request_id),
+                http_status=resp.status_code,
+                message=payload.get("message"),
+                message_th=payload.get("message_th"),
+                queue_number=result.get("queue_number") if with_queue else None,
+                visit_queue_id=result.get("visit_queue_id") if with_queue else None,
+                queue_status=result.get("queue_status") if with_queue else None,
+                sbar_id=result.get("sbar_id") if with_queue else None,
+                assign_eid=result.get("assign_eid") if with_queue else None,
+            )
+
+        if resp.is_success:
+            if payload.get("status") == "STATUS_SUCCESS":
+                return build("pushed", with_queue=True)
+            return build("invalid")
+        if resp.status_code == 409:
+            # Already queued — our earlier attempt landed, so this IS success.
+            # `result` is only present if the hospital adopts change request 7;
+            # without it the nurse must look the number up in iMed.
+            return build("pushed", with_queue=True)
+        if resp.status_code == 403:
+            return build("denied")
+        if resp.status_code == 422:
+            # Only their business error means "destination closed". A framework
+            # validation 422 would otherwise tell the nurse to reroute when the
+            # real problem is our payload.
+            if payload.get("message") == "SERVICE_POINT_NOT_AVAILABLE":
+                return build("unavailable")
+            return build("invalid")
+        if resp.status_code == 400:
+            return build("invalid")
+        # 5xx and anything else: the row may exist, so treat it as unknown.
+        return build("unknown")

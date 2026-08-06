@@ -50,6 +50,36 @@ class VisitInfo:
     raw: dict[str, Any] | None = None
 
 
+@dataclass(frozen=True)
+class AssignmentResult:
+    """Outcome of a Stage-2 patient assignment.
+
+    ``status`` is written straight into ``session.metadata.his_routing`` and
+    drives what the nurse is shown:
+
+    * ``pushed``      queued — ``queue_number`` is what the nurse hands over.
+                      A 409 "already exists" also lands here: our earlier
+                      attempt succeeded.
+    * ``denied``      403, the visit is locked/discharged. Do not retry.
+    * ``unavailable`` 422, the destination is closed. The nurse reroutes.
+    * ``invalid``     400 (or 2xx with a non-success body) — our bug.
+    * ``unknown``     timeout/transport/5xx. The queue row **may** exist, so
+                      this is deliberately NOT "failed": a retry reuses the
+                      same ``request_id`` and cannot double-book.
+    """
+
+    status: str
+    request_id: str
+    queue_number: str | None = None
+    visit_queue_id: str | None = None
+    queue_status: str | None = None
+    sbar_id: str | None = None
+    assign_eid: str | None = None
+    message: str | None = None       # iMed's enum — for logs/IT, not the nurse
+    message_th: str | None = None    # what the nurse is shown
+    http_status: int | None = None
+
+
 class HisAdapter(Protocol):
     async def validate_visit(self, visit_id: str) -> VisitInfo | None:
         """Verify a visit id against the HIS; None when unknown/inactive.
@@ -79,14 +109,16 @@ class HisAdapter(Protocol):
         self,
         visit_id: str,
         *,
-        department: str,
-        complaint: str | None = None,
-        note: str | None = None,
-        confirmed_by: str,
-        rerouted: bool = False,
-    ) -> bool:
-        """Stage 2: record the nurse's confirmation or reroute at the
-        destination department (updates the visit's second location).
+        request_id: str,
+        assign_spid: str,
+        sbar: dict[str, str | None] | None = None,
+    ) -> AssignmentResult:
+        """Stage 2: send the visit to its destination service point once a
+        nurse has confirmed (the hospital's ``POST /patient-assignments``).
 
-        ``complaint``/``note`` are the nurse-signed chief complaint and
-        illness note; None keeps the values held from Stage 1."""
+        ``request_id`` is the idempotency key — allocated at confirm time and
+        stored, so a retry after a timeout cannot create a second queue row.
+        The nurse's chief complaint and illness note travel inside ``sbar``;
+        who confirmed and whether it was a reroute stay in our own audit
+        trail, because iMed derives the sender from the access token and has
+        no reroute flag."""

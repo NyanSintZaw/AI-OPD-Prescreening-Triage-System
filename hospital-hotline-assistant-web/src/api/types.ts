@@ -225,10 +225,39 @@ export interface AssessmentReviewOut {
   /** Nurse-signed narrative, set on confirm. */
   chief_complaint?: string | null;
   illness_note?: string | null;
+  /**
+   * Stage-2 hospital outcome:
+   * pushed | denied | unavailable | invalid | unknown | skipped.
+   * `unknown` means we never learned whether the queue row was created —
+   * deliberately not "failed", because a retry is safe and re-queueing is not.
+   */
   his_routing_status?: string | null;
+  /** What the nurse reads out to the patient. */
+  his_queue_number?: string | null;
+  /** The hospital's own Thai wording; show this, never the English enum. */
+  his_routing_message_th?: string | null;
+  his_request_id?: string | null;
   reviewed_at: string | null;
   created_at: string;
   updated_at: string;
+}
+
+/** Clinical handover sent to the hospital. All seven fields are
+ *  nurse-editable; omitting `sbar` entirely makes the server rebuild it. */
+export interface SbarFields {
+  situation?: string | null;
+  background?: string | null;
+  assessment?: string | null;
+  assessment_problem?: string | null;
+  assessment_equipment?: string | null;
+  recommend?: string | null;
+  documentation?: string | null;
+}
+
+export interface SbarPreviewRequest {
+  department_id?: string | null;
+  chief_complaint?: string | null;
+  illness_note?: string | null;
 }
 
 export interface AssessmentReviewApproveRequest {
@@ -236,6 +265,7 @@ export interface AssessmentReviewApproveRequest {
   ai_assessment_score?: number | null;
   chief_complaint?: string | null;
   illness_note?: string | null;
+  sbar?: SbarFields | null;
 }
 
 export interface AssessmentReviewCorrectRequest {
@@ -244,6 +274,7 @@ export interface AssessmentReviewCorrectRequest {
   ai_assessment_score?: number | null;
   chief_complaint?: string | null;
   illness_note?: string | null;
+  sbar?: SbarFields | null;
 }
 
 export interface RoutingFeedbackOut {

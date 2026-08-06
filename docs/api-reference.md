@@ -2155,11 +2155,66 @@ Example response:
     "chief_complaint": "string",
     "illness_note": "string",
     "his_routing_status": "string",
+    "his_queue_number": "string",
+    "his_routing_message_th": "string",
+    "his_request_id": "string",
     "reviewed_at": "2026-08-04T09:00:00Z",
     "created_at": "2026-08-04T09:00:00Z",
     "updated_at": "2026-08-04T09:00:00Z"
   }
 ]
+```
+
+---
+
+### `POST /admin/reviews/{assessment_id}/sbar-preview`
+
+Preview Review Sbar.
+
+Build the SBAR handover the nurse is about to send, so it can be shown
+and edited before it fires.
+
+A POST because the draft it depends on (complaint, note, chosen
+department) is free text the nurse has not saved yet. Called once when the
+confirm dialog opens — deliberately NOT a field on the review list, which
+would build an SBAR for every row on every poll.
+
+**Auth:** bearer token (roles: nurse, super_admin)
+
+**Path params:** `assessment_id`
+
+**Request body** (`application/json`, `SbarPreviewRequest`):
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `department_id` | string (uuid) or null | N | Department Id |
+| `chief_complaint` | string or null | N | Chief Complaint |
+| `illness_note` | string or null | N | Illness Note |
+
+Example request:
+
+```json
+{
+  "department_id": "00000000-0000-0000-0000-000000000000",
+  "chief_complaint": "string",
+  "illness_note": "string"
+}
+```
+
+**Response 200:** `SbarPayload`
+
+Example response:
+
+```json
+{
+  "situation": "string",
+  "background": "string",
+  "assessment": "string",
+  "assessment_problem": "string",
+  "assessment_equipment": "string",
+  "recommend": "string",
+  "documentation": "string"
+}
 ```
 
 ---
@@ -2180,6 +2235,7 @@ Approve Assessment Review.
 | `ai_assessment_score` | integer or null | N | Ai Assessment Score |
 | `chief_complaint` | string or null | N | Chief Complaint |
 | `illness_note` | string or null | N | Illness Note |
+| `sbar` | SbarPayload or null | N |  |
 
 Example request:
 
@@ -2188,7 +2244,16 @@ Example request:
   "notes": "string",
   "ai_assessment_score": 0,
   "chief_complaint": "string",
-  "illness_note": "string"
+  "illness_note": "string",
+  "sbar": {
+    "situation": "string",
+    "background": "string",
+    "assessment": "string",
+    "assessment_problem": "string",
+    "assessment_equipment": "string",
+    "recommend": "string",
+    "documentation": "string"
+  }
 }
 ```
 
@@ -2235,6 +2300,9 @@ Example response:
   "chief_complaint": "string",
   "illness_note": "string",
   "his_routing_status": "string",
+  "his_queue_number": "string",
+  "his_routing_message_th": "string",
+  "his_request_id": "string",
   "reviewed_at": "2026-08-04T09:00:00Z",
   "created_at": "2026-08-04T09:00:00Z",
   "updated_at": "2026-08-04T09:00:00Z"
@@ -2260,6 +2328,7 @@ Correct Assessment Review.
 | `ai_assessment_score` | integer or null | N | Ai Assessment Score |
 | `chief_complaint` | string or null | N | Chief Complaint |
 | `illness_note` | string or null | N | Illness Note |
+| `sbar` | SbarPayload or null | N |  |
 
 Example request:
 
@@ -2269,7 +2338,16 @@ Example request:
   "reason": "string",
   "ai_assessment_score": 0,
   "chief_complaint": "string",
-  "illness_note": "string"
+  "illness_note": "string",
+  "sbar": {
+    "situation": "string",
+    "background": "string",
+    "assessment": "string",
+    "assessment_problem": "string",
+    "assessment_equipment": "string",
+    "recommend": "string",
+    "documentation": "string"
+  }
 }
 ```
 
@@ -2316,6 +2394,9 @@ Example response:
   "chief_complaint": "string",
   "illness_note": "string",
   "his_routing_status": "string",
+  "his_queue_number": "string",
+  "his_routing_message_th": "string",
+  "his_request_id": "string",
   "reviewed_at": "2026-08-04T09:00:00Z",
   "created_at": "2026-08-04T09:00:00Z",
   "updated_at": "2026-08-04T09:00:00Z"
@@ -2732,39 +2813,60 @@ Get Prescreen.
 
 ---
 
-### `PUT /api/visits/{visit_id}/routing`
+### `POST /api/v1/patient-assignments`
 
-Confirm Routing.
+Create Patient Assignment.
 
-Stage 2 write-back — publish the clinical narrative + routing.
+Send a registered visit to a destination service point.
 
-Human sign-off. Promotes the held complaint summary + reason into the
-nurse_* fields and writes second_location (the confirmed/rerouted
-department) onto the visit row.
+Mirrors the hospital's real iMed contract
+(``docs/imed-patient-assignment-api.md``) — same envelope, same error
+codes, same idempotency rule. Replaces the retired
+``PUT /api/visits/{id}/routing``.
+
+Two deliberate divergences, both flagged for the hospital meeting:
+
+* A repeated ``request_id`` returns **200 with the original result**
+  rather than a bare 409. That is our *change request 7* — an
+  idempotency key is useless if a retry after a timeout cannot tell us
+  the queue number. Implemented here so the proposal is runnable.
+* ``confirmed_by`` is left NULL and a reroute cannot be marked as such:
+  iMed derives the sender from the access token and has no reroute
+  flag (change requests 3 and 4). The empty column is the demo.
 
 **Auth:** none
 
-**Path params:** `visit_id`
-
-**Request body** (`application/json`, `RoutingIn`):
+**Request body** (`application/json`, `AssignmentIn`):
 
 | Field | Type | Required | Notes |
 |---|---|---|---|
-| `department` | string | Y | Department |
-| `complaint` | string or null | N | Complaint |
-| `illness_note` | string or null | N | Illness Note |
-| `confirmed_by` | string | Y | Confirmed By |
-| `rerouted` | boolean | N | Rerouted (default: `false`) |
+| `request_id` | string | Y | Request Id |
+| `visit_id` | string | Y | Visit Id |
+| `assign_spid` | string | Y | Assign Spid |
+| `assign_eid` | string or null | N | Assign Eid |
+| `base_department_id` | string or null | N | Base Department Id |
+| `queue_number` | string or null | N | Queue Number |
+| `sbar` | SbarIn or null | N |  |
 
 Example request:
 
 ```json
 {
-  "department": "string",
-  "complaint": "string",
-  "illness_note": "string",
-  "confirmed_by": "string",
-  "rerouted": false
+  "request_id": "string",
+  "visit_id": "string",
+  "assign_spid": "string",
+  "assign_eid": "string",
+  "base_department_id": "string",
+  "queue_number": "string",
+  "sbar": {
+    "situation": "string",
+    "background": "string",
+    "assessment": "string",
+    "assessment_problem": "string",
+    "assessment_equipment": "string",
+    "recommend": "string",
+    "documentation": "string"
+  }
 }
 ```
 
@@ -3033,6 +3135,7 @@ Row in the admin User Settings table (nurse accounts).
 | `ai_assessment_score` | integer or null | N | Ai Assessment Score |
 | `chief_complaint` | string or null | N | Chief Complaint |
 | `illness_note` | string or null | N | Illness Note |
+| `sbar` | SbarPayload or null | N |  |
 
 ### `AssessmentReviewCorrectRequest`
 
@@ -3043,6 +3146,7 @@ Row in the admin User Settings table (nurse accounts).
 | `ai_assessment_score` | integer or null | N | Ai Assessment Score |
 | `chief_complaint` | string or null | N | Chief Complaint |
 | `illness_note` | string or null | N | Illness Note |
+| `sbar` | SbarPayload or null | N |  |
 
 ### `AssessmentReviewOut`
 
@@ -3081,6 +3185,9 @@ Row in the admin User Settings table (nurse accounts).
 | `chief_complaint` | string or null | N | Chief Complaint |
 | `illness_note` | string or null | N | Illness Note |
 | `his_routing_status` | string or null | N | His Routing Status |
+| `his_queue_number` | string or null | N | His Queue Number |
+| `his_routing_message_th` | string or null | N | His Routing Message Th |
+| `his_request_id` | string or null | N | His Request Id |
 | `reviewed_at` | string (date-time) or null | N | Reviewed At |
 | `created_at` | string (date-time) | Y | Created At |
 | `updated_at` | string (date-time) | Y | Updated At |
@@ -3533,6 +3640,30 @@ First-time-patient structured history collected at the booth.
 | `priority` | integer | Y | Priority |
 | `is_active` | boolean | Y | Is Active |
 
+### `SbarPayload`
+
+Clinical handover sent to the hospital with a patient assignment.  All seven fields are nurse-editable in the review dialog. When a request omits ``sbar`` entirely the server rebuilds it from the engine, so non-UI callers (Postman, scripts) need not construct one. When it IS present it is authoritative **in full** — a field the nurse deliberately blanked must stay blank, so there is no per-field merge.
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `situation` | string or null | N | Situation |
+| `background` | string or null | N | Background |
+| `assessment` | string or null | N | Assessment |
+| `assessment_problem` | string or null | N | Assessment Problem |
+| `assessment_equipment` | string or null | N | Assessment Equipment |
+| `recommend` | string or null | N | Recommend |
+| `documentation` | string or null | N | Documentation |
+
+### `SbarPreviewRequest`
+
+The nurse's current draft, since SBAR depends on all three.
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `department_id` | string (uuid) or null | N | Department Id |
+| `chief_complaint` | string or null | N | Chief Complaint |
+| `illness_note` | string or null | N | Illness Note |
+
 ### `SessionByVisitOut`
 
 Result of looking up a recent session by hospital visit ID (VN).  ``found=False`` when no same-day session is linked to this VN — the client should create a new session and call ``link-visit``. When ``found=True``, ``status`` says what the kiosk should offer: ``active`` → continue or start over; ``completed`` → start over / reprint slip.
@@ -3672,6 +3803,20 @@ A single vital captured mid-interview when the engine requests it (temperature o
 
 ### Mock HIS schemas
 
+### `AssignmentIn`
+
+Body of POST /api/v1/patient-assignments — mirrors the hospital's iMed contract (docs/imed-patient-assignment-api.md).  We never send patient_id / fix_visit_type_id / any timestamp: iMed derives those from the visit and from the access-token identity.
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `request_id` | string | Y | Request Id |
+| `visit_id` | string | Y | Visit Id |
+| `assign_spid` | string | Y | Assign Spid |
+| `assign_eid` | string or null | N | Assign Eid |
+| `base_department_id` | string or null | N | Base Department Id |
+| `queue_number` | string or null | N | Queue Number |
+| `sbar` | SbarIn or null | N |  |
+
 ### `FollowUpIn`
 
 | Field | Type | Required | Notes |
@@ -3714,12 +3859,16 @@ A single vital captured mid-interview when the engine requests it (temperature o
 | `visit_ids` | array of string | N | Visit Ids |
 | `reset_history` | boolean | N | Reset History (default: `false`) |
 
-### `RoutingIn`
+### `SbarIn`
+
+Clinical handover, all fields optional per the iMed contract.
 
 | Field | Type | Required | Notes |
 |---|---|---|---|
-| `department` | string | Y | Department |
-| `complaint` | string or null | N | Complaint |
-| `illness_note` | string or null | N | Illness Note |
-| `confirmed_by` | string | Y | Confirmed By |
-| `rerouted` | boolean | N | Rerouted (default: `false`) |
+| `situation` | string or null | N | Situation |
+| `background` | string or null | N | Background |
+| `assessment` | string or null | N | Assessment |
+| `assessment_problem` | string or null | N | Assessment Problem |
+| `assessment_equipment` | string or null | N | Assessment Equipment |
+| `recommend` | string or null | N | Recommend |
+| `documentation` | string or null | N | Documentation |

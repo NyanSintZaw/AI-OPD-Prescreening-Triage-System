@@ -22,7 +22,7 @@ The booth uses exactly three operations:
 |---|---|---|
 | `GET /api/visits/{visit_id}` | read | visit id, patient name, birthdate, appointment flag, any vitals already recorded |
 | `POST /api/visits/{id}/prescreen` | write (Stage 1) | booth measurements (BP/pulse/temp/weight/height), booth station id, held triage narrative |
-| `PUT /api/visits/{id}/routing` | write (Stage 2) | nurse-confirmed department + narrative — **only after a nurse signs off** |
+| `POST /api/v1/patient-assignments` | write (Stage 2) | nurse-confirmed destination + SBAR handover — **only after a nurse signs off**; returns the queue number |
 
 Plus one optional write: the patient's own follow-up note
 (`PUT /api/visits/{id}/follow-up`).

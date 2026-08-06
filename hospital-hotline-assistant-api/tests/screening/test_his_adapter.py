@@ -52,9 +52,10 @@ async def test_mock_adapter_validate_and_writes():
     assert info.patient_history is not None and info.patient_history.is_first_time is True
     assert await mock.push_referral({"visit_id": "V123"}) is True
     assert await mock.push_patient_history("HN1", {"smoking_alcohol": "none"}) is True
-    assert await mock.confirm_routing(
-        "V123", department="OPD", confirmed_by="nurse", rerouted=False
-    ) is True
+    result = await mock.confirm_routing(
+        "V123", request_id="MFU-1", assign_spid="SP_OPD_MED_01"
+    )
+    assert result.status == "pushed" and result.queue_number
 
 
 # --- HttpHisAdapter against a fake HIS ---------------------------------------
@@ -98,9 +99,26 @@ def _fake_his_handler():
             body = json.loads(request.content)
             state["prescreens"]["V1"] = body
             return httpx.Response(201, json={"status": "pending"})
-        if request.method == "PUT" and path == "/api/visits/V1/routing":
-            state["routing"] = json.loads(request.content)
-            return httpx.Response(200, json={"status": "confirmed"})
+        if request.method == "POST" and path == "/api/v1/patient-assignments":
+            body = json.loads(request.content)
+            state["assignment"] = body
+            # Canned reply, or whatever the test staged for this call.
+            staged = state.get("assignment_reply")
+            if staged is not None:
+                return httpx.Response(staged[0], json=staged[1])
+            return httpx.Response(200, json={
+                "request_id": body["request_id"],
+                "status": "STATUS_SUCCESS",
+                "result": {
+                    "visit_id": body["visit_id"],
+                    "visit_queue_id": "VQ-1",
+                    "assign_spid": body["assign_spid"],
+                    "assign_eid": None,
+                    "queue_number": "M001",
+                    "queue_status": "WAITING",
+                    "sbar_id": "SBAR-1" if body.get("sbar") else None,
+                },
+            })
         if request.method == "PUT" and path == "/api/patients/HN1/history":
             state["patient_history"] = json.loads(request.content)
             return httpx.Response(200, json={"hn": "HN1", "is_first_time": False})
@@ -175,17 +193,23 @@ async def test_http_push_and_confirm():
     })
     assert ok is True
     assert state["prescreens"]["V1"]["session_ref"] == "s"
-    assert await adapter.confirm_routing(
-        "V1", department="d", confirmed_by="nurse", rerouted=False
-    ) is True
-    # Nurse-edited narrative is forwarded on the Stage-2 confirm.
-    assert await adapter.confirm_routing(
-        "V1", department="d", complaint="edited complaint",
-        note="edited illness note", confirmed_by="nurse", rerouted=True,
-    ) is True
-    assert state["routing"]["complaint"] == "edited complaint"
-    assert state["routing"]["illness_note"] == "edited illness note"
-    assert state["routing"]["rerouted"] is True
+    result = await adapter.confirm_routing(
+        "V1", request_id="MFU-20260807-AAA111", assign_spid="SP_OPD_MED_01",
+        sbar={"situation": "แน่นหน้าอก", "assessment_equipment": None},
+    )
+    assert result.status == "pushed"
+    assert result.queue_number == "M001"
+    assert result.visit_queue_id == "VQ-1"
+    assert result.sbar_id == "SBAR-1"
+    sent = state["assignment"]
+    assert sent["request_id"] == "MFU-20260807-AAA111"
+    assert sent["assign_spid"] == "SP_OPD_MED_01"
+    # Empty SBAR fields are dropped rather than sent as nulls.
+    assert sent["sbar"] == {"situation": "แน่นหน้าอก"}
+    # Never sent: the hospital owns these.
+    assert "queue_number" not in sent
+    assert "base_department_id" not in sent
+    assert "assign_eid" not in sent
 
 
 async def test_http_push_without_visit_id_is_false():
@@ -203,5 +227,67 @@ async def test_http_tolerates_transport_errors():
     assert await adapter.validate_visit("V1") is None
     assert await adapter.push_referral({"visit_id": "V1"}) is False
     assert await adapter.push_patient_history("HN1", {"smoking_alcohol": "x"}) is False
-    assert await adapter.confirm_routing("V1", department="d", confirmed_by="n") is False
+    # A transport error is "unknown", NEVER "failed": the queue row may exist,
+    # and calling it a failure invites a re-confirm that double-books.
+    unknown = await adapter.confirm_routing(
+        "V1", request_id="R1", assign_spid="SP_OPD_MED_01"
+    )
+    assert unknown.status == "unknown"
+    assert unknown.request_id == "R1"
     assert await adapter.get_departments() == []
+
+
+# --- assignment outcome mapping ----------------------------------------------
+# The whole table, because each status drives a different nurse action and a
+# wrong mapping tells the nurse to do the wrong thing.
+
+@pytest.mark.parametrize(
+    "code,body,expected",
+    [
+        (200, {"status": "STATUS_SUCCESS", "result": {"queue_number": "M001"}}, "pushed"),
+        # 2xx but the hospital says it didn't work — our payload is wrong.
+        (200, {"status": "STATUS_BUSINESS_ERROR", "message": "invalid_request"}, "invalid"),
+        # Already queued: our earlier attempt landed, so this IS success.
+        (409, {"status": "STATUS_BUSINESS_ERROR", "message": "VISIT_QUEUE_ALREADY_EXIST"}, "pushed"),
+        (403, {"status": "STATUS_BUSINESS_ERROR", "message": "VISIT_LOCKED_OR_FINANCIAL_DISCHARGED"}, "denied"),
+        (422, {"status": "STATUS_BUSINESS_ERROR", "message": "SERVICE_POINT_NOT_AVAILABLE"}, "unavailable"),
+        # A framework validation 422 must NOT read as "department closed" —
+        # that would send the nurse off to reroute a perfectly open clinic.
+        (422, {"detail": [{"loc": ["body", "visit_id"]}]}, "invalid"),
+        (400, {"status": "STATUS_BUSINESS_ERROR", "message": "invalid_request"}, "invalid"),
+        # 5xx: the row may exist, so never a definite failure.
+        (500, {"status": "STATUS_BUSINESS_ERROR"}, "unknown"),
+    ],
+)
+async def test_assignment_status_mapping(code, body, expected):
+    handler, state = _fake_his_handler()
+    state["assignment_reply"] = (code, body)
+    adapter = _adapter_with(handler)
+    result = await adapter.confirm_routing(
+        "V1", request_id="R1", assign_spid="SP_OPD_MED_01"
+    )
+    assert result.status == expected
+    assert result.status != "failed"  # the word must never come back
+
+
+async def test_assignment_409_carries_queue_number_when_hospital_returns_it():
+    """Change request 7: if they return the original result on a duplicate we
+    can still give the nurse a number; without it she must look it up."""
+    handler, state = _fake_his_handler()
+    state["assignment_reply"] = (409, {
+        "status": "STATUS_BUSINESS_ERROR",
+        "message": "VISIT_QUEUE_ALREADY_EXIST",
+        "result": {"queue_number": "M007", "queue_status": "WAITING"},
+    })
+    adapter = _adapter_with(handler)
+    result = await adapter.confirm_routing("V1", request_id="R1", assign_spid="SP_X")
+    assert (result.status, result.queue_number) == ("pushed", "M007")
+
+
+async def test_assignment_non_json_body_is_unknown():
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, text="<html>gateway</html>")
+
+    adapter = _adapter_with(handler)
+    result = await adapter.confirm_routing("V1", request_id="R1", assign_spid="SP_X")
+    assert result.status == "unknown"

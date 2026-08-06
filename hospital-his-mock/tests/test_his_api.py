@@ -36,6 +36,34 @@ REFERRAL = {
 }
 
 
+# ── iMed assignment (POST /api/v1/patient-assignments) ──────────────────────
+# The real contract authenticates with a Bearer token; the mock accepts
+# X-API-Key too so one credential works against both endpoint families.
+BEARER = {"Authorization": f"Bearer {API_KEY}"}
+SPID_MED = "SP_OPD_MED_01"
+SBAR = {
+    "situation": "แน่นหน้าอกมา 2 ชั่วโมง",
+    "background": "ความดันโลหิตสูง",
+    "assessment": "BP 158/94 ระดับคัดกรอง 3",
+    "assessment_problem": "เจ็บหน้าอกร่วมกับปัจจัยเสี่ยง",
+    "recommend": "ส่งตรวจอายุรกรรม",
+}
+
+
+async def _assign(client, *, request_id="MFU-TEST-000001", spid=SPID_MED,
+                  visit=VISIT, sbar=SBAR, headers=None):
+    body = {"request_id": request_id, "visit_id": visit, "assign_spid": spid}
+    if sbar is not None:
+        body["sbar"] = sbar
+    # `is None`, not `or` — an explicitly empty dict is how the no-auth case
+    # is expressed, and `{} or BEARER` would silently authenticate it.
+    return await client.post(
+        "/api/v1/patient-assignments",
+        headers=BEARER if headers is None else headers,
+        json=body,
+    )
+
+
 def test_parse_pressure():
     assert parse_pressure("140/74") == (140, 74)
     assert parse_pressure("") == (None, None)
@@ -94,64 +122,6 @@ async def test_stage1_fills_measurements_and_booth_only(client):
     assert visit["vitals"]["waist_width"] is None
 
 
-async def test_stage2_publishes_narrative_and_department(client):
-    await client.post(f"/api/visits/{VISIT}/prescreen", headers=HEADERS, json=REFERRAL)
-    resp = await client.put(
-        f"/api/visits/{VISIT}/routing",
-        headers=HEADERS,
-        json={
-            "department": "แผนก OPD GP (ทั่วไป ชั้น1)",
-            "confirmed_by": "nurse.somchai",
-            "rerouted": False,
-        },
-    )
-    assert resp.status_code == 200
-    assert resp.json()["status"] == "confirmed"
-
-    visit = (await client.get(f"/api/visits/{VISIT}", headers=HEADERS)).json()
-    assert visit["screening_status"] == "routed"
-    # narrative promoted from the held pending record
-    assert visit["nurse_chief_complaint"] == REFERRAL["complaint"]
-    assert visit["nurse_patient_illness"] == REFERRAL["reason"]
-    assert visit["second_location"]["department"] == "แผนก OPD GP (ทั่วไป ชั้น1)"
-    # measurements from stage 1 still present; waist_width still blank
-    assert visit["vitals"]["pressure"] == "122/78"
-    assert visit["vitals"]["waist_width"] is None
-
-
-async def test_reroute_publishes_nurse_edited_narrative(client):
-    await client.post(f"/api/visits/{VISIT}/prescreen", headers=HEADERS, json=REFERRAL)
-    resp = await client.put(
-        f"/api/visits/{VISIT}/routing",
-        headers=HEADERS,
-        json={
-            "department": "แผนก OPD MED (อายุรกรรม)",
-            "complaint": "nurse: chest tightness on exertion, 3 days",
-            "illness_note": "nurse: needs internal medicine review",
-            "confirmed_by": "nurse.a",
-            "rerouted": True,
-        },
-    )
-    assert resp.json()["status"] == "rerouted"
-    visit = (await client.get(f"/api/visits/{VISIT}", headers=HEADERS)).json()
-    assert visit["second_location"]["department"] == "แผนก OPD MED (อายุรกรรม)"
-    assert visit["nurse_chief_complaint"] == "nurse: chest tightness on exertion, 3 days"
-    assert visit["nurse_patient_illness"] == "nurse: needs internal medicine review"
-
-
-async def test_confirm_without_edits_publishes_held_stage1_values(client):
-    await client.post(f"/api/visits/{VISIT}/prescreen", headers=HEADERS, json=REFERRAL)
-    resp = await client.put(
-        f"/api/visits/{VISIT}/routing",
-        headers=HEADERS,
-        json={"department": REFERRAL["recommended_department"], "confirmed_by": "nurse.a"},
-    )
-    assert resp.json()["status"] == "confirmed"
-    visit = (await client.get(f"/api/visits/{VISIT}", headers=HEADERS)).json()
-    assert visit["nurse_chief_complaint"] == REFERRAL["complaint"]
-    assert visit["nurse_patient_illness"] == REFERRAL["reason"]
-
-
 async def test_visit_payload_includes_patient_name(client):
     visit = (await client.get(f"/api/visits/{VISIT}", headers=HEADERS)).json()
     assert visit["patient_name"] == "สมชาย ใจดี"
@@ -184,23 +154,10 @@ async def test_follow_up_requires_api_key(client):
     assert resp.status_code == 401
 
 
-async def test_routing_without_prescreen_conflicts(client):
-    resp = await client.put(
-        f"/api/visits/{VISIT}/routing",
-        headers=HEADERS,
-        json={"department": "x", "confirmed_by": "n"},
-    )
-    assert resp.status_code == 409
-
-
 async def test_reset_single_visit_back_to_registered(client):
     # Drive the visit all the way to routed, then reset just it.
     await client.post(f"/api/visits/{VISIT}/prescreen", headers=HEADERS, json=REFERRAL)
-    await client.put(
-        f"/api/visits/{VISIT}/routing",
-        headers=HEADERS,
-        json={"department": "แผนก OPD GP (ทั่วไป ชั้น1)", "confirmed_by": "n"},
-    )
+    await _assign(client, request_id="RESET-1")
     resp = await client.post(
         "/api/admin/reset", headers=HEADERS, json={"visit_ids": [VISIT]}
     )
@@ -218,6 +175,10 @@ async def test_reset_single_visit_back_to_registered(client):
     assert visit["birthdate"] and visit["hnx"]
     # the held prescreen result is gone
     assert (await client.get(f"/api/visits/{VISIT}/prescreen", headers=HEADERS)).status_code == 404
+    # ...and so is the queue row, so the same visit can be demoed again
+    # instead of hitting the 409 duplicate path.
+    again = await _assign(client, request_id="RESET-2")
+    assert again.status_code == 200
 
 
 async def test_reset_all_visits(client):
@@ -400,3 +361,135 @@ async def test_list_visits_reports_status(client):
     visits = (await client.get("/api/visits", headers=HEADERS)).json()["visits"]
     by_id = {v["visit_id"]: v for v in visits}
     assert by_id[VISIT]["screening_status"] == "screened"
+
+
+async def test_assignment_success_envelope(client):
+    resp = await _assign(client)
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["status"] == "STATUS_SUCCESS"
+    assert body["request_id"] == "MFU-TEST-000001"
+    result = body["result"]
+    assert result["visit_id"] == VISIT
+    assert result["assign_spid"] == SPID_MED
+    assert result["queue_status"] == "WAITING"
+    assert result["queue_number"].startswith("M")
+    assert result["visit_queue_id"].startswith("VQ-")
+    assert result["sbar_id"].startswith("SBAR-")
+
+
+async def test_assignment_without_sbar_has_no_sbar_id(client):
+    result = (await _assign(client, sbar=None)).json()["result"]
+    assert result["sbar_id"] is None
+
+
+async def test_assignment_accepts_either_auth_header_and_rejects_none(client):
+    assert (await _assign(client, request_id="A1", headers=BEARER)).status_code == 200
+    # X-API-Key path — a different visit so it isn't a duplicate queue
+    r = await _assign(client, request_id="A2", visit="990000000000000002", headers=HEADERS)
+    assert r.status_code == 200
+    assert (await _assign(client, request_id="A3", headers={})).status_code == 401
+
+
+async def test_queue_numbers_increment_per_service_point(client):
+    first = (await _assign(client, request_id="Q1")).json()["result"]["queue_number"]
+    second = (
+        await _assign(client, request_id="Q2", visit="990000000000000002")
+    ).json()["result"]["queue_number"]
+    assert (first, second) == ("M001", "M002")
+
+
+async def test_same_request_id_replays_original_result(client):
+    first = (await _assign(client, request_id="IDEM-1")).json()
+    second = (await _assign(client, request_id="IDEM-1")).json()
+    assert second == first  # idempotent: same queue number, no second row
+    visit = (await client.get(f"/api/visits/{VISIT}", headers=HEADERS)).json()
+    assert visit["second_location"]["id"] == SPID_MED
+
+
+async def test_different_request_id_same_service_point_conflicts(client):
+    await _assign(client, request_id="D1")
+    resp = await _assign(client, request_id="D2")
+    assert resp.status_code == 409
+    assert resp.json()["message"] == "VISIT_QUEUE_ALREADY_EXIST"
+    assert resp.json()["status"] == "STATUS_BUSINESS_ERROR"
+
+
+async def test_assignment_publishes_service_point_onto_visit(client):
+    """Regression: the retired PUT /routing hardcoded second_location_id=None,
+    so the hospital row never carried the destination service-point id."""
+    await _assign(client)
+    visit = (await client.get(f"/api/visits/{VISIT}", headers=HEADERS)).json()
+    assert visit["screening_status"] == "routed"
+    assert visit["second_location"]["id"] == SPID_MED
+    assert visit["second_location"]["name"] == "แผนก OPD MED (อายุรกรรม)"
+    assert visit["nurse_chief_complaint"] == SBAR["situation"]
+    assert visit["nurse_patient_illness"] == SBAR["assessment_problem"]
+
+
+async def test_assignment_confirms_prescreen_when_one_exists(client):
+    await client.post(f"/api/visits/{VISIT}/prescreen", headers=HEADERS, json=REFERRAL)
+    await _assign(client)
+    held = (await client.get(f"/api/visits/{VISIT}/prescreen", headers=HEADERS)).json()
+    assert held["status"] == "confirmed"
+    assert held["confirmed_department"] == "แผนก OPD MED (อายุรกรรม)"
+    # iMed has no attribution field — the empty column IS change request 3.
+    assert held["confirmed_by"] is None
+
+
+async def test_assignment_succeeds_without_any_prescreen(client):
+    """iMed knows nothing about our Stage 1, so an assignment must not
+    depend on it (the retired endpoint 409'd here)."""
+    assert (await _assign(client)).status_code == 200
+
+
+async def test_reassign_elsewhere_cancels_the_previous_queue(client):
+    await _assign(client, request_id="R1", spid=SPID_MED)
+    resp = await _assign(client, request_id="R2", spid="SP_OPD_HEART_01")
+    assert resp.status_code == 200
+    visit = (await client.get(f"/api/visits/{VISIT}", headers=HEADERS)).json()
+    assert visit["second_location"]["id"] == "SP_OPD_HEART_01"
+
+
+async def test_locked_visit_is_forbidden(client, tmp_path):
+    from his_mock.database import connect
+
+    conn = connect(tmp_path / "test.db")
+    conn.execute(
+        "UPDATE visits SET visit_lock_status = 'LOCKED' WHERE visit_id = ?", (VISIT,)
+    )
+    conn.commit()
+    resp = await _assign(client)
+    assert resp.status_code == 403
+    assert resp.json()["message"] == "VISIT_LOCKED_OR_FINANCIAL_DISCHARGED"
+
+
+async def test_closed_service_point_is_unavailable(client, tmp_path):
+    from his_mock.database import connect
+
+    conn = connect(tmp_path / "test.db")
+    conn.execute("UPDATE service_points SET is_open = 0 WHERE spid = ?", (SPID_MED,))
+    conn.commit()
+    resp = await _assign(client)
+    assert resp.status_code == 422
+    assert resp.json()["message"] == "SERVICE_POINT_NOT_AVAILABLE"
+
+
+async def test_unknown_service_point_and_unknown_visit_are_invalid_request(client):
+    bad_sp = await _assign(client, request_id="U1", spid="SP_NOPE")
+    assert bad_sp.status_code == 400
+    assert bad_sp.json()["message"] == "invalid_request"
+    bad_visit = await _assign(client, request_id="U2", visit="does-not-exist")
+    assert bad_visit.status_code == 400
+
+
+async def test_malformed_body_is_400_not_422(client):
+    """422 is reserved for SERVICE_POINT_NOT_AVAILABLE; FastAPI's default
+    validation 422 would make our adapter tell the nurse the department is
+    closed when the real problem is our payload."""
+    resp = await client.post(
+        "/api/v1/patient-assignments", headers=BEARER, json={"request_id": "M1"}
+    )
+    assert resp.status_code == 400
+    assert resp.json()["message"] == "invalid_request"
+
