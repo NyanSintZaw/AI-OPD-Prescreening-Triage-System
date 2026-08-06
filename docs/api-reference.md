@@ -1401,9 +1401,12 @@ Kiosk Stats.
 Public counters for the kiosk home / attract screen (no auth).
 
 Three "today" numbers the booth shows patients:
-  - ``visitors_today``  : hospital visits registered in the HIS today
-                          (falls back to the full visit list when the mock
-                          seed carries no ``modify_time``).
+  - ``booth_patients_today`` : distinct patients (by linked visit) who
+                          used this booth today. Counted from our own
+                          sessions — deliberately NOT from the hospital:
+                          this endpoint is unauthenticated, and asking the
+                          HIS would mean enumerating their whole visit
+                          list on every anonymous kiosk hit.
   - ``navigated_today`` : nurse-approved/corrected assessments today.
   - ``sessions_today``  : triage sessions started at the booth today.
 Every source degrades to 0 rather than erroring so the screen never breaks.

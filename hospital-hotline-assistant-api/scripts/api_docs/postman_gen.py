@@ -831,10 +831,26 @@ nurse-confirm step would be decorative. So this carries only what an
 instrument measured and the fact that the patient was at the booth. The
 clinical narrative stays with us until `POST /patient-assignments`.
 
+### Identifying the patient — VN only, same as the assignment
+
+`visit_id` is in the body, shaped like your `POST /patient-assignments`
+rather than as a path parameter, so both writes look the same to you.
+
+**We deliberately do not send the HN.** Your contract says the third party
+must not send `patient_id` because iMed derives it from the visit, to keep
+the audit trail intact — the same reasoning applies here. The VN is what the
+patient presented at the booth and what you verify against; the patient
+follows from it.
+
+(The one place we would send an HN is the patient-history write, because that
+is a *patient* record rather than a visit. If you would rather receive both
+identifiers here so you can cross-check them, say so — we hold both.)
+
 ### What it would carry
 
 | Field | Source |
 |---|---|
+| `visit_id` | the VN the patient entered at the booth — you verify it, and derive the patient from it |
 | `vitals` | measured at the booth — cuff BP and pulse, plus temperature/weight/height when taken. `source` marks instrument vs patient-stated |
 | `measured_at` | when, so a later reading supersedes it |
 | `location` | that the patient passed through the AI pre-screening booth — your attendance/audit trail |
@@ -847,13 +863,14 @@ on our side and they would reach you in the SBAR at assignment time instead.
 """
 
 reads_items.append({
-    "name": "POST /visits/{visit_id}/observations",
+    "name": "POST /observations",
     "request": {
         "method": "POST",
         "header": JSON_HDR,
-        "url": pm_url("/visits/{imedVisitId}/observations", "imedBaseUrl"),
+        "url": pm_url("/observations", "imedBaseUrl"),
         "description": STAGE1_DESC,
         "body": json_body({
+            "visit_id": "{{imedVisitId}}",
             "session_ref": "{{session_id}}",
             "slip_code": "MCH-A1B2-C3D4",
             "location": {

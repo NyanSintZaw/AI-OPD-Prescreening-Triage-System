@@ -1,5 +1,5 @@
 $kind: http-request
-name: POST /visits/{visit_id}/observations
+name: POST /observations
 description: |
   ⚠️ **Not in your contract — change request 14.**
 
@@ -23,10 +23,26 @@ description: |
   instrument measured and the fact that the patient was at the booth. The
   clinical narrative stays with us until `POST /patient-assignments`.
 
+  ### Identifying the patient — VN only, same as the assignment
+
+  `visit_id` is in the body, shaped like your `POST /patient-assignments`
+  rather than as a path parameter, so both writes look the same to you.
+
+  **We deliberately do not send the HN.** Your contract says the third party
+  must not send `patient_id` because iMed derives it from the visit, to keep
+  the audit trail intact — the same reasoning applies here. The VN is what the
+  patient presented at the booth and what you verify against; the patient
+  follows from it.
+
+  (The one place we would send an HN is the patient-history write, because that
+  is a *patient* record rather than a visit. If you would rather receive both
+  identifiers here so you can cross-check them, say so — we hold both.)
+
   ### What it would carry
 
   | Field | Source |
   |---|---|
+  | `visit_id` | the VN the patient entered at the booth — you verify it, and derive the patient from it |
   | `vitals` | measured at the booth — cuff BP and pulse, plus temperature/weight/height when taken. `source` marks instrument vs patient-stated |
   | `measured_at` | when, so a later reading supersedes it |
   | `location` | that the patient passed through the AI pre-screening booth — your attendance/audit trail |
@@ -36,7 +52,7 @@ description: |
   table, or somewhere provisional. If you would rather receive nothing before
   nurse sign-off, that is a legitimate answer — we would keep the measurements
   on our side and they would reach you in the SBAR at assignment time instead.
-url: "{{imedBaseUrl}}/visits/{{imedVisitId}}/observations"
+url: "{{imedBaseUrl}}/observations"
 method: POST
 headers:
   Content-Type: application/json
@@ -44,6 +60,7 @@ body:
   type: json
   content: |-
     {
+      "visit_id": "{{imedVisitId}}",
       "session_ref": "{{session_id}}",
       "slip_code": "MCH-A1B2-C3D4",
       "location": {
