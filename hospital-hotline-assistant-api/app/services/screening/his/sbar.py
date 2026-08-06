@@ -155,7 +155,7 @@ def build_sbar(
     background = _history_line(history)
 
     # A — objective findings, and the triage level. The level belongs here
-    # unless/until the hospital gives us a real acuity field (change request 1).
+    # unless/until the hospital gives us a real triage-level field (CR 1).
     assessment_parts = [p for p in (_vitals_line(vitals),) if p]
     level, label = classification.get("level"), _clean(classification.get("label"))
     if level:
