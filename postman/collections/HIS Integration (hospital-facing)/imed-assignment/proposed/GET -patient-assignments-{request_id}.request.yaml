@@ -10,10 +10,14 @@ description: |
   guess into a fact, and enables end-of-day reconciliation against your gateway
   logs.
 
-  **CR 7 — a duplicate should return the original `result`.** Standard
-  idempotency behaviour is 200 with the first response replayed. Without it, a
-  timeout-then-retry leaves the patient queued while the nurse has no queue
-  number to give them.
+  **CR 7 — does a duplicate return the original `result`?** Your Response
+  Definition documents `result.queue_number`; your Error responses section says
+  errors carry only `status` / `message` / `message_th`. A 409 is an error by
+  that description, so we cannot tell which applies. If it does carry `result`,
+  this is already solved and we only need you to confirm it. If it does not, a
+  timeout-then-retry leaves the patient queued while the nurse has no number to
+  give them — and returning 200 with the first response replayed is the usual
+  fix.
 
   **CR 5 — SBAR read-back.** SBAR is currently write-only for us: we get an
   `sbar_id` and nothing else. Reading it back lets us show the nurse what was

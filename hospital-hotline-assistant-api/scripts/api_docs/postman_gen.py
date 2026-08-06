@@ -489,9 +489,11 @@ imed_items = [
             example_response("409 — VISIT_QUEUE_ALREADY_EXIST", 409, "Conflict",
                              _err("VISIT_QUEUE_ALREADY_EXIST", "ผู้ป่วยอยู่ในคิวของจุดบริการปลายทางแล้ว"),
                              send_request,
-                             "We treat this as SUCCESS (our earlier attempt landed). But with no `result` "
-                             "we never learn queue_number, so the nurse has nothing to hand over "
-                             "-> change request 7."),
+                             "We treat this as SUCCESS — our earlier attempt landed. OPEN QUESTION (CR 7): "
+                             "does this response carry `result`? Your Response Definition documents "
+                             "result.queue_number, but the Error responses section says errors return only "
+                             "status/message/message_th. If there is no result we never learn the queue "
+                             "number, and the nurse has nothing to hand the patient."),
             example_response("403 — VISIT_LOCKED_OR_FINANCIAL_DISCHARGED", 403, "Forbidden",
                              _err("VISIT_LOCKED_OR_FINANCIAL_DISCHARGED", "visit ถูกล็อกหรือจำหน่ายทางการเงินแล้ว"),
                              send_request,
@@ -559,10 +561,14 @@ find out is to send it again and interpret the error. A read endpoint turns a
 guess into a fact, and enables end-of-day reconciliation against your gateway
 logs.
 
-**CR 7 — a duplicate should return the original `result`.** Standard
-idempotency behaviour is 200 with the first response replayed. Without it, a
-timeout-then-retry leaves the patient queued while the nurse has no queue
-number to give them.
+**CR 7 — does a duplicate return the original `result`?** Your Response
+Definition documents `result.queue_number`; your Error responses section says
+errors carry only `status` / `message` / `message_th`. A 409 is an error by
+that description, so we cannot tell which applies. If it does carry `result`,
+this is already solved and we only need you to confirm it. If it does not, a
+timeout-then-retry leaves the patient queued while the nurse has no number to
+give them — and returning 200 with the first response replayed is the usual
+fix.
 
 **CR 5 — SBAR read-back.** SBAR is currently write-only for us: we get an
 `sbar_id` and nothing else. Reading it back lets us show the nurse what was

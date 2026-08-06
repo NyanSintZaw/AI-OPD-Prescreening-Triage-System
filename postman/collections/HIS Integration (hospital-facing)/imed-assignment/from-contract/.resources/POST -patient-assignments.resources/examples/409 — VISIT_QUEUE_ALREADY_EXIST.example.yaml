@@ -28,7 +28,7 @@ response:
   body:
     type: json
     content: |-
-      // We treat this as SUCCESS (our earlier attempt landed). But with no `result` we never learn queue_number, so the nurse has nothing to hand over -> change request 7.
+      // We treat this as SUCCESS — our earlier attempt landed. OPEN QUESTION (CR 7): does this response carry `result`? Your Response Definition documents result.queue_number, but the Error responses section says errors return only status/message/message_th. If there is no result we never learn the queue number, and the nurse has nothing to hand the patient.
       {
         "request_id": "MFU-20260807-A1B2C3",
         "status": "STATUS_BUSINESS_ERROR",
