@@ -2816,6 +2816,136 @@ Get Prescreen.
 
 ---
 
+### `GET /api/v1/visits/{visit_id}`
+
+Imed Visit Lookup.
+
+CR 6 — resolve the VN the patient typed at the booth.
+
+Deliberately narrow: identity, the age band the triage rules need, and
+whether the visit is still open. Everything else lives on the patient
+record.
+
+**Auth:** none
+
+**Path params:** `visit_id`
+
+**Response 200:** JSON (Successful Response)
+
+---
+
+### `GET /api/v1/patients/{hn}`
+
+Imed Patient Read.
+
+CR 6 — history + last-known vitals, so the booth does not
+re-interview a patient the hospital already knows.
+
+**Auth:** none
+
+**Path params:** `hn`
+
+**Response 200:** JSON (Successful Response)
+
+---
+
+### `PUT /api/v1/patients/{hn}/history`
+
+Imed Patient History Write.
+
+CR 13 — write back the history the booth collected from a
+first-time patient. Only ever fills an empty history; never
+overwrites one the hospital already holds.
+
+**Auth:** none
+
+**Path params:** `hn`
+
+**Request body** (`application/json`, `PatientHistoryIn`):
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `smoking_alcohol` | string or null | N | Smoking Alcohol |
+| `allergies` | string or null | N | Allergies |
+| `chronic_conditions` | string or null | N | Chronic Conditions |
+| `past_surgeries` | string or null | N | Past Surgeries |
+| `family_history` | string or null | N | Family History |
+
+Example request:
+
+```json
+{
+  "smoking_alcohol": "string",
+  "allergies": "string",
+  "chronic_conditions": "string",
+  "past_surgeries": "string",
+  "family_history": "string"
+}
+```
+
+**Response 200:** JSON (Successful Response)
+
+---
+
+### `POST /api/v1/patient-prescreens`
+
+Imed Patient Prescreen.
+
+CR 14 — the patient is pre-screened and awaiting nurse confirmation.
+
+Objective data only: measurements and the fact they passed through the
+booth. **No triage level, no department, no reasoning** — nothing a
+clinician could act on lands here, which is what keeps the
+nurse-confirm step at POST /patient-assignments meaningful.
+
+**Auth:** none
+
+**Request body** (`application/json`, `PatientPrescreenIn`):
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `visit_id` | string | Y | Visit Id |
+| `session_ref` | string or null | N | Session Ref |
+| `slip_code` | string or null | N | Slip Code |
+| `location` | object or null | N | Location |
+| `measured_at` | string or null | N | Measured At |
+| `vitals` | object or null | N | Vitals |
+
+Example request:
+
+```json
+{
+  "visit_id": "string",
+  "session_ref": "string",
+  "slip_code": "string",
+  "location": {},
+  "measured_at": "string",
+  "vitals": {}
+}
+```
+
+**Response 200:** JSON (Successful Response)
+
+---
+
+### `GET /api/v1/patient-assignments/{request_id}`
+
+Imed Assignment Lookup.
+
+CR 5/7/8 — read an assignment back by its idempotency key.
+
+This is what turns a timed-out assignment from a guess into a fact,
+and it returns the SBAR we handed over (SBAR is otherwise write-only
+for us).
+
+**Auth:** none
+
+**Path params:** `request_id`
+
+**Response 200:** JSON (Successful Response)
+
+---
+
 ### `POST /api/v1/patient-assignments`
 
 Create Patient Assignment.
@@ -3835,6 +3965,19 @@ Body of POST /api/v1/patient-assignments — mirrors the hospital's iMed contrac
 | `chronic_conditions` | string or null | N | Chronic Conditions |
 | `past_surgeries` | string or null | N | Past Surgeries |
 | `family_history` | string or null | N | Family History |
+
+### `PatientPrescreenIn`
+
+Body of POST /api/v1/patient-prescreens (our change request 14).  Note what is absent: no ``recommended_department``, no triage level, no reasoning. That is the point — this marks the patient pre-screened and awaiting confirmation, carrying only what an instrument measured. The clinical decision arrives later, at POST /api/v1/patient-assignments, after a nurse has signed it off.
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `visit_id` | string | Y | Visit Id |
+| `session_ref` | string or null | N | Session Ref |
+| `slip_code` | string or null | N | Slip Code |
+| `location` | object or null | N | Location |
+| `measured_at` | string or null | N | Measured At |
+| `vitals` | object or null | N | Vitals |
 
 ### `PatientVitalsIn`
 

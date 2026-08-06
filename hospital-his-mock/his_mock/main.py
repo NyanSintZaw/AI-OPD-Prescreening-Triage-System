@@ -90,6 +90,24 @@ class AssignmentIn(BaseModel):
     sbar: SbarIn | None = None
 
 
+class PatientPrescreenIn(BaseModel):
+    """Body of POST /api/v1/patient-prescreens (our change request 14).
+
+    Note what is absent: no ``recommended_department``, no triage level, no
+    reasoning. That is the point — this marks the patient pre-screened and
+    awaiting confirmation, carrying only what an instrument measured. The
+    clinical decision arrives later, at POST /api/v1/patient-assignments,
+    after a nurse has signed it off.
+    """
+
+    visit_id: str
+    session_ref: str | None = None
+    slip_code: str | None = None
+    location: dict[str, Any] | None = None
+    measured_at: str | None = None
+    vitals: dict[str, Any] | None = None
+
+
 class FollowUpIn(BaseModel):
     # Patient's own follow-up question/concern captured at the booth,
     # recorded for the destination doctor/nurse to address.
@@ -167,7 +185,8 @@ def _vitals_to_columns(vitals: dict[str, Any] | None) -> dict[str, Any]:
         "pulse": v.get("pulse_bpm"),
         "weight": weight,
         "height": height,
-        "temperature": v.get("temperature"),
+        # We propose ``temperature_c``; the export column is ``temperature``.
+        "temperature": v.get("temperature", v.get("temperature_c")),
         "bmi": bmi,
     }
 
@@ -518,6 +537,170 @@ def build_app(db_path: str | Path | None = None) -> FastAPI:
             "SELECT * FROM prescreen_results WHERE visit_id = ?", (visit_id,)
         ).fetchone()
         return prescreen_payload(row)
+
+    # ── /api/v1: the shape we PROPOSE to the hospital ────────────────────────
+    # These mirror docs/imed-integration-plan.md §Change requests 6, 13 and 14
+    # so the hospital-facing Postman collection is runnable end to end instead
+    # of half 404s. They are OUR proposals, not iMed's contract — only
+    # POST /api/v1/patient-assignments comes from their document.
+    #
+    # Reads return a plain object; only the patient-* writes use iMed's
+    # STATUS_SUCCESS envelope, matching what each Postman request shows.
+
+    @app.get("/api/v1/visits/{visit_id}", dependencies=[Depends(require_imed_token)])
+    def imed_visit_lookup(
+        visit_id: str, db: sqlite3.Connection = Depends(get_db)
+    ):
+        """CR 6 — resolve the VN the patient typed at the booth.
+
+        Deliberately narrow: identity, the age band the triage rules need, and
+        whether the visit is still open. Everything else lives on the patient
+        record."""
+        row = db.execute(
+            "SELECT * FROM visits WHERE visit_id = ?", (visit_id,)
+        ).fetchone()
+        if row is None:
+            raise HTTPException(status_code=404, detail="Visit not found")
+        systolic, diastolic = parse_pressure(row["pressure"])
+        return {
+            "visit_id": row["visit_id"],
+            "hn": row["hnx"],
+            "patient_name": row["patient_name"],
+            "birthdate": row["birthdate"],
+            "active": row["visit_lock_status"] not in ("LOCKED", "FINANCIAL_DISCHARGE"),
+            "appointment": bool(row["appointment"]),
+            "vitals": {
+                "systolic": systolic,
+                "diastolic": diastolic,
+                "pulse_bpm": row["pulse"],
+                "temperature": row["temperature"],
+            },
+        }
+
+    @app.get("/api/v1/patients/{hn}", dependencies=[Depends(require_imed_token)])
+    def imed_patient_read(hn: str, db: sqlite3.Connection = Depends(get_db)):
+        """CR 6 — history + last-known vitals, so the booth does not
+        re-interview a patient the hospital already knows."""
+        row = fetch_patient(db, hn)
+        if row is None:
+            raise HTTPException(status_code=404, detail="Patient not found")
+        return patient_payload(row)
+
+    @app.put("/api/v1/patients/{hn}/history", dependencies=[Depends(require_imed_token)])
+    def imed_patient_history_write(
+        hn: str, payload: PatientHistoryIn, db: sqlite3.Connection = Depends(get_db)
+    ):
+        """CR 13 — write back the history the booth collected from a
+        first-time patient. Only ever fills an empty history; never
+        overwrites one the hospital already holds."""
+        row = fetch_patient(db, hn)
+        if row is None:
+            raise HTTPException(status_code=404, detail="Patient not found")
+        if row["history_recorded_at"]:
+            return {
+                "hn": hn,
+                "written": False,
+                "reason": "history already on file — we never overwrite",
+                "patient": patient_payload(row),
+            }
+        db.execute(
+            """
+            UPDATE patients SET
+                smoking_alcohol = ?, allergies = ?, chronic_conditions = ?,
+                past_surgeries = ?, family_history = ?,
+                history_recorded_at = datetime('now')
+            WHERE hn = ?
+            """,
+            (
+                payload.smoking_alcohol, payload.allergies,
+                payload.chronic_conditions, payload.past_surgeries,
+                payload.family_history, hn,
+            ),
+        )
+        db.commit()
+        return {
+            "hn": hn,
+            "written": True,
+            "patient": patient_payload(fetch_patient(db, hn)),
+        }
+
+    @app.post("/api/v1/patient-prescreens", dependencies=[Depends(require_imed_token)])
+    def imed_patient_prescreen(
+        payload: PatientPrescreenIn, db: sqlite3.Connection = Depends(get_db)
+    ):
+        """CR 14 — the patient is pre-screened and awaiting nurse confirmation.
+
+        Objective data only: measurements and the fact they passed through the
+        booth. **No triage level, no department, no reasoning** — nothing a
+        clinician could act on lands here, which is what keeps the
+        nurse-confirm step at POST /patient-assignments meaningful.
+        """
+        visit = db.execute(
+            "SELECT * FROM visits WHERE visit_id = ?", (payload.visit_id,)
+        ).fetchone()
+        if visit is None:
+            return _imed_error(
+                400, payload.session_ref or "", "invalid_request", "ไม่พบ visit ที่ระบุ"
+            )
+        cols = _vitals_to_columns(payload.vitals)
+        db.execute(
+            """
+            UPDATE visits SET
+                pressure = COALESCE(?, pressure), pulse = COALESCE(?, pulse),
+                weight = COALESCE(?, weight), height = COALESCE(?, height),
+                temperature = COALESCE(?, temperature), bmi = COALESCE(?, bmi),
+                measure_spid = ?, measure_name = ?, measure_department = ?,
+                first_location_id = ?, first_location_name = ?,
+                first_location_department = ?,
+                modify_time = datetime('now')
+            WHERE visit_id = ?
+            """,
+            (
+                cols["pressure"], cols["pulse"], cols["weight"], cols["height"],
+                cols["temperature"], cols["bmi"],
+                AI_BOOTH_LOCATION["id"], AI_BOOTH_LOCATION["name"],
+                AI_BOOTH_LOCATION["department"],
+                AI_BOOTH_LOCATION["id"], AI_BOOTH_LOCATION["name"],
+                AI_BOOTH_LOCATION["department"],
+                payload.visit_id,
+            ),
+        )
+        db.commit()
+        return _imed_ok(
+            payload.session_ref or "",
+            {
+                "visit_id": payload.visit_id,
+                "prescreen_status": "AWAITING_CONFIRMATION",
+                "measured_at": db.execute(
+                    "SELECT modify_time FROM visits WHERE visit_id = ?",
+                    (payload.visit_id,),
+                ).fetchone()[0],
+            },
+        )
+
+    @app.get(
+        "/api/v1/patient-assignments/{request_id}",
+        dependencies=[Depends(require_imed_token)],
+    )
+    def imed_assignment_lookup(
+        request_id: str, db: sqlite3.Connection = Depends(get_db)
+    ):
+        """CR 5/7/8 — read an assignment back by its idempotency key.
+
+        This is what turns a timed-out assignment from a guess into a fact,
+        and it returns the SBAR we handed over (SBAR is otherwise write-only
+        for us)."""
+        row = db.execute(
+            "SELECT * FROM visit_queue WHERE request_id = ?", (request_id,)
+        ).fetchone()
+        if row is None:
+            return _imed_error(
+                404, request_id, "not_found", "ไม่พบรายการส่งต่อตาม request_id นี้"
+            )
+        result = _queue_result(row)
+        if row["sbar"]:
+            result["sbar"] = json.loads(row["sbar"])
+        return _imed_ok(request_id, result)
 
     @app.post(
         "/api/v1/patient-assignments",

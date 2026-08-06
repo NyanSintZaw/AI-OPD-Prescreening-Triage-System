@@ -996,9 +996,11 @@ what we mean.
 Anything you accept, we implement our side. Anything you reject, we drop —
 these are questions, not requirements.
 
-*Everything in this folder returns **404 against our demo mock**. That is
-deliberate: we have not built these, because they are yours to decide. Only
-the `from-contract` request runs for real.*
+*Our demo mock now implements these, so every request here runs and returns
+real data — including the field checks in each request's **Tests** tab. That
+is so you can see the shape working end to end, **not** a claim that anything
+is agreed: they are still proposals, and the shapes are ours until you say
+otherwise.*
 """
 MOCK_COLLECTION_DESC = """Calls our adapter makes against **our own demo mock
 HIS** — this is *not* the hospital's API.

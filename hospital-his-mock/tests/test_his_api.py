@@ -493,3 +493,111 @@ async def test_malformed_body_is_400_not_422(client):
     assert resp.status_code == 400
     assert resp.json()["message"] == "invalid_request"
 
+
+
+# ── /api/v1 proposals (change requests 6, 13, 14) ────────────────────────────
+# Runnable so the hospital-facing Postman collection demos end to end. These
+# are OUR proposed shapes, not iMed's contract.
+
+async def test_v1_visit_lookup_returns_identity_and_age_band(client):
+    r = await client.get(f"/api/v1/visits/{VISIT}", headers=BEARER)
+    assert r.status_code == 200
+    body = r.json()
+    # exactly what the booth needs to safely START a session
+    assert body["visit_id"] == VISIT
+    assert body["hn"] and body["patient_name"] and body["birthdate"]
+    assert body["active"] is True
+
+
+async def test_v1_visit_lookup_reports_a_locked_visit_as_inactive(client, tmp_path):
+    from his_mock.database import connect
+
+    conn = connect(tmp_path / "test.db")
+    conn.execute(
+        "UPDATE visits SET visit_lock_status = 'LOCKED' WHERE visit_id = ?", (VISIT,)
+    )
+    conn.commit()
+    assert (await client.get(f"/api/v1/visits/{VISIT}", headers=BEARER)).json()["active"] is False
+
+
+async def test_v1_patient_read_and_history_write_round_trip(client):
+    hn = "09900003"  # seeded WITHOUT a history — the first-time case
+
+    before = (await client.get(f"/api/v1/patients/{hn}", headers=BEARER)).json()
+    assert before["is_first_time"] is True
+    assert before["history"]["recorded_at"] is None
+
+    write = await client.put(
+        f"/api/v1/patients/{hn}/history", headers=BEARER,
+        json={"allergies": "แพ้ยาเพนนิซิลลิน", "chronic_conditions": "ความดันโลหิตสูง"},
+    )
+    assert write.status_code == 200 and write.json()["written"] is True
+
+    after = (await client.get(f"/api/v1/patients/{hn}", headers=BEARER)).json()
+    assert after["history"]["allergies"] == "แพ้ยาเพนนิซิลลิน"
+    # recorded_at is now set, so the booth skips the history interview
+    assert after["history"]["recorded_at"] and after["is_first_time"] is False
+
+
+async def test_v1_history_write_never_overwrites_an_existing_history(client):
+    """We only ever fill an empty history — the hospital's own record wins.
+
+    09900001 is seeded as a returning patient, so the very first write must
+    already be refused."""
+    existing = (await client.get("/api/v1/patients/09900001", headers=BEARER)).json()
+    kept = existing["history"]["chronic_conditions"]
+
+    refused = await client.put("/api/v1/patients/09900001/history", headers=BEARER,
+                               json={"chronic_conditions": "booth-supplied"})
+    assert refused.json()["written"] is False
+    after = (await client.get("/api/v1/patients/09900001", headers=BEARER)).json()
+    assert after["history"]["chronic_conditions"] == kept
+
+
+async def test_v1_prescreen_records_measurements_but_no_judgement(client):
+    r = await client.post(
+        "/api/v1/patient-prescreens", headers=BEARER,
+        json={
+            "visit_id": VISIT, "session_ref": "sess-1", "slip_code": "MCH-A1B2-C3D4",
+            "measured_at": "2026-08-07T09:12:00+07:00",
+            "vitals": {"systolic": 158, "diastolic": 94, "pulse_bpm": 96,
+                       "temperature_c": 36.8, "weight_kg": 72.5, "height_cm": 165},
+        },
+    )
+    assert r.status_code == 200
+    assert r.json()["status"] == "STATUS_SUCCESS"
+    assert r.json()["result"]["prescreen_status"] == "AWAITING_CONFIRMATION"
+
+    visit = (await client.get(f"/api/visits/{VISIT}", headers=HEADERS)).json()
+    assert visit["vitals"]["pressure"] == "158/94"
+    assert visit["vitals"]["temperature"] == 36.8
+    # screened, NOT routed: no department was sent, and none was inferred
+    assert visit["screening_status"] == "screened"
+    assert visit["second_location"]["department"] is None
+
+
+async def test_v1_prescreen_for_unknown_visit_is_invalid_request(client):
+    r = await client.post("/api/v1/patient-prescreens", headers=BEARER,
+                          json={"visit_id": "nope", "vitals": {}})
+    assert r.status_code == 400 and r.json()["message"] == "invalid_request"
+
+
+async def test_v1_assignment_lookup_returns_the_original_result_and_sbar(client):
+    """CR 5/7/8: turns a timed-out assignment from a guess into a fact."""
+    created = (await _assign(client, request_id="LOOKUP-1")).json()["result"]
+    r = await client.get("/api/v1/patient-assignments/LOOKUP-1", headers=BEARER)
+    assert r.status_code == 200
+    result = r.json()["result"]
+    assert result["queue_number"] == created["queue_number"]
+    assert result["sbar"]["situation"] == SBAR["situation"]
+
+
+async def test_v1_assignment_lookup_unknown_request_id(client):
+    r = await client.get("/api/v1/patient-assignments/never-sent", headers=BEARER)
+    assert r.status_code == 404 and r.json()["status"] == "STATUS_BUSINESS_ERROR"
+
+
+async def test_v1_endpoints_require_auth(client):
+    for path in (f"/api/v1/visits/{VISIT}", "/api/v1/patients/09900001",
+                 "/api/v1/patient-assignments/x"):
+        assert (await client.get(path, headers={})).status_code == 401

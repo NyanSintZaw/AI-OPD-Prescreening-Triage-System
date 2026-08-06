@@ -10,7 +10,7 @@ description: |-
 
   Not included: `WS /ws/voice/{session_id}` — create it as a Postman WebSocket request (see `docs/api-reference.md` for the frame contract).
 auth:
-  - id: f31593a1-09ed-4e8f-ae05-cedb3d032fad
+  - id: 7a925f2a-98b5-44f6-b0be-5648f1aac6c6
     type: bearer
     name: bearer auth
     credentials:

@@ -219,6 +219,367 @@
     }
    }
   },
+  "/api/v1/visits/{visit_id}": {
+   "get": {
+    "summary": "Imed Visit Lookup",
+    "description": "CR 6 — resolve the VN the patient typed at the booth.\n\nDeliberately narrow: identity, the age band the triage rules need, and\nwhether the visit is still open. Everything else lives on the patient\nrecord.",
+    "operationId": "imed_visit_lookup_api_v1_visits__visit_id__get",
+    "parameters": [
+     {
+      "name": "visit_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Visit Id"
+      }
+     },
+     {
+      "name": "authorization",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Authorization"
+      }
+     },
+     {
+      "name": "x-api-key",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "X-Api-Key"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/patients/{hn}": {
+   "get": {
+    "summary": "Imed Patient Read",
+    "description": "CR 6 — history + last-known vitals, so the booth does not\nre-interview a patient the hospital already knows.",
+    "operationId": "imed_patient_read_api_v1_patients__hn__get",
+    "parameters": [
+     {
+      "name": "hn",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Hn"
+      }
+     },
+     {
+      "name": "authorization",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Authorization"
+      }
+     },
+     {
+      "name": "x-api-key",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "X-Api-Key"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/patients/{hn}/history": {
+   "put": {
+    "summary": "Imed Patient History Write",
+    "description": "CR 13 — write back the history the booth collected from a\nfirst-time patient. Only ever fills an empty history; never\noverwrites one the hospital already holds.",
+    "operationId": "imed_patient_history_write_api_v1_patients__hn__history_put",
+    "parameters": [
+     {
+      "name": "hn",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Hn"
+      }
+     },
+     {
+      "name": "authorization",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Authorization"
+      }
+     },
+     {
+      "name": "x-api-key",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "X-Api-Key"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/PatientHistoryIn"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/patient-prescreens": {
+   "post": {
+    "summary": "Imed Patient Prescreen",
+    "description": "CR 14 — the patient is pre-screened and awaiting nurse confirmation.\n\nObjective data only: measurements and the fact they passed through the\nbooth. **No triage level, no department, no reasoning** — nothing a\nclinician could act on lands here, which is what keeps the\nnurse-confirm step at POST /patient-assignments meaningful.",
+    "operationId": "imed_patient_prescreen_api_v1_patient_prescreens_post",
+    "parameters": [
+     {
+      "name": "authorization",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Authorization"
+      }
+     },
+     {
+      "name": "x-api-key",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "X-Api-Key"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/PatientPrescreenIn"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/v1/patient-assignments/{request_id}": {
+   "get": {
+    "summary": "Imed Assignment Lookup",
+    "description": "CR 5/7/8 — read an assignment back by its idempotency key.\n\nThis is what turns a timed-out assignment from a guess into a fact,\nand it returns the SBAR we handed over (SBAR is otherwise write-only\nfor us).",
+    "operationId": "imed_assignment_lookup_api_v1_patient_assignments__request_id__get",
+    "parameters": [
+     {
+      "name": "request_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Request Id"
+      }
+     },
+     {
+      "name": "authorization",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Authorization"
+      }
+     },
+     {
+      "name": "x-api-key",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "X-Api-Key"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
   "/api/v1/patient-assignments": {
    "post": {
     "summary": "Create Patient Assignment",
@@ -843,6 +1204,77 @@
     },
     "type": "object",
     "title": "PatientHistoryIn"
+   },
+   "PatientPrescreenIn": {
+    "properties": {
+     "visit_id": {
+      "type": "string",
+      "title": "Visit Id"
+     },
+     "session_ref": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Session Ref"
+     },
+     "slip_code": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Slip Code"
+     },
+     "location": {
+      "anyOf": [
+       {
+        "additionalProperties": true,
+        "type": "object"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Location"
+     },
+     "measured_at": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Measured At"
+     },
+     "vitals": {
+      "anyOf": [
+       {
+        "additionalProperties": true,
+        "type": "object"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Vitals"
+     }
+    },
+    "type": "object",
+    "required": [
+     "visit_id"
+    ],
+    "title": "PatientPrescreenIn",
+    "description": "Body of POST /api/v1/patient-prescreens (our change request 14).\n\nNote what is absent: no ``recommended_department``, no triage level, no\nreasoning. That is the point — this marks the patient pre-screened and\nawaiting confirmation, carrying only what an instrument measured. The\nclinical decision arrives later, at POST /api/v1/patient-assignments,\nafter a nurse has signed it off."
    },
    "PatientVitalsIn": {
     "properties": {

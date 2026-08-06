@@ -7,3 +7,4 @@
 - Own uv project with its own tests; separate from the api's pytest run.
 - `POST /api/v1/patient-assignments` mirrors the hospital's real iMed contract: `STATUS_SUCCESS`/`STATUS_BUSINESS_ERROR` envelope, 400/403/409/422 codes, idempotent per `request_id` (a replay returns the ORIGINAL result — our change request 7, not their draft). Auth accepts Bearer or X-API-Key. `service_points` holds ⚠️ PLACEHOLDER spids that must stay in lockstep with `CODE_TO_SPID` in the api repo.
 - The container bakes the source into its image — after editing, `docker compose up -d --build his-mock`, or the old code keeps serving.
+- `/api/v1/*` also implements our **proposed** endpoints (visit lookup, patient read, history write-back, `patient-prescreens`, assignment read-back) so the hospital-facing Postman collection runs end to end. Those are OUR shapes — only `POST /api/v1/patient-assignments` comes from iMed's contract. Keep them in step with `scripts/api_docs/postman_gen.py`.
