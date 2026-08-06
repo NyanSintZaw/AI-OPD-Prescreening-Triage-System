@@ -419,7 +419,7 @@ def _err(code: str, th: str) -> dict:
 
 
 PROPOSED_BODY = dict(SEND_BODY)
-PROPOSED_BODY["proposed"] = {
+PROPOSED_BODY["mfu_prescreen"] = {
     "triage_level": 3,
     "triage_scale": "MOPH-5",
     "triage_label": "Urgent",
@@ -472,12 +472,16 @@ imed_items = [
             "url": pm_url("/patient-assignments", "imedBaseUrl"),
             "description": """**Nothing here is in your contract yet — this is the ask.**
 
-Identical to request 1, plus a single additive `proposed` object. It is
-deliberately one wrapper rather than loose top-level fields, so there is no
-chance of reading it as something we already send. **We are not asking you to
-adopt this shape** — only to tell us where these values should live.
+Identical to request 1, plus a single additive `mfu_prescreen` object.
 
-| In `proposed` | Change request | Why it matters |
+One namespaced wrapper rather than loose top-level fields, for two reasons:
+nothing here can collide with a field you add later, and there is no chance of
+reading it as something we already send. **We are not asking you to adopt this
+shape** — only to tell us where these values should live. If you would rather
+have them flat, or under different names, say so; the values are the ask, not
+the spelling.
+
+| In `mfu_prescreen` | Change request | Why it matters |
 |---|---|---|
 | `triage_level`, `triage_scale`, `triage_label` | **CR 1 — highest value** | The 5-level triage is our system's whole output. With no field it is buried in SBAR prose, so your destination queue sorts by arrival time instead of by how sick the patient is. `triage_level` is the integer 1–5 our engine already produces; `triage_scale` is `MOPH-5`, the Thai MOPH ED Triage 5-level guideline (กรมการแพทย์ 2561) our criteria are built on — see `docs/criteria-standards.md`. Name them whatever suits your schema; the value is what matters. |
 | `vitals` (structured, with `measured_at` and `source`) | CR 2 | We measure with a real cuff at the booth and know whether a value was instrument-measured or patient-stated. Today all of it flattens into one sentence. |
