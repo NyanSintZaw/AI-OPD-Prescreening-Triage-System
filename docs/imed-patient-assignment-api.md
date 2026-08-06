@@ -309,21 +309,64 @@ Per-department questions to settle with the same list:
 
 ### Response handling — what we receive
 
+#### Who owns the queue number
+
+**iMed generates it, we only relay it.** `queue_number` is optional in the
+request — *"if omitted iMed generates one by its own queue rules"* — and comes
+back as `result.queue_number`. We **omit it on send**: their rules own
+sequencing, per-department prefixes and daily resets, and we should not
+reimplement any of that.
+
+End-to-end: nurse confirms in our portal → we POST without `queue_number` →
+iMed creates the `visit_queue` row and assigns a number → it returns in the
+response → we display it to the nurse → the nurse gives it to the patient.
+The destination department sees the patient on their own queue screen
+(`homeQueueWalkIn.jsp`) as soon as the row exists, regardless of whether the
+patient knows the number — the number is for the patient's benefit.
+
+Two things to confirm with the hospital (see requests 9 and 11):
+
+- The patient may **already hold a queue number from registration**, since
+  assignment *clears the visit's previous queue*. Ours supersedes it — a
+  patient holding two different numbers is a counter argument waiting to
+  happen.
+- **Who physically prints it.** Thai hospitals usually already print queue
+  tickets, and since iMed owns the number their existing flow may cover it.
+  If so we only need to *display* it and there is no printing work our side.
+
+#### What we must persist
+
 Our adapter currently reduces the write-back to a bool
-(`his_routing.status: pushed|failed` on session metadata). Against iMed we
-should persist the response body into `session.metadata.his_routing`:
-`visit_queue_id`, `queue_number`, `queue_status`, `sbar_id` — the queue
-number is worth showing on the nurse review row (and potentially the
-patient slip) since it's the number the destination screen shows.
+(`his_routing.status: pushed|failed`) and discards the body. That is no
+longer acceptable now that a human is waiting on `queue_number`. Persist the
+whole result into `session.metadata.his_routing`: `request_id`,
+`visit_queue_id`, `queue_number`, `queue_status`, `sbar_id`, plus the error
+code when there is one. `confirm_routing` must return a result object rather
+than `bool`, and the nurse review row must show `queue_number` prominently.
 
-Error semantics for the adapter:
+Treat the call as successful only when **HTTP is 2xx AND `status` is
+`STATUS_SUCCESS`** — check both, defensively, rather than trusting one.
 
-| HTTP | Meaning for us | Adapter behaviour |
-|---|---|---|
-| 409 `VISIT_QUEUE_ALREADY_EXIST` | our earlier retry already landed | treat as success (idempotent per `request_id`) |
-| 403 `VISIT_LOCKED_OR_FINANCIAL_DISCHARGED` | visit can no longer be routed | permanent failure — surface to nurse, don't retry |
-| 422 `SERVICE_POINT_NOT_AVAILABLE` | destination closed | surface to nurse to reroute; retry only after a new choice |
-| 400 / network | bad payload / HIS down | keep `status: failed`, best-effort retry stays manual |
+#### Error → nurse action
+
+The four errors need genuinely different handling; they must not collapse
+into one "failed" state. Show `message_th` to Thai staff, never the English
+enum.
+
+| HTTP / code | Meaning | What we do | What the nurse sees |
+|---|---|---|---|
+| 409 `VISIT_QUEUE_ALREADY_EXIST` | our earlier attempt already landed | treat as **success** (idempotent per `request_id`) — but we need `result` back to get the queue number (request 7) | the queue number, normally |
+| 403 `VISIT_LOCKED_OR_FINANCIAL_DISCHARGED` | visit closed/discharged; cannot be routed | permanent failure, **do not retry** | "visit is closed — send the patient to the front desk" |
+| 422 `SERVICE_POINT_NOT_AVAILABLE` | destination closed (e.g. after hours) | recoverable | reopen department choice so they can reroute |
+| 400 `invalid_request` | our payload is wrong — a bug, not a nurse problem | log + alert; no retry | "system error, contact IT" |
+| timeout / network | **unknown**, not failure — iMed may have created the row | record a distinct `unknown` state, never `failed` | "not confirmed — verify before re-sending" |
+
+**The timeout case is a bug we have today.** We currently record `failed` on
+timeout, which is a claim we cannot support: the queue row may exist. The
+nurse then re-confirms and (without the stored `request_id`) the patient is
+double-booked. The stored key prevents the duplicate, but the UI must still
+separate "we do not know" from "it did not happen" — those call for different
+human responses.
 
 ### Calls with NO iMed counterpart yet (our current mock-HIS contract)
 
@@ -385,6 +428,12 @@ collection on the day.
 | 4 | **Back-link field** for our slip code / session ref | Lets destination staff open the full transcript and reasoning, not just the summary. |
 | 5 | **Read access to SBAR** | Currently write-only (`sbar_id` only). Reading it back lets us show the nurse what was actually handed over, and detect drift. |
 | 6 | **Visit lookup by VN** *and* **patient read by HN** | Two different needs: VN confirms today's encounter is active and gives us `visit_id` (blocking — the booth cannot link a patient without it); HN gives history/allergies/last vitals. Our mock returns both in one call, which may be the shape to propose. |
+| 7 | On a **duplicate `request_id`, return 200 with the original `result`** (or at minimum include `result` in the 409 body) | Today a timeout-then-retry yields "already exists" with no documented `result`. The patient *is* queued but we never learn `queue_number`, so the nurse has nothing to hand them. Returning the original result is what idempotency normally means. |
+| 8 | A **lookup endpoint**, e.g. `GET /patient-assignments/{request_id}` | An idempotency key with no way to query it leaves us blind after a timeout — we cannot tell whether the assignment landed. Also enables end-of-day reconciliation. Less urgent if 7 is granted. |
+| 9 | Clarify **`queue_status` semantics** — what `NOT_SEND` means vs `WAITING` | The nurse's next action differs depending on whether `NOT_SEND` means "queued" or "created but not dispatched". |
+| 10 | Confirm whether iMed **auto-assigns `assign_eid`** when we omit it | `result.assign_eid` comes back even when unsent, implying auto-assignment. If so, show the nurse which doctor the patient drew. |
+| 11 | Confirm **who prints the queue ticket**, and whether the patient already holds a number from registration | Assignment clears the previous queue, so ours supersedes any earlier number. If iMed's existing flow already prints, we only display and there is no printing work our side. |
+| 12 | Any **response-time SLA / recommended client timeout** | Our nurse UI blocks on this call; we currently use `his_timeout_seconds` picked by us, not by them. |
 
 ### Workflow decisions (settled 2026-08-06)
 
