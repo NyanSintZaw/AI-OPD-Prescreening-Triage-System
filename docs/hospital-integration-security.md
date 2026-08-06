@@ -121,7 +121,88 @@ the mock):
    for reconciliation with the hospital's gateway logs.
 5. Retention job implementing whatever is agreed in question 5.
 
-## 5. Meeting notes
+## 5. Production runs local inference (decided 2026-08-06)
+
+**The cloud dependency is a demo artifact, not the production design.** In
+deployment the booth runs a **local LLM, local STT and local TTS** on
+hospital hardware, so patient audio and symptom narratives never leave the
+building. This removes what would otherwise be the largest privacy question
+in the system — see 5.2.
+
+### 5.1 Readiness — one seam exists, one does not
+
+| Component | Today (demo) | Production | Seam status |
+|---|---|---|---|
+| LLM | Vertex AI Gemini | local (vLLM / Ollama) | ✅ **ready** — `model_adapter.py` selects on `screening_model_provider`; `openai_compatible` already implemented |
+| STT | `GoogleSttClient` | local (e.g. Whisper) | ❌ **no seam** — concrete class, constructed directly in `main.py` lifespan, no provider setting |
+| TTS | `GoogleTtsClient` | local | ❌ **no seam** — same |
+
+So the speech path needs the same treatment the LLM already has: a protocol
+plus a provider setting, so `app.state.stt_client` / `tts_client` can be
+swapped by configuration rather than by editing code. **Scope this before
+committing to a deployment date** — it is not a config change today.
+
+Two further things that ride on the switch:
+
+- **Triage quality must be re-validated.** A local model is not a drop-in for
+  Gemini on extraction quality. Re-run the `evals/` harness against the local
+  model and compare before it goes anywhere near patients — the engine's
+  determinism protects the *decision*, but extraction feeds it.
+- **Model licensing** for whatever local model is chosen (commercial use in a
+  clinical setting).
+
+### 5.2 What this does and does not resolve
+
+**Resolved at deployment:** cross-border transfer of sensitive health data.
+Health data is sensitive personal data under the PDPA, and sending it to an
+overseas cloud is a transfer under Sections 28–29 — with no PDPC adequacy
+list published, that route needs contractual safeguards. Running locally
+removes the question rather than answering it.
+
+**Still applies during the demo.** If any demo session involves a real
+patient, PDPA applies to that session. Demo runs should use synthetic
+patients, or carry explicit consent. Note the model currently uses Vertex's
+**global** endpoint (chosen for latency/quota), so the processing region is
+not pinned — worth stating plainly to the hospital rather than leaving them
+to infer that "deployed on-site" means "data stays on-site".
+
+**Unaffected either way** — everything in section 6 below is our own code and
+has nothing to do with where the model runs.
+
+## 6. Findings from the 2026-08-06 review (our code, not the integration)
+
+Ordered by severity. None of these are fixed by local inference.
+
+1. **`GET /sessions/by-visit/{visit_id}` is unauthenticated and returns
+   `patient_name`.** Unlike our session UUIDs a VN is short and likely
+   sequential, so it is enumerable — anyone able to reach the API can harvest
+   patient names and session state. Being on the hospital LAN narrows the
+   attacker population; it does not fix the hole.
+2. **Passwords are unsalted SHA-256** (`hash_password_sha256`) — no salt, no
+   work factor, so rainbow-table and GPU-crackable. These accounts guard
+   patient records; move to bcrypt or argon2.
+3. **No rate limiting anywhere**, so `/admin/login` can be brute-forced —
+   which compounds finding 2.
+4. `GET /sessions/{id}/messages` returns a full transcript with no auth.
+   Much less severe (the UUID is unguessable) but an unguessable URL is
+   secrecy, not access control.
+5. **No read-access logging.** We audit AI inferences and nurse actions, but
+   not who *viewed* which patient's record — commonly required at
+   accreditation.
+6. **Retention still unspecified** (open question 5, since 2026-07-15) and
+   **encryption at rest** on the hospital VM is a deployment-level item.
+
+Confirmed *not* a problem, for the record: we never touch their database;
+`ai_inference_audit` stores rules traces and validator results, **not** raw
+prompts or responses, so PHI is not duplicated there; the HIS token is never
+echoed back to any UI; and voice audio is converted in memory and streamed,
+never written to disk.
+
+**Open question for the booth flow:** does the kiosk obtain **explicit
+consent** before recording? Sensitive data generally requires it under the
+PDPA. Not yet verified.
+
+## 7. Meeting notes
 
 > Fill in during/after the discussion.
 
