@@ -267,6 +267,46 @@ per system, so the individual nurse's identity stays only in our
 `assessment_reviews` audit trail) and `rerouted` (kept in our DB; can be
 phrased into `sbar.recommend`).
 
+### Department master data — PLACEHOLDER codes ⚠️ UNCONFIRMED
+
+The codes below are **invented by us on 2026-08-06** so the mock HIS and our
+adapter have something to work against. They follow the shape of the samples
+in the contract (`SP_DOCTOR_01`, `SP_ER_01`, `DEPT_MED`, `DEPT_ER`) but are
+**not** real iMed master data. Hospital confirmation requested Fri 2026-08-07;
+replace every value in the last two columns with theirs before any UAT call.
+
+These are the 11 active departments the triage engine can route to (the
+`departments` table; `CODE_TO_HIS` in
+`app/services/screening/his/department_map.py` already holds column 2).
+
+| Our code | Hospital department string (confirmed, from HIS export) | `assign_spid` ⚠️ | `base_department_id` ⚠️ |
+|---|---|---|---|
+| `emergency` | แผนก ER (อุบัติเหตุและฉุกเฉิน) | `SP_ER_01` | `DEPT_ER` |
+| `opd_general` | แผนก OPD GP (ทั่วไป ชั้น1) | `SP_OPD_GP_01` | `DEPT_GP` |
+| `opd_internal_medicine` | แผนก OPD MED (อายุรกรรม) | `SP_OPD_MED_01` | `DEPT_MED` |
+| `opd_pediatrics` | แผนก OPD PEDIATRIC (กุมารเวชกรรม) | `SP_OPD_PED_01` | `DEPT_PED` |
+| `opd_cardiology` | แผนก OPD HEART (หน่วยตรวจหัวใจและหลอดเลือด) | `SP_OPD_HEART_01` | `DEPT_HEART` |
+| `opd_orthopedics` | แผนก OPD ORTHOPEDIC (โรคกระดูกและข้อ) | `SP_OPD_ORTHO_01` | `DEPT_ORTHO` |
+| `opd_ent` | แผนก OPD E.N.T (หู คอ จมูก) | `SP_OPD_ENT_01` | `DEPT_ENT` |
+| `opd_surgery` | แผนก OPD SURGICAL (ศัลยศาสตร์) | `SP_OPD_SURG_01` | `DEPT_SURG` |
+| `opd_ophthalmology` | แผนก OPD EYE (ตา) | `SP_OPD_EYE_01` | `DEPT_EYE` |
+| `opd_psychiatry` | แผนก จิตเวช | `SP_OPD_PSY_01` | `DEPT_PSY` |
+| `opd_obgyn` | แผนก OPD OB-GYN (สูติ-นรีเวชกรรม) | `SP_OPD_OBGYN_01` | `DEPT_OBGYN` |
+
+Per-department questions to settle with the same list:
+
+1. The real `assign_spid` / `base_department_id` for each row.
+2. Which of these destinations **require `assign_eid`** (a named doctor).
+   We route to a department, never to a doctor, so any row needing an eid
+   forces a product decision — pick a doctor from our schedule table, or ask
+   the nurse at confirm time.
+3. Whether a department has **more than one service point** (e.g. OPD MED on
+   two floors, or a morning/afternoon split), which our single-code mapping
+   cannot express as-is.
+4. Whether `base_department_id` should be sent at all — the contract says
+   iMed derives it from the service point when omitted, and omitting it is
+   one less code to keep in sync.
+
 ### Response handling — what we receive
 
 Our adapter currently reduces the write-back to a bool
