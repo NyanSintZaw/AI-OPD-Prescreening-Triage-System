@@ -30,5 +30,36 @@ description: |
   `docs/hospital-integration-security.md`.
 url: "{{imedBaseUrl}}/visits/{{imedVisitId}}"
 method: GET
+scripts:
+  - type: afterResponse
+    code: |-
+      const REQUIRED = ["visit_id", "hn", "patient_name", "birthdate"];
+      const OPTIONAL = ["active", "appointment", "vitals"];
+
+      if (pm.response.code === 404) {
+        // Expected against our demo mock: this endpoint is a request,
+        // not something we have built.
+        pm.test('not implemented yet (404) — this request is a proposal', () => true);
+      } else {
+        const flat = (o, p = '') => Object.assign({}, ...Object.entries(o || {})
+          .flatMap(([k, v]) => v && typeof v === 'object' && !Array.isArray(v)
+            ? [{ [p + k]: true }, flat(v, p + k + '.')]
+            : [{ [p + k]: true }]));
+        const present = flat(pm.response.json());
+        const seen = (f) => Object.keys(present).some(
+          (k) => k === f || k.endsWith('.' + f));
+
+        pm.test('has every field the booth needs', () => {
+          const missing = REQUIRED.filter((f) => !seen(f));
+          pm.expect(missing, 'we read these; if yours are named differently, tell us the mapping and we will adapt').to.eql([]);
+        });
+
+        pm.test('optional fields present (nice to have, not required)', () => {
+          const absent = OPTIONAL.filter((f) => !seen(f));
+          if (absent.length) console.log('not returned (fine):', absent.join(', '));
+          pm.expect(true).to.be.true;
+        });
+      }
+    language: text/javascript
 examples: ./.resources/GET -visits-{visit_id}.resources/examples
 order: 3000

@@ -13,13 +13,44 @@ description: |
   | Field | What we do with it |
   |---|---|
   | `allergies`, `chronic_conditions`, `past_surgeries`, `family_history`, `smoking_alcohol` | risk factors the triage rules weigh, and the `background` line of the SBAR handover |
-  | `history_recorded_at` | if empty we treat them as a first-time patient and run the history intake; if set we skip it |
+  | `recorded_at` (when the history was taken) | if empty we treat them as a first-time patient and run the history intake; if set we skip it |
   | `last_weight`, `last_height` + `measured_at` | skip asking weight/height again when yours is recent |
 
-  If a full read is not acceptable, **`history_recorded_at` alone would already
-  help** — it is the flag that decides whether we interview the patient about
-  their history at all.
+  If a full read is not acceptable, **the "history taken at" timestamp alone
+  would already help** — it is the single flag that decides whether we
+  interview the patient about their history at all.
 url: "{{imedBaseUrl}}/patients/{{imedHn}}"
 method: GET
+scripts:
+  - type: afterResponse
+    code: |-
+      const REQUIRED = ["hn", "recorded_at"];
+      const OPTIONAL = ["allergies", "chronic_conditions", "past_surgeries", "family_history", "smoking_alcohol", "weight", "height"];
+
+      if (pm.response.code === 404) {
+        // Expected against our demo mock: this endpoint is a request,
+        // not something we have built.
+        pm.test('not implemented yet (404) — this request is a proposal', () => true);
+      } else {
+        const flat = (o, p = '') => Object.assign({}, ...Object.entries(o || {})
+          .flatMap(([k, v]) => v && typeof v === 'object' && !Array.isArray(v)
+            ? [{ [p + k]: true }, flat(v, p + k + '.')]
+            : [{ [p + k]: true }]));
+        const present = flat(pm.response.json());
+        const seen = (f) => Object.keys(present).some(
+          (k) => k === f || k.endsWith('.' + f));
+
+        pm.test('has every field the booth needs', () => {
+          const missing = REQUIRED.filter((f) => !seen(f));
+          pm.expect(missing, 'we read these; if yours are named differently, tell us the mapping and we will adapt').to.eql([]);
+        });
+
+        pm.test('optional fields present (nice to have, not required)', () => {
+          const absent = OPTIONAL.filter((f) => !seen(f));
+          if (absent.length) console.log('not returned (fine):', absent.join(', '));
+          pm.expect(true).to.be.true;
+        });
+      }
+    language: text/javascript
 examples: ./.resources/GET -patients-{hn}.resources/examples
 order: 4000

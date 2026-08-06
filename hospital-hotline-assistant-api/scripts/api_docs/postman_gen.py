@@ -580,6 +580,52 @@ request to you, not something we have decided for you.*
     },
 ]
 
+def expects_script(required: list[str], optional: list[str]) -> dict:
+    """A test that reports which fields we need are missing.
+
+    Turns "here is what we read" from prose into something the hospital can
+    run against their own endpoint the moment it exists: green means we can
+    consume it, red names the gap. Field NAMES are theirs to choose, so the
+    failure message says so rather than implying they got it wrong.
+    """
+    return {
+        "listen": "test",
+        "script": {
+            "type": "text/javascript",
+            "exec": [
+                f"const REQUIRED = {json.dumps(required)};",
+                f"const OPTIONAL = {json.dumps(optional)};",
+                "",
+                "if (pm.response.code === 404) {",
+                "  // Expected against our demo mock: this endpoint is a request,",
+                "  // not something we have built.",
+                "  pm.test('not implemented yet (404) — this request is a proposal', () => true);",
+                "} else {",
+                "  const flat = (o, p = '') => Object.assign({}, ...Object.entries(o || {})",
+                "    .flatMap(([k, v]) => v && typeof v === 'object' && !Array.isArray(v)",
+                "      ? [{ [p + k]: true }, flat(v, p + k + '.')]",
+                "      : [{ [p + k]: true }]));",
+                "  const present = flat(pm.response.json());",
+                "  const seen = (f) => Object.keys(present).some(",
+                "    (k) => k === f || k.endsWith('.' + f));",
+                "",
+                "  pm.test('has every field the booth needs', () => {",
+                "    const missing = REQUIRED.filter((f) => !seen(f));",
+                "    pm.expect(missing, 'we read these; if yours are named differently, "
+                "tell us the mapping and we will adapt').to.eql([]);",
+                "  });",
+                "",
+                "  pm.test('optional fields present (nice to have, not required)', () => {",
+                "    const absent = OPTIONAL.filter((f) => !seen(f));",
+                "    if (absent.length) console.log('not returned (fine):', absent.join(', '));",
+                "    pm.expect(true).to.be.true;",
+                "  });",
+                "}",
+            ],
+        },
+    }
+
+
 # ── Proposed READ endpoints (change request 6) ────────────────────────────────
 # Field lists are taken from what HttpHisAdapter.validate_visit actually
 # consumes (VisitInfo / PatientHistory in his/adapter.py) — we ask for what we
@@ -625,12 +671,12 @@ history; with this we only ask first-timers.
 | Field | What we do with it |
 |---|---|
 | `allergies`, `chronic_conditions`, `past_surgeries`, `family_history`, `smoking_alcohol` | risk factors the triage rules weigh, and the `background` line of the SBAR handover |
-| `history_recorded_at` | if empty we treat them as a first-time patient and run the history intake; if set we skip it |
+| `recorded_at` (when the history was taken) | if empty we treat them as a first-time patient and run the history intake; if set we skip it |
 | `last_weight`, `last_height` + `measured_at` | skip asking weight/height again when yours is recent |
 
-If a full read is not acceptable, **`history_recorded_at` alone would already
-help** — it is the flag that decides whether we interview the patient about
-their history at all.
+If a full read is not acceptable, **the "history taken at" timestamp alone
+would already help** — it is the single flag that decides whether we
+interview the patient about their history at all.
 """
 
 reads_items = [
@@ -642,6 +688,10 @@ reads_items = [
             "url": pm_url("/visits/{imedVisitId}", "imedBaseUrl"),
             "description": VISIT_LOOKUP_DESC,
         },
+        "event": [expects_script(
+            ["visit_id", "hn", "patient_name", "birthdate"],
+            ["active", "appointment", "vitals"],
+        )],
         "response": [
             example_response(
                 "200 — the shape we would consume", 200, "OK",
@@ -669,6 +719,11 @@ reads_items = [
             "url": pm_url("/patients/{imedHn}", "imedBaseUrl"),
             "description": PATIENT_READ_DESC,
         },
+        "event": [expects_script(
+            ["hn", "recorded_at"],
+            ["allergies", "chronic_conditions", "past_surgeries",
+             "family_history", "smoking_alcohol", "weight", "height"],
+        )],
         "response": [
             example_response(
                 "200 — the shape we would consume", 200, "OK",
@@ -682,7 +737,7 @@ reads_items = [
                         "past_surgeries": None,
                         "family_history": None,
                         "smoking_alcohol": None,
-                        "history_recorded_at": "2026-02-11T09:20:00+07:00",
+                        "recorded_at": "2026-02-11T09:20:00+07:00",
                     },
                     "last_vitals": {
                         "weight": 72.5, "height": 165,
@@ -691,8 +746,9 @@ reads_items = [
                 },
                 {"method": "GET", "header": [],
                  "url": pm_url("/patients/{imedHn}", "imedBaseUrl")},
-                "history_recorded_at empty = first-time patient, so we run the "
-                "history intake at the booth.",
+                "history.recorded_at empty = first-time patient, so we run the "
+                "history intake at the booth. Nested or flat is fine — we read "
+                "whichever shape you return.",
             ),
         ],
     },
