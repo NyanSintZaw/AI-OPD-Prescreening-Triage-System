@@ -192,15 +192,21 @@ Assessment, Recommendation). iMed's variant splits Assessment into three and
 adds Documentation — seven fields. Sending it switches their code path to
 `assignSbarVisit` and returns an `sbar_id`.
 
-| iMed field | Our source | Notes |
+| SBAR field | Do we hold it? | What we put in it |
 |---|---|---|
-| `situation` | our **chief complaint** — nurse-edited, else the AI's (`triage_classification.symptoms_summary`, surfaced as `ai_chief_complaint`) | |
-| `background` | `metadata.patient_history` (chronic conditions, allergies, past surgeries, family history, smoking/alcohol) + age + first-visit flag | |
-| `assessment` | `metadata.vitals` (cuff BP, pulse, temp, weight/height) **+ the triage level** | level goes here until/unless they add a real triage-level field |
-| `assessment_problem` | our **illness note** — nurse-edited, else the AI's (`triage_classification.key_reason`, surfaced as `ai_illness_note`) — plus `disposition_reasons` `{rule_id, citation, text_th}` so we can cite which MFU-manual criterion fired | |
-| `assessment_equipment` | **not auto-filled** — a clinical judgement our system does not make; leave blank or nurse-filled | |
-| `recommend` | recommended department + urgency; if rerouted, say so (iMed has no `rerouted` flag) | |
-| `documentation` | candidate home for the back-link to our session/transcript | |
+| `situation` | **yes, a real field** | our **chief complaint** — nurse-editable, falls back to `triage_classification.symptoms_summary` (`ai_chief_complaint`) |
+| `background` | composed at send time | `metadata.patient_history` as labelled Thai segments |
+| `assessment` | composed at send time | `metadata.vitals` with provenance **+ the triage level**, which is here only because their contract has no field for it (CR 1) |
+| `assessment_problem` | **yes, a real field** | our **illness note** — nurse-editable, falls back to `key_reason` (`ai_illness_note`) — plus `disposition_reasons` with citations |
+| `assessment_equipment` | **no — we do not provide it** | a clinical judgement our system does not make; omitted entirely unless the nurse types something |
+| `recommend` | **no — we hold no recommendation field** | the routing decision is a department code, and it is already `assign_spid`. This restates it in words + `response_time`, and carries the reroute note since iMed has no `rerouted` flag |
+| `documentation` | composed at send time | slip code + the patient's own follow-up question when there is one |
+
+Only two SBAR fields have a stored field of ours behind them (`situation`,
+`assessment_problem`) — and those are exactly the two the nurse already edits
+upstream in the review form. The rest are formatting or, for
+`assessment_equipment`, deliberately empty. Worth stating plainly to the
+hospital so they do not build reporting on a field we never populate.
 
 Decisions:
 

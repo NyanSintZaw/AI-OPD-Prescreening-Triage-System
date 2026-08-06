@@ -16,7 +16,7 @@ description: |
 
   Runs against `hisBaseUrl` (the mock on :8001), not the hospital.
 auth:
-  - id: 025bd9e2-3781-4dc2-be80-84e10434e2ba
+  - id: 8f90037c-efcd-464a-975e-b21f532d6989
     type: bearer
     name: bearer auth
     credentials:

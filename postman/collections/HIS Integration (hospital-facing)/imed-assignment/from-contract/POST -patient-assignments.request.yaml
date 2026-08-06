@@ -24,16 +24,23 @@ description: |
   dropped rather than sent as `null`, which is why `assessment_equipment` does
   not appear: our system never fills it (the nurse may, in the confirm dialog).
 
-  | iMed field | our source |
+  | SBAR field | Do we hold this? | What we put in it |
+  |---|---|---|
+  | `situation` | **Yes — a real field of ours** | our *chief complaint*, nurse-editable. Falls back to the AI's (`symptoms_summary`) when the nurse does not edit it. |
+  | `background` | No — **composed at send time** | your patient's history as we hold it (chronic conditions, allergies, past surgeries, family history, smoking/alcohol), formatted into one line. |
+  | `assessment` | No — **composed at send time** | booth-measured vitals with provenance (`วัดที่บูธ` = our cuff, `ผู้ป่วยแจ้ง` = patient-stated), plus the triage level. The level is here only because your contract has no field for it — see change request 1. |
+  | `assessment_problem` | **Yes — a real field of ours** | our *illness note*, nurse-editable, plus the manual criteria that fired, each with its citation so you can check our reasoning. |
+  | `assessment_equipment` | **No — we do not provide this** | deciding what equipment to prepare is a clinical judgement our system does not make. Sent only if the nurse types something; otherwise the field is omitted entirely, not blanked. |
+  | `recommend` | **No — we hold no "recommendation" field** | the routing decision is not prose on our side, it is the department, and you already have it as `assign_spid`. This field only restates that decision in words for whoever reads the handover, plus the target response time. If a nurse overrode the AI's department, that is said here too — your contract has no `rerouted` flag. |
+  | `documentation` | No — **composed at send time** | our slip code, so your staff can pull up the full transcript and reasoning; plus the patient's own follow-up question when they left one. |
+
+  And the three fields outside `sbar`:
+
+  | Field | What we put in it |
   |---|---|
-  | `request_id` | allocated at nurse-confirm and **stored**; reused on retry, new one on a genuine reroute |
+  | `request_id` | allocated at nurse-confirm and **stored**; reused on a retry, new one on a genuine reroute |
   | `visit_id` | `session.metadata.visit.visit_id`, captured when the patient enters their VN at the booth |
-  | `assign_spid` | our department code → `department_map.CODE_TO_SPID` ⚠️ |
-  | `sbar.situation` | nurse-edited chief complaint, else `metadata.triage_classification.symptoms_summary` |
-  | `sbar.background` | `metadata.patient_history` as labelled segments — chronic conditions, allergies, past surgeries, family history, smoking/alcohol |
-  | `sbar.assessment` | booth-measured vitals with provenance (`วัดที่บูธ` = cuff, `ผู้ป่วยแจ้ง` = patient-stated) **+ the triage level**, which has nowhere else to go — see change request 1 |
-  | `sbar.assessment_problem` | `triage_classification.key_reason` + `disposition_reasons[].text_th` with its manual `citation` |
-  | `sbar.recommend` | destination department + urgency; a reroute is noted here because iMed has no `rerouted` flag |
+  | `assign_spid` | our department code → `department_map.CODE_TO_SPID` ⚠️ placeholder |
 
   SBAR is always sent in **Thai**, regardless of the language the patient used
   at the booth.
