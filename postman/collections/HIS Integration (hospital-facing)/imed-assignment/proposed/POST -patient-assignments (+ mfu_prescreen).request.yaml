@@ -61,9 +61,9 @@ body:
             "systolic": "device",
             "diastolic": "device",
             "pulse_bpm": "device",
-            "temperature_c": "patient_stated",
-            "weight_kg": "patient_stated",
-            "height_cm": "patient_stated"
+            "temperature_c": "patient_input",
+            "weight_kg": "patient_input",
+            "height_cm": "patient_input"
           }
         },
         "confirmed_by": "OPD Nurse (สมหญิง)",

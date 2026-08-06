@@ -15,7 +15,8 @@ METADATA = {
         # Cuff for BP/pulse; the patient told us the rest.
         "sources": {
             "systolic": "device", "diastolic": "device", "pulse_bpm": "device",
-            "temperature": "stated", "weight_kg": "stated", "height_cm": "stated",
+            "temperature": "patient_input", "weight_kg": "patient_input",
+            "height_cm": "patient_input",
         },
     },
     "patient_history": {

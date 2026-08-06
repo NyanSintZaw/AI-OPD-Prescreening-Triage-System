@@ -90,16 +90,18 @@ def _vitals_line(vitals: dict[str, Any]) -> str | None:
     default = vitals.get("source")
     measured = [text for key, text in labels
                 if (sources.get(key, default)) == "device"]
-    stated = [text for key, text in labels
-              if (sources.get(key, default)) in ("stated", "manual")]
+    # "stated"/"manual" are older spellings of the same thing.
+    entered = [text for key, text in labels
+               if (sources.get(key, default)) in ("patient_input", "stated", "manual")]
     unknown = [text for key, text in labels
-               if sources.get(key, default) not in ("device", "stated", "manual")]
+               if sources.get(key, default)
+               not in ("device", "patient_input", "stated", "manual")]
 
     parts = []
     if measured:
         parts.append("วัดที่บูธ: " + " ".join(measured))
-    if stated:
-        parts.append("ผู้ป่วยแจ้ง: " + " ".join(stated))
+    if entered:
+        parts.append("ผู้ป่วยแจ้ง: " + " ".join(entered))
     if unknown:
         parts.append(" ".join(unknown))
     return " | ".join(parts)

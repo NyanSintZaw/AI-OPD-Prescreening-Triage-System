@@ -275,10 +275,10 @@ async def update_session_measurement(
     key = _MEASUREMENT_METADATA_KEY.get(payload.vital, payload.vital)
     vitals[key] = payload.value
     # This endpoint is the mid-interview popup / spoken answer: the patient is
-    # telling us the number, we did not measure it. Recorded per-vital so a
-    # stated weight is never presented as a booth measurement.
+    # giving us the number, we did not measure it. Recorded per-vital so a
+    # patient-entered weight is never presented as a booth measurement.
     sources = dict(vitals.get("sources") or {})
-    sources[key] = "stated"
+    sources[key] = "patient_input"
     vitals["sources"] = sources
     vitals["recorded_at"] = datetime.now(timezone.utc).isoformat()
     metadata["vitals"] = vitals

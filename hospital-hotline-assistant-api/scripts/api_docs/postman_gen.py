@@ -470,8 +470,8 @@ PROPOSED_BODY["mfu_prescreen"] = {
         # patient said out loud are different evidence.
         "sources": {
             "systolic": "device", "diastolic": "device", "pulse_bpm": "device",
-            "temperature_c": "patient_stated",
-            "weight_kg": "patient_stated", "height_cm": "patient_stated",
+            "temperature_c": "patient_input",
+            "weight_kg": "patient_input", "height_cm": "patient_input",
         },
     },
     "confirmed_by": "OPD Nurse (สมหญิง)",
@@ -877,7 +877,7 @@ identifiers here so you can cross-check them, say so — we hold both.)
 | Field | Source |
 |---|---|
 | `visit_id` | the VN the patient entered at the booth — you verify it, and derive the patient from it |
-| `vitals` | cuff BP and pulse, plus temperature/weight/height when taken. `sources` marks **each field** as `device` or `patient_stated` — the cuff and the patient's own answer are different evidence and should not be charted alike |
+| `vitals` | cuff BP and pulse, plus temperature/weight/height when taken. `sources` marks **each field** as `device` or `patient_input` — the cuff and the patient's own answer are different evidence and should not be charted alike |
 | `measured_at` | when, so a later reading supersedes it |
 | `location` | that the patient passed through the AI pre-screening booth — your attendance/audit trail |
 | `session_ref`, `slip_code` | so staff can find the full record (same identity, see the assignment request) |
@@ -915,9 +915,9 @@ reads_items.append({
                     "systolic": "device",
                     "diastolic": "device",
                     "pulse_bpm": "device",
-                    "temperature_c": "patient_stated",
-                    "weight_kg": "patient_stated",
-                    "height_cm": "patient_stated",
+                    "temperature_c": "patient_input",
+                    "weight_kg": "patient_input",
+                    "height_cm": "patient_input",
                 },
             },
         }),
