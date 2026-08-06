@@ -1,0 +1,25 @@
+$kind: http-request
+name: GET /patients/{hn}
+description: |
+  ⚠️ **Not in your contract — part of change request 6.** Lower priority than
+  the visit lookup: useful, not blocking.
+
+  Read-only access to the patient (HN) record, so the booth does not
+  re-interview someone you already know. Today we ask every patient the full
+  history; with this we only ask first-timers.
+
+  ### What we read (and why)
+
+  | Field | What we do with it |
+  |---|---|
+  | `allergies`, `chronic_conditions`, `past_surgeries`, `family_history`, `smoking_alcohol` | risk factors the triage rules weigh, and the `background` line of the SBAR handover |
+  | `history_recorded_at` | if empty we treat them as a first-time patient and run the history intake; if set we skip it |
+  | `last_weight`, `last_height` + `measured_at` | skip asking weight/height again when yours is recent |
+
+  If a full read is not acceptable, **`history_recorded_at` alone would already
+  help** — it is the flag that decides whether we interview the patient about
+  their history at all.
+url: "{{imedBaseUrl}}/patients/{{imedHn}}"
+method: GET
+examples: ./.resources/GET -patients-{hn}.resources/examples
+order: 4000

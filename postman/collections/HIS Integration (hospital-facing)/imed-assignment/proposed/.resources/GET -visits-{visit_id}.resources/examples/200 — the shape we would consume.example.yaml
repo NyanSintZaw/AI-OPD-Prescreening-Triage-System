@@ -1,0 +1,27 @@
+$kind: http-example
+request:
+  url: "{{imedBaseUrl}}/visits/{{imedVisitId}}"
+  method: GET
+response:
+  statusCode: 200
+  statusText: OK
+  headers:
+    Content-Type: application/json
+  body:
+    type: json
+    content: |-
+      // Field names are yours to choose — this is what we need to read, not a schema we are proposing.
+      {
+        "visit_id": "VISIT_ID_FROM_IMED",
+        "hn": "09900001",
+        "patient_name": "สมชาย ใจดี",
+        "birthdate": "1968-03-14",
+        "active": true,
+        "appointment": false,
+        "vitals": {
+          "systolic": null,
+          "diastolic": null,
+          "temperature": null
+        }
+      }
+order: 1000

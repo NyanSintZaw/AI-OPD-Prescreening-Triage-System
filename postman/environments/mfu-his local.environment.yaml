@@ -14,5 +14,7 @@ values:
     value: "990000000000000001"
   - key: "imedRequestId"
     value: "MFU-20260807-A1B2C3"
+  - key: "imedHn"
+    value: "09900001"
   - key: "session_id"
     value: ""

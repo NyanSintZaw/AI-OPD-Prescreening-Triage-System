@@ -1,0 +1,34 @@
+$kind: http-request
+name: GET /visits/{visit_id}
+description: |
+  ⚠️ **This endpoint does not exist in your contract — it is our most
+  important request (CR 6).**
+
+  **Without it the booth cannot start.** A patient walks up and types their VN;
+  that is the only thing we have. Until we can resolve a VN we cannot confirm
+  the person in front of us, cannot greet them by name, cannot pull their
+  history — and we never obtain the `visit_id` that
+  `POST /patient-assignments` requires. Every other request in this collection
+  depends on this one.
+
+  We are not asking for a patient search. **One visit, looked up by the VN the
+  patient themselves presented** — no browsing, no enumeration.
+
+  ### What we read (and why)
+
+  | Field | What we do with it |
+  |---|---|
+  | `visit_id` | the id we later send back in `POST /patient-assignments` |
+  | `hn` | links the visit to the patient record (below) |
+  | `patient_name` | spoken confirmation at the booth — "are you {name}?" — so we never triage the wrong person |
+  | `birthdate` | age drives paediatric vs adult triage thresholds. A date, or an age, whichever you prefer to expose |
+  | `active` / status | a cancelled or closed visit must not be screened |
+  | `appointment` | tells us the patient is expected, vs a walk-in |
+  | `vitals` *(optional)* | anything you already measured, so we do not ask the patient twice |
+
+  Nothing here is data we store beyond the session; see
+  `docs/hospital-integration-security.md`.
+url: "{{imedBaseUrl}}/visits/{{imedVisitId}}"
+method: GET
+examples: ./.resources/GET -visits-{visit_id}.resources/examples
+order: 3000

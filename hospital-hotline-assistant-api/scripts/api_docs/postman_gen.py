@@ -580,6 +580,124 @@ request to you, not something we have decided for you.*
     },
 ]
 
+# ── Proposed READ endpoints (change request 6) ────────────────────────────────
+# Field lists are taken from what HttpHisAdapter.validate_visit actually
+# consumes (VisitInfo / PatientHistory in his/adapter.py) — we ask for what we
+# read, not a wish list.
+VISIT_LOOKUP_DESC = """⚠️ **This endpoint does not exist in your contract — it is our most
+important request (CR 6).**
+
+**Without it the booth cannot start.** A patient walks up and types their VN;
+that is the only thing we have. Until we can resolve a VN we cannot confirm
+the person in front of us, cannot greet them by name, cannot pull their
+history — and we never obtain the `visit_id` that
+`POST /patient-assignments` requires. Every other request in this collection
+depends on this one.
+
+We are not asking for a patient search. **One visit, looked up by the VN the
+patient themselves presented** — no browsing, no enumeration.
+
+### What we read (and why)
+
+| Field | What we do with it |
+|---|---|
+| `visit_id` | the id we later send back in `POST /patient-assignments` |
+| `hn` | links the visit to the patient record (below) |
+| `patient_name` | spoken confirmation at the booth — "are you {name}?" — so we never triage the wrong person |
+| `birthdate` | age drives paediatric vs adult triage thresholds. A date, or an age, whichever you prefer to expose |
+| `active` / status | a cancelled or closed visit must not be screened |
+| `appointment` | tells us the patient is expected, vs a walk-in |
+| `vitals` *(optional)* | anything you already measured, so we do not ask the patient twice |
+
+Nothing here is data we store beyond the session; see
+`docs/hospital-integration-security.md`.
+"""
+
+PATIENT_READ_DESC = """⚠️ **Not in your contract — part of change request 6.** Lower priority than
+the visit lookup: useful, not blocking.
+
+Read-only access to the patient (HN) record, so the booth does not
+re-interview someone you already know. Today we ask every patient the full
+history; with this we only ask first-timers.
+
+### What we read (and why)
+
+| Field | What we do with it |
+|---|---|
+| `allergies`, `chronic_conditions`, `past_surgeries`, `family_history`, `smoking_alcohol` | risk factors the triage rules weigh, and the `background` line of the SBAR handover |
+| `history_recorded_at` | if empty we treat them as a first-time patient and run the history intake; if set we skip it |
+| `last_weight`, `last_height` + `measured_at` | skip asking weight/height again when yours is recent |
+
+If a full read is not acceptable, **`history_recorded_at` alone would already
+help** — it is the flag that decides whether we interview the patient about
+their history at all.
+"""
+
+reads_items = [
+    {
+        "name": "GET /visits/{visit_id}",
+        "request": {
+            "method": "GET",
+            "header": [],
+            "url": pm_url("/visits/{imedVisitId}", "imedBaseUrl"),
+            "description": VISIT_LOOKUP_DESC,
+        },
+        "response": [
+            example_response(
+                "200 — the shape we would consume", 200, "OK",
+                {
+                    "visit_id": "VISIT_ID_FROM_IMED",
+                    "hn": "09900001",
+                    "patient_name": "สมชาย ใจดี",
+                    "birthdate": "1968-03-14",
+                    "active": True,
+                    "appointment": False,
+                    "vitals": {"systolic": None, "diastolic": None, "temperature": None},
+                },
+                {"method": "GET", "header": [],
+                 "url": pm_url("/visits/{imedVisitId}", "imedBaseUrl")},
+                "Field names are yours to choose — this is what we need to read, "
+                "not a schema we are proposing.",
+            ),
+        ],
+    },
+    {
+        "name": "GET /patients/{hn}",
+        "request": {
+            "method": "GET",
+            "header": [],
+            "url": pm_url("/patients/{imedHn}", "imedBaseUrl"),
+            "description": PATIENT_READ_DESC,
+        },
+        "response": [
+            example_response(
+                "200 — the shape we would consume", 200, "OK",
+                {
+                    "hn": "09900001",
+                    "patient_name": "สมชาย ใจดี",
+                    "birthdate": "1968-03-14",
+                    "history": {
+                        "allergies": "ไม่มี",
+                        "chronic_conditions": "ความดันโลหิตสูง",
+                        "past_surgeries": None,
+                        "family_history": None,
+                        "smoking_alcohol": None,
+                        "history_recorded_at": "2026-02-11T09:20:00+07:00",
+                    },
+                    "last_vitals": {
+                        "weight": 72.5, "height": 165,
+                        "measured_at": "2026-02-11T09:20:00+07:00",
+                    },
+                },
+                {"method": "GET", "header": [],
+                 "url": pm_url("/patients/{imedHn}", "imedBaseUrl")},
+                "history_recorded_at empty = first-time patient, so we run the "
+                "history intake at the booth.",
+            ),
+        ],
+    },
+]
+
 his_desc = (
     "What our system sends to the hospital's real **iMed Patient Assignment "
     "API** — the integration surface for the hospital IT team.\n\n"
@@ -619,9 +737,18 @@ what we mean.
   cannot be mistaken for something we already send (CR 1–4).
 * **PROPOSED lookup** — a read endpoint that would resolve the post-timeout
   unknown state and let us read an SBAR back (CR 5, 7, 8).
+* **GET /visits/{visit_id}** — ⚠️ **the blocking one.** The booth starts from a
+  patient typing their VN; until we can resolve it we cannot identify them and
+  never obtain the `visit_id` the assignment call requires (CR 6).
+* **GET /patients/{hn}** — read-only patient record, so we do not re-interview
+  someone you already know (CR 6). Useful, not blocking.
 
 Anything you accept, we implement our side. Anything you reject, we drop —
 these are questions, not requirements.
+
+*Everything in this folder returns **404 against our demo mock**. That is
+deliberate: we have not built these, because they are yours to decide. Only
+the `from-contract` request runs for real.*
 """
 MOCK_COLLECTION_DESC = """Calls our adapter makes against **our own demo mock
 HIS** — this is *not* the hospital's API.
@@ -652,7 +779,7 @@ write_collection_v3(
                 {
                     "name": "proposed",
                     "description": PROPOSED_FOLDER_DESC,
-                    "item": imed_items[1:],
+                    "item": imed_items[1:] + reads_items,
                 },
             ],
         },
@@ -676,6 +803,7 @@ write_environment_v3("mfu-his local", {
         "hn": "09900001",
         "imedVisitId": "990000000000000001",
         "imedRequestId": "MFU-20260807-A1B2C3",
+        "imedHn": "09900001",
         "session_id": "",
     })
 

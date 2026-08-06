@@ -1,0 +1,32 @@
+$kind: http-example
+request:
+  url: "{{imedBaseUrl}}/patients/{{imedHn}}"
+  method: GET
+response:
+  statusCode: 200
+  statusText: OK
+  headers:
+    Content-Type: application/json
+  body:
+    type: json
+    content: |-
+      // history_recorded_at empty = first-time patient, so we run the history intake at the booth.
+      {
+        "hn": "09900001",
+        "patient_name": "สมชาย ใจดี",
+        "birthdate": "1968-03-14",
+        "history": {
+          "allergies": "ไม่มี",
+          "chronic_conditions": "ความดันโลหิตสูง",
+          "past_surgeries": null,
+          "family_history": null,
+          "smoking_alcohol": null,
+          "history_recorded_at": "2026-02-11T09:20:00+07:00"
+        },
+        "last_vitals": {
+          "weight": 72.5,
+          "height": 165,
+          "measured_at": "2026-02-11T09:20:00+07:00"
+        }
+      }
+order: 1000
