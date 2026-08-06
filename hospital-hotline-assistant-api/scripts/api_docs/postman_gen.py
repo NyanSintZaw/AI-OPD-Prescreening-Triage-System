@@ -10,7 +10,9 @@ not churn git. Auth is collection-level bearer; public routes opt out with
 "noauth", so Postman's Auth tab shows the truth per request.
 """
 import json
+import os
 import re
+import shutil
 import uuid
 from pathlib import Path
 
@@ -323,3 +325,14 @@ his_desc = (
 
 print(f"postman: {sum(len(v) for v in folders.values())} requests in {len(folders)} folders"
       f" + {len(current_items) + len(imed_items)} HIS requests -> {OUT}")
+
+# Optional Windows-side mirror: the Postman desktop folder picker can't browse
+# WSL paths, so point POSTMAN_MIRROR_DIR at e.g. /mnt/d/postman to keep a copy
+# Postman can watch. Unset (the default) = repo files are the only copy.
+mirror = os.environ.get("POSTMAN_MIRROR_DIR")
+if mirror:
+    dest = Path(mirror)
+    dest.mkdir(parents=True, exist_ok=True)
+    for f in sorted(OUT.glob("*.json")) + [OUT / "README.md"]:
+        shutil.copy2(f, dest / f.name)
+    print(f"mirrored to {dest}")

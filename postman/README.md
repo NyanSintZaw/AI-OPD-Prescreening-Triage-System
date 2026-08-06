@@ -24,18 +24,32 @@ the current file.
 
 ## Connecting
 
-**Desktop app** — Import → drop in both `*_collection.json` and both
-`*_environment.json` files → pick `mfu-triage local` in the environment
-selector (top right). Re-importing after a regen updates in place.
+Both collections validate cleanly against Postman's official v2.1.0 schema,
+so if an **Import** shows a red (!) with "Retry", that is Postman's
+cloud-sync step failing, not a malformed file — retry, or skip importing and
+use one of the file-backed options below (which are better anyway, because
+regenerating updates Postman instead of leaving a stale copy).
 
-Windows desktop app reading these WSL files: use the UNC path
-`\\wsl.localhost\<distro>\home\timmy\AI-OPD-Prescreening-Triage-System\postman`.
+**Desktop app — "Work with your local codebase"** (recommended). This points
+Postman at a folder instead of copying files in. The Windows folder picker
+cannot browse WSL, so either:
 
-**VS Code extension** (`postman.postman-for-vscode`) — Postman icon in the
-sidebar → sign in → Collections → import the same files. Runs against
-`localhost:8000` directly since the extension lives in the WSL remote.
+- paste the UNC path straight into the dialog's *Folder:* field —
+  `\\wsl.localhost\Ubuntu\home\timmy\AI-OPD-Prescreening-Triage-System\postman`
+  (one copy, always current); or
+- point it at a Windows-side mirror such as `D:\postman` and regenerate with
+  `POSTMAN_MIRROR_DIR=/mnt/d/postman` so the mirror never goes stale:
 
-**CLI** — no import needed, it runs the files as they are:
+  ```bash
+  cd hospital-hotline-assistant-api
+  POSTMAN_MIRROR_DIR=/mnt/d/postman uv run python scripts/api_docs/generate.py
+  ```
+
+**VS Code extension** (`postman.postman-for-vscode`) — signs in to your
+Postman workspace; the same cloud-sync caveat applies to its importer.
+
+**CLI** (no import, no sign-in — this is what the collections were verified
+with). It runs the repo files as they are:
 
 ```bash
 # whole collection
