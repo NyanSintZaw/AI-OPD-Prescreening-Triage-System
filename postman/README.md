@@ -6,7 +6,8 @@ so they cannot drift from the code.
 | Path | What |
 |---|---|
 | `collections/AI OPD Prescreening API/` | our whole API (76 requests, folders by URL prefix) |
-| `collections/HIS Integration (hospital-facing)/` | only the calls **we make to the hospital HIS** — this is the one to share with hospital IT |
+| `collections/HIS Integration (hospital-facing)/` | **the one to share with hospital IT** — what we send to their real iMed assignment API, split into `imed-assignment/from-contract` (contract-compliant, what we will actually send) and `imed-assignment/proposed` (our numbered change requests, made runnable) |
+| `collections/Mock HIS (demo only)/` | the calls our adapter makes against our own demo mock. **Our assumptions, not their API** — kept separate so it cannot be mistaken for the contract |
 | `environments/mfu-triage local.environment.yaml` | `baseUrl`, seeded login, auto-filled `token` / `session_id` |
 | `environments/mfu-his local.environment.yaml` | `hisBaseUrl`, `imedBaseUrl`, `hisToken`, seeded VN/HN |
 

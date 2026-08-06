@@ -1,5 +1,5 @@
 $kind: http-request
-name: 2. POST /patient-assignments — PROPOSED additions (NOT in your contract)
+name: POST /patient-assignments (+ mfu_prescreen)
 description: |
   **Nothing here is in your contract yet — this is the ask.**
 
@@ -66,4 +66,4 @@ body:
         "rerouted": false
       }
     }
-order: 2000
+order: 1000

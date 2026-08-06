@@ -1,5 +1,5 @@
 $kind: http-request
-name: 3. GET /patient-assignments/{request_id} — PROPOSED lookup
+name: GET /patient-assignments/{request_id}
 description: |
   **This endpoint does not exist yet — it is a request.** It covers three
   asks at once.
@@ -23,5 +23,5 @@ description: |
   request to you, not something we have decided for you.*
 url: "{{imedBaseUrl}}/patient-assignments/{{imedRequestId}}"
 method: GET
-examples: ./.resources/3. GET -patient-assignments-{request_id} — PROPOSED lookup.resources/examples
-order: 3000
+examples: ./.resources/GET -patient-assignments-{request_id}.resources/examples
+order: 2000

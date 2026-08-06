@@ -1,16 +1,8 @@
 $kind: collection
 description: |
-  What we intend to send to `POST /patient-assignments`.
+  The hospital's `POST /patient-assignments`, split by
+  status: what your contract already defines, and what we are asking you to add.
 
-  **These are our payloads, not a transcription of your contract** — your
-  contract is transcribed verbatim in `docs/imed-patient-assignment-api.md` and
-  we have left it untouched. Every ⚠️ value is a placeholder awaiting your
-  master data.
-
-  1. **as we will send it** — the real payload. Open its **Examples** dropdown
-     to see how we handle each response, including every error code.
-  2. **PROPOSED additions** — fields we are asking for, isolated in one
-     additive object so there is no doubt about what we send today.
-  3. **PROPOSED lookup** — a read endpoint that would resolve the
-     post-timeout unknown state.
+  **These are our payloads, not a transcription of your contract** — that is
+  `docs/imed-patient-assignment-api.md`, left exactly as you issued it.
 order: 1000

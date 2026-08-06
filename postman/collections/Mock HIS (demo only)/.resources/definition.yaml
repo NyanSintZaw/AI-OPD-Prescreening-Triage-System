@@ -1,0 +1,23 @@
+$kind: collection
+id: 080a3a97-e191-516d-b736-d7707cefedc8
+name: Mock HIS (demo only)
+description: |
+  Calls our adapter makes against **our own demo mock
+  HIS** — this is *not* the hospital's API.
+
+  ⚠️ **Everything here is our assumption.** Your assignment contract covers one
+  direction only (sending a patient to a service point), so the reads and the
+  other write-backs below are shapes we invented to keep the demo working. They
+  are on the table for discussion, not decisions we have made for you.
+
+  The **visit lookup** is the blocking one (change request 6): the booth starts
+  from a patient entering their VN, and without a real equivalent we cannot
+  identify them, cannot pull history, and have no `visit_id` to assign later.
+
+  Runs against `hisBaseUrl` (the mock on :8001), not the hospital.
+auth:
+  - id: af890f2a-6851-446f-82a4-c0714ae7b837
+    type: bearer
+    name: bearer auth
+    credentials:
+      token: "{{hisToken}}"

@@ -1,0 +1,15 @@
+$kind: collection
+description: |
+  ⚠️ **Nothing in this folder exists in your contract.**
+  These are our numbered change requests, made runnable so you can see exactly
+  what we mean.
+
+  * **PROPOSED additions** — values our system produces that currently have
+    nowhere to go, isolated in one additive `mfu_prescreen` object so they
+    cannot be mistaken for something we already send (CR 1–4).
+  * **PROPOSED lookup** — a read endpoint that would resolve the post-timeout
+    unknown state and let us read an SBAR back (CR 5, 7, 8).
+
+  Anything you accept, we implement our side. Anything you reject, we drop —
+  these are questions, not requirements.
+order: 2000

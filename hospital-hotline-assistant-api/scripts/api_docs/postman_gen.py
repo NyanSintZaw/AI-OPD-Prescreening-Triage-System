@@ -436,7 +436,7 @@ PROPOSED_BODY["mfu_prescreen"] = {
 
 imed_items = [
     {
-        "name": "1. POST /patient-assignments — as we will send it",
+        "name": "POST /patient-assignments",
         "request": send_request,
         "response": [
             example_response("200 — STATUS_SUCCESS", 200, "OK", OK_RESULT, send_request,
@@ -465,7 +465,7 @@ imed_items = [
         ],
     },
     {
-        "name": "2. POST /patient-assignments — PROPOSED additions (NOT in your contract)",
+        "name": "POST /patient-assignments (+ mfu_prescreen)",
         "request": {
             "method": "POST",
             "header": JSON_HDR,
@@ -500,7 +500,7 @@ rule working, not the proposed fields being ignored.*
         },
     },
     {
-        "name": "3. GET /patient-assignments/{request_id} — PROPOSED lookup",
+        "name": "GET /patient-assignments/{request_id}",
         "request": {
             "method": "GET",
             "header": [],
@@ -538,46 +538,87 @@ request to you, not something we have decided for you.*
 ]
 
 his_desc = (
-    "Only the calls **our system makes to the hospital HIS** — the integration "
-    "surface for the hospital IT team.\n\n"
-    "**imed-assignment** — what we intend to send to your real iMed "
-    "`POST /patient-assignments`, plus the fields we are asking for. Start here.\n\n"
-    "**our-current-mock** — what our adapter calls today against our own mock "
-    "HIS. Everything in it that iMed does not document is marked ⚠️ **OUR "
-    "ASSUMPTION**; the visit lookup is the blocking one.\n\n"
-    "Auth: both schemes are sent from the single `hisToken` variable "
-    "(`Authorization: Bearer` for iMed, `X-API-Key` for our mock) — matching "
-    "`his_auth_headers()` in the backend. On the real API we will send Bearer "
-    "only."
+    "What our system sends to the hospital's real **iMed Patient Assignment "
+    "API** — the integration surface for the hospital IT team.\n\n"
+    "**imed-assignment / from-contract** — the call as your contract defines "
+    "it. This is what we will actually send. Start here.\n\n"
+    "**imed-assignment / proposed** — fields and an endpoint we are *asking "
+    "for*. Nothing here exists in your contract today.\n\n"
+    "Your contract is transcribed verbatim in "
+    "`docs/imed-patient-assignment-api.md` and left untouched; our analysis "
+    "and the numbered change requests are in `docs/imed-integration-plan.md`.\n\n"
+    "Auth is a single bearer token (`hisToken`). Every ⚠️ value is a "
+    "placeholder awaiting your master data.\n\n"
+    "*The calls our adapter makes against our own demo mock HIS live in a "
+    "separate collection, `Mock HIS (demo only)` — they are our assumptions, "
+    "not your API.*"
 )
-IMED_FOLDER_DESC = """What we intend to send to `POST /patient-assignments`.
+IMED_FOLDER_DESC = """The hospital's `POST /patient-assignments`, split by
+status: what your contract already defines, and what we are asking you to add.
 
-**These are our payloads, not a transcription of your contract** — your
-contract is transcribed verbatim in `docs/imed-patient-assignment-api.md` and
-we have left it untouched. Every ⚠️ value is a placeholder awaiting your
-master data.
-
-1. **as we will send it** — the real payload. Open its **Examples** dropdown
-   to see how we handle each response, including every error code.
-2. **PROPOSED additions** — fields we are asking for, isolated in one
-   additive object so there is no doubt about what we send today.
-3. **PROPOSED lookup** — a read endpoint that would resolve the
-   post-timeout unknown state.
+**These are our payloads, not a transcription of your contract** — that is
+`docs/imed-patient-assignment-api.md`, left exactly as you issued it.
 """
-MOCK_FOLDER_DESC = """What our adapter calls **today**, against our own mock HIS.
+CONTRACT_FOLDER_DESC = """Contract-compliant. Every field here is one your
+contract already defines, so this is what we will send at go-live.
 
-Your assignment contract covers one direction only, so everything here that
-iMed does not document is marked ⚠️ **OUR ASSUMPTION (change request 6)**.
+⚠️ `assign_spid` is a placeholder pending your master-data codes.
 
-The **visit lookup** is blocking: the booth starts from a patient entering
-their VN, and without a real equivalent we cannot identify them, cannot pull
-history, and have no `visit_id` to assign later.
+Open the request's **Examples** dropdown to see how we handle each response,
+including all four error codes.
+"""
+PROPOSED_FOLDER_DESC = """⚠️ **Nothing in this folder exists in your contract.**
+These are our numbered change requests, made runnable so you can see exactly
+what we mean.
+
+* **PROPOSED additions** — values our system produces that currently have
+  nowhere to go, isolated in one additive `mfu_prescreen` object so they
+  cannot be mistaken for something we already send (CR 1–4).
+* **PROPOSED lookup** — a read endpoint that would resolve the post-timeout
+  unknown state and let us read an SBAR back (CR 5, 7, 8).
+
+Anything you accept, we implement our side. Anything you reject, we drop —
+these are questions, not requirements.
+"""
+MOCK_COLLECTION_DESC = """Calls our adapter makes against **our own demo mock
+HIS** — this is *not* the hospital's API.
+
+⚠️ **Everything here is our assumption.** Your assignment contract covers one
+direction only (sending a patient to a service point), so the reads and the
+other write-backs below are shapes we invented to keep the demo working. They
+are on the table for discussion, not decisions we have made for you.
+
+The **visit lookup** is the blocking one (change request 6): the booth starts
+from a patient entering their VN, and without a real equivalent we cannot
+identify them, cannot pull history, and have no `visit_id` to assign later.
+
+Runs against `hisBaseUrl` (the mock on :8001), not the hospital.
 """
 write_collection_v3(
     "HIS Integration (hospital-facing)",
     collection("HIS Integration (hospital-facing)", his_desc, [
-        {"name": "imed-assignment", "description": IMED_FOLDER_DESC, "item": imed_items},
-        {"name": "our-current-mock", "description": MOCK_FOLDER_DESC, "item": current_items},
+        {
+            "name": "imed-assignment",
+            "description": IMED_FOLDER_DESC,
+            "item": [
+                {
+                    "name": "from-contract",
+                    "description": CONTRACT_FOLDER_DESC,
+                    "item": imed_items[:1],
+                },
+                {
+                    "name": "proposed",
+                    "description": PROPOSED_FOLDER_DESC,
+                    "item": imed_items[1:],
+                },
+            ],
+        },
+    ], "hisToken"),
+)
+write_collection_v3(
+    "Mock HIS (demo only)",
+    collection("Mock HIS (demo only)", MOCK_COLLECTION_DESC, [
+        {"name": "our-current-calls", "item": current_items},
     ], "hisToken"),
 )
 write_environment_v3("mfu-his local", {

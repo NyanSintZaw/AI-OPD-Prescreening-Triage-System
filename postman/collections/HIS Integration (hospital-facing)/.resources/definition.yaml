@@ -2,15 +2,19 @@ $kind: collection
 id: 3b030caa-3d85-59d5-a249-4c1fc684d500
 name: HIS Integration (hospital-facing)
 description: |-
-  Only the calls **our system makes to the hospital HIS** — the integration surface for the hospital IT team.
+  What our system sends to the hospital's real **iMed Patient Assignment API** — the integration surface for the hospital IT team.
 
-  **imed-assignment** — what we intend to send to your real iMed `POST /patient-assignments`, plus the fields we are asking for. Start here.
+  **imed-assignment / from-contract** — the call as your contract defines it. This is what we will actually send. Start here.
 
-  **our-current-mock** — what our adapter calls today against our own mock HIS. Everything in it that iMed does not document is marked ⚠️ **OUR ASSUMPTION**; the visit lookup is the blocking one.
+  **imed-assignment / proposed** — fields and an endpoint we are *asking for*. Nothing here exists in your contract today.
 
-  Auth: both schemes are sent from the single `hisToken` variable (`Authorization: Bearer` for iMed, `X-API-Key` for our mock) — matching `his_auth_headers()` in the backend. On the real API we will send Bearer only.
+  Your contract is transcribed verbatim in `docs/imed-patient-assignment-api.md` and left untouched; our analysis and the numbered change requests are in `docs/imed-integration-plan.md`.
+
+  Auth is a single bearer token (`hisToken`). Every ⚠️ value is a placeholder awaiting your master data.
+
+  *The calls our adapter makes against our own demo mock HIS live in a separate collection, `Mock HIS (demo only)` — they are our assumptions, not your API.*
 auth:
-  - id: 463a6215-6440-4ee5-811f-5a3b92d0621a
+  - id: 3836676e-7b45-4a98-9219-c5e8a1f926d5
     type: bearer
     name: bearer auth
     credentials:

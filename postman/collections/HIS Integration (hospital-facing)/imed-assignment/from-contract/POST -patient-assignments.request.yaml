@@ -1,5 +1,5 @@
 $kind: http-request
-name: 1. POST /patient-assignments — as we will send it
+name: POST /patient-assignments
 description: |
   **WE POST** — this is *our intended payload*, not a transcription of your
   contract. The contract itself is transcribed verbatim in
@@ -58,5 +58,5 @@ body:
         "recommend": "ส่งตรวจอายุรกรรม ประเมินโดยแพทย์"
       }
     }
-examples: ./.resources/1. POST -patient-assignments — as we will send it.resources/examples
+examples: ./.resources/POST -patient-assignments.resources/examples
 order: 1000
