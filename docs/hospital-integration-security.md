@@ -202,7 +202,81 @@ never written to disk.
 consent** before recording? Sensitive data generally requires it under the
 PDPA. Not yet verified.
 
-## 7. Meeting notes
+## 7. Our side of the HIS call — checklist
+
+Everything above is about the boundary itself. This is what **we** are
+responsible for on every outbound call to the hospital API. Ordered by how
+much it would hurt to get wrong.
+
+### 7.1 Credentials
+
+- The token lives in `.env` in plaintext (hardening item 3 above). It is
+  written there by the admin UI via `persist_env_keys`, so it also lands in
+  any backup of that file. `.env` is gitignored.
+- **We currently send the token twice** — `his_auth_headers()` sets both
+  `Authorization: Bearer` *and* `X-API-Key`, so one config works against the
+  mock and a real API. Against real iMed that puts the credential in a header
+  they never asked for, where it can end up in their logs or a proxy trace.
+  **Send Bearer only once we are on the real API.**
+- Ask the hospital for a token that is **scoped to the operations we need**
+  and **independently revocable**, with **separate credentials for UAT and
+  production**. A single general-purpose token turns any leak on our side
+  into a much larger incident.
+- Changing the token is a live admin action (no downtime), so rotation costs
+  nothing operationally — agree a rotation interval with them.
+
+### 7.2 Transport
+
+- `http://` endpoints are still accepted today — see §7.6. Until that is
+  fixed, an operator can configure a cleartext endpoint and we will send the
+  bearer token in the clear.
+- **No CA-bundle or client-certificate setting exists.** `his_*` settings are
+  only mode / base_url / api_key / timeout / display_name. Hospital internal
+  APIs very often use a private CA; when they do, httpx will reject the
+  connection and the tempting "fix" under UAT time pressure is `verify=False`,
+  which silently destroys the TLS guarantee. **Add a CA-bundle path setting
+  before UAT**; the same shape carries the client cert when they are ready for
+  mTLS (§2.1).
+
+### 7.3 Request construction
+
+- `_his_proxy_get(f"/api/visits/{visit_id}")` (`app/routers/deps.py`)
+  interpolates an operator-supplied value straight into a URL path with no
+  encoding. Low severity, trivially fixed, and exactly what a pentest writes
+  up.
+
+### 7.4 What we put on the wire
+
+- **Never** send transcripts, raw audio, or LLM prompts to the HIS — only the
+  structured result. Worth stating explicitly because SBAR is free text and
+  invites "just include everything".
+- SBAR can carry **third-party personal data**: patients describe other people
+  ("my mother had a stroke") and that lands in the hospital record. Not
+  necessarily wrong clinically, but it should be a deliberate decision.
+
+### 7.5 Logging and audit
+
+- The token never appears in logs today — keep it that way.
+- Failure logs embed the request path, which contains `visit_id` and `hn`.
+  **Hash identifiers** in the outbound audit log (hardening item 4), which
+  should land together with the audit log itself.
+- Never log HIS error bodies verbatim; they may contain patient data.
+
+### 7.6 Failure behaviour
+
+- Retries must **never** resend an assignment without the stored `request_id`
+  — that is the double-booking path (see `docs/imed-integration-plan.md`).
+- Bound retries. A hospital-side outage must not turn our booth into a load
+  generator against their API.
+- A timeout is **`unknown`, not `failed`** — the queue row may exist.
+
+### 7.7 Treat their responses as untrusted input
+
+- Validate shape and size before persisting.
+- Render `message_th` as text in the nurse portal. React escapes by default,
+  so this only breaks if someone reaches for `dangerouslySetInnerHTML`.
+
+## 8. Meeting notes
 
 > Fill in during/after the discussion.
 

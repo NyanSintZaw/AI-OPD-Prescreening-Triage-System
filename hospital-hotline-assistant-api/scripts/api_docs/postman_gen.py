@@ -62,6 +62,25 @@ def json_body(payload) -> dict:
     }
 
 
+def example_response(name: str, code: int, status: str, payload, request: dict, note: str = "") -> dict:
+    """A saved response example — renders in Postman's Examples dropdown under
+    the request, so one request can show every outcome instead of us shipping
+    a near-identical request per error code."""
+    body = json.dumps(payload, indent=2, ensure_ascii=False)
+    if note:
+        body = f"// {note}\n" + body
+    return {
+        "name": name,
+        "originalRequest": request,
+        "status": status,
+        "code": code,
+        "_postman_previewlanguage": "json",
+        "header": [{"key": "Content-Type", "value": "application/json"}],
+        "cookie": [],
+        "body": body,
+    }
+
+
 def capture_script(var: str, field: str) -> dict:
     """Save an id/token from the response into the active environment."""
     return {
@@ -221,16 +240,22 @@ env_values.update({v: "" for v in sorted(path_vars) if v != "session_id"})
 # Keep in sync with HttpHisAdapter's methods.
 ADAPTER_CALLS = [
     ("get", "/api/visits/{visit_id}",
-     "**WE GET** — visit lookup: validate a visit id and pull patient name, birthdate, vitals, history (`HttpHisAdapter.validate_visit`)."),
+     "⚠️ **OUR ASSUMPTION — iMed documents no counterpart (change request 6).**\n\n"
+     "**WE GET** — visit lookup: validate a visit id and pull patient name, birthdate, vitals, history (`HttpHisAdapter.validate_visit`). "
+     "**Blocking for go-live**: without a real equivalent the booth cannot link a patient to a visit, and there is then no `visit_id` to assign."),
     ("get", "/api/departments",
-     "**WE GET** — list of department names for routing (`HttpHisAdapter.get_departments`)."),
+     "⚠️ **OUR ASSUMPTION — iMed documents no counterpart (change request 6).**\n\n"
+     "**WE GET** — list of department names for routing (`HttpHisAdapter.get_departments`). "
+     "Replaceable by a one-time master-data sheet instead of an API."),
     ("post", "/api/visits/{visit_id}/prescreen",
      "**WE POST** — Stage 1 write-back: AI prescreen result right after the booth session (`HttpHisAdapter.push_referral`)."),
     ("put", "/api/visits/{visit_id}/routing",
      "**WE PUT** — Stage 2 write-back: nurse-confirmed department routing (`HttpHisAdapter.confirm_routing`). Real-iMed counterpart: `POST /patient-assignments`."),
     ("put", "/api/visits/{visit_id}/follow-up",
+     "⚠️ **OUR ASSUMPTION — iMed documents no counterpart (change request 6).**\n\n"
      "**WE PUT** — follow-up note captured during the interview (`HttpHisAdapter.push_follow_up`)."),
     ("put", "/api/patients/{hn}/history",
+     "⚠️ **OUR ASSUMPTION — iMed documents no counterpart (change request 6).**\n\n"
      "**WE PUT** — patient history (allergies, chronic conditions, …) updated at the booth (`HttpHisAdapter.push_patient_history`)."),
 ]
 
@@ -251,82 +276,257 @@ for method, path, purpose in ADAPTER_CALLS:
         request["body"] = json_body(example_from_schema(his_spec, rb["schema"]))
     current_items.append({"name": f"{method.upper()} {path}", "request": request})
 
-IMED_DESC = (
-    "**WE POST** — the hospital's real iMed Patient Assignment API "
-    "(spec: `docs/imed-patient-assignment-api.md`, from iMed Core's contract PDF).\n\n"
-    "Sends a registered visit to a destination service point; replaces the "
-    "current-contract routing call at go-live. Idempotent per `request_id` — "
-    "retry a 409 with the SAME `request_id`. Sender identity and source service "
-    "point come from the Bearer token, never from the body."
-)
+JSON_HDR = [{"key": "Content-Type", "value": "application/json"}]
+
+# The body the Phase-3 adapter will actually emit. Note what is ABSENT:
+# no queue_number (iMed's queue rules own it), no base_department_id (iMed
+# derives it from the service point), no assign_eid (we route to a department,
+# never a named doctor), no assessment_equipment (a clinical judgement our
+# system does not make).
+SEND_BODY = {
+    "request_id": "MFU-20260807-A1B2C3",
+    "visit_id": "{{imedVisitId}}",
+    "assign_spid": "SP_OPD_MED_01",
+    "sbar": {
+        "situation": "แน่นหน้าอกมา 2 ชั่วโมง ร้าวไปแขนซ้าย",
+        "background": "ความดันโลหิตสูง กินยาสม่ำเสมอ ไม่มีประวัติแพ้ยา อายุ 58 ปี",
+        "assessment": "BP 158/94, ชีพจร 96, อุณหภูมิ 36.8, SpO2 97% (วัดที่บูธ) — ระดับการคัดกรอง 3",
+        "assessment_problem": "เจ็บหน้าอกร่วมกับปัจจัยเสี่ยงโรคหัวใจ (คู่มือคัดกรอง MFU ข้อ 4.2)",
+        "recommend": "ส่งตรวจอายุรกรรม ประเมินโดยแพทย์",
+    },
+}
+
+SEND_DESC = """**WE POST** — this is *our intended payload*, not a transcription of your
+contract. The contract itself is transcribed verbatim in
+`docs/imed-patient-assignment-api.md`.
+
+⚠️ `assign_spid` is a **placeholder** pending your master-data codes.
+
+### Deliberately absent
+
+| Field | Why |
+|---|---|
+| `queue_number` | you generate it — your queue rules own sequencing, prefixes and daily resets. We display what you return and the nurse hands it to the patient. |
+| `base_department_id` | you derive it from the service point; one less code for us to keep in sync |
+| `assign_eid` | we route to a *department*, never a named doctor. If any destination requires one, that is a product decision for us — see per-department question 2. |
+| `sbar.assessment_equipment` | a clinical judgement our system does not make; left for the nurse |
+
+### Where each value comes from
+
+| iMed field | our source |
+|---|---|
+| `request_id` | allocated at nurse-confirm and **stored**; reused on retry, new one on a genuine reroute |
+| `visit_id` | `session.metadata.visit.visit_id`, captured when the patient enters their VN at the booth |
+| `assign_spid` | our department code → `department_map.CODE_TO_SPID` ⚠️ |
+| `sbar.situation` | nurse-edited chief complaint, else `metadata.triage_classification.symptoms_summary` |
+| `sbar.background` | `metadata.patient_history` (chronic_conditions, allergies, past_surgeries, family_history, smoking_alcohol) + age |
+| `sbar.assessment` | `metadata.vitals` measured at the booth **+ the triage level** (it has nowhere else to go — see change request 1) |
+| `sbar.assessment_problem` | `triage_classification.key_reason` + `disposition_reasons[].text_th` with its manual `citation` |
+| `sbar.recommend` | destination department + urgency; a reroute is noted here because iMed has no `rerouted` flag |
+
+SBAR is always sent in **Thai**, regardless of the language the patient used
+at the booth.
+
+### Timeout is not failure
+
+Postman cannot express this as a saved example, so stated here: if this call
+**times out**, we do not know whether the queue row was created. We record it
+as `unknown` — never as failed — and any retry reuses the **same**
+`request_id`, so it cannot double-book the patient. This is why change
+requests 7 and 8 matter.
+"""
+
+send_request = {
+    "method": "POST",
+    "header": JSON_HDR,
+    "url": pm_url("/patient-assignments", "imedBaseUrl"),
+    "description": SEND_DESC,
+    "body": json_body(SEND_BODY),
+}
+
+OK_RESULT = {
+    "request_id": "MFU-20260807-A1B2C3",
+    "status": "STATUS_SUCCESS",
+    "result": {
+        "visit_id": "VN-2026-0001",
+        "visit_queue_id": "VQ-8F2C1A9D44",
+        "assign_spid": "SP_OPD_MED_01",
+        "assign_eid": "EMP00001",
+        "queue_number": "A014",
+        "queue_status": "WAITING",
+        "sbar_id": "SBAR-4B7E22",
+    },
+}
+
+
+def _err(code: str, th: str) -> dict:
+    return {"request_id": "MFU-20260807-A1B2C3", "status": "STATUS_BUSINESS_ERROR",
+            "message": code, "message_th": th}
+
+
+PROPOSED_BODY = dict(SEND_BODY)
+PROPOSED_BODY["proposed"] = {
+    "acuity_level": 3,
+    "acuity_scale": "MOPH-5",
+    "vitals": {
+        "systolic": 158, "diastolic": 94, "pulse_bpm": 96,
+        "temperature_c": 36.8, "weight_kg": 72.5, "height_cm": 165,
+        "measured_at": "2026-08-07T09:12:00+07:00",
+        "source": "cuff",
+    },
+    "confirmed_by": "OPD Nurse (สมหญิง)",
+    "source_ref": {"slip_code": "MCH-A1B2-C3D4", "session_ref": "{{session_id}}"},
+    "rerouted": False,
+}
+
 imed_items = [
     {
-        "name": "POST /patient-assignments (normal)",
+        "name": "1. POST /patient-assignments — as we will send it",
+        "request": send_request,
+        "response": [
+            example_response("200 — STATUS_SUCCESS", 200, "OK", OK_RESULT, send_request,
+                             "Nurse sees: the queue number, and gives it to the patient."),
+            example_response("409 — VISIT_QUEUE_ALREADY_EXIST", 409, "Conflict",
+                             _err("VISIT_QUEUE_ALREADY_EXIST", "ผู้ป่วยอยู่ในคิวของจุดบริการปลายทางแล้ว"),
+                             send_request,
+                             "We treat this as SUCCESS (our earlier attempt landed). But with no `result` "
+                             "we never learn queue_number, so the nurse has nothing to hand over "
+                             "-> change request 7."),
+            example_response("403 — VISIT_LOCKED_OR_FINANCIAL_DISCHARGED", 403, "Forbidden",
+                             _err("VISIT_LOCKED_OR_FINANCIAL_DISCHARGED", "visit ถูกล็อกหรือจำหน่ายทางการเงินแล้ว"),
+                             send_request,
+                             "Permanent — we do NOT retry. Nurse sees: visit is closed, send the "
+                             "patient to the front desk."),
+            example_response("422 — SERVICE_POINT_NOT_AVAILABLE", 422, "Unprocessable Entity",
+                             _err("SERVICE_POINT_NOT_AVAILABLE", "จุดบริการปลายทางไม่พร้อมให้บริการ"),
+                             send_request,
+                             "Recoverable. We reopen the department choice so the nurse can reroute "
+                             "immediately."),
+            example_response("400 — invalid_request", 400, "Bad Request",
+                             _err("invalid_request", "ข้อมูลไม่ครบหรือไม่ถูกต้อง"),
+                             send_request,
+                             "Our bug, not a nurse problem. Logged and alerted; nurse sees "
+                             "'system error, contact IT'."),
+        ],
+    },
+    {
+        "name": "2. POST /patient-assignments — PROPOSED additions (NOT in your contract)",
         "request": {
             "method": "POST",
-            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "header": JSON_HDR,
             "url": pm_url("/patient-assignments", "imedBaseUrl"),
-            "description": IMED_DESC,
-            "body": json_body({
-                "request_id": "THIRD-PARTY-20260724-000001",
-                "visit_id": "VISIT_ID_FROM_IMED",
-                "assign_spid": "SP_DOCTOR_01",
-                "assign_eid": "EMP00001",
-                "base_department_id": "DEPT_MED",
-                "queue_number": "A001",
-            }),
+            "description": """**Nothing here is in your contract yet — this is the ask.**
+
+Identical to request 1, plus a single additive `proposed` object. It is
+deliberately one wrapper rather than loose top-level fields, so there is no
+chance of reading it as something we already send. **We are not asking you to
+adopt this shape** — only to tell us where these values should live.
+
+| In `proposed` | Change request | Why it matters |
+|---|---|---|
+| `acuity_level`, `acuity_scale` | **CR 1 — highest value** | The 5-level triage is our system's whole output. With no field it is buried in SBAR prose, so your destination queue sorts by arrival time instead of by how sick the patient is. |
+| `vitals` (structured, with `measured_at` and `source`) | CR 2 | We measure with a real cuff at the booth and know whether a value was instrument-measured or patient-stated. Today all of it flattens into one sentence. |
+| `confirmed_by` | CR 3 | Sender identity comes from the token, so iMed records "the MFU triage system", not the nurse who signed off. Matters for audit after an incident. |
+| `source_ref` | CR 4 | Lets your staff open the full transcript and the AI's cited reasoning, not just the summary. |
+| `rerouted` | — | We know when a nurse overrode the AI's department. There is no iMed field, so today it can only go into `sbar.recommend` as prose. |
+
+If any of these are accepted we implement them our side and this request
+becomes request 1.
+""",
+            "body": json_body(PROPOSED_BODY),
         },
     },
     {
-        "name": "POST /patient-assignments (with SBAR)",
+        "name": "3. GET /patient-assignments/{request_id} — PROPOSED lookup",
         "request": {
-            "method": "POST",
-            "header": [{"key": "Content-Type", "value": "application/json"}],
-            "url": pm_url("/patient-assignments", "imedBaseUrl"),
-            "description": IMED_DESC + "\n\nSBAR variant — iMed uses `assignSbarVisit` and saves the handover.",
-            "body": json_body({
-                "request_id": "THIRD-PARTY-20260724-000002",
-                "visit_id": "VISIT_ID_FROM_IMED",
-                "assign_spid": "SP_ER_01",
-                "base_department_id": "DEPT_ER",
-                "sbar": {
-                    "situation": "ผู้ป่วยมีอาการเจ็บหน้าอก",
-                    "background": "มีโรคความดันโลหิตสูง",
-                    "assessment": "รู้สึกตัวดี vital signs คงที่",
-                    "assessment_problem": "สงสัยภาวะกล้ามเนื้อหัวใจขาดเลือด",
-                    "assessment_equipment": "ECG monitor",
-                    "recommend": "ประเมินโดยแพทย์โดยเร็ว",
-                    "documentation": "แนบผล ECG",
-                },
-            }),
+            "method": "GET",
+            "header": [],
+            "url": pm_url("/patient-assignments/{imedRequestId}", "imedBaseUrl"),
+            "description": """**This endpoint does not exist yet — it is a request.** It covers three
+asks at once.
+
+**CR 8 — an idempotency key we cannot query leaves us blind.** If our call
+times out we cannot tell whether the assignment landed. Today the only way to
+find out is to send it again and interpret the error. A read endpoint turns a
+guess into a fact, and enables end-of-day reconciliation against your gateway
+logs.
+
+**CR 7 — a duplicate should return the original `result`.** Standard
+idempotency behaviour is 200 with the first response replayed. Without it, a
+timeout-then-retry leaves the patient queued while the nurse has no queue
+number to give them.
+
+**CR 5 — SBAR read-back.** SBAR is currently write-only for us: we get an
+`sbar_id` and nothing else. Reading it back lets us show the nurse what was
+actually handed over.
+""",
         },
+        "response": [
+            example_response("200 — assignment found (incl. SBAR read-back)", 200, "OK",
+                             {**OK_RESULT, "result": {**OK_RESULT["result"], "sbar": SEND_BODY["sbar"]}},
+                             {"method": "GET", "header": [],
+                              "url": pm_url("/patient-assignments/{imedRequestId}", "imedBaseUrl")},
+                             "Resolves the post-timeout unknown, and returns what we handed over."),
+        ],
     },
 ]
 
 his_desc = (
     "Only the calls **our system makes to the hospital HIS** — the integration "
     "surface for the hospital IT team.\n\n"
-    "**current-contract**: what `HttpHisAdapter` calls today (bodies from the "
-    "mock-HIS OpenAPI spec, which is our present integration contract).\n\n"
-    "**imed-real-contract**: the hospital's own iMed API, bodies verbatim from "
-    "their contract PDF.\n\n"
-    "Both auth schemes are sent (`Authorization: Bearer` for iMed, `X-API-Key` "
-    "for the mock) from the single `hisToken` variable — matching "
-    "`his_auth_headers()` in the backend."
+    "**imed-assignment** — what we intend to send to your real iMed "
+    "`POST /patient-assignments`, plus the fields we are asking for. Start here.\n\n"
+    "**our-current-mock** — what our adapter calls today against our own mock "
+    "HIS. Everything in it that iMed does not document is marked ⚠️ **OUR "
+    "ASSUMPTION**; the visit lookup is the blocking one.\n\n"
+    "Auth: both schemes are sent from the single `hisToken` variable "
+    "(`Authorization: Bearer` for iMed, `X-API-Key` for our mock) — matching "
+    "`his_auth_headers()` in the backend. On the real API we will send Bearer "
+    "only."
 )
+IMED_FOLDER_DESC = """What we intend to send to `POST /patient-assignments`.
+
+**These are our payloads, not a transcription of your contract** — your
+contract is transcribed verbatim in `docs/imed-patient-assignment-api.md` and
+we have left it untouched. Every ⚠️ value is a placeholder awaiting your
+master data.
+
+1. **as we will send it** — the real payload. Open its **Examples** dropdown
+   to see how we handle each response, including every error code.
+2. **PROPOSED additions** — fields we are asking for, isolated in one
+   additive object so there is no doubt about what we send today.
+3. **PROPOSED lookup** — a read endpoint that would resolve the
+   post-timeout unknown state.
+"""
+MOCK_FOLDER_DESC = """What our adapter calls **today**, against our own mock HIS.
+
+Your assignment contract covers one direction only, so everything here that
+iMed does not document is marked ⚠️ **OUR ASSUMPTION (change request 6)**.
+
+The **visit lookup** is blocking: the booth starts from a patient entering
+their VN, and without a real equivalent we cannot identify them, cannot pull
+history, and have no `visit_id` to assign later.
+"""
 (COLLECTIONS / "his-integration.postman_collection.json").write_text(
     json.dumps(collection("HIS Integration (hospital-facing)", his_desc, [
-        {"name": "current-contract", "item": current_items},
-        {"name": "imed-real-contract", "item": imed_items},
+        {"name": "imed-assignment", "description": IMED_FOLDER_DESC, "item": imed_items},
+        {"name": "our-current-mock", "description": MOCK_FOLDER_DESC, "item": current_items},
     ], "hisToken"), indent=2, ensure_ascii=False) + "\n"
 )
 (ENVIRONMENTS / "his-local.postman_environment.json").write_text(
     json.dumps(environment("mfu-his local", {
         "hisBaseUrl": "http://localhost:8001",
-        "imedBaseUrl": "https://uat-host/api/v1",
-        "hisToken": "",
-        "visit_id": "",
-        "hn": "",
+        # Points at our mock's future /api/v1 mount so the same collection runs
+        # locally; swap for the hospital's UAT host when they issue it.
+        "imedBaseUrl": "http://localhost:8001/api/v1",
+        "hisToken": "demo-his-key",
+        # Seeded sample rows so every request works on import; replace with a
+        # real VN/HN when pointing at a hospital environment.
+        "visit_id": "990000000000000001",
+        "hn": "09900001",
+        "imedVisitId": "990000000000000001",
+        "imedRequestId": "MFU-20260807-A1B2C3",
+        "session_id": "",
     }), indent=2) + "\n"
 )
 
