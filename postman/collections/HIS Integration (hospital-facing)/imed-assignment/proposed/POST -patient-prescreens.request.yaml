@@ -1,5 +1,5 @@
 $kind: http-request
-name: POST /visit-measurements
+name: POST /patient-prescreens
 description: |
   ⚠️ **Not in your contract — change request 14.**
 
@@ -8,8 +8,9 @@ description: |
   before reaching a nurse, iMed never learns they were there** — including the
   blood pressure we measured with a real cuff.
 
-  This would record the objective half at the end of the booth session, before
-  any human review.
+  This marks the patient as **pre-screened and awaiting nurse confirmation**,
+  and records what we measured. It is the first of the two states; the
+  assignment is the second.
 
   ### Deliberately NOT included
 
@@ -23,13 +24,21 @@ description: |
   instrument measured and the fact that the patient was at the booth. The
   clinical narrative stays with us until `POST /patient-assignments`.
 
-  ### Why "measurements"
+  ### Why "prescreens"
 
-  Named after your own vocabulary rather than ours: the Prescreen export already
-  has `measure_spid`, `measure_name` and `measure_department` for exactly this —
-  who took the numbers and where. Deliberately **not** "observations", which in
-  clinical systems implies an assessment; nothing here is assessed. Plural,
-  hyphenated, visit-scoped, to sit alongside `POST /patient-assignments`.
+  It names the **state the patient is now in**: pre-screened at the booth, and
+  waiting for a nurse to confirm where they go. That is the whole lifecycle in
+  two calls, and it is your vocabulary, not ours — your existing export is
+  called *Prescreen*, and it already has `measure_spid` / `measure_name` /
+  `measure_department` for who took the numbers and where.
+
+  ```
+  POST /patient-prescreens    ← screened, awaiting confirmation   (this request)
+  POST /patient-assignments   ← nurse confirmed, patient queued
+  ```
+
+  Deliberately not "observations": in a clinical system that implies an
+  assessment, and the point of this call is that nothing has been assessed yet.
 
   ### Identifying the patient — VN only, same as the assignment
 
@@ -60,7 +69,7 @@ description: |
   table, or somewhere provisional. If you would rather receive nothing before
   nurse sign-off, that is a legitimate answer — we would keep the measurements
   on our side and they would reach you in the SBAR at assignment time instead.
-url: "{{imedBaseUrl}}/visit-measurements"
+url: "{{imedBaseUrl}}/patient-prescreens"
 method: POST
 headers:
   Content-Type: application/json

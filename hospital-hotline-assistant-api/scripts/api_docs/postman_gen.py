@@ -842,8 +842,9 @@ confirms. That leaves a gap: **if a patient uses the booth and walks out
 before reaching a nurse, iMed never learns they were there** — including the
 blood pressure we measured with a real cuff.
 
-This would record the objective half at the end of the booth session, before
-any human review.
+This marks the patient as **pre-screened and awaiting nurse confirmation**,
+and records what we measured. It is the first of the two states; the
+assignment is the second.
 
 ### Deliberately NOT included
 
@@ -857,13 +858,21 @@ nurse-confirm step would be decorative. So this carries only what an
 instrument measured and the fact that the patient was at the booth. The
 clinical narrative stays with us until `POST /patient-assignments`.
 
-### Why "measurements"
+### Why "prescreens"
 
-Named after your own vocabulary rather than ours: the Prescreen export already
-has `measure_spid`, `measure_name` and `measure_department` for exactly this —
-who took the numbers and where. Deliberately **not** "observations", which in
-clinical systems implies an assessment; nothing here is assessed. Plural,
-hyphenated, visit-scoped, to sit alongside `POST /patient-assignments`.
+It names the **state the patient is now in**: pre-screened at the booth, and
+waiting for a nurse to confirm where they go. That is the whole lifecycle in
+two calls, and it is your vocabulary, not ours — your existing export is
+called *Prescreen*, and it already has `measure_spid` / `measure_name` /
+`measure_department` for who took the numbers and where.
+
+```
+POST /patient-prescreens    ← screened, awaiting confirmation   (this request)
+POST /patient-assignments   ← nurse confirmed, patient queued
+```
+
+Deliberately not "observations": in a clinical system that implies an
+assessment, and the point of this call is that nothing has been assessed yet.
 
 ### Identifying the patient — VN only, same as the assignment
 
@@ -897,11 +906,11 @@ on our side and they would reach you in the SBAR at assignment time instead.
 """
 
 reads_items.append({
-    "name": "POST /visit-measurements",
+    "name": "POST /patient-prescreens",
     "request": {
         "method": "POST",
         "header": JSON_HDR,
-        "url": pm_url("/visit-measurements", "imedBaseUrl"),
+        "url": pm_url("/patient-prescreens", "imedBaseUrl"),
         "description": STAGE1_DESC,
         "body": json_body({
             "visit_id": "{{imedVisitId}}",
@@ -979,9 +988,10 @@ what we mean.
 * **PUT /patients/{hn}/history** — write back the history the booth collected
   from a first-time patient (CR 13). Pairs with the read: without it every
   visit is a first visit.
-* **POST /visit-measurements** — what the booth measured, recorded at the end
-  of the session: **objective data only, no AI judgement** (CR 14). Without it
-  a patient who leaves before seeing a nurse leaves no trace.
+* **POST /patient-prescreens** — marks the patient pre-screened and awaiting
+  nurse confirmation, carrying what the booth measured: **objective data only,
+  no AI judgement** (CR 14). The state before `patient-assignments`. Without
+  it a patient who leaves before seeing a nurse leaves no trace.
 
 Anything you accept, we implement our side. Anything you reject, we drop —
 these are questions, not requirements.
