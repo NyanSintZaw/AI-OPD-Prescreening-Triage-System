@@ -10,7 +10,7 @@ description: |-
 
   Auth: both schemes are sent from the single `hisToken` variable (`Authorization: Bearer` for iMed, `X-API-Key` for our mock) — matching `his_auth_headers()` in the backend. On the real API we will send Bearer only.
 auth:
-  - id: 6d6c8f6c-2441-4f32-a811-eb16c74ca8c0
+  - id: 1cb6c4a6-8362-437f-9ee6-f3d1f5f28f76
     type: bearer
     name: bearer auth
     credentials:

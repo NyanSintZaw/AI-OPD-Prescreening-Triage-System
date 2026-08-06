@@ -196,7 +196,7 @@ adds Documentation — seven fields. Sending it switches their code path to
 |---|---|---|
 | `situation` | nurse-edited chief complaint, else AI `symptoms_summary` | |
 | `background` | `metadata.patient_history` (chronic conditions, allergies, past surgeries, family history, smoking/alcohol) + age + first-visit flag | |
-| `assessment` | `metadata.vitals` (cuff BP, pulse, temp, weight/height) **+ the triage level** | level goes here until/unless they add a real acuity field |
+| `assessment` | `metadata.vitals` (cuff BP, pulse, temp, weight/height) **+ the triage level** | level goes here until/unless they add a real triage-level field |
 | `assessment_problem` | `key_reason` + `disposition_reasons` — structured `{rule_id, citation, text_en, text_th}`, so we can cite which MFU-manual criterion fired | |
 | `assessment_equipment` | **not auto-filled** — a clinical judgement our system does not make; leave blank or nurse-filled | |
 | `recommend` | recommended department + urgency; if rerouted, say so (iMed has no `rerouted` flag) | |
@@ -224,7 +224,7 @@ collection on the day.
 
 | # | Request | Why |
 |---|---|---|
-| 1 | An **acuity / triage-level field** on the assignment | Our system's core output is a 5-level triage. With no field it is buried in SBAR prose, so the destination queue sorts by arrival instead of by how sick the patient is. Highest-value request. |
+| 1 | A **triage-level field** on the assignment (`triage_level` 1–5 + `triage_scale` = `MOPH-5`) | Our system's core output is a 5-level triage. With no field it is buried in SBAR prose, so the destination queue sorts by arrival instead of by how sick the patient is. Highest-value request. |
 | 2 | **Structured vitals** fields | We capture BP/pulse/temp/weight/height with timestamps *and* provenance (cuff vs patient-stated); otherwise all of it flattens into one sentence. |
 | 3 | **Nurse attribution** (e.g. `confirmed_by`) | Sender identity comes from the token, so iMed records "the MFU system", not the nurse who confirmed. Matters for audit after an incident. |
 | 4 | **Back-link field** for our slip code / session ref | Lets destination staff open the full transcript and reasoning, not just the summary. |

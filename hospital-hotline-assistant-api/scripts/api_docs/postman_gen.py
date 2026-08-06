@@ -420,8 +420,9 @@ def _err(code: str, th: str) -> dict:
 
 PROPOSED_BODY = dict(SEND_BODY)
 PROPOSED_BODY["proposed"] = {
-    "acuity_level": 3,
-    "acuity_scale": "MOPH-5",
+    "triage_level": 3,
+    "triage_scale": "MOPH-5",
+    "triage_label": "Urgent",
     "vitals": {
         "systolic": 158, "diastolic": 94, "pulse_bpm": 96,
         "temperature_c": 36.8, "weight_kg": 72.5, "height_cm": 165,
@@ -478,7 +479,7 @@ adopt this shape** — only to tell us where these values should live.
 
 | In `proposed` | Change request | Why it matters |
 |---|---|---|
-| `acuity_level`, `acuity_scale` | **CR 1 — highest value** | The 5-level triage is our system's whole output. With no field it is buried in SBAR prose, so your destination queue sorts by arrival time instead of by how sick the patient is. |
+| `triage_level`, `triage_scale`, `triage_label` | **CR 1 — highest value** | The 5-level triage is our system's whole output. With no field it is buried in SBAR prose, so your destination queue sorts by arrival time instead of by how sick the patient is. `triage_level` is the integer 1–5 our engine already produces; `triage_scale` is `MOPH-5`, the Thai MOPH ED Triage 5-level guideline (กรมการแพทย์ 2561) our criteria are built on — see `docs/criteria-standards.md`. Name them whatever suits your schema; the value is what matters. |
 | `vitals` (structured, with `measured_at` and `source`) | CR 2 | We measure with a real cuff at the booth and know whether a value was instrument-measured or patient-stated. Today all of it flattens into one sentence. |
 | `confirmed_by` | CR 3 | Sender identity comes from the token, so iMed records "the MFU triage system", not the nurse who signed off. Matters for audit after an incident. |
 | `source_ref` | CR 4 | Lets your staff open the full transcript and the AI's cited reasoning, not just the summary. |
