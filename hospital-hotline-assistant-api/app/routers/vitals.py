@@ -15,6 +15,7 @@ from app.services.blood_pressure import (
     BloodPressureFetchError,
     BloodPressureService,
 )
+from app.services.thermometer import ThermometerError, ThermometerService
 
 logger = logging.getLogger(__name__)
 from app.schemas import (
@@ -28,6 +29,12 @@ from app.schemas import (
     BpScanResponse,
     SessionMeasurementUpdate,
     SessionVitalsUpdate,
+    TempDeviceStatusOut,
+    TempFetchRequest,
+    TempPairRequest,
+    TempPairResponse,
+    TempScanResponse,
+    TemperatureFetchResponse,
 )
 
 from fastapi import APIRouter
@@ -238,6 +245,52 @@ _MEASUREMENT_METADATA_KEY = {
 }
 
 
+async def _merge_session_vitals(
+    connection: asyncpg.Connection, session_id: UUID, updates: dict
+) -> dict | None:
+    """Merge values into the session's stored vitals metadata (the next
+    turn's ``turn_context`` reads it). Returns the merged vitals, or None
+    when the session does not exist."""
+    session_row = await connection.fetchrow(
+        "SELECT metadata FROM sessions WHERE id = $1", session_id
+    )
+    if session_row is None:
+        return None
+    metadata = dict(session_row["metadata"] or {})
+    vitals = dict(metadata.get("vitals") or {})
+    vitals.update(updates)
+    vitals["recorded_at"] = datetime.now(timezone.utc).isoformat()
+    metadata["vitals"] = vitals
+    await connection.execute(
+        "UPDATE sessions SET metadata = $2::jsonb WHERE id = $1",
+        session_id,
+        metadata,
+    )
+    return vitals
+
+
+async def _store_temperature_reading(
+    connection: asyncpg.Connection,
+    *,
+    session_id: UUID | None,
+    temperature_c: float,
+    measured_at: datetime | None,
+    source: str = "device",
+) -> UUID | None:
+    row = await connection.fetchrow(
+        """
+        INSERT INTO temperature_readings (session_id, temperature_c, measured_at, source)
+        VALUES ($1, $2, COALESCE($3, NOW()), $4)
+        RETURNING id
+        """,
+        session_id,
+        temperature_c,
+        measured_at,
+        source,
+    )
+    return row["id"] if row is not None else None
+
+
 @router.post("/sessions/{session_id}/measurement")
 async def update_session_measurement(
     session_id: UUID,
@@ -249,23 +302,24 @@ async def update_session_measurement(
     next turn's ``turn_context`` carries it — without requiring the booth to
     re-send the blood-pressure reading.
     """
-    session_row = await connection.fetchrow(
-        "SELECT metadata FROM sessions WHERE id = $1", session_id
-    )
-    if session_row is None:
-        raise HTTPException(status_code=404, detail="Session not found")
-
-    metadata = dict(session_row["metadata"] or {})
-    vitals = dict(metadata.get("vitals") or {})
     key = _MEASUREMENT_METADATA_KEY.get(payload.vital, payload.vital)
-    vitals[key] = payload.value
-    vitals["recorded_at"] = datetime.now(timezone.utc).isoformat()
-    metadata["vitals"] = vitals
-    await connection.execute(
-        "UPDATE sessions SET metadata = $2::jsonb WHERE id = $1",
-        session_id,
-        metadata,
-    )
+    vitals = await _merge_session_vitals(connection, session_id, {key: payload.value})
+    if vitals is None:
+        raise HTTPException(status_code=404, detail="Session not found")
+    if payload.vital == "temp":
+        # Typed temperatures get a durable row too; device fetches store
+        # theirs in /vitals/temperature/fetch (the booth skips this call
+        # when the device value is used unedited, so no duplicates).
+        try:
+            await _store_temperature_reading(
+                connection,
+                session_id=session_id,
+                temperature_c=payload.value,
+                measured_at=None,
+                source="manual",
+            )
+        except Exception:  # noqa: BLE001 — vitals merge must not fail
+            logger.exception("Failed to persist manual temperature reading")
     return {"session_id": str(session_id), "vitals": vitals}
 
 
@@ -515,5 +569,116 @@ async def pair_bp_device(
         status="ok",
         device_name=settings.bp_device_name,
         device_mac=settings.bp_device_mac,
+    )
+
+
+@router.post("/vitals/temperature/fetch", response_model=TemperatureFetchResponse)
+async def fetch_temperature(
+    request: Request,
+    payload: TempFetchRequest | None = None,
+    connection: asyncpg.Connection = Depends(get_connection),
+):
+    """Long-poll the kiosk thermometer for one measurement.
+
+    The device pushes the reading over a standard Health Thermometer
+    indication the moment the measurement beeps, so this call connects,
+    waits for that push (up to ``timeout_seconds``), persists the reading
+    to ``temperature_readings`` and — when a session is given — merges it
+    into the session vitals so the next screening turn carries it.
+    Always returns 200 with a ``status`` field the kiosk UI branches on.
+    """
+    temp_service: ThermometerService = request.app.state.temp_service
+    session_id = payload.session_id if payload else None
+    try:
+        reading = await temp_service.fetch_reading(
+            payload.timeout_seconds if payload else None
+        )
+    except ThermometerError as exc:
+        return TemperatureFetchResponse(status=exc.code, message=str(exc))
+    except Exception as exc:  # noqa: BLE001 — surface as structured error
+        logger.exception("Unexpected thermometer failure")
+        return TemperatureFetchResponse(status="error", message=str(exc))
+
+    reading_id: UUID | None = None
+    try:
+        reading_id = await _store_temperature_reading(
+            connection,
+            session_id=session_id,
+            temperature_c=reading.temperature_c,
+            measured_at=reading.measured_at,
+            source="device",
+        )
+    except Exception:  # noqa: BLE001 — reading display must not fail
+        logger.exception("Failed to persist temperature reading")
+    if session_id is not None:
+        try:
+            await _merge_session_vitals(
+                connection, session_id, {"temperature": reading.temperature_c}
+            )
+        except Exception:  # noqa: BLE001
+            logger.exception("Failed to merge temperature into session vitals")
+
+    return TemperatureFetchResponse(
+        status="ok",
+        temperature_c=reading.temperature_c,
+        measured_at=reading.measured_at,
+        reading_id=reading_id,
+    )
+
+
+@router.get("/admin/temp-device", response_model=TempDeviceStatusOut)
+async def get_temp_device_status(
+    request: Request,
+    _admin_user: dict = Depends(require_roles("super_admin", "nurse", "viewer")),
+):
+    """Current thermometer configuration for the admin portal device manager."""
+    temp_service: ThermometerService = request.app.state.temp_service
+    return TempDeviceStatusOut(
+        device_name=settings.temp_device_name,
+        device_mac=settings.temp_device_mac,
+        configured=bool(settings.temp_device_mac),
+        busy=temp_service.is_busy,
+    )
+
+
+@router.post("/admin/temp-device/scan", response_model=TempScanResponse)
+async def scan_temp_devices(
+    request: Request,
+    _admin_user: dict = Depends(require_roles("super_admin", "nurse")),
+):
+    """Sweep for nearby BLE devices (~6s) so the admin can pick the thermometer."""
+    temp_service: ThermometerService = request.app.state.temp_service
+    try:
+        devices = await temp_service.scan_devices()
+    except ThermometerError as exc:
+        return TempScanResponse(
+            status="busy" if exc.code == "busy" else "error", message=str(exc)
+        )
+    except Exception as exc:  # noqa: BLE001 — surface as structured error
+        logger.exception("BLE scan failed")
+        return TempScanResponse(status="error", message=str(exc))
+    return TempScanResponse(status="ok", devices=devices)
+
+
+@router.post("/admin/temp-device/pair", response_model=TempPairResponse)
+async def pair_temp_device(
+    payload: TempPairRequest,
+    request: Request,
+    _admin_user: dict = Depends(require_roles("super_admin", "nurse")),
+):
+    """Verify the selected device speaks the thermometer service and make it
+    the active kiosk thermometer (persists to .env, effective immediately)."""
+    temp_service: ThermometerService = request.app.state.temp_service
+    try:
+        await temp_service.save_device(payload.mac, payload.name)
+    except ThermometerError as exc:
+        return TempPairResponse(status=exc.code, message=str(exc))
+    except Exception as exc:  # noqa: BLE001 — surface as structured error
+        logger.exception("Unexpected thermometer connect failure")
+        return TempPairResponse(status="error", message=str(exc))
+    return TempPairResponse(
+        status="ok",
+        device_name=settings.temp_device_name,
+        device_mac=settings.temp_device_mac,
     )
 

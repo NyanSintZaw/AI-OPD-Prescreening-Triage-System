@@ -676,6 +676,63 @@ export interface BpDeviceStatusOut {
   supported_models: string[];
 }
 
+export type TemperatureFetchStatus =
+  | 'ok'
+  | 'busy'
+  | 'not_configured'
+  | 'device_not_found'
+  | 'wrong_device'
+  | 'timeout'
+  | 'error';
+
+export interface TemperatureFetchResponse {
+  status: TemperatureFetchStatus;
+  temperature_c: number | null;
+  measured_at: string | null;
+  message: string | null;
+  reading_id?: string | null;
+}
+
+export interface TempDeviceStatusOut {
+  device_name: string;
+  device_mac: string | null;
+  configured: boolean;
+  busy: boolean;
+}
+
+export interface TempScanDeviceOut {
+  mac: string;
+  name: string | null;
+  rssi: number | null;
+  is_thermometer: boolean;
+}
+
+export interface TempScanResponse {
+  status: 'ok' | 'busy' | 'error';
+  devices: TempScanDeviceOut[];
+  message: string | null;
+}
+
+export interface TempPairRequest {
+  mac: string;
+  /** Advertised name from the scan list — shown in the portal after pairing. */
+  name?: string | null;
+}
+
+export interface TempPairResponse {
+  status:
+    | 'ok'
+    | 'busy'
+    | 'invalid'
+    | 'device_not_found'
+    | 'wrong_device'
+    | 'timeout'
+    | 'error';
+  device_name: string | null;
+  device_mac: string | null;
+  message: string | null;
+}
+
 export interface BpScanDeviceOut {
   mac: string;
   name: string | null;

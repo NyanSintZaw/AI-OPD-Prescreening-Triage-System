@@ -45,6 +45,10 @@ _VALID_UUID = re.compile(
 # often advertise as "HEM-XXXXT"; units in pairing mode as "BLEsmart_...".
 _OMRON_NAME = re.compile(r"hem[-_]|omron|blesmart", re.IGNORECASE)
 
+# The host has ONE Bluetooth adapter: every BLE device service (BP cuff,
+# thermometer) must serialize scans/connections through this shared lock.
+BLE_ADAPTER_LOCK = asyncio.Lock()
+
 @dataclass
 class BloodPressureReading:
     systolic: int
@@ -179,7 +183,7 @@ def _parse_result_json(output: str) -> tuple[BloodPressureReading | None, int]:
 
 class BloodPressureService:
     def __init__(self) -> None:
-        self._lock = asyncio.Lock()
+        self._lock = BLE_ADAPTER_LOCK
         self.omblepy_dir = (
             Path(settings.bp_omblepy_dir).expanduser()
             if settings.bp_omblepy_dir

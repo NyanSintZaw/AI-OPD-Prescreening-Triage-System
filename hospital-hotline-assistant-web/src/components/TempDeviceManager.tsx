@@ -2,71 +2,41 @@ import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { api } from '../api';
 import type {
-  BloodPressureFetchResponse,
-  BpDeviceStatusOut,
-  BpScanDeviceOut,
+  TempDeviceStatusOut,
+  TempScanDeviceOut,
+  TemperatureFetchResponse,
 } from '../api/types';
+import { SignalBars, truncateMac } from './BpDeviceManager';
 
 type WizardStep = 'idle' | 'scanning' | 'select' | 'pairing' | 'paired' | 'pair-error';
 
-export function truncateMac(mac: string): string {
-  return mac.length > 17 ? `${mac.slice(0, 8)}…${mac.slice(-4)}` : mac;
-}
-
-/** 0-4 filled bars from RSSI; null RSSI renders as unknown. */
-function barsFromRssi(rssi: number | null): number {
-  if (rssi == null) return 0;
-  if (rssi >= -50) return 4;
-  if (rssi >= -62) return 3;
-  if (rssi >= -74) return 2;
-  return 1;
-}
-
-export function SignalBars({ rssi }: { rssi: number | null }) {
-  const bars = barsFromRssi(rssi);
-  return (
-    <span
-      className="bpdev-signal"
-      title={rssi != null ? `${rssi} dBm` : undefined}
-      aria-label={rssi != null ? `${rssi} dBm` : 'unknown signal'}
-    >
-      {[1, 2, 3, 4].map((level) => (
-        <span
-          key={level}
-          className={`bpdev-signal-bar ${level <= bars ? 'on' : ''}`}
-          style={{ height: `${4 + level * 3}px` }}
-        />
-      ))}
-    </span>
-  );
-}
-
-function MonitorIcon() {
+function ThermometerIcon() {
   return (
     <svg viewBox="0 0 24 24" aria-hidden="true">
-      <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
+      <path d="M15 13V5a3 3 0 0 0-6 0v8a5 5 0 1 0 6 0zm-3-9a1 1 0 0 1 1 1v8.54l.5.36a3 3 0 1 1-3 0l.5-.36V5a1 1 0 0 1 1-1z" />
+      <circle cx="12" cy="17" r="2" />
     </svg>
   );
 }
 
 /**
- * Admin-portal manager for the kiosk's Omron blood-pressure cuff.
- * Mirrors omblepy's scan → select → pair flow as a guided wizard and
- * lets staff run a live test reading against the configured device.
+ * Admin-portal manager for the kiosk's BLE thermometer (standard Health
+ * Thermometer Service, e.g. TAIDOC TD1242). Same scan → select → connect
+ * wizard as the BP cuff, minus pairing keys — connecting just verifies the
+ * device and saves its address.
  */
-export function BpDeviceManager() {
+export function TempDeviceManager() {
   const { t } = useTranslation();
 
-  const [status, setStatus] = useState<BpDeviceStatusOut | null>(null);
+  const [status, setStatus] = useState<TempDeviceStatusOut | null>(null);
   const [statusError, setStatusError] = useState<string | null>(null);
 
   const [testing, setTesting] = useState(false);
-  const [testResult, setTestResult] = useState<BloodPressureFetchResponse | null>(null);
+  const [testResult, setTestResult] = useState<TemperatureFetchResponse | null>(null);
 
   const [step, setStep] = useState<WizardStep>('idle');
-  const [devices, setDevices] = useState<BpScanDeviceOut[]>([]);
+  const [devices, setDevices] = useState<TempScanDeviceOut[]>([]);
   const [selectedMac, setSelectedMac] = useState<string | null>(null);
-  const [model, setModel] = useState<string>('hem-7280t');
   const [pairError, setPairError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -76,10 +46,9 @@ export function BpDeviceManager() {
 
   const loadStatus = async () => {
     try {
-      const data = await api.getBpDeviceStatus();
+      const data = await api.getTempDeviceStatus();
       setStatus(data);
       setStatusError(null);
-      if (data.device_name) setModel(data.device_name);
     } catch (err) {
       setStatusError(err instanceof Error ? err.message : t('error'));
     }
@@ -89,18 +58,13 @@ export function BpDeviceManager() {
     setTesting(true);
     setTestResult(null);
     try {
-      const result = await api.fetchBloodPressure();
+      const result = await api.fetchTemperature();
       setTestResult(result);
     } catch (err) {
       setTestResult({
         status: 'error',
-        systolic: null,
-        diastolic: null,
-        pulse_bpm: null,
+        temperature_c: null,
         measured_at: null,
-        is_recent: null,
-        irregular_heartbeat: null,
-        body_movement: null,
         message: err instanceof Error ? err.message : t('error'),
       });
     } finally {
@@ -113,16 +77,16 @@ export function BpDeviceManager() {
     setSelectedMac(null);
     setPairError(null);
     try {
-      const result = await api.scanBpDevices();
+      const result = await api.scanTempDevices();
       if (result.status !== 'ok') {
         setPairError(result.message ?? t('error'));
         setStep('pair-error');
         return;
       }
       setDevices(result.devices);
-      // Preselect the strongest likely-Omron device (already sorted first).
-      const omron = result.devices.find((d) => d.is_omron);
-      if (omron) setSelectedMac(omron.mac);
+      // Preselect the strongest likely thermometer (already sorted first).
+      const thermo = result.devices.find((d) => d.is_thermometer);
+      if (thermo) setSelectedMac(thermo.mac);
       setStep('select');
     } catch (err) {
       setPairError(err instanceof Error ? err.message : t('error'));
@@ -135,7 +99,8 @@ export function BpDeviceManager() {
     setStep('pairing');
     setPairError(null);
     try {
-      const result = await api.pairBpDevice({ mac: selectedMac, device_name: model });
+      const scanName = devices.find((d) => d.mac === selectedMac)?.name ?? null;
+      const result = await api.pairTempDevice({ mac: selectedMac, name: scanName });
       if (result.status === 'ok') {
         setStep('paired');
         void loadStatus();
@@ -152,21 +117,21 @@ export function BpDeviceManager() {
   const selectedDevice = devices.find((d) => d.mac === selectedMac) ?? null;
   const testErrorKey =
     testResult && testResult.status !== 'ok'
-      ? testResult.status === 'device_not_found' || testResult.status === 'timeout'
-        ? 'bpdevTestNotFound'
-        : testResult.status === 'busy'
-          ? 'vitalsErrBusy'
-          : testResult.status === 'no_records'
-            ? 'vitalsErrNoRecords'
-            : 'bpdevTestFailed'
+      ? testResult.status === 'device_not_found'
+        ? 'tempdevTestNotFound'
+        : testResult.status === 'timeout'
+          ? 'tempdevTestTimeout'
+          : testResult.status === 'busy'
+            ? 'vitalsErrBusy'
+            : 'tempdevTestFailed'
       : null;
 
   return (
     <div className="bpdev-container">
       <header className="surv-header">
         <div>
-          <h2 className="surv-title">{t('bpdevTitle')}</h2>
-          <p className="surv-subtitle muted">{t('bpdevSubtitle')}</p>
+          <h2 className="surv-title">{t('tempdevTitle')}</h2>
+          <p className="surv-subtitle muted">{t('tempdevSubtitle')}</p>
         </div>
       </header>
 
@@ -179,7 +144,7 @@ export function BpDeviceManager() {
 
           <div className="bpdev-current">
             <span className={`bpdev-device-icon ${status?.configured ? 'ok' : ''}`}>
-              <MonitorIcon />
+              <ThermometerIcon />
             </span>
             <div className="bpdev-current-info">
               <span className="bpdev-model">
@@ -200,14 +165,14 @@ export function BpDeviceManager() {
             </div>
           </div>
 
-          <p className="muted bpdev-hint">{t('bpdevTestHint')}</p>
+          <p className="muted bpdev-hint">{t('tempdevTestHint')}</p>
           <button
             type="button"
             className="primary-btn bpdev-test-btn"
             onClick={() => void runTest()}
             disabled={testing || !status?.configured || step === 'scanning' || step === 'pairing'}
           >
-            {testing ? t('bpdevTesting') : t('bpdevTestButton')}
+            {testing ? t('tempdevTesting') : t('bpdevTestButton')}
           </button>
 
           {testing && (
@@ -221,11 +186,7 @@ export function BpDeviceManager() {
               <span className="bpdev-test-ok">✓ {t('bpdevTestOk')}</span>
               <div className="bpdev-test-values">
                 <span>
-                  <strong>{testResult.systolic}/{testResult.diastolic}</strong>{' '}
-                  {t('vitalsUnitMmhg')}
-                </span>
-                <span>
-                  <strong>{testResult.pulse_bpm}</strong> {t('vitalsUnitBpm')}
+                  <strong>{testResult.temperature_c}</strong> °C
                 </span>
                 {testResult.measured_at && (
                   <span className="muted">
@@ -240,31 +201,16 @@ export function BpDeviceManager() {
           {testErrorKey && <p className="error-text bpdev-test-error">{t(testErrorKey)}</p>}
         </section>
 
-        {/* ── Pairing wizard ─────────────────────────────────────────── */}
+        {/* ── Connect wizard ─────────────────────────────────────────── */}
         <section className="bpdev-card">
-          <h3 className="bpdev-card-title">{t('bpdevPairTitle')}</h3>
+          <h3 className="bpdev-card-title">{t('tempdevPairTitle')}</h3>
 
           {step === 'idle' && (
             <>
               <ol className="bpdev-steps">
-                <li>{t('bpdevPairStep1')}</li>
-                <li>{t('bpdevPairStep2')}</li>
-                <li>{t('bpdevPairStep3')}</li>
+                <li>{t('tempdevPairStep1')}</li>
+                <li>{t('tempdevPairStep2')}</li>
               </ol>
-              <label className="bpdev-field">
-                <span>{t('bpdevModelLabel')}</span>
-                <select
-                  value={model}
-                  onChange={(e) => setModel(e.target.value)}
-                  className="bpdev-select"
-                >
-                  {(status?.supported_models ?? [model]).map((m) => (
-                    <option key={m} value={m}>
-                      {m.toUpperCase()}
-                    </option>
-                  ))}
-                </select>
-              </label>
               <button
                 type="button"
                 className="primary-btn"
@@ -280,14 +226,14 @@ export function BpDeviceManager() {
             <div className="bpdev-center">
               <span className="bpdev-radar" aria-hidden="true" />
               <p>{t('bpdevScanning')}</p>
-              <p className="muted">{t('bpdevScanningHint')}</p>
+              <p className="muted">{t('tempdevScanningHint')}</p>
             </div>
           )}
 
           {step === 'select' && (
             <>
               {devices.length === 0 ? (
-                <p className="muted">{t('bpdevNoDevices')}</p>
+                <p className="muted">{t('tempdevNoDevices')}</p>
               ) : (
                 <div className="bpdev-table-wrap">
                   <table className="bpdev-table">
@@ -302,7 +248,7 @@ export function BpDeviceManager() {
                       {devices.map((device) => (
                         <tr
                           key={device.mac}
-                          className={`bpdev-row ${device.is_omron ? 'omron' : ''} ${
+                          className={`bpdev-row ${device.is_thermometer ? 'omron' : ''} ${
                             selectedMac === device.mac ? 'selected' : ''
                           }`}
                           onClick={() => setSelectedMac(device.mac)}
@@ -314,9 +260,9 @@ export function BpDeviceManager() {
                             <span className={device.name ? '' : 'muted'}>
                               {device.name ?? t('bpdevUnknownDevice')}
                             </span>
-                            {device.is_omron && (
+                            {device.is_thermometer && (
                               <span className="bpdev-chip chip-ok bpdev-chip-inline">
-                                {t('bpdevLikelyOmron')}
+                                {t('tempdevLikelyThermometer')}
                               </span>
                             )}
                           </td>
@@ -337,8 +283,8 @@ export function BpDeviceManager() {
                   disabled={!selectedMac}
                 >
                   {selectedDevice?.name
-                    ? t('bpdevPairNamed', { name: selectedDevice.name })
-                    : t('bpdevPairSelected')}
+                    ? t('tempdevConnectNamed', { name: selectedDevice.name })
+                    : t('tempdevConnectSelected')}
                 </button>
                 <button type="button" className="secondary-btn" onClick={() => void runScan()}>
                   {t('bpdevRescan')}
@@ -353,10 +299,10 @@ export function BpDeviceManager() {
           {step === 'pairing' && (
             <div className="bpdev-center">
               <span className="vitals-icon vitals-icon-pulse bpdev-pair-icon">
-                <MonitorIcon />
+                <ThermometerIcon />
               </span>
-              <p>{t('bpdevPairing')}</p>
-              <p className="muted">{t('bpdevPairingHint')}</p>
+              <p>{t('tempdevPairing')}</p>
+              <p className="muted">{t('tempdevPairingHint')}</p>
             </div>
           )}
 
@@ -365,9 +311,10 @@ export function BpDeviceManager() {
               <span className="bpdev-success-check">✓</span>
               <p className="bpdev-success-title">{t('bpdevPairedTitle')}</p>
               <p className="muted">
-                {model.toUpperCase()} · <code className="bpdev-mac">{selectedMac && truncateMac(selectedMac)}</code>
+                {(selectedDevice?.name ?? status?.device_name ?? '').toUpperCase()} ·{' '}
+                <code className="bpdev-mac">{selectedMac && truncateMac(selectedMac)}</code>
               </p>
-              <p className="muted">{t('bpdevPairedHint')}</p>
+              <p className="muted">{t('tempdevPairedHint')}</p>
               <button type="button" className="primary-btn" onClick={() => setStep('idle')}>
                 {t('bpdevDone')}
               </button>
@@ -377,7 +324,7 @@ export function BpDeviceManager() {
           {step === 'pair-error' && (
             <div className="bpdev-center">
               <p className="error-text">{pairError ?? t('error')}</p>
-              <p className="muted">{t('bpdevPairErrorHint')}</p>
+              <p className="muted">{t('tempdevPairErrorHint')}</p>
               <div className="bpdev-actions">
                 <button type="button" className="primary-btn" onClick={() => void runScan()}>
                   {t('bpdevRescan')}
