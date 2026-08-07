@@ -99,7 +99,8 @@ export function TempDeviceManager() {
     setStep('pairing');
     setPairError(null);
     try {
-      const result = await api.pairTempDevice({ mac: selectedMac });
+      const scanName = devices.find((d) => d.mac === selectedMac)?.name ?? null;
+      const result = await api.pairTempDevice({ mac: selectedMac, name: scanName });
       if (result.status === 'ok') {
         setStep('paired');
         void loadStatus();

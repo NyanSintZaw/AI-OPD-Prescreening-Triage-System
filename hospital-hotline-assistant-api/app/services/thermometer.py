@@ -1,11 +1,14 @@
-"""Read body temperature from a BLE Health Thermometer (TAIDOC TD1242).
+"""Read body temperature from a BLE Health Thermometer.
 
 Unlike the Omron cuff (proprietary protocol via the omblepy subprocess),
-the thermometer speaks the standard GATT Health Thermometer Service:
+thermometers speak the standard GATT Health Thermometer Service:
 connect, subscribe to Temperature Measurement (0x2A1C) indications, and
 the device pushes the reading the moment a measurement beeps. There are
 no pairing keys — "connecting" a device is just verifying it exposes the
-service and persisting its MAC.
+service and persisting its MAC — so any brand that implements the
+standard service (TAIDOC TD1242, FORA/Clever rebrands, Beurer, …) can be
+paired from the admin device manager; nothing here is model-specific
+beyond connect-retry tolerances.
 
 Shares :data:`BLE_ADAPTER_LOCK` with the blood-pressure service — the
 single Bluetooth adapter cannot scan and connect concurrently.
@@ -34,10 +37,31 @@ from app.services.env_persist import persist_env_keys
 logger = logging.getLogger(__name__)
 
 TEMP_MEASUREMENT_CHAR = "00002a1c-0000-1000-8000-00805f9b34fb"
+HEALTH_THERMOMETER_SERVICE = "00001809-0000-1000-8000-00805f9b34fb"
+# GAP Device Name — read after verifying a device so the admin portal can
+# show what is actually paired instead of a hardcoded model string.
+DEVICE_NAME_CHAR = "00002a00-0000-1000-8000-00805f9b34fb"
+
+_FALLBACK_DEVICE_NAME = "BLE Thermometer"
 
 # Advertised names that identify BLE thermometers (TaiDoc makes the TD1242
-# and rebrands as FORA).
-_THERMO_NAME = re.compile(r"taidoc|td[- ]?12|fora|therm", re.IGNORECASE)
+# and rebrands as FORA and Clever Choice). Only a ranking heuristic for the
+# scan list — the advertised Health Thermometer Service is the real signal,
+# and pairing itself accepts any device that verifies.
+_THERMO_NAME = re.compile(
+    r"taidoc|td[- ]?12|fora|therm|temp|clever|beurer|microlife|berrcom|ihealth",
+    re.IGNORECASE,
+)
+
+
+def looks_like_thermometer(name: str | None, service_uuids: list[str] | None) -> bool:
+    """Rank scan results: an advertised Health Thermometer Service is
+    definitive; otherwise fall back to brand/model name patterns."""
+    if service_uuids and any(
+        u.lower() == HEALTH_THERMOMETER_SERVICE for u in service_uuids
+    ):
+        return True
+    return bool(name and _THERMO_NAME.search(name))
 
 # The TD1242's first connect attempt often drops during service discovery
 # ("failed to discover services, device disconnected"); a retry succeeds.
@@ -179,7 +203,7 @@ class ThermometerService:
                     "mac": mac,
                     "name": name,
                     "rssi": rssi,
-                    "is_thermometer": bool(name and _THERMO_NAME.search(name)),
+                    "is_thermometer": looks_like_thermometer(name, adv.service_uuids),
                 }
             )
         devices.sort(
@@ -190,10 +214,29 @@ class ThermometerService:
         )
         return devices
 
-    async def save_device(self, mac: str) -> None:
+    @staticmethod
+    async def _read_device_name(client: BleakClient) -> str | None:
+        # Some platforms hide the Generic Access service from GATT clients;
+        # the name is a nicety, never worth failing the pairing over.
+        try:
+            if client.services.get_characteristic(DEVICE_NAME_CHAR) is None:
+                return None
+            raw = await client.read_gatt_char(DEVICE_NAME_CHAR)
+            return bytes(raw).decode("utf-8", errors="ignore").strip() or None
+        except Exception:  # noqa: BLE001
+            logger.debug("Could not read GAP device name", exc_info=True)
+            return None
+
+    async def save_device(self, mac: str, name: str | None = None) -> None:
         """Verify the device speaks the Health Thermometer Service, then
-        persist it as the kiosk thermometer (in-memory + .env)."""
+        persist it as the kiosk thermometer (in-memory + .env).
+
+        ``name`` is the advertised name the admin picked in the scan list;
+        when absent the device's GAP name is read during the verification
+        connect, so the portal shows what is actually paired.
+        """
         mac = mac.strip()
+        name = (name or "").strip() or None
         if not (_VALID_MAC.match(mac) or _VALID_UUID.match(mac)):
             raise ThermometerError("invalid", f"'{mac}' is not a valid Bluetooth address.")
         if self._lock.locked():
@@ -208,11 +251,19 @@ class ThermometerService:
                         "That device does not expose the standard thermometer "
                         "service — pick the thermometer (e.g. TAIDOC TD1242).",
                     )
+                if name is None:
+                    name = await self._read_device_name(client)
             finally:
                 await self._disconnect_quietly(client)
 
         settings.temp_device_mac = mac
+        settings.temp_device_name = name or _FALLBACK_DEVICE_NAME
         try:
-            persist_env_keys({"TEMP_DEVICE_MAC": mac})
+            persist_env_keys(
+                {
+                    "TEMP_DEVICE_MAC": mac,
+                    "TEMP_DEVICE_NAME": settings.temp_device_name,
+                }
+            )
         except OSError:
             logger.exception("Thermometer saved but failed to persist .env config")

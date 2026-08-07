@@ -268,6 +268,9 @@ class TempScanResponse(BaseModel):
 
 class TempPairRequest(BaseModel):
     mac: str = Field(..., min_length=1, max_length=64)
+    # Advertised name from the scan list; shown in the portal after pairing.
+    # Optional — the backend falls back to the device's GAP name.
+    name: str | None = Field(default=None, max_length=64)
 
 
 class TempPairResponse(BaseModel):

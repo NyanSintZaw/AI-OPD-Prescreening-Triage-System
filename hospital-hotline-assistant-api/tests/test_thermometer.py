@@ -1,6 +1,10 @@
-"""Packet parsing for the BLE Health Thermometer service (TAIDOC TD1242)."""
+"""Packet parsing + scan classification for BLE Health Thermometers."""
 
-from app.services.thermometer import parse_temperature_packet
+from app.services.thermometer import (
+    HEALTH_THERMOMETER_SERVICE,
+    looks_like_thermometer,
+    parse_temperature_packet,
+)
 
 
 def test_parse_real_td1242_packet():
@@ -24,3 +28,21 @@ def test_implausible_value_returns_none():
     # Mantissa 0 -> 0.0 "measurement" is a malformed/reserved packet.
     data = bytes([0x06, 0x00, 0x00, 0x00, 0x00])
     assert parse_temperature_packet(data) is None
+
+
+def test_advertised_service_uuid_identifies_any_brand():
+    # An unbranded/new device advertising the Health Thermometer Service
+    # must be flagged even when its name matches no known brand.
+    assert looks_like_thermometer("XCTZ-991", [HEALTH_THERMOMETER_SERVICE])
+    assert looks_like_thermometer(None, [HEALTH_THERMOMETER_SERVICE.upper()])
+
+
+def test_known_brand_names_flagged_without_service_uuids():
+    for name in ("TAIDOC TD1242", "FORA IR42", "Clever Choice", "Beurer FT95"):
+        assert looks_like_thermometer(name, None), name
+
+
+def test_unrelated_device_not_flagged():
+    assert not looks_like_thermometer("HEM-7156T", None)  # the BP cuff
+    assert not looks_like_thermometer(None, ["0000180d-0000-1000-8000-00805f9b34fb"])
+    assert not looks_like_thermometer(None, None)

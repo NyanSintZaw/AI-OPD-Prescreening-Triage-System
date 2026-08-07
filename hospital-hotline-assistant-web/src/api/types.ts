@@ -715,6 +715,8 @@ export interface TempScanResponse {
 
 export interface TempPairRequest {
   mac: string;
+  /** Advertised name from the scan list — shown in the portal after pairing. */
+  name?: string | null;
 }
 
 export interface TempPairResponse {

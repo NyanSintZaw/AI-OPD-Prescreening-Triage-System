@@ -670,7 +670,7 @@ async def pair_temp_device(
     the active kiosk thermometer (persists to .env, effective immediately)."""
     temp_service: ThermometerService = request.app.state.temp_service
     try:
-        await temp_service.save_device(payload.mac)
+        await temp_service.save_device(payload.mac, payload.name)
     except ThermometerError as exc:
         return TempPairResponse(status=exc.code, message=str(exc))
     except Exception as exc:  # noqa: BLE001 — surface as structured error
