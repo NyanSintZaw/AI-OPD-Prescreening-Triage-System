@@ -105,6 +105,32 @@ The same class of bug appeared twice in one day — once here, once in a
 throwaway harness written before this one was found. Any simulated patient
 needs a truthful fallback, not a convenient one.
 
+### The corrected run (65 vignettes, gemini-3.1-flash-lite, criteria v2)
+
+| | first run | corrected |
+|---|---|---|
+| **undertriage** | 27.8% (5/18) | **0.0% (0/18)**, CI95 0.0–18.5% |
+| QWK | 0.798 | **0.940** |
+| level exact | 80.0% | 86.2% |
+| level within 1 | 92.3% | **100.0%** |
+| category / department | 93.8% / 86.2% | 93.8% / 93.8% |
+| validator leaks | 0 | **0** |
+| avg turns | 8.0 | 7.1 |
+| passed | 45/65 | 50/65 |
+
+By language, both at zero undertriage: th QWK 0.954, exact 87.5%; en QWK
+0.915, exact 84.8%. Every remaining failure is a category or department
+label, not a level.
+
+**Read the interval, not the point estimate.** Zero misses out of eighteen
+critical vignettes gives a 95% upper bound of **18.5%** — the corpus is too
+small to claim a low undertriage rate, only to say none of these eighteen
+was missed. Widening the critical set is worth more than any further tuning.
+
+And the standing caveat: gold levels come from the criteria's own rules, so
+this measures the pipeline, not the criteria's clinical validity. Nothing
+here is a clinical claim.
+
 ---
 
 ## Part 2 — What the literature supports
