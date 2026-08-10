@@ -72,12 +72,38 @@ Two more defects fell out of running it:
   first prompt only; later turns stay bounded, which is where precision
   matters.)
 
-### What we still cannot claim
+### Triage accuracy, measured live
 
-We have **no triage-accuracy measurement at all.** Everything above tests
-whether the model reads the patient correctly. Nothing tests whether the
-resulting level and department are right. That is the gap, and Part 2 says
-what filling it would look like.
+There is a triage harness — `scripts/run_triage_eval.py` over
+`evals/vignettes.json`, 65 labelled vignettes, multi-turn against the real
+model, scoring level, department, category, must-ask coverage and validator
+leaks, with QWK and a Clopper-Pearson interval on the undertriage rate.
+
+**The first run reported 27.8% undertriage with five critical misses. That
+number was wrong, and the way it was wrong is the lesson.**
+
+The harness answers the booth by regex-matching each question against a
+vignette's `answers` list, and fell back to **"no"** when nothing matched.
+Confirm-gate questions have synthesized ids that match nothing — so the
+simulated patient denied its own opening. The anaphylaxis vignette says
+*"ปากก็บวม"* (my lips swelled) and then answered *"no"* to *"do you have lip
+swelling?"*. The palpitations vignette describes blacking out yesterday and
+then denied syncope. Four of the five critical misses were manufactured this
+way; 9% of all patient turns in that run were unmatched defaults.
+
+Re-running those five with the default corrected: all five reach level 2
+emergency, **in 2-3 turns instead of 9-11** — the gate now gets its answer
+and fires immediately.
+
+Two things follow. First, a confirm question exists *only* because the
+patient already said the thing, so affirming is the right default. Second,
+and more important: **an eval that silently substitutes an answer can invent
+a safety defect.** Unmatched question ids are now recorded per vignette so a
+corpus gap is visible instead of reading as an engine failure.
+
+The same class of bug appeared twice in one day — once here, once in a
+throwaway harness written before this one was found. Any simulated patient
+needs a truthful fallback, not a convenient one.
 
 ---
 
