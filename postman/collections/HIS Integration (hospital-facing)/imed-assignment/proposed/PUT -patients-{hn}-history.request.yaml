@@ -24,7 +24,8 @@ description: |
   | `chronic_conditions` | ความดันโลหิตสูง เบาหวาน |
   | `past_surgeries` | ผ่าตัดไส้ติ่ง 2562 |
   | `family_history` | บิดาเป็นโรคหัวใจ |
-  | `smoking_alcohol` | สูบบุหรี่วันละ 5 มวน ไม่ดื่มสุรา |
+  | `smoking` | สูบบุหรี่วันละ 5 มวน |
+  | `alcohol` | ไม่ดื่มสุรา |
 
   ### Points worth deciding together
 
@@ -52,6 +53,7 @@ body:
       "chronic_conditions": "ความดันโลหิตสูง",
       "past_surgeries": null,
       "family_history": "บิดาเป็นโรคหัวใจ",
-      "smoking_alcohol": "สูบบุหรี่วันละ 5 มวน ไม่ดื่มสุรา"
+      "smoking": "สูบบุหรี่วันละ 5 มวน",
+      "alcohol": "ไม่ดื่มสุรา"
     }
 order: 5000

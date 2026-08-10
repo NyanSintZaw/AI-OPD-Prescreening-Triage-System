@@ -18,7 +18,7 @@ description: |
 
   | Field | What we do with it |
   |---|---|
-  | `allergies`, `chronic_conditions`, `past_surgeries`, `family_history`, `smoking_alcohol` | risk factors the triage rules weigh, and the `background` line of the SBAR handover |
+  | `allergies`, `chronic_conditions`, `past_surgeries`, `family_history`, `smoking`, `alcohol` | risk factors the triage rules weigh, and the `background` line of the SBAR handover. Smoking and alcohol are two fields, not one — they are separate risk factors and a combined string cannot be queried. |
   | `recorded_at` (when the history was taken) | if empty we treat them as a first-time patient and run the history intake; if set we skip it |
   | `last_weight`, `last_height` + `measured_at` | skip asking weight/height again when yours is recent |
 
@@ -31,7 +31,7 @@ scripts:
   - type: afterResponse
     code: |-
       const REQUIRED = ["hn", "recorded_at"];
-      const OPTIONAL = ["allergies", "chronic_conditions", "past_surgeries", "family_history", "smoking_alcohol", "weight", "height"];
+      const OPTIONAL = ["allergies", "chronic_conditions", "past_surgeries", "family_history", "smoking", "alcohol", "weight", "height"];
 
       if (pm.response.code === 404) {
         // Expected against our demo mock: this endpoint is a request,

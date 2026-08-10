@@ -20,7 +20,8 @@ response:
           "chronic_conditions": "ความดันโลหิตสูง",
           "past_surgeries": null,
           "family_history": null,
-          "smoking_alcohol": null,
+          "smoking": null,
+          "alcohol": null,
           "recorded_at": "2026-02-11T09:20:00+07:00"
         },
         "last_vitals": {

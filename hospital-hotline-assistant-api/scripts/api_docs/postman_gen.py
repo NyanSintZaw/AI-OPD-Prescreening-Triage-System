@@ -759,7 +759,7 @@ refusing this one costs the patient a few extra questions and nothing else.
 
 | Field | What we do with it |
 |---|---|
-| `allergies`, `chronic_conditions`, `past_surgeries`, `family_history`, `smoking_alcohol` | risk factors the triage rules weigh, and the `background` line of the SBAR handover |
+| `allergies`, `chronic_conditions`, `past_surgeries`, `family_history`, `smoking`, `alcohol` | risk factors the triage rules weigh, and the `background` line of the SBAR handover. Smoking and alcohol are two fields, not one — they are separate risk factors and a combined string cannot be queried. |
 | `recorded_at` (when the history was taken) | if empty we treat them as a first-time patient and run the history intake; if set we skip it |
 | `last_weight`, `last_height` + `measured_at` | skip asking weight/height again when yours is recent |
 
@@ -811,7 +811,7 @@ reads_items = [
         "event": [expects_script(
             ["hn", "recorded_at"],
             ["allergies", "chronic_conditions", "past_surgeries",
-             "family_history", "smoking_alcohol", "weight", "height"],
+             "family_history", "smoking", "alcohol", "weight", "height"],
         )],
         "response": [
             example_response(
@@ -825,7 +825,8 @@ reads_items = [
                         "chronic_conditions": "ความดันโลหิตสูง",
                         "past_surgeries": None,
                         "family_history": None,
-                        "smoking_alcohol": None,
+                        "smoking": None,
+                        "alcohol": None,
                         "recorded_at": "2026-02-11T09:20:00+07:00",
                     },
                     "last_vitals": {
@@ -866,7 +867,8 @@ backend — we do not summarise or interpret them.
 | `chronic_conditions` | ความดันโลหิตสูง เบาหวาน |
 | `past_surgeries` | ผ่าตัดไส้ติ่ง 2562 |
 | `family_history` | บิดาเป็นโรคหัวใจ |
-| `smoking_alcohol` | สูบบุหรี่วันละ 5 มวน ไม่ดื่มสุรา |
+| `smoking` | สูบบุหรี่วันละ 5 มวน |
+| `alcohol` | ไม่ดื่มสุรา |
 
 ### Points worth deciding together
 
@@ -896,7 +898,8 @@ reads_items.append({
             "chronic_conditions": "ความดันโลหิตสูง",
             "past_surgeries": None,
             "family_history": "บิดาเป็นโรคหัวใจ",
-            "smoking_alcohol": "สูบบุหรี่วันละ 5 มวน ไม่ดื่มสุรา",
+            "smoking": "สูบบุหรี่วันละ 5 มวน",
+            "alcohol": "ไม่ดื่มสุรา",
         }),
     },
 })
