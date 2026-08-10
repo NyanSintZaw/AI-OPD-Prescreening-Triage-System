@@ -2834,6 +2834,23 @@ record.
 
 ---
 
+### `GET /api/v1/departments`
+
+Imed Departments.
+
+CR 18 — the routing destinations, so our department mapping can be
+re-checked instead of silently going stale.
+
+Derived from ``service_points`` because that is where the mock keeps
+the department ids; the hospital would serve it from their own master
+data. ⚠️ PLACEHOLDER ids, same caveat as ``SERVICE_POINTS``.
+
+**Auth:** none
+
+**Response 200:** JSON (Successful Response)
+
+---
+
 ### `GET /api/v1/patients/{hn}`
 
 Imed Patient Read.

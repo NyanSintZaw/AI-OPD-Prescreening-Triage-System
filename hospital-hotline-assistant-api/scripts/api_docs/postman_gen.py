@@ -384,11 +384,15 @@ contract. The contract itself is transcribed verbatim in
 
 ### Deliberately absent
 
+**We assign a department. Not a service point, not a doctor.** That is the
+whole of what our triage decides, and everything below follows from it — if
+any of it does not work on your side, flag it and we will adapt.
+
 | Field | Why |
 |---|---|
 | `queue_number` | you generate it — your queue rules own sequencing, prefixes and daily resets. We display what you return and the nurse hands it to the patient. |
 | `base_department_id` | you derive it from the service point; one less code for us to keep in sync |
-| `assign_eid` | we route to a *department*, never a named doctor. If any destination requires one, that is a product decision for us — see per-department question 2. |
+| `assign_eid` | we route to a *department*, never a named doctor — we have no basis for choosing one |
 | `sbar.assessment_equipment` | a clinical judgement our system does not make; left for the nurse |
 
 ### Where each value comes from
@@ -1020,6 +1024,65 @@ reads_items.append({
     },
 })
 
+DEPARTMENTS_DESC = """⚠️ **Not in your contract — change request 18.** Lower priority than the
+list itself; see below.
+
+**What we need first is the list, not the endpoint.** Our engine routes to
+eleven departments, and we must map each to your `DEPT_*` id. That mapping is
+a one-time human decision — someone reads both lists and decides that our
+"internal medicine" is your `DEPT_MED`. No endpoint can make that decision
+for us, which is why **a one-time master-data sheet unblocks us and this
+endpoint does not**.
+
+### So what is the endpoint for
+
+**Staying current.** Once the mapping exists, it goes stale the moment you add
+a department, rename one, or retire one — and a stale id means a patient
+routed to a code that no longer exists. With this we can re-check the list
+periodically and flag a mismatch to your team, instead of discovering it when
+a patient is standing at the counter.
+
+We would **not** call this per patient. It is a sync, not a runtime
+dependency: if it is unavailable, routing keeps working from the list we
+already hold.
+
+### What we read
+
+| Field | What we do with it |
+|---|---|
+| `id` | the value we send as `base_department_id` |
+| `name` | shown to the nurse, and used to sanity-check the mapping is still pointing at the department we think it is |
+| `active` *(optional)* | so a retired department stops being a routing target |
+
+Only departments the OPD actually routes to are relevant — we do not need
+wards, billing or diagnostics.
+"""
+
+reads_items.append({
+    "name": "GET /departments",
+    "request": {
+        "method": "GET",
+        "header": [],
+        "url": pm_url("/departments", "imedBaseUrl"),
+        "description": DEPARTMENTS_DESC,
+    },
+    "event": [expects_script(["id", "name"], ["active"])],
+    "response": [
+        example_response(
+            "200 — the shape we would consume", 200, "OK",
+            {"departments": [
+                {"id": "DEPT_MED", "name": "แผนก OPD MED (อายุรกรรม)", "active": True},
+                {"id": "DEPT_ENT", "name": "แผนก OPD E.N.T (หู คอ จมูก)", "active": True},
+                {"id": "DEPT_ER", "name": "แผนก ER (อุบัติเหตุและฉุกเฉิน)", "active": True},
+            ]},
+            {"method": "GET", "header": [],
+             "url": pm_url("/departments", "imedBaseUrl")},
+            "A sync, not a per-patient call. The one-time list is what unblocks "
+            "us; this keeps it from going stale.",
+        ),
+    ],
+})
+
 his_desc = (
     "What our system sends to the hospital's real **iMed Patient Assignment "
     "API** — the integration surface for the hospital IT team.\n\n"
@@ -1064,6 +1127,9 @@ what we mean.
   never obtain the `visit_id` the assignment call requires (CR 6).
 * **GET /patients/{hn}** — read-only patient record, so we do not re-interview
   someone you already know (CR 6). Useful, not blocking.
+* **GET /departments** — the department list, for keeping our mapping current
+  as you add or retire departments (CR 18). The one-time list is what actually
+  unblocks us; this stops it going stale.
 * **PUT /patients/{hn}/history** — write back the history the booth collected
   from a first-time patient (CR 13). Pairs with the read: without it every
   visit is a first visit.

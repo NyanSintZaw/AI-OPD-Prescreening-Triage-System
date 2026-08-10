@@ -554,6 +554,17 @@ async def test_v1_history_write_never_overwrites_an_existing_history(client):
     assert after["history"]["chronic_conditions"] == kept
 
 
+async def test_v1_departments_lists_every_routing_destination(client):
+    """CR 18 — one row per department, not per service point, because a
+    department is the only thing we ever assign."""
+    body = (await client.get("/api/v1/departments", headers=BEARER)).json()
+    ids = [d["id"] for d in body["departments"]]
+
+    assert len(ids) == len(set(ids))
+    assert {"DEPT_ER", "DEPT_MED"} <= set(ids)
+    assert all(d["name"] and d["active"] is True for d in body["departments"])
+
+
 async def test_v1_prescreen_records_measurements_but_no_judgement(client):
     r = await client.post(
         "/api/v1/patient-prescreens", headers=BEARER,

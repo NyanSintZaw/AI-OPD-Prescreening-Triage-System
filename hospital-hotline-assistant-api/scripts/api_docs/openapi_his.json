@@ -289,6 +289,67 @@
     }
    }
   },
+  "/api/v1/departments": {
+   "get": {
+    "summary": "Imed Departments",
+    "description": "CR 18 — the routing destinations, so our department mapping can be\nre-checked instead of silently going stale.\n\nDerived from ``service_points`` because that is where the mock keeps\nthe department ids; the hospital would serve it from their own master\ndata. ⚠️ PLACEHOLDER ids, same caveat as ``SERVICE_POINTS``.",
+    "operationId": "imed_departments_api_v1_departments_get",
+    "parameters": [
+     {
+      "name": "authorization",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Authorization"
+      }
+     },
+     {
+      "name": "x-api-key",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "X-Api-Key"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
   "/api/v1/patients/{hn}": {
    "get": {
     "summary": "Imed Patient Read",

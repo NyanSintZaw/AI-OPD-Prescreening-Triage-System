@@ -83,6 +83,11 @@ These are the 11 active departments the triage engine can route to (the
 `departments` table; `CODE_TO_HIS` in
 `app/services/screening/his/department_map.py` already holds column 2).
 
+The **`base_department_id` column is the one we need filled in** — it is what
+we send. The `assign_spid` column exists only because their current contract
+makes the field mandatory (see change request 15); if they accept 15 the whole
+column goes away.
+
 | Our code | Hospital department string (confirmed, from HIS export) | `assign_spid` ⚠️ | `base_department_id` ⚠️ |
 |---|---|---|---|
 | `emergency` | แผนก ER (อุบัติเหตุและฉุกเฉิน) | `SP_ER_01` | `DEPT_ER` |
@@ -97,19 +102,20 @@ These are the 11 active departments the triage engine can route to (the
 | `opd_psychiatry` | แผนก จิตเวช | `SP_OPD_PSY_01` | `DEPT_PSY` |
 | `opd_obgyn` | แผนก OPD OB-GYN (สูติ-นรีเวชกรรม) | `SP_OPD_OBGYN_01` | `DEPT_OBGYN` |
 
-Per-department questions to settle with the same list:
+What we actually ask them for (decided 2026-08-10):
 
-1. The real `assign_spid` / `base_department_id` for each row.
-2. Which of these destinations **require `assign_eid`** (a named doctor).
-   We route to a department, never to a doctor, so any row needing an eid
-   forces a product decision — pick a doctor from our schedule table, or ask
-   the nurse at confirm time.
-3. Whether a department has **more than one service point** (e.g. OPD MED on
-   two floors, or a morning/afternoon split), which our single-code mapping
-   cannot express as-is.
-4. Whether `base_department_id` should be sent at all — the contract says
-   iMed derives it from the service point when omitted, and omitting it is
-   one less code to keep in sync.
+1. **The real `base_department_id` for each row** — and the complete list of
+   departments, not only these eleven, so a rename or a new department is
+   visible to us (change request 18).
+2. Nothing else. **We assign a department. Not a service point, not a
+   doctor.** So we do not ask which destinations need an `assign_eid`, and we
+   do not ask how many service points a department has — those are questions
+   only someone routing below department level has to answer.
+
+If they decline change request 15 and keep `assign_spid` mandatory, the
+service-point questions come back and we handle them then. Until they flag it,
+we do not build for that branch: `CODE_TO_SPID` keeps the placeholder table
+alive for the mock, and the proposed request omits the field.
 
 ## Response handling — what we receive
 
@@ -261,9 +267,10 @@ collection on the day.
 | 11 | Confirm **who prints the queue ticket**, and whether the patient already holds a number from registration | Assignment clears the previous queue, so ours supersedes any earlier number. If iMed's existing flow already prints, we only display and there is no printing work our side. |
 | 13 | **Write back first-time-patient history** (`PUT /patients/{hn}/history`) — the other half of CR 6 | The read tells us a history is missing; without a write we can never record one, so every visit is a first visit and the same patient answers the same five questions forever. We would write only when the history is empty, never overwrite. Open to it landing somewhere provisional for staff to confirm rather than on the master record. |
 | 14 | **Mark the patient pre-screened, awaiting confirmation** (`POST /patient-prescreens`, `visit_id` in the body like the assignment) — objective data only. Names the state rather than the payload, pairs with `patient-assignments` as the two lifecycle steps, and uses their own vocabulary (their export is literally the *Prescreen* export) | Today a patient who uses the booth and leaves before seeing a nurse leaves no trace in iMed, including the cuff-measured BP. This would record measurements + booth attendance at the end of the session. Deliberately carries **no triage level, no department, no AI reasoning** — nothing a clinician could act on before sign-off, so the nurse-confirm gate stays real. |
-| 15 | **Accept `base_department_id` alone and resolve `assign_spid` yourselves** | Our engine routes to a *department*; it has no concept of a room or a session, because the triage criteria have none. Your contract requires `assign_spid`, so today we invent the missing half: a hard-coded department → service-point table. That table can be wrong without us knowing (a department with two rooms gets one of them for everyone), goes stale silently when you reorganise, and fails where you would succeed — if the room we picked is closed we get 422 and the nurse reroutes, even when another room in the same department is open and `checkServicePointOpen` would have found it. You already derive the department from the service point when we omit it; this is the reverse. **It also shrinks the blocking master-data ask** from service-point ids to department ids. If you would rather keep `assign_spid` required, we send it — we just need the per-department mapping and a rule for departments with more than one service point. |
+| 15 | **Accept `base_department_id` alone and resolve `assign_spid` yourselves** | Our engine routes to a *department*; it has no concept of a room or a session, because the triage criteria have none. Your contract requires `assign_spid`, so today we invent the missing half: a hard-coded department → service-point table. That table can be wrong without us knowing (a department with two rooms gets one of them for everyone), goes stale silently when you reorganise, and fails where you would succeed — if the room we picked is closed we get 422 and the nurse reroutes, even when another room in the same department is open and `checkServicePointOpen` would have found it. You already derive the department from the service point when we omit it; this is the reverse. **It also shrinks the blocking master-data ask** from service-point ids to department ids. To be plain about scope: **our system assigns a department. Not a service point, not a doctor** — the triage criteria decide neither, so anything below department level is guesswork dressed as data. |
 | 16 | **Accept the `hn` alongside `visit_id`** on both writes, so you can cross-check the pair | You derive the patient from the visit and your contract says not to send `patient_id` — agreed. But we hold the HN we resolved from the VN, and sending it lets you verify the two agree *before* writing. If they ever disagree, something went wrong upstream of you, and catching it here is far cheaper than finding a patient recorded against the wrong record. Ignore or reject it if you prefer. |
 | 17 | **First / second location** — confirm the mapping | Your Prescreen export already tracks where a patient was seen (`measure_*`, `first_location_*`, `second_location_*`). Our two writes fill exactly that: `patient-prescreens` sets `measure_*` + **first_location** (the AI booth), `patient-assignments` sets **second_location** (the destination). We are not adding a concept, we are filling in yours — please confirm we have read it correctly. |
+| 18 | **The department list — the complete set of `base_department_id` + name — as a one-time sheet**, plus a `GET /departments` endpoint to keep it current | The sheet is the blocking half: mapping our eleven routing targets onto your ids is a human decision someone makes once by reading both lists, and no endpoint can make it for us. The endpoint is the *maintenance* half — once the mapping exists it goes stale the moment a department is added, renamed or retired, and a stale id means a patient routed to a code that no longer exists. We would sync it periodically and flag mismatches to your team, never call it per patient. Fields: `id`, `name`, and `active` if you have it. OPD routing destinations only — no wards, billing or diagnostics. |
 | 12 | Any **response-time SLA / recommended client timeout** | Our nurse UI blocks on this call; we currently use `his_timeout_seconds` picked by us, not by them. |
 
 ## Workflow decisions (settled 2026-08-06)
@@ -318,8 +325,10 @@ an existing HIS record may store the two together — split on read, store two.
 ## Still needed from the hospital
 
 - UAT host + access token (issuance/rotation policy).
-- Master-data codes: `assign_spid`, `base_department_id`, and which
-  destinations require `assign_eid`.
+- **The complete department list** (`base_department_id` + name) as a sheet —
+  blocking, and the only master data we ask for. We assign a department, so we
+  need no service-point ids and no doctor ids. See change request 18 for the
+  endpoint that keeps the list from going stale.
 - **The visit-lookup API** (above) — blocking; the booth cannot identify a
   patient without it.
 - Any **length or character limit on `request_id`**, and whether the

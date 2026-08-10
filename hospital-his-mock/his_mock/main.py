@@ -582,6 +582,30 @@ def build_app(db_path: str | Path | None = None) -> FastAPI:
             },
         }
 
+    @app.get("/api/v1/departments", dependencies=[Depends(require_imed_token)])
+    def imed_departments(db: sqlite3.Connection = Depends(get_db)):
+        """CR 18 — the routing destinations, so our department mapping can be
+        re-checked instead of silently going stale.
+
+        Derived from ``service_points`` because that is where the mock keeps
+        the department ids; the hospital would serve it from their own master
+        data. ⚠️ PLACEHOLDER ids, same caveat as ``SERVICE_POINTS``.
+        """
+        rows = db.execute(
+            "SELECT department_id, MIN(name) AS name, MAX(is_open) AS is_open "
+            "FROM service_points GROUP BY department_id ORDER BY department_id"
+        ).fetchall()
+        return {
+            "departments": [
+                {
+                    "id": row["department_id"],
+                    "name": row["name"],
+                    "active": bool(row["is_open"]),
+                }
+                for row in rows
+            ]
+        }
+
     @app.get("/api/v1/patients/{hn}", dependencies=[Depends(require_imed_token)])
     def imed_patient_read(hn: str, db: sqlite3.Connection = Depends(get_db)):
         """CR 6 — history + last-known vitals, so the booth does not

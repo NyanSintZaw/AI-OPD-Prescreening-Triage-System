@@ -9,11 +9,15 @@ description: |
 
   ### Deliberately absent
 
+  **We assign a department. Not a service point, not a doctor.** That is the
+  whole of what our triage decides, and everything below follows from it — if
+  any of it does not work on your side, flag it and we will adapt.
+
   | Field | Why |
   |---|---|
   | `queue_number` | you generate it — your queue rules own sequencing, prefixes and daily resets. We display what you return and the nurse hands it to the patient. |
   | `base_department_id` | you derive it from the service point; one less code for us to keep in sync |
-  | `assign_eid` | we route to a *department*, never a named doctor. If any destination requires one, that is a product decision for us — see per-department question 2. |
+  | `assign_eid` | we route to a *department*, never a named doctor — we have no basis for choosing one |
   | `sbar.assessment_equipment` | a clinical judgement our system does not make; left for the nurse |
 
   ### Where each value comes from
