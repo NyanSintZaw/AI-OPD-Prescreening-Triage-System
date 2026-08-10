@@ -91,6 +91,8 @@ Chief complaint so far: แน่นหน้าอกมา 2 ชั่วโ�
 The assistant just asked: คุณมีอาการเจ็บหน้าอกหรือไม่
 
 Allowed complaint categories (copy ONE id verbatim — never invent or combine ids): generic, chest_pain, dyspnea_cough, abdominal_pain, headache, fever, ear, nose_throat, eye, injury, pregnancy, mental_health, musculoskeletal, urinary
+Pick the category from what the patient HAS, never from what they deny: "I have
+a fever but no headache" / "มีไข้ แต่ไม่ปวดหัว" is fever, not headache.
 
 Finding catalog (use ONLY these ids):
 - abdominal_pain: Abdominal pain / ปวดท้อง (also: stomach ache, belly pain, ปวดท้องน้อย, จุกท้อง)

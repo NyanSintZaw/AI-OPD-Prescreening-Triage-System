@@ -172,6 +172,8 @@ Context:
 {context}
 
 Allowed complaint categories (copy ONE id verbatim — never invent or combine ids): {categories}
+Pick the category from what the patient HAS, never from what they deny: "I have
+a fever but no headache" / "มีไข้ แต่ไม่ปวดหัว" is fever, not headache.
 
 Finding catalog (use ONLY these ids):
 {catalog}

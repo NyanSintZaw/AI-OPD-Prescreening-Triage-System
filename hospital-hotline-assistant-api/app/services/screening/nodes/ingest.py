@@ -105,6 +105,55 @@ def strip_unscoped_denial(result: ExtractionResult, pending, user_text: str) -> 
 
 _ASCII_RE = re.compile(r"^[\x00-\x7f]+$")
 
+# NegEx-style backward scope. A symptom the patient DENIED must not be read as
+# evidence for anything — observed live: "มีไข้ แต่ไม่ปวดหัว" scored fever and
+# headache one hit each, tied, and left the category unresolved, so the
+# interview fell back to the generic question set and re-asked what the
+# patient had already answered.
+_NEG_CUES_TH = ("ไม่มี", "ไม่ได้", "ไม่ค่อย", "ไม่")
+_NEG_CUES_EN = ("no ", "not ", "n't ", "without ", "denies ", "never ")
+# A cue's scope ends here: "ไม่ไอ แต่ปวดหัว" denies the cough, not the headache.
+_SCOPE_END_TH = ("แต่", "แต่ว่า", "และ", "ส่วน")
+_SCOPE_END_EN = ("but ", "however ", "although ", ", ", "; ")
+# Thai runs together, so the window is characters, not words. Long enough for
+# "ไม่มีอาการ" + a qualifier, short enough not to reach the previous clause.
+_NEG_WINDOW = 22
+
+
+def _is_negated(text: str, start: int) -> bool:
+    """True when the keyword at ``start`` sits inside a negation's scope."""
+    window = text[max(0, start - _NEG_WINDOW):start]
+    low = window.lower()
+    cue_at = max(
+        (window.rfind(c) for c in _NEG_CUES_TH),
+        default=-1,
+    )
+    cue_at = max(cue_at, max((low.rfind(c) for c in _NEG_CUES_EN), default=-1))
+    if cue_at < 0:
+        return False
+    # A scope terminator between the cue and the keyword ends the negation.
+    end_at = max(
+        max((window.rfind(t) for t in _SCOPE_END_TH), default=-1),
+        max((low.rfind(t) for t in _SCOPE_END_EN), default=-1),
+    )
+    return end_at <= cue_at
+
+
+def _keyword_hits(text: str, keyword: str, ascii_word: bool) -> int:
+    """Occurrences of ``keyword`` that the patient did NOT deny."""
+    hits = 0
+    if ascii_word:
+        for match in re.finditer(rf"\b{re.escape(keyword)}\b", text.lower()):
+            if not _is_negated(text, match.start()):
+                hits += 1
+        return hits
+    start = text.find(keyword)
+    while start != -1:
+        if not _is_negated(text, start):
+            hits += 1
+        start = text.find(keyword, start + 1)
+    return hits
+
 
 def _keyword_category(user_text: str, criteria) -> str | None:
     """Deterministic net under the LLM's category choice: when extraction
@@ -113,7 +162,6 @@ def _keyword_category(user_text: str, criteria) -> str | None:
     generic, skipping the BEFAST stroke screen the th run got). Unique
     best-scoring category wins; ties or zero hits stay unresolved."""
 
-    low = user_text.lower()
     scores: list[tuple[int, str]] = []
     for template in criteria.complaint_templates:
         if template.category == "generic":
@@ -123,11 +171,9 @@ def _keyword_category(user_text: str, criteria) -> str | None:
             keyword = keyword.lower().strip()
             if not keyword:
                 continue
-            if _ASCII_RE.match(keyword):
-                if re.search(rf"\b{re.escape(keyword)}\b", low):
-                    hits += 1
-            elif keyword in user_text:
-                hits += 1
+            hits += min(
+                1, _keyword_hits(user_text, keyword, bool(_ASCII_RE.match(keyword)))
+            )
         if hits:
             scores.append((hits, template.category))
     scores.sort(reverse=True)
