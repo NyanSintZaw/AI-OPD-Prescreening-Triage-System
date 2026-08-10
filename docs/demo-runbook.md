@@ -253,6 +253,17 @@ and note what is **deliberately absent**: no BP request.
 > conversation and can be skipped; chips make answers booth-proof; follow-up is
 > record-only; slip is for the desk, map is for wayfinding.
 
+**✅ Expected verdict — Level 4 (Green) → OPD General Practice.**
+Why, from the criteria: sore throat + mild cough trip no red-flag rule; one
+non-systemic finding profile → `resource_band_level_4`. Department: the
+`nose_throat` routing entry accepts to **ENT** only on a specialty finding
+(chronic sore throat > 1 month, sinusitis symptoms, allergy symptoms, …) —
+a 2-day sore throat meets none, so the fallback sends her to general OPD
+first, exactly as the paper manual instructs.
+*Wrong outcomes to watch for:* **OPD ENT** = the specialty gate broke (or the
+LLM extracted `allergy_symptoms` she never said — check the nurse trace's
+evidence quote); **level 3** = the resource band is over-counting.
+
 **Staff window** → **🏥 Hospital DB** → visit moves **registered → screened**
 (vitals + follow-up text if any). **Nurse** (`/nurse`): search **slip code** →
 open assessment → show **Patient follow-up** row if you left a note; open the
@@ -279,6 +290,18 @@ open assessment → show **Patient follow-up** row if you left a note; open the
 > **Talking point:** it never asked the child's age — it read **~8** from the
 > hospital DB when the visit ID was linked, and the under-15 rule sent them to
 > pediatrics. If the HIS hadn't known the age, *then* it would ask by voice.
+
+**✅ Expected verdict — Level 4 (Green) → OPD Pediatrics.**
+Why, from the criteria: no red flags; `resource_band_level_4`; then the
+routing layer's under-15 rule (`child_any` age band, age from the HIS
+birthdate) overrides the complaint's department → pediatrics.
+*Danger-vital check for age 8 (`dv_child_5_10y`):* HR > 120, RR > 30, or
+SBP < 90 fires level 2. The scripted `105/68`, pulse ~98 sits safely inside —
+but enter **pulse 126** and the same child MUST become **L2 → Emergency**
+(good ad-lib; verified against the engine). An adult with those numbers is
+unremarkable — that's the age-band point.
+*Wrong outcomes:* **OPD General** = age never arrived (visit not linked);
+**L2 on pulse 105** = age bands misread.
 
 **Staff window** → Hospital DB → **screened** → Nurse confirms → **routed**
 (`second_location` = OPD Pediatrics).

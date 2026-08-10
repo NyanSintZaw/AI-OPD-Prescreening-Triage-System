@@ -458,6 +458,10 @@ def _err(code: str, th: str) -> dict:
 
 
 PROPOSED_BODY = dict(SEND_BODY)
+# We route to a DEPARTMENT, never to a room. Ask them to accept the department
+# and resolve the service point themselves — see CR 15 in the description.
+del PROPOSED_BODY["assign_spid"]
+PROPOSED_BODY["base_department_id"] = "DEPT_MED"
 PROPOSED_BODY["mfu_prescreen"] = {
     "triage_level": 3,
     "triage_scale": "MOPH-5",
@@ -519,7 +523,48 @@ imed_items = [
             "url": pm_url("/patient-assignments", "imedBaseUrl"),
             "description": """**Nothing here is in your contract yet — this is the ask.**
 
-Identical to request 1, plus a single additive `mfu_prescreen` object.
+## 1. Let us send the department, and you resolve the service point (CR 15)
+
+Notice `assign_spid` is **gone** from this body, replaced by
+`base_department_id`.
+
+Our system routes to a **department** — "internal medicine", "ENT". It has no
+concept of a room, a floor or a session, because triage criteria do not have
+one. Today your contract requires `assign_spid`, so we have to invent the
+missing half: a hard-coded table mapping each of our departments to one
+service point id.
+
+That mapping is the weakest thing in this integration, and it is weak in three
+ways:
+
+* **It can be wrong and we would not know.** If OPD MED runs two rooms, we
+  send every patient to whichever one we hard-coded.
+* **It goes stale silently.** You reorganise a service point, our table still
+  says the old id, and patients queue in the wrong place until someone
+  notices.
+* **It fails where you would succeed.** If the room we picked is closed we
+  get `SERVICE_POINT_NOT_AVAILABLE` and the nurse has to reroute — even when
+  another room in the same department is open. You have
+  `checkServicePointOpen` and the master data; you can pick the open one.
+
+You already derive the department from the service point when we omit it. We
+are asking for the reverse: accept the department and derive the service
+point. If a department genuinely has one service point, this costs you a
+lookup we would otherwise hard-code. If it has several, only you can choose
+correctly.
+
+**This also removes the blocking master-data dependency.** We would still need
+your department ids, but not the service-point ids — a much shorter list, and
+one that changes far less often.
+
+If you would rather keep `assign_spid` required, that is fine — we send it,
+and we simply need the per-department mapping and a rule for departments with
+more than one service point.
+
+## 2. Extra fields, in one additive object
+
+Otherwise identical to request 1, plus a single additive `mfu_prescreen`
+object.
 
 One namespaced wrapper rather than loose top-level fields, for two reasons:
 nothing here can collide with a field you add later, and there is no chance of
