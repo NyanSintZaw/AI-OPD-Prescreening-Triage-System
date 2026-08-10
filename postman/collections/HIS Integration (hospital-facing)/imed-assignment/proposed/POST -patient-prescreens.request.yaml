@@ -114,7 +114,8 @@ body:
           "temperature_c": "patient_input",
           "weight_kg": "patient_input",
           "height_cm": "patient_input"
-        }
+        },
+        "bmi": 26.63
       }
     }
 order: 6000

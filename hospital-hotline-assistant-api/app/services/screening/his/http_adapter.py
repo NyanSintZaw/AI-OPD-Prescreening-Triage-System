@@ -70,6 +70,23 @@ def _parse_patient_history(patient: dict[str, Any] | None) -> PatientHistory | N
     )
 
 
+def with_bmi(vitals: dict[str, Any]) -> dict[str, Any]:
+    """Add ``bmi`` when we hold both a weight and a height.
+
+    Derived at send time rather than stored: that way it can never disagree
+    with the weight and height sitting beside it in the same payload — a
+    stored BMI goes stale the moment either is re-measured or corrected.
+    """
+    out = dict(vitals)
+    weight, height = out.get("weight_kg"), out.get("height_cm")
+    try:
+        if weight and height and float(height) > 0:
+            out["bmi"] = round(float(weight) / (float(height) / 100) ** 2, 2)
+    except (TypeError, ValueError):
+        pass  # implausible values are already dropped upstream by check_vitals
+    return out
+
+
 def _age_from_birthdate(birthdate: str | None) -> int | None:
     if not birthdate:
         return None
@@ -187,7 +204,7 @@ class HttpHisAdapter:
             # patient was seen at; the assignment sets the second.
             "first_location": BOOTH_LOCATION,
             "measured_at": vitals.get("measured_at") or vitals.get("recorded_at"),
-            "vitals": vitals,
+            "vitals": with_bmi(vitals),
         }
         resp = await self._request("POST", PRESCREENS_PATH, json=body)
         if resp is None or not resp.is_success:

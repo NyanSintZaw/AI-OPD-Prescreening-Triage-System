@@ -179,12 +179,15 @@ def _vitals_to_columns(vitals: dict[str, Any] | None) -> dict[str, Any]:
     pressure = f"{systolic}/{diastolic}" if systolic and diastolic else None
     weight = v.get("weight_kg")
     height = v.get("height_cm")
-    bmi = None
-    try:
-        if weight and height:
-            bmi = round(float(weight) / (float(height) / 100) ** 2, 2)
-    except (TypeError, ValueError, ZeroDivisionError):
-        bmi = None
+    # Prefer the bmi the booth sent; recompute only for older callers that
+    # still omit it, so the export column is filled either way.
+    bmi = v.get("bmi")
+    if bmi is None:
+        try:
+            if weight and height:
+                bmi = round(float(weight) / (float(height) / 100) ** 2, 2)
+        except (TypeError, ValueError, ZeroDivisionError):
+            bmi = None
     return {
         "pressure": pressure,
         "pulse": v.get("pulse_bpm"),

@@ -26,6 +26,7 @@ from pathlib import Path
 
 from gen_api_doc import auth_map, example_from_schema
 
+from app.services.screening.his.http_adapter import with_bmi
 from app.services.screening.his.sbar import build_sbar
 
 SCRATCH = Path(__file__).parent
@@ -472,7 +473,7 @@ PROPOSED_BODY["mfu_prescreen"] = {
     "triage_level": 3,
     "triage_scale": "MOPH-5",
     "triage_label": "Urgent",
-    "vitals": {
+    "vitals": with_bmi({
         "systolic": 158, "diastolic": 94, "pulse_bpm": 96,
         "temperature_c": 36.8, "weight_kg": 72.5, "height_cm": 165,
         "measured_at": "2026-08-07T09:12:00+07:00",
@@ -483,7 +484,7 @@ PROPOSED_BODY["mfu_prescreen"] = {
             "temperature_c": "patient_input",
             "weight_kg": "patient_input", "height_cm": "patient_input",
         },
-    },
+    }),
     "confirmed_by": "OPD Nurse (สมหญิง)",
     "source_ref": {"slip_code": "MCH-A1B2-C3D4", "session_ref": "{{session_id}}"},
     "rerouted": False,
@@ -586,7 +587,7 @@ the spelling.
 | In `mfu_prescreen` | Change request | Why it matters |
 |---|---|---|
 | `triage_level`, `triage_scale`, `triage_label` | **CR 1 — highest value** | The 5-level triage is our system's whole output. With no field it is buried in SBAR prose, so your destination queue sorts by arrival time instead of by how sick the patient is. `triage_level` is the integer 1–5 our engine already produces; `triage_scale` is `MOPH-5`, the Thai MOPH ED Triage 5-level guideline (กรมการแพทย์ 2561) our criteria are built on — see `docs/criteria-standards.md`. Name them whatever suits your schema; the value is what matters. |
-| `vitals` (structured, with `measured_at` and a per-field `sources` map) | CR 2 | **Provenance is per field, not per reading.** The BP and pulse come off an Omron cuff; the weight, height and often the temperature are what the patient told us. Treating them as one kind of evidence would let a self-reported weight be charted as a booth measurement. We send each reading **once**, as a number, rather than also restating it in `sbar.assessment` — the same value in two shapes drifts the moment one is edited, and a sentence cannot carry provenance you can query. These are the only vital fields our booth produces, and they are **not** a one-to-one match for your Prescreen columns: we split `pressure` into `systolic`/`diastolic`, we do not compute a BMI, and we add a `sources` map you have no column for. That difference is expected — map them however suits your side. |
+| `vitals` (structured, with `measured_at` and a per-field `sources` map) | CR 2 | **Provenance is per field, not per reading.** The BP and pulse come off an Omron cuff; the weight, height and often the temperature are what the patient told us. Treating them as one kind of evidence would let a self-reported weight be charted as a booth measurement. We send each reading **once**, as a number, rather than also restating it in `sbar.assessment` — the same value in two shapes drifts the moment one is edited, and a sentence cannot carry provenance you can query. These are the only vital fields our booth produces, and they are **not** a one-to-one match for your Prescreen columns: we split `pressure` into `systolic`/`diastolic`, we send `bmi` derived at send time from the weight and height in the same payload (never stored, so it cannot survive a re-measure and contradict them), and we add a `sources` map you have no column for. That difference is expected — map them however suits your side. |
 | `confirmed_by` | CR 3 | Sender identity comes from the token, so iMed records "the MFU triage system", not the nurse who signed off. Matters for audit after an incident. |
 | `source_ref` | CR 4 | Lets your staff open the full transcript and the AI's cited reasoning, not just the summary. **`slip_code` and `session_ref` are the same identity, not two keys** — the slip code is the first and last four characters of the session id (`…1ba646bb…811eb` → `MCH-1BA6-11EB`). Store `session_ref` if you store one: the derivation is one-way, so a slip code cannot be resolved back. The slip code exists because it is short enough to print on the patient's paper slip and read out. Neither contains patient data. |
 | `rerouted` | — | We know when a nurse overrode the AI's department. There is no iMed field, so today it can only go into `sbar.recommend` as prose. |
@@ -1004,7 +1005,7 @@ reads_items.append({
                 "department": "แผนก ผู้ป่วยนอก(หน่วยคัดกรอง)",
             },
             "measured_at": "2026-08-07T09:12:00+07:00",
-            "vitals": {
+            "vitals": with_bmi({
                 "systolic": 158,
                 "diastolic": 94,
                 "pulse_bpm": 96,
@@ -1019,7 +1020,7 @@ reads_items.append({
                     "weight_kg": "patient_input",
                     "height_cm": "patient_input",
                 },
-            },
+            }),
         }),
     },
 })

@@ -221,6 +221,28 @@ async def test_http_push_and_confirm():
     assert "assign_eid" not in sent
 
 
+async def test_prescreen_carries_a_derived_bmi():
+    """The hospital's Prescreen export has a bmi column, so we fill it.
+
+    Derived at send time from the weight and height in the same payload —
+    a stored BMI would survive a re-measure and contradict them.
+    """
+    handler, state = _fake_his_handler()
+    adapter = _adapter_with(handler)
+    await adapter.push_referral({
+        "visit_id": "V1",
+        "vitals": {"weight_kg": 72.5, "height_cm": 165, "systolic": 158},
+    })
+    assert state["prescreens"]["V1"]["vitals"]["bmi"] == 26.63
+
+
+async def test_prescreen_omits_bmi_when_a_measurement_is_missing():
+    handler, state = _fake_his_handler()
+    adapter = _adapter_with(handler)
+    await adapter.push_referral({"visit_id": "V1", "vitals": {"weight_kg": 72.5}})
+    assert "bmi" not in state["prescreens"]["V1"]["vitals"]
+
+
 async def test_http_push_without_visit_id_is_false():
     handler, _ = _fake_his_handler()
     adapter = _adapter_with(handler)
