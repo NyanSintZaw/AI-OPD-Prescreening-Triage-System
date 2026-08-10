@@ -338,7 +338,6 @@ async def confirm_visit_name(
             "identity_yesno",
             payload.text,
             str(session_row.get("language") or "th"),
-            context=str((metadata.get("visit") or {}).get("patient_name") or ""),
         )
         if verdict in ("yes", "no"):
             # Definitive answer — applied below; the counter reset happens in

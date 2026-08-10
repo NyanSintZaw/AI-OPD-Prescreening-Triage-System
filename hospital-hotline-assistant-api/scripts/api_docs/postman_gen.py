@@ -111,20 +111,24 @@ def capture_script(var: str, field: str) -> dict:
     }
 
 
-def collection(name: str, description: str, items: list, auth_var: str) -> dict:
-    return {
+def collection(name: str, description: str, items: list, auth_var: str | None) -> dict:
+    payload = {
         "info": {
             "_postman_id": stable_id(name),
             "name": name,
             "description": description,
             "schema": SCHEMA,
         },
-        "auth": {
-            "type": "bearer",
-            "bearer": [{"key": "token", "value": "{{%s}}" % auth_var, "type": "string"}],
-        },
         "item": items,
     }
+    # None = no collection auth. The model server sits on the hospital's own
+    # network and takes no bearer token; sending one would be theatre.
+    if auth_var:
+        payload["auth"] = {
+            "type": "bearer",
+            "bearer": [{"key": "token", "value": "{{%s}}" % auth_var, "type": "string"}],
+        }
+    return payload
 
 
 def environment(name: str, values: dict[str, str]) -> dict:
@@ -1151,6 +1155,24 @@ is so you can see the shape working end to end, **not** a claim that anything
 is agreed: they are still proposals, and the shapes are ours until you say
 otherwise.*
 """
+MODEL_COLLECTION_DESC = """Every call the screening engine makes to the **AI
+model**, as a real OpenAI-compatible request.
+
+In production the model runs on a **workstation inside the hospital** (vLLM or
+Ollama, weights on local disk); the booth connects to it per turn. Point
+`aiModelBaseUrl` at that host and these run as-is.
+
+**No request carries a patient identifier** — no name, HN, VN, slip code,
+session id or birthdate. The rules engine decides with those; the model only
+reads what the patient said and phrases what was already decided. The one
+thing we cannot filter is the patient's own words, which is why the model is
+hosted here rather than in a cloud.
+
+Bodies and saved responses are generated from the engine's own prompt
+builders, so they are byte-for-byte what the booth sends. Full contract:
+`docs/ai-model-io.md`.
+"""
+
 MOCK_COLLECTION_DESC = """Calls our adapter makes against **our own demo mock
 HIS** — this is *not* the hospital's API.
 
@@ -1192,6 +1214,23 @@ write_collection_v3(
         {"name": "our-current-calls", "item": current_items},
     ], "hisToken"),
 )
+# The model server: an OpenAI-compatible endpoint on a hospital workstation.
+# Its requests are generated from the real prompt builders so the collection
+# shows byte-for-byte what the booth sends — see model_io_gen.
+from model_io_gen import build_postman_items  # noqa: E402
+
+model_items = build_postman_items()
+write_collection_v3(
+    "AI Model (local inference)",
+    collection("AI Model (local inference)", MODEL_COLLECTION_DESC, [
+        {"name": "chat-completions", "item": model_items},
+    ], None),
+)
+write_environment_v3("mfu-ai-model local", {
+    # vLLM/Ollama on the workstation; localhost while developing.
+    "aiModelBaseUrl": "http://localhost:8000/v1",
+    "aiModelName": "typhoon2-qwen2.5-7b-instruct",
+})
 write_environment_v3("mfu-his local", {
         "hisBaseUrl": "http://localhost:8001",
         # Points at our mock's future /api/v1 mount so the same collection runs
@@ -1209,7 +1248,8 @@ write_environment_v3("mfu-his local", {
     })
 
 print(f"postman: {sum(len(v) for v in folders.values())} requests in {len(folders)} folders"
-      f" + {len(current_items) + len(imed_items)} HIS requests -> {OUT}")
+      f" + {len(current_items) + len(imed_items)} HIS"
+      f" + {len(model_items)} model requests -> {OUT}")
 
 # Optional Windows-side mirror: the Postman desktop folder picker can't browse
 # WSL paths, so point POSTMAN_MIRROR_DIR at e.g. /mnt/d/postman to keep a copy

@@ -86,9 +86,22 @@ _URGENCY_LINE = {
     "th": "กรณีเร่งด่วน ให้แจ้งว่าควรไปทันที เจ้าหน้าที่ได้รับแจ้งแล้ว\n",
 }
 
+# The patient's real name never goes to the model. We ask for a placeholder
+# and substitute it into the finished reply, so the greeting still reads
+# naturally while the wire carries no identifier — see docs/ai-model-io.md.
+NAME_PLACEHOLDER = "[NAME]"
+
 _NAME_LINE = {
-    "en": "Address the patient by name, once, naturally: {name}\n",
-    "th": "เรียกชื่อผู้ป่วยหนึ่งครั้งอย่างเป็นธรรมชาติ: {name}\n",
+    "en": (
+        "Address the patient once, naturally, writing the literal token "
+        f"{NAME_PLACEHOLDER} exactly where their name belongs (do not invent "
+        "a name, do not translate the token).\n"
+    ),
+    "th": (
+        "เรียกผู้ป่วยหนึ่งครั้งอย่างเป็นธรรมชาติ โดยเขียนโทเคน "
+        f"{NAME_PLACEHOLDER} ตรงตำแหน่งที่ควรเป็นชื่อ "
+        "(ห้ามแต่งชื่อขึ้นเอง และห้ามแปลโทเคนนี้)\n"
+    ),
 }
 
 
@@ -144,7 +157,7 @@ def make_explain_node(deps: GraphDeps):
             prompt = _EXPLAIN_PROMPT[language].format(
                 summary=classification.get("symptoms_summary") or "-",
                 department=department,
-                name_line=_NAME_LINE[language].format(name=polite) if polite else "",
+                name_line=_NAME_LINE[language] if polite else "",
                 urgency_line=_URGENCY_LINE[language] if is_emergency else "",
                 reference=reference,
                 closing_line=closing[language],
@@ -188,6 +201,12 @@ def make_explain_node(deps: GraphDeps):
                 "ok": ok,
                 "violations": violations_seen,
             })
+            # Put the real name back. Unconditional, so a stray token can
+            # never reach the patient: no name on file means the placeholder
+            # is dropped rather than shown.
+            reply = " ".join(
+                reply.replace(NAME_PLACEHOLDER, polite or "").split()
+            )
 
         # Non-emergency: append the follow-up offer and stay open for one more
         # turn. Emergency (level ≤ 2) skips follow-up — flow is complete now.

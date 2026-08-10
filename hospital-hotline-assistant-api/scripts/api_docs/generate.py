@@ -42,4 +42,12 @@ except Exception as exc:  # keep the last committed openapi_his.json
 runpy.run_path(str(HERE / "gen_api_doc.py"))
 runpy.run_path(str(HERE / "assemble_docs.py"))
 runpy.run_path(str(HERE / "postman_gen.py"))
-print("done: docs/api-reference*.md + postman/ regenerated")
+
+# 4. the model I/O contract — built from the engine's own prompt builders,
+#    so the examples cannot drift from what goes on the wire.
+from model_io_gen import build_markdown, DOC_PATH  # noqa: E402
+
+DOC_PATH.write_text(build_markdown(), encoding="utf-8")
+print("wrote", DOC_PATH.relative_to(ROOT))
+
+print("done: docs/api-reference*.md + docs/ai-model-io.md + postman/ regenerated")

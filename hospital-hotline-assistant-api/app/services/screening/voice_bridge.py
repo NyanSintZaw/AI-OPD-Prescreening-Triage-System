@@ -909,7 +909,6 @@ class TurnVoiceService:
             # the regex vocabulary misses shouldn't cost the patient a strike.
             verdict = await self._gate_backstop(
                 session_id, session, "identity_yesno", transcript, decision,
-                context=str(session.get("patient_name") or ""),
             )
             if verdict in ("yes", "no"):
                 decision = verdict

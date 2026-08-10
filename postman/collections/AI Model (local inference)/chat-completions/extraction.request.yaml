@@ -1,0 +1,203 @@
+$kind: http-request
+description: |-
+  **Extraction — read one patient message into findings**
+
+  Every turn, first. The only call whose output changes the triage: it reports what the patient said, and the rules engine decides what that means.
+
+  Carries no patient identifier — see `docs/ai-model-io.md`.
+url: "{{aiModelBaseUrl}}/chat/completions"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: |-
+    {
+      "model": "{{aiModelName}}",
+      "messages": [
+        {
+          "role": "user",
+          "content": "You are a clinical intake scribe for a Thai hospital. Read ONE patient message\n(Thai or English) and extract ONLY what the patient actually said into the\nstructured schema. Never guess, never diagnose, never infer findings that were\nnot stated. If the message answers the assistant's pending question, record\nthat answer (as finding updates with state \"absent\" when the patient denies,\nor slot/score updates).\n\nContext:\nChief complaint so far: แน่นหน้าอกมา 2 ชั่วโมง\nThe assistant just asked: คุณมีอาการเจ็บหน้าอกหรือไม่\n\nAllowed complaint categories (copy ONE id verbatim — never invent or combine ids): generic, chest_pain, dyspnea_cough, abdominal_pain, headache, fever, ear, nose_throat, eye, injury, pregnancy, mental_health, musculoskeletal, urinary\n\nFinding catalog (use ONLY these ids):\n- abdominal_pain: Abdominal pain / ปวดท้อง (also: stomach ache, belly pain, ปวดท้องน้อย, จุกท้อง)\n- abnormal_breath_sounds: Audible abnormal breathing (wheeze/stridor) / เสียงหายใจผิดปกติ (หวีด/ครืดคราด) ได้ยินโดยไม่ใช้เครื่องฟัง (also: wheezing, noisy breathing, หายใจมีเสียงหวีด, หายใจครืดคราด)\n- active_bleeding: Heavy bleeding that won't stop / เลือดออกมากไม่หยุด (active bleeding) (also: bleeding a lot, can't stop the bleeding, เลือดไหลไม่หยุด, เลือดออกเยอะมาก)\n- agitation_violent: Severe agitation / violent behavior / คลุ้มคลั่ง อาละวาด (also: out of control, คลุ้มคลั่ง)\n- airway_obstruction: Airway obstruction / choking / ทางเดินหายใจอุดกั้น สำลักติดคอ (also: choking, something stuck in throat blocking breathing, สำลัก, ติดคอหายใจไม่ได้)\n- amniotic_fluid_leak: Water broke / amniotic fluid leaking / น้ำเดิน น้ำคร่ำไหล (also: water broke, น้ำเดิน)\n- animal_insect_bite_24h: Animal or insect bite/sting within 24 hours / แมลงสัตว์กัดต่อย ภายใน 24 ชั่วโมง (also: dog bite, snake bite, stung, หมากัด, งูกัด, แมลงต่อย)\n- apnea: Stopped breathing (apnea) / หยุดหายใจ (also: stops breathing, หยุดหายใจเป็นพัก)\n- assault_24h: Physically assaulted within 24 hours / ถูกทำร้ายร่างกายภายใน 24 ชั่วโมง (also: was attacked, ถูกทำร้าย, โดนซ้อม)\n- balance_loss: Sudden loss of balance / severe dizziness with unsteady walking / เสียการทรงตัว เดินเซ เวียนศีรษะรุนแรงฉับพลัน (also: staggering, can't walk straight, เดินเซ, ทรงตัวไม่ได้)\n- bloody_stool: Fresh blood in stool (recent) / ถ่ายเป็นเลือดสด (also: blood in stool, อุจจาระมีเลือด)\n- blue_lips: Blue lips / cyanosis / ริมฝีปากเขียว ตัวเขียว (also: turning blue, เขียวคล้ำ, ปากเขียว)\n- burn_scald_24h: Burn or scald within 24 hours / ไฟไหม้ น้ำร้อนลวก ภายใน 24 ชั่วโมง (also: scalded, น้ำร้อนลวก, ไฟลวก)\n- cardiac_arrest: Cardiac arrest / not breathing, no pulse / หัวใจหยุดเต้น ไม่หายใจ ไม่มีชีพจร (also: no pulse, not breathing, collapsed and unresponsive, หัวใจหยุด, ไม่หายใจ, คลำชีพจรไม่ได้)\n- chest_pain: Chest pain / tightness / เจ็บแน่นหน้าอก (also: chest tightness, pressure on chest, chest discomfort, แน่นหน้าอก, เจ็บหน้าอก, จุกแน่นใต้ลิ้นปี่)\n- chest_pain_radiating: Chest pain radiating to neck, jaw, shoulder, or arm / เจ็บหน้าอกร้าวไปคอ กราม ไหล่ หรือแขน (also: pain spreading to jaw, pain going down the arm, เจ็บร้าวไปกราม, เจ็บร้าวไปไหล่)\n- chronic_cough_2w: Cough lasting more than 2 weeks / ไอเรื้อรังมากกว่า 2 สัปดาห์ (also: ไอเรื้อรัง)\n- confusion: New confusion / drowsiness / disorientation (within 72 hours) / ซึม สับสน เรียกแล้วตอบช้า ภายใน 72 ชั่วโมง (also: disoriented, not making sense, very drowsy, สับสน, ซึมลง, พูดจาสับสน)\n- cough: Cough / ไอ (also: coughing, ไอแห้ง, ไอมีเสมหะ)\n- crowning: Baby is coming / part of baby visible / ทารกกำลังคลอด มีส่วนของทารกโผล่ออกมา (also: baby's head is coming out, เด็กกำลังจะคลอด, อยากเบ่ง)\n- decreased_fetal_movement: Baby moving less than usual / ลูกดิ้นน้อยลง (also: baby not moving much, ทารกดิ้นน้อยลง)\n- diaphoresis: Sweating heavily / cold sweat with symptoms / เหงื่อออกมาก เหงื่อแตก (also: cold sweat, drenched in sweat, เหงื่อแตกท่วมตัว)\n- diarrhea: Diarrhea / ถ่ายเหลว ท้องเสีย (also: loose stools, ท้องร่วง)\n- dyspnea: Difficulty breathing / shortness of breath / หายใจเหนื่อย หายใจหอบ (also: short of breath, breathless, hard to breathe, เหนื่อยหอบ, หายใจไม่อิ่ม, หายใจลำบาก)\n- dysuria: Painful or burning urination / ปัสสาวะแสบขัด (also: burning when peeing, ฉี่แสบ, ปัสสาวะขัด)\n- ear_pain: Ear pain / ปวดหู (also: earache, เจ็บหู)\n- electric_shock_24h: Electric shock within 24 hours / ไฟดูด ภายใน 24 ชั่วโมง (also: electrocuted, ไฟดูด, ไฟช็อต)\n- epistaxis_uncontrolled: Nosebleed that will not stop / เลือดกำเดาไหลไม่หยุด (also: เลือดกำเดาไม่หยุด)\n- evening_fever: Low-grade fever in the evenings / มีไข้ตอนเย็น ไข้ต่ำ ๆ ช่วงเย็น (also: ไข้ตอนเย็น)\n- eye_active_bleeding: Eye bleeding that won't stop / เลือดออกที่ตาไม่หยุด (also: เลือดออกในตา)\n- eye_chemical_exposure: Chemical or animal venom splashed into eye / สารเคมีหรือพิษสัตว์กระเด็นเข้าตา (also: chemical in eye, สารเคมีเข้าตา)\n- eye_trauma: Eye injury / accident involving the eye / อุบัติเหตุทางตา (also: hit in the eye, ตาโดนกระแทก)\n- facial_droop: Facial droop / crooked mouth (sudden) / ปากเบี้ยว หน้าเบี้ยวฉับพลัน (also: face drooping on one side, หน้าเบี้ยว, มุมปากตก)\n- fatigue_weight_loss: Fatigue with unexplained weight loss / อ่อนเพลีย น้ำหนักลด (also: losing weight, น้ำหนักลด, เพลีย)\n- fever: Fever / มีไข้ (also: feverish, high temperature, ตัวร้อน, ไข้ขึ้น)\n- floppy_infant: Child limp / floppy / not responding / เด็กตัวอ่อนปวกเปียก ไม่ตอบสนอง (also: limp child, ตัวอ่อน, ไม่ตอบสนอง)\n- foreign_body_ent_24h: Foreign object stuck in ear, nose, or throat (within 24 hours) / สิ่งแปลกปลอมติดในหู จมูก หรือคอ ภายใน 24 ชั่วโมง (also: something stuck in my ear, ของติดในหู, ก้างติดคอ)\n- fracture_suspected: Suspected broken bone or dislocated joint / สงสัยกระดูกหักหรือข้อหลุด (also: bone might be broken, joint popped out, กระดูกหัก, ข้อเคลื่อน, ข้อหลุด)\n- ga_24w_or_more: Pregnancy at 24 weeks or more / อายุครรภ์ 24 สัปดาห์ขึ้นไป (also: 6 months pregnant or more, ครรภ์ 6 เดือนขึ้นไป)\n- gasping: Gasping breaths / หายใจเฮือก (also: หายใจเฮือก ๆ)\n- headache: Headache / ปวดศีรษะ (also: head hurts, ปวดหัว)\n- headache_sudden_severe: Sudden very severe headache (worst ever) / ปวดศีรษะรุนแรงฉับพลัน (ปวดที่สุดในชีวิต) (also: thunderclap headache, ปวดหัวรุนแรงที่สุด)\n- heavy_vaginal_bleeding: Heavy vaginal bleeding (soaking a pad every hour) / เลือดออกมากทางช่องคลอด (เปียกชุ่มผ้าอนามัยทุก 1 ชั่วโมง) (also: soaking pads, เลือดชุ่มผ้าอนามัย)\n- hematemesis: Vomiting blood (recent) / อาเจียนเป็นเลือด (also: threw up blood, อ้วกเป็นเลือด)\n- hemoptysis: Coughing up blood / blood-streaked sputum / ไอเป็นเลือด เสมหะปนเลือด (also: blood in sputum, ไอมีเลือดปน)\n- hypertension_history: History of high blood pressure / มีโรคความดันโลหิตสูง (also: hypertension, ความดันสูง)\n- injury_within_24h: Injury happened within the last 24 hours / บาดเจ็บภายใน 24 ชั่วโมงที่ผ่านมา\n- limb_weakness: Sudden weakness or numbness of arm/leg (one side) / แขนขาอ่อนแรงหรือชาครึ่งซีกฉับพลัน (also: one side weak, arm won't lift, อ่อนแรงครึ่งซีก, ยกแขนไม่ขึ้น, ชาครึ่งซีก)\n- lip_swelling: Swelling of lips, mouth, or face / ปากบวม หน้าบวม (also: swollen lips, face swelling up, ริมฝีปากบวม, หน้าบวม)\n- major_trauma_mechanism: Car/motorcycle accident, fall from over 5 metres, or pedestrian hit by vehicle / อุบัติเหตุรถยนต์/จักรยานยนต์ ตกจากที่สูงเกิน 5 เมตร หรือคนเดินถนนถูกรถชน (also: motorbike crash, hit by a car, รถชน, รถล้ม, ตกจากที่สูง)\n- melena: Black tarry stool (recent) / ถ่ายดำ (also: black stools, อุจจาระสีดำ)\n- missed_period: Missed period / ประจำเดือนขาด (also: late period, เมนส์ไม่มา, ประจำเดือนไม่มา)\n- nasal_flaring: Nostrils flaring when breathing (child) / หายใจปีกจมูกบาน (also: ปีกจมูกบาน)\n- overdose_or_poison: Drug overdose or exposure to poison/chemicals / ได้รับยาเกินขนาด หรือสัมผัสสารพิษ/สารเคมี (also: took too many pills, swallowed chemicals, กินยาเกินขนาด, โดนสารพิษ)\n- pale_cold_sweaty: Pale AND cold AND clammy skin together (shock signs) / ผิวหนังซีดและตัวเย็นชื้นพร้อมกัน (สัญญาณช็อก) (also: cold and clammy, pale and cold to the touch, ตัวเย็นหน้าซีด, หน้าซีดตัวเย็น)\n- palm_sole_rash: Red rash on palms, soles, or around the mouth / ผื่นแดงตามฝ่ามือ ฝ่าเท้า รอบปาก (also: ผื่นฝ่ามือฝ่าเท้า)\n- penetrating_injury_torso: Stab or penetrating wound to neck, chest, or abdomen / ถูกแทงที่คอ หน้าอก หรือช่องท้อง (also: stabbed, ถูกแทง, ถูกยิง)\n- pregnancy: Currently pregnant / กำลังตั้งครรภ์ (also: expecting, ท้อง, มีครรภ์)\n- rash_itching: Itchy rash / hives / ผื่นคัน ลมพิษ (also: hives, ผื่นลมพิษ, ผื่นคันทั้งตัว)\n- recent_chemotherapy: Currently receiving chemotherapy / ได้รับยาเคมีบำบัดอยู่ (also: on chemo, ให้คีโม, รับยาเคมี)\n- retraction: Chest retractions when breathing / หายใจมีอกบุ๋ม (retraction) (also: ribs pulling in when breathing, อกบุ๋ม, ซี่โครงบุ๋ม)\n- runny_nose: Runny nose / น้ำมูกไหล (also: มีน้ำมูก)\n- seizure_now: Seizure now / convulsing and unresponsive / กำลังชักเกร็ง เรียกไม่รู้สึกตัว (also: convulsions, fitting, ชัก, ชักเกร็ง)\n- self_harm_risk: Risk of harming self or others / recent self-harm / เสี่ยงทำร้ายตนเองหรือผู้อื่น หรือเพิ่งทำร้ายตนเอง (also: hurt myself, ทำร้ายตัวเอง)\n- severe_morning_sickness: Severe pregnancy vomiting, cannot eat or drink / แพ้ท้องรุนแรงจนกินไม่ได้ (also: แพ้ท้องหนัก)\n- severe_respiratory_distress: Severe breathing difficulty (cannot speak full sentences / must sit up to breathe) / หายใจลำบากรุนแรง พูดเป็นประโยคไม่ได้ ต้องลุกนั่งหายใจ (also: can't speak full sentences, gasping for air, struggling to breathe, หายใจไม่ทัน, พูดไม่เป็นประโยค, หอบมาก)\n- sexual_assault_72h: Sexual assault within 72 hours / ถูกกระทำชำเราภายใน 72 ชั่วโมง (also: ถูกล่วงละเมิดทางเพศ)\n- slurred_speech: Slurred or garbled speech (sudden) / พูดไม่ชัด ลิ้นแข็ง พูดไม่ออกทันที (also: can't get words out, speech suddenly unclear, พูดอ้อแอ้, พูดไม่รู้เรื่องฉับพลัน)\n- sore_throat: Sore throat / เจ็บคอ (also: เจ็บคอ)\n- stiff_neck: Stiff neck with fever / คอแข็ง ก้มคอไม่ได้ ร่วมกับไข้ (also: คอแข็ง)\n- sudden_vision_loss: Sudden loss of vision / double vision / ตามองไม่เห็นเฉียบพลัน เห็นภาพซ้อน (also: suddenly can't see, double vision, ตามืดฉับพลัน, เห็นภาพซ้อน)\n- suicidal_ideation: Thoughts of suicide or wanting to die / มีความคิดอยากตาย อยากฆ่าตัวตาย (also: want to end my life, อยากตาย, คิดสั้น)\n- syncope_24h: Fainting / near-fainting within 24 hours / วูบ หน้ามืด เป็นลม ภายใน 24 ชั่วโมง (also: blacked out, passed out today, เป็นลม, วูบหมดสติ)\n- unresponsive: Unresponsive / cannot be woken / ซึมลงปลุกไม่ตื่น ไม่รู้สึกตัว (also: unconscious, won't wake up, passed out and not waking, หมดสติ, ปลุกไม่ตื่น, ไม่ตอบสนอง)\n- uterine_contractions_frequent: Frequent strong contractions (about every 2 minutes) / ท้องแข็ง เจ็บครรภ์ถี่ (ทุก ๆ 2 นาที) (also: contractions every few minutes, เจ็บท้องคลอดถี่, ท้องแข็งถี่)\n- vaginal_bleeding: Vaginal bleeding (abnormal) / เลือดออกทางช่องคลอดผิดปกติ (also: bleeding down there, เลือดออกช่องคลอด)\n- vomiting: Vomiting / อาเจียน คลื่นไส้ (also: throwing up, nausea, คลื่นไส้, อ้วก)\n\nRules:\n- A denial (\"no\", \"ไม่มีค่ะ\", \"none of these\", \"ไม่มีอาการเหล่านี้\") of the pending\n  question -> ALL of that question's finding ids with state \"absent\". A bare\n  denial applies ONLY to the pending question's finding ids — never to other\n  findings the question wording mentioned in passing.\n- Explicit negations the patient volunteers anywhere in the message (\"no fever\n  though\", \"no trouble breathing\", \"แต่ไม่มีไข้\", \"หายใจปกติดี\") -> those findings\n  with state \"absent\" — including in the very first message. This applies to\n  \"X but no Y\" sentences too: \"I've had a fever since yesterday but no cough\"\n  -> fever \"present\" AND cough \"absent\"; \"มีไข้ แต่ไม่ไอ ไม่เจ็บคอ\" -> fever\n  \"present\", cough \"absent\", sore_throat \"absent\". Never drop the negated\n  finding just because the sentence also reports a positive one.\n- A bare affirmation (\"yes\", \"ใช่\", \"มี\") of a pending question that checks exactly\n  ONE finding -> that finding id with state \"present\".\n- A bare affirmation of a pending question that checks SEVERAL findings:\n  if they are severity grades of the SAME symptom (e.g. dyspnea vs\n  severe_respiratory_distress) -> record only the mildest as \"present\";\n  if they are DISTINCT symptoms (e.g. confusion vs stiff_neck) -> record NO\n  finding updates (the assistant will ask which one). When the patient names\n  specific symptoms, record exactly those as \"present\".\n- For EVERY finding update, fill evidence with the exact words from the\n  patient's message that state it — copied verbatim, never paraphrased or\n  translated. If you cannot quote supporting words, do not record the finding.\n- Numbers 0-10 answering a pain/breathing question -> pain_score or distress_score.\n- A timeframe answering when it started or how long it has lasted (e.g.\n  \"2-3 days\", \"since yesterday\") -> fill BOTH slot_updates.onset and\n  slot_updates.duration when the phrasing covers both, so neither is re-asked.\n- Ages like \"6 เดือน\" -> age_years 0.5.\n- complaint_category: whenever the patient states any symptom, pick the SINGLE\n  closest category from the allowed list. If more than one could fit (e.g.\n  sore throat + cough), pick the one matching the symptom they said first.\n  Use null only when no category fits at all (e.g. a greeting or a question).\n- wants_human=true only when they explicitly ask for a person/nurse/staff.\n\nPatient message:\nเจ็บแน่นหน้าอกมาสองชั่วโมง ร้าวไปแขนซ้าย ไม่มีไข้"
+        }
+      ],
+      "temperature": 0.1,
+      "stream": false,
+      "response_format": {
+        "type": "json_schema",
+        "json_schema": {
+          "name": "extraction",
+          "strict": true,
+          "schema": {
+            "$defs": {
+              "FindingUpdate": {
+                "description": "One finding the patient's message resolves.",
+                "properties": {
+                  "id": {
+                    "description": "Canonical finding id from the provided catalog",
+                    "title": "Id",
+                    "type": "string"
+                  },
+                  "state": {
+                    "description": "present if the patient confirms it, absent if they deny it",
+                    "enum": [
+                      "present",
+                      "absent"
+                    ],
+                    "title": "State",
+                    "type": "string"
+                  },
+                  "value": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "Optional detail, e.g. '3 days' or 'left side'",
+                    "title": "Value"
+                  },
+                  "evidence": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ],
+                    "default": null,
+                    "description": "The exact words from the patient's message that state this finding, copied verbatim (same language, no paraphrase)",
+                    "title": "Evidence"
+                  }
+                },
+                "required": [
+                  "id",
+                  "state"
+                ],
+                "title": "FindingUpdate",
+                "type": "object"
+              }
+            },
+            "description": "Structured reading of a single patient message.",
+            "properties": {
+              "chief_complaint": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "Patient's main problem in their own words, only when newly stated",
+                "title": "Chief Complaint"
+              },
+              "complaint_category": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "Best matching complaint category from the provided list, or null",
+                "title": "Complaint Category"
+              },
+              "finding_updates": {
+                "items": {
+                  "$ref": "#/$defs/FindingUpdate"
+                },
+                "title": "Finding Updates",
+                "type": "array"
+              },
+              "slot_updates": {
+                "additionalProperties": {
+                  "type": "string"
+                },
+                "description": "OLDCARTS slots this message answers (onset, location, duration, character, aggravating, relieving, timing, severity) mapped to the answer text",
+                "title": "Slot Updates",
+                "type": "object"
+              },
+              "age_years": {
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "Patient age in years when stated (0.5 = 6 months)",
+                "title": "Age Years"
+              },
+              "pain_score": {
+                "anyOf": [
+                  {
+                    "maximum": 10,
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "0-10 pain score when stated",
+                "title": "Pain Score"
+              },
+              "distress_score": {
+                "anyOf": [
+                  {
+                    "maximum": 10,
+                    "minimum": 0,
+                    "type": "integer"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "0-10 breathing difficulty score when stated",
+                "title": "Distress Score"
+              },
+              "temperature_c": {
+                "anyOf": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "default": null,
+                "description": "Body temperature in Celsius when stated",
+                "title": "Temperature C"
+              },
+              "is_question_to_assistant": {
+                "default": false,
+                "description": "True when the message is a question to the assistant rather than an answer about symptoms",
+                "title": "Is Question To Assistant",
+                "type": "boolean"
+              },
+              "wants_human": {
+                "default": false,
+                "description": "True when the patient asks for a human/nurse",
+                "title": "Wants Human",
+                "type": "boolean"
+              }
+            },
+            "title": "ExtractionResult",
+            "type": "object"
+          }
+        }
+      }
+    }
+examples: ./.resources/extraction.resources/examples
+order: 1000

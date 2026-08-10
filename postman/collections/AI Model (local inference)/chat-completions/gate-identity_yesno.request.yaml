@@ -1,0 +1,53 @@
+$kind: http-request
+name: gate:identity_yesno
+description: |-
+  **Gate (identity_yesno) — classify one yes/no-ish reply**
+
+  Only when the deterministic regex classifier is unsure. The model returns one enum value and never generates anything the patient hears.
+
+  Carries no patient identifier — see `docs/ai-model-io.md`.
+url: "{{aiModelBaseUrl}}/chat/completions"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: |-
+    {
+      "model": "{{aiModelName}}",
+      "messages": [
+        {
+          "role": "user",
+          "content": "A hospital kiosk showed the patient the name on their record and asked 'is this you?'\nClassify the patient's reply below (Thai or English). Answer with exactly one verdict:\n- yes: the reply confirms it is them\n- no: the reply says it is not them / wrong name / wrong person\n- unclear: cannot tell (off-topic, ambiguous)\nSession language: th.\nPatient reply: 'ไม่มีแล้วค่ะ ขอบคุณค่ะ'"
+        }
+      ],
+      "temperature": 0.1,
+      "stream": false,
+      "response_format": {
+        "type": "json_schema",
+        "json_schema": {
+          "name": "gate_identity_yesno",
+          "strict": true,
+          "schema": {
+            "properties": {
+              "verdict": {
+                "enum": [
+                  "yes",
+                  "no",
+                  "unclear"
+                ],
+                "title": "Verdict",
+                "type": "string"
+              }
+            },
+            "required": [
+              "verdict"
+            ],
+            "title": "_IdentityVerdict",
+            "type": "object"
+          }
+        }
+      }
+    }
+examples: ./.resources/gate-identity_yesno.resources/examples
+order: 5000

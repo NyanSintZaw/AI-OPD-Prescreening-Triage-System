@@ -129,6 +129,22 @@ hospital hardware, so patient audio and symptom narratives never leave the
 building. This removes what would otherwise be the largest privacy question
 in the system — see 5.2.
 
+### 5.0 What we send the model (added 2026-08-10)
+
+`docs/ai-model-io.md` is the generated contract: every prompt, every schema,
+every reply, built from the engine's own prompt builders so it cannot drift.
+The rule it records is that **no patient identifier reaches the model** — not
+the name, HN, VN, slip code, session id or birthdate. Two calls used to send
+the name and no longer do; `tests/screening/test_no_pii_in_prompts.py` fails
+the build if any of them come back.
+
+What we cannot redact is the patient's own speech: they may say their name
+out loud, and no filter catches that reliably in free Thai. **That, not the
+redaction, is what local inference buys** — an utterance carrying an
+identifier never leaves the hospital, and no third party holds a transcript.
+The `AI Model (local inference)` Postman collection runs every call against a
+workstation endpoint.
+
 ### 5.1 Readiness — one seam exists, one does not
 
 | Component | Today (demo) | Production | Seam status |

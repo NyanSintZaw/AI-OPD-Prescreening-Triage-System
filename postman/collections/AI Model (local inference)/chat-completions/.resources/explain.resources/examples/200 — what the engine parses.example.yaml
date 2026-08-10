@@ -1,0 +1,49 @@
+$kind: http-example
+request:
+  url: "{{aiModelBaseUrl}}/chat/completions"
+  method: POST
+  headers:
+    Content-Type: application/json
+  body:
+    type: json
+    content: |-
+      {
+        "model": "{{aiModelName}}",
+        "messages": [
+          {
+            "role": "user",
+            "content": "คุณเป็นผู้ช่วยคัดกรองของโรงพยาบาล พูดภาษาไทยอย่างอบอุ่นและใจเย็น ระบบเกณฑ์ทางคลินิกได้ตัดสินใจแล้วว่าผู้ป่วยควรไปที่แผนกใด หน้าที่ของคุณคืออธิบายอย่างสุภาพใน 2-4 ประโยคสั้น ๆ เท่านั้น\nข้อห้ามเด็ดขาด: ห้ามพูดถึงระดับการคัดกรอง สี คะแนน หรือการจัดประเภท ห้ามวินิจฉัยหรือระบุชื่อโรคที่สงสัย ห้ามแนะนำยา และห้ามพูดถึงแผนกอื่น\nอาการที่ผู้ป่วยเล่า: แน่นหน้าอกมา 2 ชั่วโมง ร้าวไปแขนซ้าย\nให้ผู้ป่วยไปที่: แผนก OPD MED (อายุรกรรม)\nเรียกผู้ป่วยหนึ่งครั้งอย่างเป็นธรรมชาติ โดยเขียนโทเคน [NAME] ตรงตำแหน่งที่ควรเป็นชื่อ (ห้ามแต่งชื่อขึ้นเอง และห้ามแปลโทเคนนี้)\n"
+          }
+        ],
+        "temperature": 0.1,
+        "stream": false
+      }
+response:
+  statusCode: 200
+  statusText: OK
+  headers:
+    Content-Type: application/json
+  body:
+    type: json
+    content: |-
+      {
+        "id": "chatcmpl-mfu-0001",
+        "object": "chat.completion",
+        "model": "{{aiModelName}}",
+        "choices": [
+          {
+            "index": 0,
+            "message": {
+              "role": "assistant",
+              "content": "[NAME] คะ จากอาการที่เล่ามา ทางเราขอให้ไปที่แผนก OPD MED (อายุรกรรม) เพื่อให้แพทย์ตรวจดูอย่างละเอียดนะคะ เดี๋ยวเจ้าหน้าที่จะช่วยแนะนำทางให้ค่ะ"
+            },
+            "finish_reason": "stop"
+          }
+        ],
+        "usage": {
+          "prompt_tokens": 0,
+          "completion_tokens": 0,
+          "total_tokens": 0
+        }
+      }
+order: 1000

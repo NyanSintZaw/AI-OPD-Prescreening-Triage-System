@@ -29,6 +29,17 @@ def _deps() -> GraphDeps:
     )
 
 
+def _explain_deps(model) -> GraphDeps:
+    """Same departments as _deps(), but with a model so the node really calls it."""
+    deps = _deps()
+    return GraphDeps(
+        model=model,
+        question_budget=deps.question_budget,
+        department_names=deps.department_names,
+        validator_department_names=deps.validator_department_names,
+    )
+
+
 def test_polite_name_forms():
     assert templates.polite_name("สมชาย ใจดี", "th") == "คุณสมชาย"
     assert templates.polite_name("Waraporn Srisuk", "en") == "Waraporn"
@@ -97,3 +108,66 @@ async def test_followup_ack_addresses_by_name():
     })
     assert "คุณสมชาย" in result["output"].reply
     assert result["s"].patient_follow_up == "ฝากบอกคุณหมอว่าแพ้ยาเพนิซิลลินครับ"
+
+
+async def test_name_is_substituted_after_the_model_answers():
+    """The greeting survives, the name never goes on the wire.
+
+    The model is asked for a `[NAME]` token and the real name is put in
+    afterwards, so the patient still hears "คุณสมชาย" while the prompt — and
+    therefore the model server's logs — carry no identifier.
+    """
+    from app.services.screening.nodes.explain import make_explain_node
+
+    from .fakes import FakeChatModel
+
+    model = FakeChatModel()
+    model.text_replies.append("[NAME] คะ ขอให้ไปที่ OPD เวชปฏิบัติทั่วไป นะคะ")
+    state = ScreeningState(
+        session_id="name-sub",
+        language="th",  # type: ignore[arg-type]
+        phase="disposed",  # type: ignore[arg-type]
+        classification={
+            "classified": True,
+            "level": 4,
+            "department_code": "opd_general",
+            "symptoms_summary": "ไข้สองวัน",
+        },
+    )
+    state.patient_name = "สมชาย ใจดี"
+
+    result = await make_explain_node(_explain_deps(model))(
+        {"s": state, "user_text": "", "criteria": None, "audit": []}
+    )
+    reply = result["output"].reply
+
+    assert "สมชาย" not in model.prompts[0]
+    assert "[NAME]" in model.prompts[0]
+    assert "คุณสมชาย" in reply
+    assert "[NAME]" not in reply
+
+
+async def test_stray_placeholder_never_reaches_a_patient_without_a_name():
+    """No name on file -> the token is dropped, not shown."""
+    from app.services.screening.nodes.explain import make_explain_node
+
+    from .fakes import FakeChatModel
+
+    model = FakeChatModel()
+    model.text_replies.append("[NAME] ขอให้ไปที่ OPD เวชปฏิบัติทั่วไป นะคะ")
+    state = ScreeningState(
+        session_id="name-none",
+        language="th",  # type: ignore[arg-type]
+        phase="disposed",  # type: ignore[arg-type]
+        classification={
+            "classified": True,
+            "level": 4,
+            "department_code": "opd_general",
+            "symptoms_summary": "ไข้สองวัน",
+        },
+    )
+
+    result = await make_explain_node(_explain_deps(model))(
+        {"s": state, "user_text": "", "criteria": None, "audit": []}
+    )
+    assert "[NAME]" not in result["output"].reply

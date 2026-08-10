@@ -1,0 +1,6 @@
+name: "mfu-ai-model local"
+values:
+  - key: "aiModelBaseUrl"
+    value: "http://localhost:8000/v1"
+  - key: "aiModelName"
+    value: "typhoon2-qwen2.5-7b-instruct"

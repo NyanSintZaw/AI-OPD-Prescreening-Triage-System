@@ -89,9 +89,12 @@ _PROMPTS: dict[str, str] = {
         "Session language: {language}. Context: {context}\n"
         "Patient reply: {utterance!r}"
     ),
+    # No name here on purpose: the task is "did they confirm or deny", which
+    # the reply answers on its own. Sending the name would put an identifier
+    # on the wire for nothing. See docs/ai-model-io.md.
     "identity_yesno": (
-        "A hospital kiosk asked the patient to confirm their identity: "
-        "'You are {context}, is that correct?'\n"
+        "A hospital kiosk showed the patient the name on their record and "
+        "asked 'is this you?'\n"
         "Classify the patient's reply below (Thai or English). Answer with "
         "exactly one verdict:\n"
         "- yes: the reply confirms it is them\n"
