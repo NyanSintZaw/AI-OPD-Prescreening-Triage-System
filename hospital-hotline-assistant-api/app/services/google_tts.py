@@ -8,10 +8,9 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import os
-import pathlib
 
 from app.config import settings
+from app.services.ai.env import configure_google_genai_environment
 
 logger = logging.getLogger(__name__)
 
@@ -32,14 +31,6 @@ _VOICE_BY_LANGUAGE: dict[str, dict[str, str]] = {
     "en": _voice_entry(getattr(settings, "tts_voice_en", "en-US-Neural2-F")),
     "th": _voice_entry(getattr(settings, "tts_voice_th", "th-TH-Neural2-C")),
 }
-
-
-def _ensure_credentials_env() -> None:
-    if settings.google_application_credentials:
-        cred_path = settings.google_application_credentials
-        if not pathlib.Path(cred_path).is_absolute():
-            cred_path = str((pathlib.Path.cwd() / cred_path).resolve())
-        os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = cred_path
 
 
 def strip_wav_header(audio: bytes) -> bytes:
@@ -66,7 +57,7 @@ class GoogleTtsClient:
 
     def _get_client(self):
         if self._client is None:
-            _ensure_credentials_env()
+            configure_google_genai_environment()
             from google.cloud import texttospeech_v1 as tts
 
             self._client = tts.TextToSpeechClient()

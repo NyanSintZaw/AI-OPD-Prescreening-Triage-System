@@ -9,11 +9,9 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import os
-import pathlib
 from dataclasses import dataclass
 
-from app.config import settings
+from app.services.ai.env import configure_google_genai_environment
 
 logger = logging.getLogger(__name__)
 
@@ -56,14 +54,6 @@ class SttResult:
     language_code: str
 
 
-def _ensure_credentials_env() -> None:
-    if settings.google_application_credentials:
-        cred_path = settings.google_application_credentials
-        if not pathlib.Path(cred_path).is_absolute():
-            cred_path = str((pathlib.Path.cwd() / cred_path).resolve())
-        os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = cred_path
-
-
 def _encoding_for_mime(mime: str | None):
     """Map common browser audio MIME types to STT encoding enums.
 
@@ -96,7 +86,7 @@ class GoogleSttClient:
 
     def _get_client(self):
         if self._client is None:
-            _ensure_credentials_env()
+            configure_google_genai_environment()
             from google.cloud import speech_v1 as speech
 
             self._client = speech.SpeechClient()

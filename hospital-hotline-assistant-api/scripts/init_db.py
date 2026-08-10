@@ -185,6 +185,36 @@ def check_his_mock() -> None:
         print("  Start the databases with:  docker compose up -d")
 
 
+async def ingest_manual() -> None:
+    """Populate the RAG index if it is empty.
+
+    Without this a fresh database starts with no index and the explanation
+    grounding silently no-ops — the retrieval is wrapped in a try/except, so
+    nothing complains. Found 2026-08-10 with 0 rows in a working install.
+    Skipped when rows already exist, so re-running init_db stays cheap.
+    """
+    try:
+        from app.config import settings
+        from app.services.ai.rag_ingest import ingest
+
+        # LlamaIndex prefixes the configured name with "data_".
+        table = f"data_{settings.pgvector_table}"
+        conn = await asyncpg.connect(DEFAULT_URL)
+        try:
+            exists = await conn.fetchval("SELECT to_regclass($1) IS NOT NULL", table)
+            rows = await conn.fetchval(f"SELECT count(*) FROM {table}") if exists else 0
+        finally:
+            await conn.close()
+        if rows:
+            print(f"  - index already populated ({rows} chunks); skipping")
+            return
+        count = ingest()
+        print(f"  - ingested {count} chunks from the triage manual")
+    except Exception as exc:  # never block DB setup on the optional RAG stack
+        print(f"  - SKIPPED ({type(exc).__name__}: {exc})")
+        print("    RAG grounding will be unavailable until this is re-run.")
+
+
 async def main() -> int:
     if not await ensure_database():
         return 1
@@ -224,6 +254,9 @@ async def main() -> int:
 
     print("\nSeeding screening criteria v1 (Postgres):")
     await seed_criteria()
+
+    print("\nTriage manual RAG index:")
+    await ingest_manual()
 
     print("\nMock hospital DB (HIS, SQLite):")
     check_his_mock()
