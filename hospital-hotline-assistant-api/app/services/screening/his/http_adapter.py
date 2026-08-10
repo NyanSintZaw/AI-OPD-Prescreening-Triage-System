@@ -32,7 +32,11 @@ PRESCREENS_PATH = "/api/v1/patient-prescreens"
 
 # The station identity the hospital assigns our booth, sent with a prescreen
 # so their attendance trail shows where the measurements were taken.
-BOOTH_LOCATION = {"id": "AI-BOOTH-01", "name": "AI Pre-Screening Booth"}
+BOOTH_LOCATION = {
+    "id": "AI-BOOTH-01",
+    "name": "AI Pre-Screening Booth",
+    "department": "แผนก ผู้ป่วยนอก(หน่วยคัดกรอง)",
+}
 
 
 def his_auth_headers(api_key: str | None) -> dict[str, str]:
@@ -174,9 +178,14 @@ class HttpHisAdapter:
         vitals = referral.get("vitals") or {}
         body = {
             "visit_id": visit_id,
+            # HN alongside the VN so the hospital can cross-check that the two
+            # resolve to the same patient before writing anything.
+            "hn": referral.get("hn"),
             "session_ref": referral.get("session_ref"),
             "slip_code": referral.get("slip_code"),
-            "location": BOOTH_LOCATION,
+            # Their export's own model: the booth is the FIRST location the
+            # patient was seen at; the assignment sets the second.
+            "first_location": BOOTH_LOCATION,
             "measured_at": vitals.get("measured_at") or vitals.get("recorded_at"),
             "vitals": vitals,
         }

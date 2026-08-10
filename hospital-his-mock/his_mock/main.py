@@ -101,9 +101,14 @@ class PatientPrescreenIn(BaseModel):
     """
 
     visit_id: str
+    # Sent alongside visit_id so we can cross-check the two agree before
+    # writing anything — a mismatch means something went wrong upstream.
+    hn: str | None = None
     session_ref: str | None = None
     slip_code: str | None = None
-    location: dict[str, Any] | None = None
+    # The booth is where the patient was FIRST seen; the assignment sets the
+    # second location. Mirrors the Prescreen export's own columns.
+    first_location: dict[str, Any] | None = None
     measured_at: str | None = None
     vitals: dict[str, Any] | None = None
 
@@ -642,6 +647,17 @@ def build_app(db_path: str | Path | None = None) -> FastAPI:
             return _imed_error(
                 400, payload.session_ref or "", "invalid_request", "ไม่พบ visit ที่ระบุ"
             )
+        # Cross-check the two identifiers. Catching a mismatch here is the
+        # whole reason for accepting the HN we do not strictly need.
+        if payload.hn and visit["hnx"] and payload.hn != visit["hnx"]:
+            return _imed_error(
+                400, payload.session_ref or "", "invalid_request",
+                "HN ไม่ตรงกับ visit ที่ระบุ",
+            )
+        loc = payload.first_location or {}
+        booth_id = loc.get("id") or AI_BOOTH_LOCATION["id"]
+        booth_name = loc.get("name") or AI_BOOTH_LOCATION["name"]
+        booth_dept = loc.get("department") or AI_BOOTH_LOCATION["department"]
         cols = _vitals_to_columns(payload.vitals)
         db.execute(
             """
@@ -658,10 +674,8 @@ def build_app(db_path: str | Path | None = None) -> FastAPI:
             (
                 cols["pressure"], cols["pulse"], cols["weight"], cols["height"],
                 cols["temperature"], cols["bmi"],
-                AI_BOOTH_LOCATION["id"], AI_BOOTH_LOCATION["name"],
-                AI_BOOTH_LOCATION["department"],
-                AI_BOOTH_LOCATION["id"], AI_BOOTH_LOCATION["name"],
-                AI_BOOTH_LOCATION["department"],
+                booth_id, booth_name, booth_dept,
+                booth_id, booth_name, booth_dept,
                 payload.visit_id,
             ),
         )

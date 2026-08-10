@@ -330,7 +330,7 @@ async def test_prescreen_never_carries_the_ai_recommendation():
     handler, state = _fake_his_handler()
     adapter = _adapter_with(handler)
     ok = await adapter.push_referral({
-        "visit_id": "V1", "session_ref": "s1", "slip_code": "MCH-1",
+        "visit_id": "V1", "hn": "HN1", "session_ref": "s1", "slip_code": "MCH-1",
         "recommended_department": "แผนก OPD MED (อายุรกรรม)",
         "complaint": "chest tightness", "reason": "cardiac risk factors",
         "reasons": ["rule fired"],
@@ -340,6 +340,9 @@ async def test_prescreen_never_carries_the_ai_recommendation():
     sent = state["prescreens"]["V1"]
     assert sent["visit_id"] == "V1"
     assert sent["vitals"]["systolic"] == 158
-    assert sent["location"]["id"] == "AI-BOOTH-01"
+    # HN travels with the VN so the hospital can cross-check the pair.
+    assert sent["hn"] == "HN1"
+    # Their export's first/second location model: the booth is the first.
+    assert sent["first_location"]["id"] == "AI-BOOTH-01"
     for leaked in ("recommended_department", "complaint", "reason", "reasons"):
         assert leaked not in sent

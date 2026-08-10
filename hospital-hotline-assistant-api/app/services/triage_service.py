@@ -745,6 +745,8 @@ class TriageService:
         referral = {
             "visit_id": visit_id,
             "session_ref": session_id,
+            # Sent with the VN so the hospital can cross-check the pair.
+            "hn": visit.get("hn"),
             "slip_code": metadata.get("slip_code"),
             "recommended_department": his_department,
             "complaint": symptoms_summary,

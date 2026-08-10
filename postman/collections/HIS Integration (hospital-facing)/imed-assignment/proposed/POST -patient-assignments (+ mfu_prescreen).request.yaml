@@ -86,6 +86,7 @@ body:
         "documentation": "รหัสสลิป MCH-A1B2-C3D4"
       },
       "base_department_id": "DEPT_MED",
+      "hn": "{{imedHn}}",
       "mfu_prescreen": {
         "triage_level": 3,
         "triage_scale": "MOPH-5",

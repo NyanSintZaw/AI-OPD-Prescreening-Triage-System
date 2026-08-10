@@ -462,6 +462,8 @@ PROPOSED_BODY = dict(SEND_BODY)
 # and resolve the service point themselves — see CR 15 in the description.
 del PROPOSED_BODY["assign_spid"]
 PROPOSED_BODY["base_department_id"] = "DEPT_MED"
+# HN alongside VN so they can cross-check the two resolve to the same patient.
+PROPOSED_BODY["hn"] = "{{imedHn}}"
 PROPOSED_BODY["mfu_prescreen"] = {
     "triage_level": 3,
     "triage_scale": "MOPH-5",
@@ -926,20 +928,33 @@ POST /patient-assignments   ← nurse confirmed, patient queued
 Deliberately not "observations": in a clinical system that implies an
 assessment, and the point of this call is that nothing has been assessed yet.
 
-### Identifying the patient — VN only, same as the assignment
+### Identifying the patient — VN **and** HN
 
 `visit_id` is in the body, shaped like your `POST /patient-assignments`
 rather than as a path parameter, so both writes look the same to you.
 
-**We deliberately do not send the HN.** Your contract says the third party
-must not send `patient_id` because iMed derives it from the visit, to keep
-the audit trail intact — the same reasoning applies here. The VN is what the
-patient presented at the booth and what you verify against; the patient
-follows from it.
+We send **both identifiers**: the VN the patient entered at the booth, and
+the HN we resolved from it. You do not need the HN — your contract says the
+third party must not send `patient_id` because you derive it from the visit —
+but sending it lets you **cross-check that the two agree** before writing
+anything. If they ever disagree, something has gone wrong upstream of you and
+it is far better caught here than after a patient is queued under the wrong
+record. Reject or ignore it if you prefer; it costs us nothing to omit.
 
-(The one place we would send an HN is the patient-history write, because that
-is a *patient* record rather than a visit. If you would rather receive both
-identifiers here so you can cross-check them, say so — we hold both.)
+### First and second location — your export's own model
+
+Your Prescreen export already tracks *where the patient was seen*:
+`measure_*`, `first_location_*`, `second_location_*`. Our two writes map
+straight onto it, which is why they are two calls and not one:
+
+| Call | Sets | Meaning |
+|---|---|---|
+| `POST /patient-prescreens` | `measure_*` + **`first_location`** | the patient was seen at the AI booth and measured there |
+| `POST /patient-assignments` | **`second_location`** | a nurse confirmed, and the patient is being sent on |
+
+So `first_location` is the booth, `second_location` is the destination
+department — exactly the before/after your export already describes. We are
+not asking you to add a concept; we are filling in the one you have.
 
 ### What it would carry
 
@@ -966,11 +981,15 @@ reads_items.append({
         "description": STAGE1_DESC,
         "body": json_body({
             "visit_id": "{{imedVisitId}}",
+            "hn": "{{imedHn}}",
             "session_ref": "{{session_id}}",
             "slip_code": "MCH-A1B2-C3D4",
-            "location": {
+            # Your export's own first/second location model: the booth is where
+            # the patient was FIRST seen; the assignment sets the second.
+            "first_location": {
                 "id": "AI-BOOTH-01",
                 "name": "AI Pre-Screening Booth",
+                "department": "แผนก ผู้ป่วยนอก(หน่วยคัดกรอง)",
             },
             "measured_at": "2026-08-07T09:12:00+07:00",
             "vitals": {

@@ -601,3 +601,39 @@ async def test_v1_endpoints_require_auth(client):
     for path in (f"/api/v1/visits/{VISIT}", "/api/v1/patients/09900001",
                  "/api/v1/patient-assignments/x"):
         assert (await client.get(path, headers={})).status_code == 401
+
+
+async def test_v1_prescreen_rejects_a_visit_hn_mismatch(client):
+    """The HN is not strictly needed — iMed derives the patient from the visit.
+    We send it so a mismatch is caught BEFORE anything is written, rather than
+    after a patient is recorded against the wrong record."""
+    r = await client.post(
+        "/api/v1/patient-prescreens", headers=BEARER,
+        json={"visit_id": VISIT, "hn": "09999999", "vitals": {"systolic": 120, "diastolic": 80}},
+    )
+    assert r.status_code == 400
+    assert r.json()["message"] == "invalid_request"
+    # nothing was written
+    visit = (await client.get(f"/api/visits/{VISIT}", headers=HEADERS)).json()
+    assert visit["screening_status"] == "registered"
+
+
+async def test_v1_prescreen_sets_first_location_leaving_second_for_the_assignment(client):
+    """Their export's own model: booth = first location, destination = second."""
+    await client.post(
+        "/api/v1/patient-prescreens", headers=BEARER,
+        json={
+            "visit_id": VISIT, "hn": "09900001",
+            "first_location": {"id": "AI-BOOTH-01", "name": "AI Pre-Screening Booth",
+                               "department": "แผนก ผู้ป่วยนอก(หน่วยคัดกรอง)"},
+            "vitals": {"systolic": 158, "diastolic": 94},
+        },
+    )
+    visit = (await client.get(f"/api/visits/{VISIT}", headers=HEADERS)).json()
+    assert visit["first_location"]["id"] == "AI-BOOTH-01"
+    assert visit["second_location"]["department"] is None   # nurse hasn't confirmed
+
+    await _assign(client, request_id="LOC-1")
+    visit = (await client.get(f"/api/visits/{VISIT}", headers=HEADERS)).json()
+    assert visit["first_location"]["id"] == "AI-BOOTH-01"   # booth survives
+    assert visit["second_location"]["id"] == SPID_MED       # destination added
