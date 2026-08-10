@@ -54,6 +54,7 @@ VALIDATOR_DEPARTMENT_NAMES = {
 DEFAULT_MEASUREMENTS = {"bp": [118, 76], "temp": 36.8, "weight": 65, "height": 165}
 DEFAULT_ANSWER = {"en": "no", "th": "ไม่มีค่ะ"}
 DEFAULT_SCALE_ANSWER = {"en": "about a 3", "th": "ประมาณ 3 ค่ะ"}
+DEFAULT_CONFIRM_ANSWER = {"en": "yes, that's right", "th": "ใช่ค่ะ"}
 DEFAULT_DECLINE = {"en": "no, that's all, thank you", "th": "ไม่มีแล้วค่ะ ขอบคุณค่ะ"}
 MEASURED_TEXT = {"en": "okay, measured", "th": "วัดแล้วค่ะ"}
 
@@ -102,7 +103,13 @@ def measurement_ctx(vital: str, measurements: dict[str, Any]) -> dict[str, float
 
 
 def pick_answer(
-    vig: dict[str, Any], question_id: str, question_text: str, kind_index: dict[str, str]
+    vig: dict[str, Any],
+    question_id: str,
+    question_text: str,
+    kind_index: dict[str, str],
+    *,
+    confirming: list[str] | None = None,
+    unmatched: list[str] | None = None,
 ) -> str:
     for entry in vig.get("answers", []):
         pattern = entry["match"]
@@ -110,8 +117,18 @@ def pick_answer(
             pattern, question_text or "", re.IGNORECASE
         ):
             return entry["reply"]
+    if unmatched is not None and question_id:
+        unmatched.append(question_id)
     if kind_index.get(question_id) == "scale":
         return DEFAULT_SCALE_ANSWER[vig["language"]]
+    # A CONFIRM question exists only because the patient already said the
+    # thing — the gate is re-checking their own words before firing a level
+    # 1/2. Denying by default made the simulated patient contradict their own
+    # opening ("ปากก็บวม" -> "no lip swelling"), which manufactured four of the
+    # five critical undertriage misses in the 2026-08-10 run. Affirm unless
+    # the vignette says otherwise.
+    if confirming:
+        return DEFAULT_CONFIRM_ANSWER[vig["language"]]
     return DEFAULT_ANSWER[vig["language"]]
 
 
@@ -200,6 +217,7 @@ async def run_vignette(
     ctx = ctx or None
 
     transcript: list[dict[str, Any]] = []
+    unmatched: list[str] = []
     leaks: list[str] = []
     classification: dict[str, Any] = {}
     escalated = False
@@ -253,7 +271,9 @@ async def run_vignette(
             text = MEASURED_TEXT[language]
         else:
             text = pick_answer(
-                vig, state.pending_question_id or "", result["reply"], kind_index
+                vig, state.pending_question_id or "", result["reply"], kind_index,
+                confirming=list(getattr(state, "pending_confirm", []) or []),
+                unmatched=unmatched,
             )
 
     # Post-disposition follow-up phase (non-emergency): answer the offer.
@@ -290,6 +310,10 @@ async def run_vignette(
         "flow_complete": flow_complete,
         "escalated": escalated,
         "leaks": leaks,
+        # Questions no vignette pattern matched, so a default answer was used.
+        # Silence here used to hide the simulated patient denying its own
+        # opening — surfaced so a corpus gap can never look like a defect.
+        "unmatched_questions": unmatched,
         "turns": turns,
         "post_turns": post_turns,
         "wall_time_s": round(time.monotonic() - started, 2),
