@@ -32,7 +32,7 @@ description: |
   |---|---|---|
   | `situation` | **Yes — a real field of ours** | our *chief complaint*, nurse-editable. Falls back to the AI's (`symptoms_summary`) when the nurse does not edit it. |
   | `background` | No — **composed at send time** | your patient's history as we hold it (chronic conditions, allergies, past surgeries, family history, smoking/alcohol), formatted into one line. |
-  | `assessment` | No — **composed at send time** | booth-measured vitals with provenance (`วัดที่บูธ` = our cuff, `ผู้ป่วยแจ้ง` = patient-stated), plus the triage level. The level is here only because your contract has no field for it — see change request 1. |
+  | `assessment` | No — **composed at send time** | the triage level and pain score. The level is here only because your contract has no field for it — see change request 1. **The vitals are deliberately not restated here**; they travel as numbers, once — see below. |
   | `assessment_problem` | **Yes — a real field of ours** | our *illness note*, nurse-editable, plus the manual criteria that fired, each with its citation so you can check our reasoning. |
   | `assessment_equipment` | **No — we do not provide this** | deciding what equipment to prepare is a clinical judgement our system does not make. Sent only if the nurse types something; otherwise the field is omitted entirely, not blanked. |
   | `recommend` | **No — we hold no "recommendation" field** | the routing decision is not prose on our side, it is the department, and you already have it as `assign_spid`. This field only restates that decision in words for whoever reads the handover, plus the target response time. If a nurse overrode the AI's department, that is said here too — your contract has no `rerouted` flag. |
@@ -70,7 +70,7 @@ body:
       "sbar": {
         "situation": "แน่นหน้าอกมา 2 ชั่วโมง ร้าวไปแขนซ้าย (อายุ 58 ปี)",
         "background": "โรคประจำตัว: ความดันโลหิตสูง | แพ้ยา/แพ้สาร: ไม่มี",
-        "assessment": "วัดที่บูธ: ความดัน 158/94 ชีพจร 96 อุณหภูมิ 36.8 น้ำหนัก 72.5 กก. ส่วนสูง 165 ซม. | ระดับคัดกรอง 3 (Urgent) | ระดับความเจ็บปวด 6/10",
+        "assessment": "ระดับคัดกรอง 3 (Urgent) | ระดับความเจ็บปวด 6/10",
         "assessment_problem": "เจ็บหน้าอกร่วมกับปัจจัยเสี่ยงโรคหัวใจ (คู่มือคัดกรอง MFU ข้อ 4.2)",
         "recommend": "ส่งต่อ แผนก OPD MED (อายุรกรรม) | ควรได้รับการตรวจภายใน 30 นาที",
         "documentation": "รหัสสลิป MCH-A1B2-C3D4"

@@ -63,50 +63,6 @@ def _clean(value: Any) -> str | None:
     return text or None
 
 
-def _vitals_line(vitals: dict[str, Any]) -> str | None:
-    """Booth measurements as one Thai line, **grouped by how we got them**.
-
-    A cuff reading and a number the patient said out loud are not the same
-    evidence, and a clinician reading the handover has to be able to tell
-    them apart. ``vitals["sources"]`` carries provenance per vital; the older
-    whole-dict ``source`` is the fallback for sessions recorded before that.
-    """
-    labels: list[tuple[str, str]] = []
-    sbp, dbp = vitals.get("systolic"), vitals.get("diastolic")
-    if sbp and dbp:
-        labels.append(("systolic", f"ความดัน {sbp}/{dbp}"))
-    if vitals.get("pulse_bpm"):
-        labels.append(("pulse_bpm", f"ชีพจร {vitals['pulse_bpm']}"))
-    if vitals.get("temperature"):
-        labels.append(("temperature", f"อุณหภูมิ {vitals['temperature']}"))
-    if vitals.get("weight_kg"):
-        labels.append(("weight_kg", f"น้ำหนัก {vitals['weight_kg']} กก."))
-    if vitals.get("height_cm"):
-        labels.append(("height_cm", f"ส่วนสูง {vitals['height_cm']} ซม."))
-    if not labels:
-        return None
-
-    sources = vitals.get("sources") or {}
-    default = vitals.get("source")
-    measured = [text for key, text in labels
-                if (sources.get(key, default)) == "device"]
-    # "stated"/"manual" are older spellings of the same thing.
-    entered = [text for key, text in labels
-               if (sources.get(key, default)) in ("patient_input", "stated", "manual")]
-    unknown = [text for key, text in labels
-               if sources.get(key, default)
-               not in ("device", "patient_input", "stated", "manual")]
-
-    parts = []
-    if measured:
-        parts.append("วัดที่บูธ: " + " ".join(measured))
-    if entered:
-        parts.append("ผู้ป่วยแจ้ง: " + " ".join(entered))
-    if unknown:
-        parts.append(" ".join(unknown))
-    return " | ".join(parts)
-
-
 def _history_line(history: dict[str, Any]) -> str | None:
     labels = (
         ("chronic_conditions", "โรคประจำตัว"),
@@ -141,7 +97,6 @@ def build_sbar(
     time.
     """
     classification = metadata.get("triage_classification") or {}
-    vitals = metadata.get("vitals") or {}
     history = metadata.get("patient_history") or {}
     visit = metadata.get("visit") or {}
 
@@ -154,9 +109,11 @@ def build_sbar(
     # B — what the destination needs to know about this patient already.
     background = _history_line(history)
 
-    # A — objective findings, and the triage level. The level belongs here
-    # unless/until the hospital gives us a real triage-level field (CR 1).
-    assessment_parts = [p for p in (_vitals_line(vitals),) if p]
+    # A — the triage level, which has no structured field yet (CR 1).
+    # Deliberately NOT the vitals: those travel as numbers with per-vital
+    # provenance, and restating them here would be the same values in two
+    # shapes, drifting the moment one side is edited.
+    assessment_parts: list[str] = []
     level, label = classification.get("level"), _clean(classification.get("label"))
     if level:
         assessment_parts.append(

@@ -58,33 +58,19 @@ def test_nurse_complaint_overrides_engine_summary():
     assert sbar["situation"].startswith("พยาบาลแก้ไข")
 
 
-def test_assessment_carries_vitals_and_the_triage_level():
-    """SBAR is clinician-facing: the level belongs here. The patient-facing
-    redaction in validator.py / triage_payloads.py must NOT be applied."""
+def test_assessment_carries_the_triage_level_but_never_restates_the_vitals():
+    """SBAR is clinician-facing, so the level belongs here — the patient-facing
+    redaction in validator.py / triage_payloads.py must NOT be applied.
+
+    The vitals must NOT: they travel as numbers with per-vital provenance
+    (patient-prescreens.vitals, mfu_prescreen.vitals). Rendering them here too
+    gives the hospital the same reading in two shapes, and the two drift as
+    soon as a nurse edits one.
+    """
     assessment = _build()["assessment"]
-    assert "158/94" in assessment
-    assert "ระดับคัดกรอง 3" in assessment
-    assert "Urgent" in assessment
-
-
-def test_measured_and_stated_vitals_are_grouped_separately():
-    """A cuff reading and a number the patient said are different evidence.
-    Before this, one `source` flag covered the whole dict, so a patient-stated
-    weight beside a cuff BP was reported to the clinician as booth-measured."""
-    assessment = _build()["assessment"]
-    measured, stated = assessment.split(" | ")[0], assessment.split(" | ")[1]
-    assert measured.startswith("วัดที่บูธ:")
-    assert "158/94" in measured and "ชีพจร 96" in measured
-    assert stated.startswith("ผู้ป่วยแจ้ง:")
-    assert "น้ำหนัก 72.5" in stated and "ส่วนสูง 165" in stated
-    # the cuff reading must never end up on the patient-stated side
-    assert "158/94" not in stated
-
-
-def test_legacy_whole_dict_source_still_understood():
-    """Sessions recorded before per-vital provenance existed."""
-    meta = {"vitals": {"systolic": 158, "diastolic": 94, "source": "manual"}}
-    assert "ผู้ป่วยแจ้ง:" in build_sbar(meta, department_th="x")["assessment"]
+    assert "ระดับคัดกรอง 3" in assessment and "Urgent" in assessment
+    assert "158" not in assessment and "72.5" not in assessment
+    assert "วัดที่บูธ" not in assessment and "ผู้ป่วยแจ้ง" not in assessment
 
 
 def test_problem_uses_thai_reasons_with_citation_not_english_key_reason():

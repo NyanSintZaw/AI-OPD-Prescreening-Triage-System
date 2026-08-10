@@ -203,7 +203,7 @@ adds Documentation — seven fields. Sending it switches their code path to
 |---|---|---|
 | `situation` | **yes, a real field** | our **chief complaint** — nurse-editable, falls back to `triage_classification.symptoms_summary` (`ai_chief_complaint`) |
 | `background` | composed at send time | `metadata.patient_history` as labelled Thai segments |
-| `assessment` | composed at send time | `metadata.vitals` with provenance **+ the triage level**, which is here only because their contract has no field for it (CR 1) |
+| `assessment` | composed at send time | the **triage level** and pain score — the level is here only because their contract has no field for it (CR 1). **Not the vitals:** those go as numbers with per-vital provenance (`patient-prescreens.vitals`, `mfu_prescreen.vitals`), sent once. Decided 2026-08-10 — the same reading in two shapes drifts as soon as one is edited, and prose cannot carry provenance they can query. |
 | `assessment_problem` | **yes, a real field** | our **illness note** — nurse-editable, falls back to `key_reason` (`ai_illness_note`) — plus `disposition_reasons` with citations |
 | `assessment_equipment` | **no — we do not provide it** | a clinical judgement our system does not make; omitted entirely unless the nurse types something |
 | `recommend` | **no — we hold no recommendation field** | the routing decision is a department code, and it is already `assign_spid`. We pre-fill this with that destination + the manual's target `response_time`, and the reroute note (iMed has no `rerouted` flag). **A nurse reviews and can rewrite it before it sends** — see the note below |
