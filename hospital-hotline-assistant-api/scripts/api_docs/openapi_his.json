@@ -1211,6 +1211,17 @@
       "type": "string",
       "title": "Visit Id"
      },
+     "hn": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Hn"
+     },
      "session_ref": {
       "anyOf": [
        {
@@ -1233,7 +1244,7 @@
       ],
       "title": "Slip Code"
      },
-     "location": {
+     "first_location": {
       "anyOf": [
        {
         "additionalProperties": true,
@@ -1243,7 +1254,7 @@
         "type": "null"
        }
       ],
-      "title": "Location"
+      "title": "First Location"
      },
      "measured_at": {
       "anyOf": [

@@ -10,7 +10,7 @@ response:
   body:
     type: json
     content: |-
-      // Resolves the post-timeout unknown, and returns what we handed over.
+      // Resolves the post-timeout unknown, and returns what we handed over. NOTE assign_spid and assign_eid appear in the RESPONSE but never in our request: under CR 15 you resolve the service point from the department we send, and under CR 10 you may auto-assign the doctor. Seeing them here is the proposal working, not a contradiction.
       {
         "request_id": "MFU-20260807-A1B2C3",
         "status": "STATUS_SUCCESS",

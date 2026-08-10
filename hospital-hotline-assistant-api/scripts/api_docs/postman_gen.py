@@ -551,7 +551,11 @@ ways:
 
 You already derive the department from the service point when we omit it. We
 are asking for the reverse: accept the department and derive the service
-point. If a department genuinely has one service point, this costs you a
+point.
+
+*(The read-back request in this folder shows `assign_spid` in its response.
+That is deliberate and consistent: you resolve it, then tell us which one you
+picked — which is also how we would learn the room to print or read out.)* If a department genuinely has one service point, this costs you a
 lookup we would otherwise hard-code. If it has several, only you can choose
 correctly.
 
@@ -631,7 +635,11 @@ request to you, not something we have decided for you.*
                              {**OK_RESULT, "result": {**OK_RESULT["result"], "sbar": SEND_BODY["sbar"]}},
                              {"method": "GET", "header": [],
                               "url": pm_url("/patient-assignments/{imedRequestId}", "imedBaseUrl")},
-                             "Resolves the post-timeout unknown, and returns what we handed over."),
+                             "Resolves the post-timeout unknown, and returns what we handed over. "
+                             "NOTE assign_spid and assign_eid appear in the RESPONSE but never in "
+                             "our request: under CR 15 you resolve the service point from the "
+                             "department we send, and under CR 10 you may auto-assign the doctor. "
+                             "Seeing them here is the proposal working, not a contradiction."),
         ],
     },
 ]

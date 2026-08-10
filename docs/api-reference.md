@@ -2905,9 +2905,10 @@ nurse-confirm step at POST /patient-assignments meaningful.
 | Field | Type | Required | Notes |
 |---|---|---|---|
 | `visit_id` | string | Y | Visit Id |
+| `hn` | string or null | N | Hn |
 | `session_ref` | string or null | N | Session Ref |
 | `slip_code` | string or null | N | Slip Code |
-| `location` | object or null | N | Location |
+| `first_location` | object or null | N | First Location |
 | `measured_at` | string or null | N | Measured At |
 | `vitals` | object or null | N | Vitals |
 
@@ -2916,9 +2917,10 @@ Example request:
 ```json
 {
   "visit_id": "string",
+  "hn": "string",
   "session_ref": "string",
   "slip_code": "string",
-  "location": {},
+  "first_location": {},
   "measured_at": "string",
   "vitals": {}
 }
@@ -3973,9 +3975,10 @@ Body of POST /api/v1/patient-prescreens (our change request 14).  Note what is a
 | Field | Type | Required | Notes |
 |---|---|---|---|
 | `visit_id` | string | Y | Visit Id |
+| `hn` | string or null | N | Hn |
 | `session_ref` | string or null | N | Session Ref |
 | `slip_code` | string or null | N | Slip Code |
-| `location` | object or null | N | Location |
+| `first_location` | object or null | N | First Location |
 | `measured_at` | string or null | N | Measured At |
 | `vitals` | object or null | N | Vitals |
 

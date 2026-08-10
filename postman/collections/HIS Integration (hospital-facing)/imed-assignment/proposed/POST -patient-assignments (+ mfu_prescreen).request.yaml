@@ -29,7 +29,11 @@ description: |
 
   You already derive the department from the service point when we omit it. We
   are asking for the reverse: accept the department and derive the service
-  point. If a department genuinely has one service point, this costs you a
+  point.
+
+  *(The read-back request in this folder shows `assign_spid` in its response.
+  That is deliberate and consistent: you resolve it, then tell us which one you
+  picked — which is also how we would learn the room to print or read out.)* If a department genuinely has one service point, this costs you a
   lookup we would otherwise hard-code. If it has several, only you can choose
   correctly.
 
