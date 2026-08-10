@@ -73,6 +73,13 @@ def build_chat_model(settings: Any) -> BaseChatModel:
         )
 
     if provider == "vertexai":
+        # Credentials/project/location must be in the environment before the
+        # SDK builds a client. Doing it here means every entry point works —
+        # the app, the eval harness, any script — instead of only those that
+        # happen to import a module that set them as a side effect.
+        from app.services.ai.env import configure_google_genai_environment
+
+        configure_google_genai_environment()
         # langchain-google-genai (the consolidated google-genai SDK) with
         # ``vertexai=True`` is the supported replacement for the deprecated
         # ``langchain_google_vertexai.ChatVertexAI``. Same Vertex backend and

@@ -1,0 +1,40 @@
+{
+ "criteria": "v2",
+ "model": "gemini-3.1-flash-lite",
+ "passed": 0,
+ "total": 2,
+ "results": [
+  {
+   "id": "deny_th_fever_not_headache",
+   "language": "th",
+   "category": null,
+   "phrase": "มีไข้ แต่ไม่ปวดหัว",
+   "expect": [
+    "fever"
+   ],
+   "expect_absent": [
+    "headache"
+   ],
+   "expect_category": "fever",
+   "allow": [],
+   "forbid": [],
+   "error": "ChatGoogleGenerativeAIError: Error calling model 'gemini-3.1-flash-lite' (PERMISSION_DENIED): 403 PERMISSION_DENIED. {'error': {'code': 403, 'message': \"Permission 'aiplatform.endpoints.predict' denied on resource '//aiplatform.googleapis.com/projects/phoenix-487410/locations/global/publishers/google/models/gemini-3.1-flash-lite' (or it may not exist). Remediate access with this Troubleshooter URL or share it with your administrator - https://console.cloud.google.com/iam-admin/troubleshooter/summary;errorId=CiQwMTlmZWJhMC05ZGY3LTc4ZWQtYTJmMC1kMmYwZDIzYWQ3ZjkSV3Byb2plY3RzL3Bob2VuaXgtNDg3NDEwL2xvY2F0aW9ucy9nbG9iYWwvcHVibGlzaGVycy9nb29nbGUvbW9kZWxzL2dlbWluaS0zLjEtZmxhc2gtbGl0ZQ%3D%3D .\", 'status': 'PERMISSION_DENIED', 'details': [{'@type': 'type.googleapis.com/google.rpc.ErrorInfo', 'reason': 'IAM_PERMISSION_DENIED', 'domain': 'aiplatform.googleapis.com', 'metadata': {'troubleshooter_url': 'https://console.cloud.google.com/iam-admin/troubleshooter/summary;errorId=CiQwMTlmZWJhMC05ZGY3LTc4ZWQtYTJmMC1kMmYwZDIzYWQ3ZjkSV3Byb2plY3RzL3Bob2VuaXgtNDg3NDEwL2xvY2F0aW9ucy9nbG9iYWwvcHVibGlzaGVycy9nb29nbGUvbW9kZWxzL2dlbWluaS0zLjEtZmxhc2gtbGl0ZQ%3D%3D', 'permission': 'aiplatform.endpoints.predict', 'resource': 'projects/phoenix-487410/locations/global/publishers/google/models/gemini-3.1-flash-lite', 'error_info_id': 'CiQwMTlmZWJhMC05ZGY3LTc4ZWQtYTJmMC1kMmYwZDIzYWQ3ZjkSV3Byb2plY3RzL3Bob2VuaXgtNDg3NDEwL2xvY2F0aW9ucy9nbG9iYWwvcHVibGlzaGVycy9nb29nbGUvbW9kZWxzL2dlbWluaS0zLjEtZmxhc2gtbGl0ZQ=='}}]}}"
+  },
+  {
+   "id": "deny_en_fever_not_headache",
+   "language": "en",
+   "category": null,
+   "phrase": "I have a fever but I don't have a headache",
+   "expect": [
+    "fever"
+   ],
+   "expect_absent": [
+    "headache"
+   ],
+   "expect_category": "fever",
+   "allow": [],
+   "forbid": [],
+   "error": "ChatGoogleGenerativeAIError: Error calling model 'gemini-3.1-flash-lite' (PERMISSION_DENIED): 403 PERMISSION_DENIED. {'error': {'code': 403, 'message': \"Permission 'aiplatform.endpoints.predict' denied on resource '//aiplatform.googleapis.com/projects/phoenix-487410/locations/global/publishers/google/models/gemini-3.1-flash-lite' (or it may not exist). Remediate access with this Troubleshooter URL or share it with your administrator - https://console.cloud.google.com/iam-admin/troubleshooter/summary;errorId=CiQwMTlmZWJhMC05ZDdhLTc4NzItODgwMC04ZjQ0N2NmYTRhY2QSV3Byb2plY3RzL3Bob2VuaXgtNDg3NDEwL2xvY2F0aW9ucy9nbG9iYWwvcHVibGlzaGVycy9nb29nbGUvbW9kZWxzL2dlbWluaS0zLjEtZmxhc2gtbGl0ZQ%3D%3D .\", 'status': 'PERMISSION_DENIED', 'details': [{'@type': 'type.googleapis.com/google.rpc.ErrorInfo', 'reason': 'IAM_PERMISSION_DENIED', 'domain': 'aiplatform.googleapis.com', 'metadata': {'troubleshooter_url': 'https://console.cloud.google.com/iam-admin/troubleshooter/summary;errorId=CiQwMTlmZWJhMC05ZDdhLTc4NzItODgwMC04ZjQ0N2NmYTRhY2QSV3Byb2plY3RzL3Bob2VuaXgtNDg3NDEwL2xvY2F0aW9ucy9nbG9iYWwvcHVibGlzaGVycy9nb29nbGUvbW9kZWxzL2dlbWluaS0zLjEtZmxhc2gtbGl0ZQ%3D%3D', 'resource': 'projects/phoenix-487410/locations/global/publishers/google/models/gemini-3.1-flash-lite', 'error_info_id': 'CiQwMTlmZWJhMC05ZDdhLTc4NzItODgwMC04ZjQ0N2NmYTRhY2QSV3Byb2plY3RzL3Bob2VuaXgtNDg3NDEwL2xvY2F0aW9ucy9nbG9iYWwvcHVibGlzaGVycy9nb29nbGUvbW9kZWxzL2dlbWluaS0zLjEtZmxhc2gtbGl0ZQ==', 'permission': 'aiplatform.endpoints.predict'}}]}}"
+  }
+ ]
+}

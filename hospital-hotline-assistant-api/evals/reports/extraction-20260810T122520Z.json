@@ -1,0 +1,70 @@
+{
+ "criteria": "v2",
+ "model": "gemini-3.1-flash-lite",
+ "passed": 2,
+ "total": 2,
+ "results": [
+  {
+   "id": "deny_th_fever_not_headache",
+   "language": "th",
+   "category": null,
+   "phrase": "มีไข้ แต่ไม่ปวดหัว",
+   "expect": [
+    "fever"
+   ],
+   "expect_absent": [
+    "headache"
+   ],
+   "expect_category": "fever",
+   "allow": [],
+   "forbid": [],
+   "present": [
+    "fever"
+   ],
+   "absent": [
+    "headache"
+   ],
+   "got_category": "fever",
+   "evidence": {
+    "fever": "มีไข้"
+   },
+   "misses": [],
+   "absent_misses": [],
+   "category_wrong": false,
+   "overmatch": [],
+   "stray": [],
+   "passed": true
+  },
+  {
+   "id": "deny_en_fever_not_headache",
+   "language": "en",
+   "category": null,
+   "phrase": "I have a fever but I don't have a headache",
+   "expect": [
+    "fever"
+   ],
+   "expect_absent": [
+    "headache"
+   ],
+   "expect_category": "fever",
+   "allow": [],
+   "forbid": [],
+   "present": [
+    "fever"
+   ],
+   "absent": [
+    "headache"
+   ],
+   "got_category": "fever",
+   "evidence": {
+    "fever": "I have a fever"
+   },
+   "misses": [],
+   "absent_misses": [],
+   "category_wrong": false,
+   "overmatch": [],
+   "stray": [],
+   "passed": true
+  }
+ ]
+}

@@ -95,14 +95,25 @@ def _catalog_lines(criteria: ScreeningCriteria, state: ScreeningState) -> list[s
     # substituted the nearest OFFERED id (a cold pale leg → the level-1
     # shock-skin finding). Criteria-derived, so new rules extend it for free.
     wanted.update(critical_finding_ids(criteria))
-    # …and the symptoms patients most often volunteer in an opener, so a
-    # first message like "fever but no cough" can record BOTH sides before
-    # any complaint template is selected (live E2E finding, July 22: the
-    # bounded vocabulary silently dropped the negated finding).
-    wanted.update({
-        "fever", "cough", "sore_throat", "runny_nose", "ear_pain",
-        "headache", "abdominal_pain", "vomiting", "diarrhea", "dysuria",
-    })
+    # Turn 1 has no template yet, and the patient may open with ANY complaint.
+    # A bounded vocabulary there is a chicken-and-egg: the finding that would
+    # select the template is the one not offered. Measured 2026-08-10 — a Thai
+    # "เวียนหัว" (dizziness) opener extracted NOTHING, because vertigo belongs
+    # to the ear template and turn 1 never offers it.
+    #
+    # So on turn 1 we offer every finding any template asks about, derived from
+    # the criteria rather than hand-listed: a hand-listed set is what scored
+    # 30/60 in the Aug 5 eval, and it goes stale the moment a template changes.
+    # ~+41 findings on the first prompt only; later turns stay bounded, which
+    # is where precision matters.
+    if not state.complaint_category:
+        for other in criteria.complaint_templates:
+            wanted.update(other.associated_finding_ids)
+            for question in other.questions:
+                wanted.update(question.finding_ids)
+        # Two openers no template lists as an associated finding, but which
+        # patients lead with constantly.
+        wanted.update({"headache", "ear_pain"})
 
     lines = []
     for fid in sorted(wanted):

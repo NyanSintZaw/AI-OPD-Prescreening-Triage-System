@@ -1,0 +1,1996 @@
+{
+ "criteria": "v2",
+ "model": "gemini-3.1-flash-lite",
+ "passed": 70,
+ "total": 71,
+ "results": [
+  {
+   "id": "cp_th_1",
+   "language": "th",
+   "category": null,
+   "phrase": "แน่นหน้าอกเหมือนมีอะไรมาทับครับ",
+   "expect": [
+    "chest_pain"
+   ],
+   "allow": [],
+   "forbid": [],
+   "present": [
+    "chest_pain"
+   ],
+   "absent": [],
+   "got_category": "chest_pain",
+   "evidence": {
+    "chest_pain": "แน่นหน้าอกเหมือนมีอะไรมาทับครับ"
+   },
+   "misses": [],
+   "absent_misses": [],
+   "category_wrong": false,
+   "overmatch": [],
+   "stray": [],
+   "passed": true
+  },
+  {
+   "id": "cp_th_2",
+   "language": "th",
+   "category": null,
+   "phrase": "เจ็บกลางอกจุก ๆ มาครึ่งชั่วโมงแล้ว",
+   "expect": [
+    "chest_pain"
+   ],
+   "allow": [],
+   "forbid": [],
+   "present": [
+    "chest_pain"
+   ],
+   "absent": [],
+   "got_category": "chest_pain",
+   "evidence": {
+    "chest_pain": "เจ็บกลางอกจุก ๆ"
+   },
+   "misses": [],
+   "absent_misses": [],
+   "category_wrong": false,
+   "overmatch": [],
+   "stray": [],
+   "passed": true
+  },
+  {
+   "id": "cp_compound_th",
+   "language": "th",
+   "category": null,
+   "phrase": "เจ็บแน่นหน้าอก ร้าวไปที่กราม แล้วก็เหงื่อแตกครับ",
+   "expect": [
+    "chest_pain",
+    "chest_pain_radiating",
+    "diaphoresis"
+   ],
+   "allow": [],
+   "forbid": [
+    "pale_cold_sweaty"
+   ],
+   "present": [
+    "chest_pain",
+    "chest_pain_radiating",
+    "diaphoresis"
+   ],
+   "absent": [],
+   "got_category": "chest_pain",
+   "evidence": {
+    "chest_pain": "เจ็บแน่นหน้าอก",
+    "chest_pain_radiating": "ร้าวไปที่กราม",
+    "diaphoresis": "เหงื่อแตก"
+   },
+   "misses": [],
+   "absent_misses": [],
+   "category_wrong": false,
+   "overmatch": [],
+   "stray": [],
+   "passed": true
+  },
+  {
+   "id": "cp_radiating_th",
+   "language": "th",
+   "category": "chest_pain",
+   "phrase": "ปวดร้าวขึ้นกรามกับไหล่ซ้ายค่ะ",
+   "expect": [
+    "chest_pain_radiating"
+   ],
+   "allow": [
+    "chest_pain"
+   ],
+   "forbid": [],
+   "present": [
+    "chest_pain_radiating"
+   ],
+   "absent": [],
+   "got_category": "chest_pain",
+   "evidence": {
+    "chest_pain_radiating": "ปวดร้าวขึ้นกรามกับไหล่ซ้ายค่ะ"
+   },
+   "misses": [],
+   "absent_misses": [],
+   "category_wrong": false,
+   "overmatch": [],
+   "stray": [],
+   "passed": true
+  },
+  {
+   "id": "cp_radiating_en",
+   "language": "en",
+   "category": "chest_pain",
+   "phrase": "the pain shoots up into my jaw and down my left arm",
+   "expect": [
+    "chest_pain_radiating"
+   ],
+   "allow": [
+    "chest_pain"
+   ],
+   "forbid": [],
+   "present": [
+    "chest_pain",
+    "chest_pain_radiating"
+   ],
+   "absent": [],
+   "got_category": "chest_pain",
+   "evidence": {
+    "chest_pain": "the pain",
+    "chest_pain_radiating": "shoots up into my jaw and down my left arm"
+   },
+   "misses": [],
+   "absent_misses": [],
+   "category_wrong": false,
+   "overmatch": [],
+   "stray": [],
+   "passed": true
+  },
+  {
+   "id": "diaphoresis_th_1",
+   "language": "th",
+   "category": "chest_pain",
+   "phrase": "เหงื่อแตกท่วมตัวเลยครับ",
+   "expect": [
+    "diaphoresis"
+   ],
+   "allow": [],
+   "forbid": [
+    "pale_cold_sweaty"
+   ],
+   "present": [
+    "diaphoresis"
+   ],
+   "absent": [],
+   "got_category": "palpitations",
+   "evidence": {
+    "diaphoresis": "เหงื่อแตกท่วมตัว"
+   },
+   "misses": [],
+   "absent_misses": [],
+   "category_wrong": false,
+   "overmatch": [],
+   "stray": [],
+   "passed": true
+  },
+  {
+   "id": "diaphoresis_neg_ctrl_th",
+   "language": "th",
+   "category": null,
+   "phrase": "เหงื่อออกเยอะผิดปกติครับ",
+   "expect": [
+    "diaphoresis"
+   ],
+   "allow": [],
+   "forbid": [
+    "pale_cold_sweaty"
+   ],
+   "present": [
+    "diaphoresis"
+   ],
+   "absent": [],
+   "got_category": "generic",
+   "evidence": {
+    "diaphoresis": "เหงื่อออกเยอะผิดปกติ"
+   },
+   "misses": [],
+   "absent_misses": [],
+   "category_wrong": false,
+   "overmatch": [],
+   "stray": [],
+   "passed": true
+  },
+  {
+   "id": "shock_skin_th",
+   "language": "th",
+   "category": null,
+   "phrase": "หน้าซีดมาก ตัวเย็นชื้น เหงื่อท่วมทั้งตัว",
+   "expect": [
+    "pale_cold_sweaty"
+   ],
+   "allow": [
+    "diaphoresis"
+   ],
+   "forbid": [],
+   "present": [
+    "diaphoresis",
+    "pale_cold_sweaty"
+   ],
+   "absent": [],
+   "got_category": "generic",
+   "evidence": {
+    "pale_cold_sweaty": "หน้าซีดมาก ตัวเย็นชื้น เหงื่อท่วมทั้งตัว",
+    "diaphoresis": "เหงื่อท่วมทั้งตัว"
+   },
+   "misses": [],
+   "absent_misses": [],
+   "category_wrong": false,
+   "overmatch": [],
+   "stray": [],
+   "passed": true
+  },
+  {
+   "id": "dyspnea_th_1",
+   "language": "th",
+   "category": null,
+   "phrase": "หายใจไม่อิ่ม เหนื่อยง่ายมากค่ะ",
+   "expect": [
+    "dyspnea"
+   ],
+   "allow": [],
+   "forbid": [
+    "severe_respiratory_distress"
+   ],
+   "present": [
+    "dyspnea"
+   ],
+   "absent": [],
+   "got_category": "dyspnea_cough",
+   "evidence": {
+    "dyspnea": "หายใจไม่อิ่ม"
+   },
+   "misses": [],
+   "absent_misses": [],
+   "category_wrong": false,
+   "overmatch": [],
+   "stray": [],
+   "passed": true
+  },
+  {
+   "id": "dyspnea_th_2",
+   "language": "th",
+   "category": null,
+   "phrase": "เหนื่อยหอบ หายใจไม่ทันครับ",
+   "expect": [
+    "dyspnea"
+   ],
+   "allow": [
+    "severe_respiratory_distress"
+   ],
+   "forbid": [],
+   "present": [
+    "dyspnea",
+    "severe_respiratory_distress"
+   ],
+   "absent": [],
+   "got_category": "dyspnea_cough",
+   "evidence": {
+    "dyspnea": "เหนื่อยหอบ",
+    "severe_respiratory_distress": "หายใจไม่ทัน"
+   },
+   "misses": [],
+   "absent_misses": [],
+   "category_wrong": false,
+   "overmatch": [],
+   "stray": [],
+   "passed": true
+  },
+  {
+   "id": "severe_resp_th",
+   "language": "th",
+   "category": null,
+   "phrase": "หายใจไม่ออกเลยค่ะ พูดได้เป็นคำ ๆ",
+   "expect": [
+    "severe_respiratory_distress"
+   ],
+   "allow": [
+    "dyspnea"
+   ],
+   "forbid": [],
+   "present": [
+    "dyspnea",
+    "severe_respiratory_distress"
+   ],
+   "absent": [],
+   "got_category": "dyspnea_cough",
+   "evidence": {
+    "dyspnea": "หายใจไม่ออกเลยค่ะ",
+    "severe_respiratory_distress": "พูดได้เป็นคำ ๆ"
+   },
+   "misses": [],
+   "absent_misses": [],
+   "category_wrong": false,
+   "overmatch": [],
+   "stray": [],
+   "passed": true
+  },
+  {
+   "id": "fever_th_colloq",
+   "language": "th",
+   "category": null,
+   "phrase": "ตัวรุม ๆ ครั่นเนื้อครั่นตัวมาสองวัน",
+   "expect": [
+    "fever"
+   ],
+   "allow": [],
+   "forbid": [],
+   "present": [
+    "fever"
+   ],
+   "absent": [],
+   "got_category": "fever",
+   "evidence": {
+    "fever": "ตัวรุม ๆ ครั่นเนื้อครั่นตัว"
+   },
+   "misses": [],
+   "absent_misses": [],
+   "category_wrong": false,
+   "overmatch": [],
+   "stray": [],
+   "passed": true
+  },
+  {
+   "id": "confusion_th",
+   "language": "th",
+   "category": null,
+   "phrase": "คุณยายเบลอ ๆ พูดจาสับสน จำหลานไม่ได้",
+   "expect": [
+    "confusion"
+   ],
+   "allow": [],
+   "forbid": [],
+   "present": [
+    "confusion"
+   ],
+   "absent": [],
+   "got_category": "mental_health",
+   "evidence": {
+    "confusion": "คุณยายเบลอ ๆ พูดจาสับสน จำหลานไม่ได้"
+   },
+   "misses": [],
+   "absent_misses": [],
+   "category_wrong": false,
+   "overmatch": [],
+   "stray": [],
+   "passed": true
+  },
+  {
+   "id": "syncope_th_1",
+   "language": "th",
+   "category": null,
+   "phrase": "เมื่อเช้าวูบหมดสติไปแป๊บนึงค่ะ",
+   "expect": [
+    "syncope_24h"
+   ],
+   "allow": [
+    "loc_transient"
+   ],
+   "forbid": [],
+   "present": [
+    "syncope_24h"
+   ],
+   "absent": [],
+   "got_category": "generic",
+   "evidence": {
+    "syncope_24h": "วูบหมดสติไปแป๊บนึง"
+   },
+   "misses": [],
+   "absent_misses": [],
+   "category_wrong": false,
+   "overmatch": [],
+   "stray": [],
+   "passed": true
+  },
+  {
+   "id": "syncope_th_2",
+   "language": "th",
+   "category": null,
+   "phrase": "เป็นลมล้มไปตอนเข้าแถวเมื่อกี้",
+   "expect": [
+    "syncope_24h"
+   ],
+   "allow": [
+    "loc_transient"
+   ],
+   "forbid": [],
+   "present": [
+    "syncope_24h"
+   ],
+   "absent": [],
+   "got_category": "injury",
+   "evidence": {
+    "syncope_24h": "เป็นลมล้มไปตอนเข้าแถวเมื่อกี้"
+   },
+   "misses": [],
+   "absent_misses": [],
+   "category_wrong": false,
+   "overmatch": [],
+   "stray": [],
+   "passed": true
+  },
+  {
+   "id": "befast_droop_th",
+   "language": "th",
+   "category": null,
+   "phrase": "อยู่ดี ๆ ปากเบี้ยว หน้าเบี้ยวไปข้างนึง",
+   "expect": [
+    "facial_droop"
+   ],
+   "allow": [],
+   "forbid": [],
+   "present": [
+    "facial_droop"
+   ],
+   "absent": [],
+   "got_category": "headache",
+   "evidence": {
+    "facial_droop": "ปากเบี้ยว หน้าเบี้ยวไปข้างนึง"
+   },
+   "misses": [],
+   "absent_misses": [],
+   "category_wrong": false,
+   "overmatch": [],
+   "stray": [],
+   "passed": true
+  },
+  {
+   "id": "befast_weak_th",
+   "language": "th",
+   "category": null,
+   "phrase": "แขนขาข้างซ้ายอ่อนแรง ยกแขนไม่ขึ้น",
+   "expect": [
+    "limb_weakness"
+   ],
+   "allow": [],
+   "forbid": [],
+   "present": [
+    "limb_weakness"
+   ],
+   "absent": [],
+   "got_category": "musculoskeletal",
+   "evidence": {
+    "limb_weakness": "แขนขาข้างซ้ายอ่อนแรง ยกแขนไม่ขึ้น"
+   },
+   "misses": [],
+   "absent_misses": [],
+   "category_wrong": false,
+   "overmatch": [],
+   "stray": [],
+   "passed": true
+  },
+  {
+   "id": "befast_speech_th",
+   "language": "th",
+   "category": null,
+   "phrase": "พูดไม่ชัด ลิ้นแข็ง อยู่ ๆ ก็เป็น",
+   "expect": [
+    "slurred_speech"
+   ],
+   "allow": [],
+   "forbid": [],
+   "present": [
+    "slurred_speech"
+   ],
+   "absent": [],
+   "got_category": "headache",
+   "evidence": {
+    "slurred_speech": "พูดไม่ชัด ลิ้นแข็ง"
+   },
+   "misses": [],
+   "absent_misses": [],
+   "category_wrong": false,
+   "overmatch": [],
+   "stray": [],
+   "passed": true
+  },
+  {
+   "id": "befast_balance_th",
+   "language": "th",
+   "category": "headache",
+   "phrase": "เดินเซ ทรงตัวไม่อยู่เลยค่ะ",
+   "expect": [
+    "balance_loss"
+   ],
+   "allow": [],
+   "forbid": [],
+   "present": [
+    "balance_loss"
+   ],
+   "absent": [],
+   "got_category": "headache",
+   "evidence": {
+    "balance_loss": "เดินเซ ทรงตัวไม่อยู่เลยค่ะ"
+   },
+   "misses": [],
+   "absent_misses": [],
+   "category_wrong": false,
+   "overmatch": [],
+   "stray": [],
+   "passed": true
+  },
+  {
+   "id": "befast_vision_th",
+   "language": "th",
+   "category": "headache",
+   "phrase": "ตาข้างขวามัวลงเฉียบพลัน มองไม่เห็นเลย",
+   "expect": [
+    "sudden_vision_loss"
+   ],
+   "allow": [],
+   "forbid": [],
+   "present": [
+    "sudden_vision_loss"
+   ],
+   "absent": [],
+   "got_category": "eye",
+   "evidence": {
+    "sudden_vision_loss": "ตาข้างขวามัวลงเฉียบพลัน มองไม่เห็นเลย"
+   },
+   "misses": [],
+   "absent_misses": [],
+   "category_wrong": false,
+   "overmatch": [],
+   "stray": [],
+   "passed": true
+  },
+  {
+   "id": "thunderclap_th",
+   "language": "th",
+   "category": null,
+   "phrase": "ปวดหัวขึ้นมาแบบฟ้าผ่า ไม่เคยปวดรุนแรงขนาดนี้มาก่อนในชีวิต",
+   "expect": [
+    "headache_sudden_severe"
+   ],
+   "allow": [
+    "headache"
+   ],
+   "forbid": [],
+   "present": [
+    "headache_sudden_severe"
+   ],
+   "absent": [],
+   "got_category": "headache",
+   "evidence": {
+    "headache_sudden_severe": "ปวดหัวขึ้นมาแบบฟ้าผ่า ไม่เคยปวดรุนแรงขนาดนี้มาก่อนในชีวิต"
+   },
+   "misses": [],
+   "absent_misses": [],
+   "category_wrong": false,
+   "overmatch": [],
+   "stray": [],
+   "passed": true
+  },
+  {
+   "id": "stiffneck_th",
+   "language": "th",
+   "category": "fever",
+   "phrase": "คอแข็ง ก้มหัวแล้วเจ็บมากค่ะ",
+   "expect": [
+    "stiff_neck"
+   ],
+   "allow": [],
+   "forbid": [],
+   "present": [
+    "stiff_neck"
+   ],
+   "absent": [],
+   "got_category": "headache",
+   "evidence": {
+    "stiff_neck": "คอแข็ง"
+   },
+   "misses": [],
+   "absent_misses": [],
+   "category_wrong": false,
+   "overmatch": [],
+   "stray": [],
+   "passed": true
+  },
+  {
+   "id": "hematemesis_th",
+   "language": "th",
+   "category": null,
+   "phrase": "อ้วกออกมามีเลือดปนสด ๆ เลยครับ",
+   "expect": [
+    "hematemesis"
+   ],
+   "allow": [
+    "vomiting"
+   ],
+   "forbid": [],
+   "present": [
+    "hematemesis",
+    "vomiting"
+   ],
+   "absent": [],
+   "got_category": "gi",
+   "evidence": {
+    "hematemesis": "อ้วกออกมามีเลือดปนสด ๆ เลยครับ",
+    "vomiting": "อ้วกออกมา"
+   },
+   "misses": [],
+   "absent_misses": [],
+   "category_wrong": false,
+   "overmatch": [],
+   "stray": [],
+   "passed": true
+  },
+  {
+   "id": "melena_th",
+   "language": "th",
+   "category": null,
+   "phrase": "ถ่ายออกมาดำเหมือนยางมะตอยสองวันแล้ว",
+   "expect": [
+    "melena"
+   ],
+   "allow": [],
+   "forbid": [],
+   "present": [
+    "melena"
+   ],
+   "absent": [],
+   "got_category": "gi",
+   "evidence": {
+    "melena": "ถ่ายออกมาดำเหมือนยางมะตอย"
+   },
+   "misses": [],
+   "absent_misses": [],
+   "category_wrong": false,
+   "overmatch": [],
+   "stray": [],
+   "passed": true
+  },
+  {
+   "id": "bloody_stool_th",
+   "language": "th",
+   "category": null,
+   "phrase": "ถ่ายเป็นเลือดสด ๆ เมื่อเช้า",
+   "expect": [
+    "bloody_stool"
+   ],
+   "allow": [],
+   "forbid": [],
+   "present": [
+    "bloody_stool"
+   ],
+   "absent": [],
+   "got_category": "gi",
+   "evidence": {
+    "bloody_stool": "ถ่ายเป็นเลือดสด ๆ"
+   },
+   "misses": [],
+   "absent_misses": [],
+   "category_wrong": false,
+   "overmatch": [],
+   "stray": [],
+   "passed": true
+  },
+  {
+   "id": "hemoptysis_th",
+   "language": "th",
+   "category": null,
+   "phrase": "ไอออกมามีเลือดติดเสมหะ",
+   "expect": [
+    "hemoptysis"
+   ],
+   "allow": [
+    "cough"
+   ],
+   "forbid": [],
+   "present": [
+    "cough",
+    "hemoptysis"
+   ],
+   "absent": [],
+   "got_category": "dyspnea_cough",
+   "evidence": {
+    "cough": "ไอ",
+    "hemoptysis": "ไอออกมามีเลือดติดเสมหะ"
+   },
+   "misses": [],
+   "absent_misses": [],
+   "category_wrong": false,
+   "overmatch": [],
+   "stray": [],
+   "passed": true
+  },
+  {
+   "id": "palpitations_th",
+   "language": "th",
+   "category": null,
+   "phrase": "ใจสั่น ใจเต้นแรงรัว ๆ ผิดปกติ",
+   "expect": [
+    "palpitations"
+   ],
+   "allow": [],
+   "forbid": [],
+   "present": [
+    "palpitations"
+   ],
+   "absent": [],
+   "got_category": "palpitations",
+   "evidence": {
+    "palpitations": "ใจสั่น ใจเต้นแรงรัว ๆ ผิดปกติ"
+   },
+   "misses": [],
+   "absent_misses": [],
+   "category_wrong": false,
+   "overmatch": [],
+   "stray": [],
+   "passed": true
+  },
+  {
+   "id": "headinj_loc_th",
+   "language": "th",
+   "category": null,
+   "phrase": "ล้มหัวฟาดพื้น สลบไปแป๊บนึงครับ",
+   "expect": [
+    "head_injury",
+    "loc_transient"
+   ],
+   "allow": [
+    "syncope_24h"
+   ],
+   "forbid": [],
+   "present": [
+    "head_injury",
+    "loc_transient"
+   ],
+   "absent": [],
+   "got_category": "injury",
+   "evidence": {
+    "head_injury": "ล้มหัวฟาดพื้น",
+    "loc_transient": "สลบไปแป๊บนึง"
+   },
+   "misses": [],
+   "absent_misses": [],
+   "category_wrong": false,
+   "overmatch": [],
+   "stray": [],
+   "passed": true
+  },
+  {
+   "id": "anaphylaxis_th",
+   "language": "th",
+   "category": null,
+   "phrase": "กินกุ้งแล้วผื่นขึ้นคันทั้งตัว ปากบวม",
+   "expect": [
+    "rash_itching",
+    "lip_swelling"
+   ],
+   "allow": [],
+   "forbid": [],
+   "present": [
+    "lip_swelling",
+    "rash_itching"
+   ],
+   "absent": [],
+   "got_category": "skin_rash",
+   "evidence": {
+    "rash_itching": "ผื่นขึ้นคันทั้งตัว",
+    "lip_swelling": "ปากบวม"
+   },
+   "misses": [],
+   "absent_misses": [],
+   "category_wrong": false,
+   "overmatch": [],
+   "stray": [],
+   "passed": true
+  },
+  {
+   "id": "suicide_th",
+   "language": "th",
+   "category": null,
+   "phrase": "ช่วงนี้ไม่อยากมีชีวิตอยู่แล้วค่ะ",
+   "expect": [
+    "suicidal_ideation"
+   ],
+   "allow": [
+    "self_harm_risk"
+   ],
+   "forbid": [],
+   "present": [
+    "suicidal_ideation"
+   ],
+   "absent": [],
+   "got_category": "mental_health",
+   "evidence": {
+    "suicidal_ideation": "ไม่อยากมีชีวิตอยู่แล้วค่ะ"
+   },
+   "misses": [],
+   "absent_misses": [],
+   "category_wrong": false,
+   "overmatch": [],
+   "stray": [],
+   "passed": true
+  },
+  {
+   "id": "overdose_th",
+   "language": "th",
+   "category": null,
+   "phrase": "เผลอกินยานอนหลับไปทั้งแผงเมื่อคืน",
+   "expect": [
+    "overdose_or_poison"
+   ],
+   "allow": [
+    "suicidal_ideation",
+    "self_harm_risk"
+   ],
+   "forbid": [],
+   "present": [
+    "overdose_or_poison"
+   ],
+   "absent": [],
+   "got_category": "generic",
+   "evidence": {
+    "overdose_or_poison": "เผลอกินยานอนหลับไปทั้งแผงเมื่อคืน"
+   },
+   "misses": [],
+   "absent_misses": [],
+   "category_wrong": false,
+   "overmatch": [],
+   "stray": [],
+   "passed": true
+  },
+  {
+   "id": "bleeding_th",
+   "language": "th",
+   "category": null,
+   "phrase": "มีดบาดลึก เลือดไหลไม่หยุดเลยครับ",
+   "expect": [
+    "active_bleeding"
+   ],
+   "allow": [],
+   "forbid": [],
+   "present": [
+    "active_bleeding",
+    "injury_within_24h"
+   ],
+   "absent": [],
+   "got_category": "injury",
+   "evidence": {
+    "active_bleeding": "เลือดไหลไม่หยุดเลยครับ",
+    "injury_within_24h": "มีดบาดลึก"
+   },
+   "misses": [],
+   "absent_misses": [],
+   "category_wrong": false,
+   "overmatch": [],
+   "stray": [
+    "injury_within_24h"
+   ],
+   "passed": true
+  },
+  {
+   "id": "fracture_th",
+   "language": "th",
+   "category": "injury",
+   "phrase": "ข้อมือบวมผิดรูป น่าจะหักค่ะ",
+   "expect": [
+    "fracture_suspected"
+   ],
+   "allow": [],
+   "forbid": [],
+   "present": [
+    "fracture_suspected"
+   ],
+   "absent": [],
+   "got_category": "injury",
+   "evidence": {
+    "fracture_suspected": "น่าจะหักค่ะ"
+   },
+   "misses": [],
+   "absent_misses": [],
+   "category_wrong": false,
+   "overmatch": [],
+   "stray": [],
+   "passed": true
+  },
+  {
+   "id": "burn_th",
+   "language": "th",
+   "category": null,
+   "phrase": "โดนน้ำร้อนลวกที่แขนเมื่อกี้นี้เอง",
+   "expect": [
+    "burn_scald_24h"
+   ],
+   "allow": [],
+   "forbid": [],
+   "present": [
+    "burn_scald_24h",
+    "injury_within_24h"
+   ],
+   "absent": [],
+   "got_category": "injury",
+   "evidence": {
+    "burn_scald_24h": "โดนน้ำร้อนลวกที่แขนเมื่อกี้นี้เอง",
+    "injury_within_24h": "เมื่อกี้นี้เอง"
+   },
+   "misses": [],
+   "absent_misses": [],
+   "category_wrong": false,
+   "overmatch": [],
+   "stray": [
+    "injury_within_24h"
+   ],
+   "passed": true
+  },
+  {
+   "id": "dogbite_th",
+   "language": "th",
+   "category": null,
+   "phrase": "โดนหมากัดที่ขาเมื่อเช้านี้",
+   "expect": [
+    "animal_insect_bite_24h"
+   ],
+   "allow": [],
+   "forbid": [],
+   "present": [
+    "animal_insect_bite_24h",
+    "injury_within_24h"
+   ],
+   "absent": [],
+   "got_category": "injury",
+   "evidence": {
+    "animal_insect_bite_24h": "โดนหมากัด",
+    "injury_within_24h": "เมื่อเช้านี้"
+   },
+   "misses": [],
+   "absent_misses": [],
+   "category_wrong": false,
+   "overmatch": [],
+   "stray": [
+    "injury_within_24h"
+   ],
+   "passed": true
+  },
+  {
+   "id": "seizure_companion_th",
+   "language": "th",
+   "category": null,
+   "phrase": "พ่อชักเกร็งทั้งตัว ตาค้าง เรียกไม่รู้สึกตัวเลยครับ",
+   "expect": [
+    "seizure_now",
+    "unresponsive"
+   ],
+   "allow": [],
+   "forbid": [],
+   "present": [
+    "seizure_now",
+    "unresponsive"
+   ],
+   "absent": [],
+   "got_category": "mental_health",
+   "evidence": {
+    "seizure_now": "ชักเกร็งทั้งตัว",
+    "unresponsive": "เรียกไม่รู้สึกตัวเลยครับ"
+   },
+   "misses": [],
+   "absent_misses": [],
+   "category_wrong": false,
+   "overmatch": [],
+   "stray": [],
+   "passed": true
+  },
+  {
+   "id": "unresponsive_th",
+   "language": "th",
+   "category": null,
+   "phrase": "แม่ล้มไปแล้วปลุกไม่ตื่น เรียกไม่รู้ตัว",
+   "expect": [
+    "unresponsive"
+   ],
+   "allow": [],
+   "forbid": [],
+   "present": [
+    "unresponsive"
+   ],
+   "absent": [],
+   "got_category": "generic",
+   "evidence": {
+    "unresponsive": "ปลุกไม่ตื่น เรียกไม่รู้ตัว"
+   },
+   "misses": [],
+   "absent_misses": [],
+   "category_wrong": false,
+   "overmatch": [],
+   "stray": [],
+   "passed": true
+  },
+  {
+   "id": "hypoglycemia_th",
+   "language": "th",
+   "category": null,
+   "phrase": "เป็นเบาหวาน ตอนนี้ใจสั่น มือสั่น เหงื่อออก หิวจัด เบลอ ๆ",
+   "expect": [
+    "hypoglycemia_symptoms"
+   ],
+   "allow": [
+    "palpitations",
+    "diaphoresis",
+    "confusion",
+    "diabetes_history"
+   ],
+   "forbid": [],
+   "present": [
+    "hypoglycemia_symptoms",
+    "palpitations"
+   ],
+   "absent": [],
+   "got_category": "palpitations",
+   "evidence": {
+    "palpitations": "ใจสั่น",
+    "hypoglycemia_symptoms": "มือสั่น เหงื่อออก หิวจัด เบลอ ๆ"
+   },
+   "misses": [],
+   "absent_misses": [],
+   "category_wrong": false,
+   "overmatch": [],
+   "stray": [],
+   "passed": true
+  },
+  {
+   "id": "tb_cough_th",
+   "language": "th",
+   "category": null,
+   "phrase": "ไอเรื้อรังมาเดือนกว่าแล้ว น้ำหนักก็ลด",
+   "expect": [
+    "chronic_cough_2w",
+    "fatigue_weight_loss"
+   ],
+   "allow": [
+    "cough"
+   ],
+   "forbid": [],
+   "present": [
+    "chronic_cough_2w",
+    "fatigue_weight_loss"
+   ],
+   "absent": [],
+   "got_category": "dyspnea_cough",
+   "evidence": {
+    "chronic_cough_2w": "ไอเรื้อรังมาเดือนกว่าแล้ว",
+    "fatigue_weight_loss": "น้ำหนักก็ลด"
+   },
+   "misses": [],
+   "absent_misses": [],
+   "category_wrong": false,
+   "overmatch": [],
+   "stray": [],
+   "passed": true
+  },
+  {
+   "id": "dvt_th",
+   "language": "th",
+   "category": null,
+   "phrase": "ขาซ้ายบวมข้างเดียว ปวดน่องตึง ๆ",
+   "expect": [
+    "unilateral_leg_swelling"
+   ],
+   "allow": [],
+   "forbid": [],
+   "present": [
+    "unilateral_leg_swelling"
+   ],
+   "absent": [],
+   "got_category": "limb_vascular",
+   "evidence": {
+    "unilateral_leg_swelling": "ขาซ้ายบวมข้างเดียว ปวดน่องตึง ๆ"
+   },
+   "misses": [],
+   "absent_misses": [],
+   "category_wrong": false,
+   "overmatch": [],
+   "stray": [],
+   "passed": true
+  },
+  {
+   "id": "ischemia_th",
+   "language": "th",
+   "category": null,
+   "phrase": "ขาขวาซีดเย็น ชา ขยับแทบไม่ได้",
+   "expect": [
+    "limb_ischemia"
+   ],
+   "allow": [
+    "limb_weakness"
+   ],
+   "forbid": [],
+   "present": [
+    "limb_ischemia"
+   ],
+   "absent": [],
+   "got_category": "limb_vascular",
+   "evidence": {
+    "limb_ischemia": "ขาขวาซีดเย็น ชา ขยับแทบไม่ได้"
+   },
+   "misses": [],
+   "absent_misses": [],
+   "category_wrong": false,
+   "overmatch": [],
+   "stray": [],
+   "passed": true
+  },
+  {
+   "id": "eye_chem_th",
+   "language": "th",
+   "category": null,
+   "phrase": "น้ำยาล้างห้องน้ำกระเด็นเข้าตาค่ะ แสบมาก",
+   "expect": [
+    "eye_chemical_exposure"
+   ],
+   "allow": [],
+   "forbid": [],
+   "present": [
+    "eye_chemical_exposure"
+   ],
+   "absent": [],
+   "got_category": "eye",
+   "evidence": {
+    "eye_chemical_exposure": "น้ำยาล้างห้องน้ำกระเด็นเข้าตา"
+   },
+   "misses": [],
+   "absent_misses": [],
+   "category_wrong": false,
+   "overmatch": [],
+   "stray": [],
+   "passed": true
+  },
+  {
+   "id": "epistaxis_th",
+   "language": "th",
+   "category": null,
+   "phrase": "เลือดกำเดาไหลไม่หยุดมาชั่วโมงกว่าแล้ว",
+   "expect": [
+    "epistaxis_uncontrolled"
+   ],
+   "allow": [],
+   "forbid": [],
+   "present": [
+    "epistaxis_uncontrolled"
+   ],
+   "absent": [],
+   "got_category": "ear_nose_throat",
+   "evidence": {
+    "epistaxis_uncontrolled": "เลือดกำเดาไหลไม่หยุด"
+   },
+   "misses": [],
+   "absent_misses": [],
+   "category_wrong": false,
+   "overmatch": [],
+   "stray": [],
+   "passed": true
+  },
+  {
+   "id": "wound_inf_th",
+   "language": "th",
+   "category": null,
+   "phrase": "แผลที่เท้าบวมแดงร้อน มีหนองไหล",
+   "expect": [
+    "wound_infection_signs"
+   ],
+   "allow": [],
+   "forbid": [],
+   "present": [
+    "wound_infection_signs"
+   ],
+   "absent": [],
+   "got_category": "wound_skin",
+   "evidence": {
+    "wound_infection_signs": "แผลที่เท้าบวมแดงร้อน มีหนองไหล"
+   },
+   "misses": [],
+   "absent_misses": [],
+   "category_wrong": false,
+   "overmatch": [],
+   "stray": [],
+   "passed": true
+  },
+  {
+   "id": "fishbone_th",
+   "language": "th",
+   "category": null,
+   "phrase": "ก้างปลาติดคอตั้งแต่มื้อเย็นเมื่อวาน",
+   "expect": [
+    "foreign_body_ent_24h"
+   ],
+   "allow": [],
+   "forbid": [],
+   "present": [
+    "foreign_body_ent_24h"
+   ],
+   "absent": [],
+   "got_category": "ear_nose_throat",
+   "evidence": {
+    "foreign_body_ent_24h": "ก้างปลาติดคอ"
+   },
+   "misses": [],
+   "absent_misses": [],
+   "category_wrong": false,
+   "overmatch": [],
+   "stray": [],
+   "passed": true
+  },
+  {
+   "id": "danger_th",
+   "language": "th",
+   "category": null,
+   "phrase": "แฟนขู่จะทำร้าย ตอนนี้หนูไม่ปลอดภัยเลยค่ะ",
+   "expect": [
+    "immediate_danger"
+   ],
+   "allow": [],
+   "forbid": [],
+   "present": [
+    "immediate_danger"
+   ],
+   "absent": [],
+   "got_category": "mental_health",
+   "evidence": {
+    "immediate_danger": "ตอนนี้หนูไม่ปลอดภัยเลยค่ะ"
+   },
+   "misses": [],
+   "absent_misses": [],
+   "category_wrong": false,
+   "overmatch": [],
+   "stray": [],
+   "passed": true
+  },
+  {
+   "id": "heavy_vb_th",
+   "language": "th",
+   "category": null,
+   "phrase": "เลือดออกทางช่องคลอดเยอะมาก เปลี่ยนผ้าอนามัยชุ่มทุกชั่วโมง",
+   "expect": [
+    "heavy_vaginal_bleeding"
+   ],
+   "allow": [
+    "vaginal_bleeding"
+   ],
+   "forbid": [],
+   "present": [
+    "heavy_vaginal_bleeding"
+   ],
+   "absent": [],
+   "got_category": "gynecology",
+   "evidence": {
+    "heavy_vaginal_bleeding": "เลือดออกทางช่องคลอดเยอะมาก เปลี่ยนผ้าอนามัยชุ่มทุกชั่วโมง"
+   },
+   "misses": [],
+   "absent_misses": [],
+   "category_wrong": false,
+   "overmatch": [],
+   "stray": [],
+   "passed": true
+  },
+  {
+   "id": "preg_fluid_th",
+   "language": "th",
+   "category": "pregnancy",
+   "phrase": "ท้อง 8 เดือน มีน้ำเดินไหลออกมาค่ะ",
+   "expect": [
+    "amniotic_fluid_leak"
+   ],
+   "allow": [
+    "pregnancy",
+    "ga_24w_or_more"
+   ],
+   "forbid": [],
+   "present": [
+    "amniotic_fluid_leak",
+    "ga_24w_or_more",
+    "pregnancy"
+   ],
+   "absent": [],
+   "got_category": "pregnancy",
+   "evidence": {
+    "pregnancy": "ท้อง 8 เดือน",
+    "amniotic_fluid_leak": "มีน้ำเดินไหลออกมาค่ะ",
+    "ga_24w_or_more": "ท้อง 8 เดือน"
+   },
+   "misses": [],
+   "absent_misses": [],
+   "category_wrong": false,
+   "overmatch": [],
+   "stray": [],
+   "passed": true
+  },
+  {
+   "id": "fetal_move_th",
+   "language": "th",
+   "category": "pregnancy",
+   "phrase": "วันนี้ลูกดิ้นน้อยลงมากผิดปกติ",
+   "expect": [
+    "decreased_fetal_movement"
+   ],
+   "allow": [
+    "pregnancy"
+   ],
+   "forbid": [],
+   "present": [
+    "decreased_fetal_movement"
+   ],
+   "absent": [],
+   "got_category": "pregnancy",
+   "evidence": {
+    "decreased_fetal_movement": "ลูกดิ้นน้อยลงมากผิดปกติ"
+   },
+   "misses": [],
+   "absent_misses": [],
+   "category_wrong": false,
+   "overmatch": [],
+   "stray": [],
+   "passed": true
+  },
+  {
+   "id": "gi_dehydration_th",
+   "language": "th",
+   "category": null,
+   "phrase": "ท้องเสียทั้งคืน ตอนนี้ปากแห้ง ตาโหล เพลียจนลุกไม่ไหว",
+   "expect": [
+    "diarrhea",
+    "dehydration_signs"
+   ],
+   "allow": [
+    "fatigue_weight_loss"
+   ],
+   "forbid": [],
+   "present": [
+    "dehydration_signs",
+    "diarrhea"
+   ],
+   "absent": [],
+   "got_category": "gi",
+   "evidence": {
+    "diarrhea": "ท้องเสีย",
+    "dehydration_signs": "ปากแห้ง ตาโหล เพลียจนลุกไม่ไหว"
+   },
+   "misses": [],
+   "absent_misses": [],
+   "category_wrong": false,
+   "overmatch": [],
+   "stray": [],
+   "passed": true
+  },
+  {
+   "id": "vomit_th",
+   "language": "th",
+   "category": null,
+   "phrase": "คลื่นไส้อ้วกมาหลายรอบตั้งแต่เมื่อคืน",
+   "expect": [
+    "vomiting"
+   ],
+   "allow": [],
+   "forbid": [],
+   "present": [
+    "vomiting"
+   ],
+   "absent": [],
+   "got_category": "gi",
+   "evidence": {
+    "vomiting": "คลื่นไส้อ้วกมาหลายรอบ"
+   },
+   "misses": [],
+   "absent_misses": [],
+   "category_wrong": false,
+   "overmatch": [],
+   "stray": [],
+   "passed": true
+  },
+  {
+   "id": "cp_en_compound",
+   "language": "en",
+   "category": null,
+   "phrase": "I've got this crushing chest pressure going up to my jaw and I'm sweating buckets",
+   "expect": [
+    "chest_pain",
+    "chest_pain_radiating",
+    "diaphoresis"
+   ],
+   "allow": [],
+   "forbid": [
+    "pale_cold_sweaty"
+   ],
+   "present": [
+    "chest_pain",
+    "chest_pain_radiating",
+    "diaphoresis"
+   ],
+   "absent": [],
+   "got_category": "chest_pain",
+   "evidence": {
+    "chest_pain": "crushing chest pressure",
+    "chest_pain_radiating": "going up to my jaw",
+    "diaphoresis": "sweating buckets"
+   },
+   "misses": [],
+   "absent_misses": [],
+   "category_wrong": false,
+   "overmatch": [],
+   "stray": [],
+   "passed": true
+  },
+  {
+   "id": "sweat_en_ctrl",
+   "language": "en",
+   "category": null,
+   "phrase": "I'm sweating a lot for no reason",
+   "expect": [
+    "diaphoresis"
+   ],
+   "allow": [],
+   "forbid": [
+    "pale_cold_sweaty"
+   ],
+   "present": [
+    "diaphoresis"
+   ],
+   "absent": [],
+   "got_category": "generic",
+   "evidence": {
+    "diaphoresis": "sweating a lot"
+   },
+   "misses": [],
+   "absent_misses": [],
+   "category_wrong": false,
+   "overmatch": [],
+   "stray": [],
+   "passed": true
+  },
+  {
+   "id": "befast_en",
+   "language": "en",
+   "category": null,
+   "phrase": "my mouth suddenly droops on one side and my words come out slurred",
+   "expect": [
+    "facial_droop",
+    "slurred_speech"
+   ],
+   "allow": [],
+   "forbid": [],
+   "present": [
+    "facial_droop",
+    "slurred_speech"
+   ],
+   "absent": [],
+   "got_category": "headache",
+   "evidence": {
+    "facial_droop": "my mouth suddenly droops on one side",
+    "slurred_speech": "my words come out slurred"
+   },
+   "misses": [],
+   "absent_misses": [],
+   "category_wrong": false,
+   "overmatch": [],
+   "stray": [],
+   "passed": true
+  },
+  {
+   "id": "syncope_en",
+   "language": "en",
+   "category": null,
+   "phrase": "I blacked out for a moment this morning",
+   "expect": [
+    "syncope_24h"
+   ],
+   "allow": [
+    "loc_transient"
+   ],
+   "forbid": [],
+   "present": [
+    "syncope_24h"
+   ],
+   "absent": [],
+   "got_category": "generic",
+   "evidence": {
+    "syncope_24h": "I blacked out for a moment this morning"
+   },
+   "misses": [],
+   "absent_misses": [],
+   "category_wrong": false,
+   "overmatch": [],
+   "stray": [],
+   "passed": true
+  },
+  {
+   "id": "melena_en",
+   "language": "en",
+   "category": null,
+   "phrase": "my stool has been black and tarry since yesterday",
+   "expect": [
+    "melena"
+   ],
+   "allow": [],
+   "forbid": [],
+   "present": [
+    "melena"
+   ],
+   "absent": [],
+   "got_category": "gi",
+   "evidence": {
+    "melena": "my stool has been black and tarry"
+   },
+   "misses": [],
+   "absent_misses": [],
+   "category_wrong": false,
+   "overmatch": [],
+   "stray": [],
+   "passed": true
+  },
+  {
+   "id": "thunderclap_en",
+   "language": "en",
+   "category": null,
+   "phrase": "worst headache of my life, hit me like a thunderclap",
+   "expect": [
+    "headache_sudden_severe"
+   ],
+   "allow": [
+    "headache"
+   ],
+   "forbid": [],
+   "present": [
+    "headache_sudden_severe"
+   ],
+   "absent": [],
+   "got_category": "headache",
+   "evidence": {
+    "headache_sudden_severe": "worst headache of my life, hit me like a thunderclap"
+   },
+   "misses": [],
+   "absent_misses": [],
+   "category_wrong": false,
+   "overmatch": [],
+   "stray": [],
+   "passed": true
+  },
+  {
+   "id": "anaphylaxis_en",
+   "language": "en",
+   "category": null,
+   "phrase": "I ate shrimp and now I'm itchy all over and my lips are swelling",
+   "expect": [
+    "rash_itching",
+    "lip_swelling"
+   ],
+   "allow": [],
+   "forbid": [],
+   "present": [
+    "lip_swelling",
+    "rash_itching"
+   ],
+   "absent": [],
+   "got_category": "skin_rash",
+   "evidence": {
+    "rash_itching": "itchy all over",
+    "lip_swelling": "my lips are swelling"
+   },
+   "misses": [],
+   "absent_misses": [],
+   "category_wrong": false,
+   "overmatch": [],
+   "stray": [],
+   "passed": true
+  },
+  {
+   "id": "dyspnea_en_mild",
+   "language": "en",
+   "category": null,
+   "phrase": "I get short of breath climbing the stairs",
+   "expect": [
+    "dyspnea"
+   ],
+   "allow": [],
+   "forbid": [
+    "severe_respiratory_distress"
+   ],
+   "present": [
+    "dyspnea"
+   ],
+   "absent": [],
+   "got_category": "dyspnea_cough",
+   "evidence": {
+    "dyspnea": "I get short of breath climbing the stairs"
+   },
+   "misses": [],
+   "absent_misses": [],
+   "category_wrong": false,
+   "overmatch": [],
+   "stray": [],
+   "passed": true
+  },
+  {
+   "id": "hematemesis_en",
+   "language": "en",
+   "category": null,
+   "phrase": "I threw up and there was fresh blood in it",
+   "expect": [
+    "hematemesis"
+   ],
+   "allow": [
+    "vomiting"
+   ],
+   "forbid": [],
+   "present": [
+    "hematemesis",
+    "vomiting"
+   ],
+   "absent": [],
+   "got_category": "gi",
+   "evidence": {
+    "vomiting": "I threw up",
+    "hematemesis": "there was fresh blood in it"
+   },
+   "misses": [],
+   "absent_misses": [],
+   "category_wrong": false,
+   "overmatch": [],
+   "stray": [],
+   "passed": true
+  },
+  {
+   "id": "deny_th_fever_not_headache",
+   "language": "th",
+   "category": null,
+   "phrase": "มีไข้ แต่ไม่ปวดหัว",
+   "expect": [
+    "fever"
+   ],
+   "expect_absent": [
+    "headache"
+   ],
+   "expect_category": "fever",
+   "allow": [],
+   "forbid": [],
+   "present": [
+    "fever"
+   ],
+   "absent": [
+    "headache"
+   ],
+   "got_category": "fever",
+   "evidence": {
+    "fever": "มีไข้"
+   },
+   "misses": [],
+   "absent_misses": [],
+   "category_wrong": false,
+   "overmatch": [],
+   "stray": [],
+   "passed": true
+  },
+  {
+   "id": "deny_th_fever_not_headache_polite",
+   "language": "th",
+   "category": null,
+   "phrase": "ผมมีไข้ครับ ไม่มีอาการปวดหัวเลย",
+   "expect": [
+    "fever"
+   ],
+   "expect_absent": [
+    "headache"
+   ],
+   "expect_category": "fever",
+   "allow": [],
+   "forbid": [],
+   "present": [
+    "fever"
+   ],
+   "absent": [
+    "headache"
+   ],
+   "got_category": "fever",
+   "evidence": {
+    "fever": "ผมมีไข้ครับ"
+   },
+   "misses": [],
+   "absent_misses": [],
+   "category_wrong": false,
+   "overmatch": [],
+   "stray": [],
+   "passed": true
+  },
+  {
+   "id": "deny_en_fever_not_headache",
+   "language": "en",
+   "category": null,
+   "phrase": "I have a fever but I don't have a headache",
+   "expect": [
+    "fever"
+   ],
+   "expect_absent": [
+    "headache"
+   ],
+   "expect_category": "fever",
+   "allow": [],
+   "forbid": [],
+   "present": [
+    "fever"
+   ],
+   "absent": [
+    "headache"
+   ],
+   "got_category": "fever",
+   "evidence": {
+    "fever": "I have a fever"
+   },
+   "misses": [],
+   "absent_misses": [],
+   "category_wrong": false,
+   "overmatch": [],
+   "stray": [],
+   "passed": true
+  },
+  {
+   "id": "deny_en_fever_no_headache_short",
+   "language": "en",
+   "category": null,
+   "phrase": "I have a fever but no headache",
+   "expect": [
+    "fever"
+   ],
+   "expect_absent": [
+    "headache"
+   ],
+   "expect_category": "fever",
+   "allow": [],
+   "forbid": [],
+   "present": [
+    "fever"
+   ],
+   "absent": [
+    "headache"
+   ],
+   "got_category": "fever",
+   "evidence": {
+    "fever": "I have a fever"
+   },
+   "misses": [],
+   "absent_misses": [],
+   "category_wrong": false,
+   "overmatch": [],
+   "stray": [],
+   "passed": true
+  },
+  {
+   "id": "deny_th_no_fever_but_headache",
+   "language": "th",
+   "category": null,
+   "phrase": "ไม่มีไข้ แต่ปวดหัวมาก",
+   "expect": [
+    "headache"
+   ],
+   "expect_absent": [
+    "fever"
+   ],
+   "expect_category": "headache",
+   "allow": [],
+   "forbid": [],
+   "present": [
+    "headache"
+   ],
+   "absent": [
+    "fever"
+   ],
+   "got_category": "headache",
+   "evidence": {
+    "headache": "ปวดหัวมาก"
+   },
+   "misses": [],
+   "absent_misses": [],
+   "category_wrong": false,
+   "overmatch": [],
+   "stray": [],
+   "passed": true
+  },
+  {
+   "id": "deny_en_no_fever_but_headache",
+   "language": "en",
+   "category": null,
+   "phrase": "no fever but a really bad headache",
+   "expect": [
+    "headache"
+   ],
+   "expect_absent": [
+    "fever"
+   ],
+   "expect_category": "headache",
+   "allow": [],
+   "forbid": [],
+   "present": [
+    "headache"
+   ],
+   "absent": [
+    "fever"
+   ],
+   "got_category": "headache",
+   "evidence": {
+    "headache": "really bad headache"
+   },
+   "misses": [],
+   "absent_misses": [],
+   "category_wrong": false,
+   "overmatch": [],
+   "stray": [],
+   "passed": true
+  },
+  {
+   "id": "deny_th_multi",
+   "language": "th",
+   "category": "fever",
+   "phrase": "มีไข้สองวันแล้ว ไอนิดหน่อย ไม่เจ็บคอ ไม่มีน้ำมูก ไม่ถ่ายเหลว",
+   "expect": [
+    "fever",
+    "cough"
+   ],
+   "expect_absent": [
+    "sore_throat",
+    "runny_nose",
+    "diarrhea"
+   ],
+   "allow": [],
+   "forbid": [],
+   "present": [
+    "cough",
+    "fever"
+   ],
+   "absent": [
+    "diarrhea",
+    "runny_nose",
+    "sore_throat"
+   ],
+   "got_category": "fever",
+   "evidence": {
+    "fever": "มีไข้",
+    "cough": "ไอนิดหน่อย"
+   },
+   "misses": [],
+   "absent_misses": [],
+   "category_wrong": false,
+   "overmatch": [],
+   "stray": [],
+   "passed": true
+  },
+  {
+   "id": "deny_en_multi",
+   "language": "en",
+   "category": "fever",
+   "phrase": "fever for two days, a bit of a cough, no sore throat, no runny nose, no diarrhoea",
+   "expect": [
+    "fever",
+    "cough"
+   ],
+   "expect_absent": [
+    "sore_throat",
+    "runny_nose",
+    "diarrhea"
+   ],
+   "allow": [],
+   "forbid": [],
+   "present": [
+    "cough",
+    "fever"
+   ],
+   "absent": [
+    "diarrhea",
+    "runny_nose",
+    "sore_throat"
+   ],
+   "got_category": "fever",
+   "evidence": {
+    "fever": "fever for two days",
+    "cough": "a bit of a cough"
+   },
+   "misses": [],
+   "absent_misses": [],
+   "category_wrong": false,
+   "overmatch": [],
+   "stray": [],
+   "passed": true
+  },
+  {
+   "id": "deny_th_chest_no_radiation",
+   "language": "th",
+   "category": null,
+   "phrase": "แน่นหน้าอกครับ แต่ไม่ร้าวไปแขน ไม่เหงื่อแตก",
+   "expect": [
+    "chest_pain"
+   ],
+   "expect_absent": [
+    "chest_pain_radiating",
+    "diaphoresis"
+   ],
+   "expect_category": "chest_pain",
+   "allow": [],
+   "forbid": [],
+   "present": [
+    "chest_pain"
+   ],
+   "absent": [
+    "chest_pain_radiating",
+    "diaphoresis"
+   ],
+   "got_category": "chest_pain",
+   "evidence": {
+    "chest_pain": "แน่นหน้าอกครับ"
+   },
+   "misses": [],
+   "absent_misses": [],
+   "category_wrong": false,
+   "overmatch": [],
+   "stray": [],
+   "passed": true
+  },
+  {
+   "id": "deny_en_chest_no_radiation",
+   "language": "en",
+   "category": null,
+   "phrase": "my chest feels tight but the pain doesn't spread to my arm and I'm not sweating",
+   "expect": [
+    "chest_pain"
+   ],
+   "expect_absent": [
+    "chest_pain_radiating",
+    "diaphoresis"
+   ],
+   "expect_category": "chest_pain",
+   "allow": [],
+   "forbid": [],
+   "present": [
+    "chest_pain"
+   ],
+   "absent": [
+    "chest_pain_radiating",
+    "diaphoresis"
+   ],
+   "got_category": "chest_pain",
+   "evidence": {
+    "chest_pain": "my chest feels tight"
+   },
+   "misses": [],
+   "absent_misses": [],
+   "category_wrong": false,
+   "overmatch": [],
+   "stray": [],
+   "passed": true
+  },
+  {
+   "id": "deny_th_dizzy_not_weak",
+   "language": "th",
+   "category": null,
+   "phrase": "เวียนหัวค่ะ แต่แขนขาไม่อ่อนแรง พูดชัดปกติ",
+   "expect": [
+    "vertigo"
+   ],
+   "expect_absent": [
+    "limb_weakness",
+    "slurred_speech"
+   ],
+   "allow": [
+    "balance_loss"
+   ],
+   "forbid": [],
+   "present": [],
+   "absent": [
+    "limb_weakness",
+    "slurred_speech"
+   ],
+   "got_category": "headache",
+   "evidence": {},
+   "misses": [
+    "vertigo"
+   ],
+   "absent_misses": [],
+   "category_wrong": false,
+   "overmatch": [],
+   "stray": [],
+   "passed": false
+  }
+ ]
+}

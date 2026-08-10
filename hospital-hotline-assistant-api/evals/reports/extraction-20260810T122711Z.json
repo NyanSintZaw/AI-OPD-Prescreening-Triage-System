@@ -1,0 +1,42 @@
+{
+ "criteria": "v2",
+ "model": "gemini-3.1-flash-lite",
+ "passed": 1,
+ "total": 1,
+ "results": [
+  {
+   "id": "deny_th_dizzy_not_weak",
+   "language": "th",
+   "category": null,
+   "phrase": "เวียนหัวค่ะ แต่แขนขาไม่อ่อนแรง พูดชัดปกติ",
+   "expect": [
+    "vertigo"
+   ],
+   "expect_absent": [
+    "limb_weakness",
+    "slurred_speech"
+   ],
+   "allow": [
+    "balance_loss"
+   ],
+   "forbid": [],
+   "present": [
+    "vertigo"
+   ],
+   "absent": [
+    "limb_weakness",
+    "slurred_speech"
+   ],
+   "got_category": "headache",
+   "evidence": {
+    "vertigo": "เวียนหัวค่ะ"
+   },
+   "misses": [],
+   "absent_misses": [],
+   "category_wrong": false,
+   "overmatch": [],
+   "stray": [],
+   "passed": true
+  }
+ ]
+}
