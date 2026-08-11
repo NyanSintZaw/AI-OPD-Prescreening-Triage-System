@@ -4,6 +4,12 @@
     "language": "en",
     "description": "Crushing chest pressure + diaphoresis, 58yo — classic ACS, must dispose emergency on turn 1",
     "opening": "I've got this crushing pressure in my chest, like someone's sitting on it. It started about half an hour ago and I'm sweating buckets.",
+    "present": [
+      "chest_pain",
+      "chest_pain_radiating",
+      "diaphoresis",
+      "dyspnea"
+    ],
     "age": 58,
     "answers": [
       {
@@ -42,6 +48,12 @@
     "language": "th",
     "description": "แน่นหน้าอกเหมือนช้างเหยียบ + เหงื่อแตก — ACS ต้องได้ฉุกเฉินตั้งแต่เทิร์นแรก",
     "opening": "แน่นหน้าอกเหมือนช้างเหยียบเลยค่ะ เป็นมาสักครึ่งชั่วโมงแล้ว เหงื่อแตกท่วมตัวเลย",
+    "present": [
+      "chest_pain",
+      "chest_pain_radiating",
+      "diaphoresis",
+      "dyspnea"
+    ],
     "age": 60,
     "answers": [
       {
@@ -80,6 +92,9 @@
     "language": "en",
     "description": "Young adult, reproducible chest-wall pain, no red flags — routine",
     "opening": "I've had this sharp pain in my chest since yesterday. It gets worse when I press on the spot or twist around.",
+    "present": [
+      "chest_pain"
+    ],
     "age": 24,
     "answers": [
       {
@@ -139,6 +154,9 @@
     "language": "th",
     "description": "เจ็บหน้าอกแบบกล้ามเนื้อ กดแล้วเจ็บ อายุน้อย ไม่มีสัญญาณอันตราย",
     "opening": "เจ็บหน้าอกแปลบๆ ค่ะ เวลากดตรงจุดที่เจ็บหรือบิดตัวแล้วยิ่งเจ็บ เป็นมาตั้งแต่เมื่อวาน",
+    "present": [
+      "chest_pain"
+    ],
     "age": 28,
     "answers": [
       {
@@ -198,6 +216,11 @@
     "language": "en",
     "description": "Exertional chest tightness relieved by rest, 55yo hypertensive — high-risk angina story",
     "opening": "For the past week I keep getting this tight feeling in my chest when I climb the stairs. It goes away after I sit down for a few minutes.",
+    "present": [
+      "chest_pain",
+      "chest_pain_radiating",
+      "hypertension_history"
+    ],
     "age": 55,
     "answers": [
       {
@@ -261,10 +284,13 @@
     "language": "en",
     "description": "Regression pin: 'not sure' on a red-flag question must re-ask, never record absent",
     "opening": "My chest has been hurting on and off since this morning.",
+    "present": [
+      "chest_pain"
+    ],
     "age": 45,
     "answers": [
       {
-        "match": "cp_radiating",
+        "match": "cp_radiating|chest_pain_radiating",
         "reply": "hmm, I'm not sure, maybe?"
       },
       {
@@ -322,6 +348,10 @@
     "language": "th",
     "description": "หอบเหนื่อยหนัก พูดเป็นคำๆ ผู้สูงอายุ — ต้องฉุกเฉินทันที",
     "opening": "หายใจไม่ทันเลยค่ะ เหนื่อยมาก พูดยาวๆ ไม่ไหว ต้องหยุดหายใจเป็นพักๆ",
+    "present": [
+      "dyspnea",
+      "severe_respiratory_distress"
+    ],
     "age": 70,
     "answers": [
       {
@@ -354,6 +384,9 @@
     "language": "en",
     "description": "Mild cough, three days, no red flags — routine OPD",
     "opening": "I've had a cough for about three days, tickly throat, nothing too bad.",
+    "present": [
+      "cough"
+    ],
     "age": 30,
     "answers": [
       {
@@ -412,6 +445,9 @@
     "language": "th",
     "description": "Regression pin: ไอเล็กน้อย + ปฏิเสธ follow-up ด้วย 'ไม่มีแล้วค่ะ ขอบคุณค่ะ' ต้องไม่ถูกบันทึกเป็นโน้ต",
     "opening": "ไอมาสามวันแล้วค่ะ คันคอนิดหน่อย ไม่ได้เหนื่อยอะไร",
+    "present": [
+      "cough"
+    ],
     "age": 33,
     "answers": [
       {
@@ -472,6 +508,12 @@
     "language": "en",
     "description": "Cough with blood streaks + night sweats — urgent, possible TB",
     "opening": "I've been coughing for a week and this morning there were streaks of blood in it.",
+    "present": [
+      "cough",
+      "hemoptysis",
+      "evening_fever",
+      "fatigue_weight_loss"
+    ],
     "age": 45,
     "answers": [
       {
@@ -531,6 +573,11 @@
     "language": "th",
     "description": "หอบหืดกำเริบ ใช้ยาพ่นบ่อยขึ้น ยังพูดเป็นประโยคได้",
     "opening": "หอบหืดกำเริบค่ะ ช่วงนี้ต้องพ่นยาบ่อยกว่าปกติ แน่นๆ หน้าอกเวลาหายใจ",
+    "present": [
+      "cough",
+      "dyspnea",
+      "chest_pain"
+    ],
     "age": 26,
     "answers": [
       {
@@ -597,6 +644,9 @@
     "language": "en",
     "description": "8-year-old with mild cough, well-appearing — pediatrics routing",
     "opening": "My son has had a cough for two days. He's playing normally, just coughing a lot at night.",
+    "present": [
+      "cough"
+    ],
     "age": 8,
     "answers": [
       {
@@ -663,6 +713,9 @@
     "language": "en",
     "description": "Uncomplicated adult fever with body aches — routine",
     "opening": "I've been running a fever since yesterday, body aches, feeling wiped out.",
+    "present": [
+      "fever"
+    ],
     "age": 27,
     "answers": [
       {
@@ -719,6 +772,9 @@
     "language": "th",
     "description": "ไข้ธรรมดาผู้ใหญ่ ปวดเมื่อยตัว ไม่มีสัญญาณอันตราย",
     "opening": "ตัวร้อนตั้งแต่เมื่อวานค่ะ ปวดเมื่อยเนื้อตัวไปหมด เพลียๆ",
+    "present": [
+      "fever"
+    ],
     "age": 40,
     "answers": [
       {
@@ -775,6 +831,12 @@
     "language": "th",
     "description": "Undertriage trap: เด็ก 6 เดือน ไข้ 39.5 งอแง ไม่กินนม — ต้องฉุกเฉิน",
     "opening": "ลูกเพิ่งหกเดือนค่ะ ตัวร้อนจี๋มาตั้งแต่บ่าย งอแงมาก ไม่ยอมกินนมเลย",
+    "present": [
+      "fever",
+      "high_fever",
+      "confusion",
+      "dehydration_signs"
+    ],
     "age": 0.5,
     "answers": [
       {
@@ -816,6 +878,10 @@
     "language": "en",
     "description": "Undertriage trap: fever on chemotherapy (neutropenic risk) — emergency",
     "opening": "I'm on chemotherapy for breast cancer and I've had a fever since this evening, it was 38.4 when I checked at home.",
+    "present": [
+      "fever",
+      "recent_chemotherapy"
+    ],
     "age": 52,
     "answers": [
       {
@@ -855,6 +921,11 @@
     "language": "th",
     "description": "เด็ก 4 ขวบ ไข้สามวัน + ผื่นขึ้น — ต้องรีบดู (ไข้เลือดออก/หัด)",
     "opening": "ลูกสี่ขวบค่ะ มีไข้มาสามวันแล้ว วันนี้มีผื่นแดงๆ ขึ้นตามตัวกับแขนด้วยค่ะ",
+    "present": [
+      "fever",
+      "high_fever",
+      "rash_vesicles"
+    ],
     "age": 4,
     "answers": [
       {
@@ -913,6 +984,9 @@
     "language": "en",
     "description": "Regression pin: booth temp 37.9 measured, patient denies fever — finding must stay present",
     "opening": "I've just been feeling off today, tired and a bit shivery.",
+    "present": [
+      "fever"
+    ],
     "age": 35,
     "initial_vitals": {
       "temp": 37.9
@@ -969,6 +1043,9 @@
     "language": "en",
     "description": "6-year-old, fever two days, eating and playing — pediatrics routine",
     "opening": "My daughter is six. She's had a fever for two days but she's still eating and playing like normal.",
+    "present": [
+      "fever"
+    ],
     "age": 6,
     "answers": [
       {
@@ -1024,6 +1101,10 @@
     "language": "th",
     "description": "Undertriage trap: ปวดหัวตูมเฉียบพลัน รุนแรงที่สุดในชีวิต — SAH ต้องฉุกเฉิน",
     "opening": "อยู่ดีๆ ก็ปวดหัวตูมขึ้นมาเหมือนโดนฟ้าผ่าเลยค่ะ ไม่เคยปวดขนาดนี้มาก่อนในชีวิต",
+    "present": [
+      "headache",
+      "headache_sudden_severe"
+    ],
     "age": 42,
     "answers": [
       {
@@ -1060,6 +1141,9 @@
     "language": "en",
     "description": "Band-like headache after long workdays, no red flags — routine",
     "opening": "I've had this dull headache for two days, feels like a band around my head, mostly after staring at screens all day.",
+    "present": [
+      "headache"
+    ],
     "age": 29,
     "answers": [
       {
@@ -1119,6 +1203,9 @@
     "language": "th",
     "description": "ปวดหัวข้างเดียวตุบๆ คลื่นไส้ แพ้แสง เป็นซ้ำๆ แบบไมเกรน",
     "opening": "ปวดหัวข้างเดียวตุบๆ ค่ะ คลื่นไส้ด้วย เจอแสงจ้าๆ แล้วยิ่งปวด เป็นแบบนี้บ่อยเหมือนไมเกรนที่เคยเป็น",
+    "present": [
+      "headache"
+    ],
     "age": 31,
     "answers": [
       {
@@ -1181,6 +1268,12 @@
     "language": "en",
     "description": "Undertriage trap: headache + fever + stiff neck — meningitis, emergency",
     "opening": "Really bad headache since last night. I've got a fever too and my neck is so stiff I can barely look down.",
+    "present": [
+      "headache",
+      "fever",
+      "high_fever",
+      "stiff_neck"
+    ],
     "age": 22,
     "answers": [
       {
@@ -1224,6 +1317,11 @@
     "language": "en",
     "description": "Undertriage trap (July F3): BEFAST stroke signs hidden in a dizzy story, 68yo",
     "opening": "I've been dizzy since this morning, keep losing my balance, and my wife says my words are coming out funny.",
+    "present": [
+      "balance_loss",
+      "slurred_speech",
+      "stroke_onset_within_72h"
+    ],
     "age": 68,
     "answers": [
       {
@@ -1259,6 +1357,9 @@
     "language": "th",
     "description": "Undertriage trap: ปวดหัวธรรมดาแต่วัดความดันได้ 200/120 — danger vitals ต้องฉุกเฉิน",
     "opening": "ปวดหัวตึบๆ ท้ายทอยตั้งแต่เช้าค่ะ",
+    "present": [
+      "headache"
+    ],
     "age": 55,
     "answers": [
       {
@@ -1323,6 +1424,9 @@
     "language": "en",
     "description": "Regression pin: opener negations ('no fever, not dizzy') must be extracted as absent on turn 1",
     "opening": "I've had a headache since yesterday, but no fever, and I'm not dizzy or anything.",
+    "present": [
+      "headache"
+    ],
     "age": 30,
     "answers": [
       {
@@ -1382,6 +1486,11 @@
     "language": "th",
     "description": "Undertriage trap: อาเจียนเป็นเลือดสด + หน้ามืด — GI bleed ต้องฉุกเฉิน",
     "opening": "เมื่อเช้าอาเจียนออกมาเป็นเลือดสดๆ เลยค่ะ ตกใจมาก ตอนนี้เพลีย หน้ามืด ใจสั่นด้วย",
+    "present": [
+      "hematemesis",
+      "syncope_24h",
+      "palpitations"
+    ],
     "age": 58,
     "answers": [
       {
@@ -1410,6 +1519,10 @@
     "language": "en",
     "description": "Migrating right-lower-quadrant pain, worse on walking — appendicitis picture, urgent",
     "opening": "My stomach's been hurting since yesterday. It started around my belly button but now it's down on the lower right, and it really hurts when I walk.",
+    "present": [
+      "abdominal_pain",
+      "vomiting"
+    ],
     "age": 21,
     "answers": [
       {
@@ -1471,6 +1584,9 @@
     "language": "th",
     "description": "จุกลิ้นปี่หลังอาหาร เป็นๆ หายๆ — โรคกระเพาะ routine",
     "opening": "ปวดจุกๆ ตรงลิ้นปี่หลังกินข้าวค่ะ เป็นๆ หายๆ มาอาทิตย์นึงแล้ว ชอบเป็นตอนกินเผ็ดๆ",
+    "present": [
+      "abdominal_pain"
+    ],
     "age": 35,
     "answers": [
       {
@@ -1532,6 +1648,9 @@
     "language": "en",
     "description": "Burning epigastric ache after meals, two weeks — routine",
     "opening": "I get this burning ache in the top of my stomach after meals. It's been about two weeks now.",
+    "present": [
+      "abdominal_pain"
+    ],
     "age": 30,
     "answers": [
       {
@@ -1593,6 +1712,12 @@
     "language": "en",
     "description": "8 weeks pregnant, cramping + spotting — possible ectopic/threatened miscarriage, urgent",
     "opening": "I'm about 8 weeks pregnant and I've been getting cramps low in my belly since last night, with a little spotting.",
+    "present": [
+      "pregnancy",
+      "missed_period",
+      "abdominal_pain",
+      "vaginal_bleeding"
+    ],
     "age": 28,
     "answers": [
       {
@@ -1651,6 +1776,9 @@
     "language": "th",
     "description": "ผู้สูงอายุ 72 ท้องอืดแน่น ไม่ถ่ายสามวัน — ต้องดูเร็วพอสมควร",
     "opening": "ยายปวดท้องแบบทั่วๆ ท้องอืดแน่นไปหมดค่ะ แล้วก็ไม่ถ่ายมาสามวันแล้ว",
+    "present": [
+      "abdominal_pain"
+    ],
     "age": 72,
     "answers": [
       {
@@ -1713,6 +1841,9 @@
     "language": "en",
     "description": "Mild ear ache, no ENT acceptance criterion met — falls back to general OPD",
     "opening": "My left ear has been aching a bit since yesterday, nothing dramatic.",
+    "present": [
+      "ear_pain"
+    ],
     "age": 30,
     "answers": [
       {
@@ -1766,6 +1897,11 @@
     "language": "th",
     "description": "ปวดหูมาก มีหนองไหล หูอื้อ — เข้าเกณฑ์ ENT",
     "opening": "ปวดหูข้างขวามากค่ะ มีน้ำหนองไหลออกมาด้วย แล้วก็ได้ยินไม่ค่อยชัดเหมือนหูอื้อ",
+    "present": [
+      "ear_pain",
+      "ear_discharge",
+      "hearing_loss"
+    ],
     "age": 45,
     "answers": [
       {
@@ -1816,6 +1952,10 @@
     "language": "th",
     "description": "เลือดกำเดาไหลไม่หยุดเกินครึ่งชั่วโมงแม้บีบจมูก — urgent",
     "opening": "เลือดกำเดาไหลไม่หยุดเลยค่ะ บีบจมูกมาเกือบครึ่งชั่วโมงแล้วก็ยังไหลซึมอยู่",
+    "present": [
+      "epistaxis",
+      "epistaxis_uncontrolled"
+    ],
     "age": 63,
     "answers": [
       {
@@ -1851,6 +1991,10 @@
     "language": "en",
     "description": "Sore throat + runny nose, two days — routine",
     "opening": "I've had a sore throat and a runny nose for a couple of days. It hurts a little when I swallow.",
+    "present": [
+      "sore_throat",
+      "runny_nose"
+    ],
     "age": 25,
     "answers": [
       {
@@ -1896,6 +2040,7 @@
     "language": "th",
     "description": "ก้างปลาติดคอเมื่อวาน กลืนแล้วเจ็บ — foreign body ENT ภายใน 24 ชม.",
     "opening": "เมื่อวานตอนเย็นกินปลาแล้วรู้สึกเหมือนก้างติดคอค่ะ กลืนทีไรเจ็บแปลบทุกที",
+    "present": [],
     "age": 38,
     "answers": [
       {
@@ -1938,6 +2083,11 @@
     "language": "en",
     "description": "Undertriage trap: cleaning chemical splashed in the eye — emergency irrigation",
     "opening": "I was cleaning the bathroom and some of the cleaner splashed right into my eye. It's burning like crazy and won't stop watering.",
+    "present": [
+      "eye_chemical_exposure",
+      "eye_pain_severe",
+      "blurred_vision_sudden"
+    ],
     "age": 34,
     "answers": [
       {
@@ -1970,6 +2120,7 @@
     "language": "th",
     "description": "ตาแดง คัน มีขี้ตา สองวัน มองเห็นปกติ — เยื่อบุตาอักเสบ routine",
     "opening": "ตาแดงมาสองวันแล้วค่ะ คันๆ เคืองๆ ตื่นนอนมามีขี้ตาเยอะเลย",
+    "present": [],
     "age": 29,
     "answers": [
       {
@@ -2019,6 +2170,12 @@
     "language": "th",
     "description": "Undertriage trap: หัวฟาดพื้น สลบ + อาเจียนซ้ำ — head injury ต้องฉุกเฉิน",
     "opening": "เมื่อคืนลื่นล้มในห้องน้ำ หัวฟาดพื้นค่ะ สลบไปแป๊บนึง แล้วเมื่อเช้าอาเจียนไปสองรอบแล้ว",
+    "present": [
+      "head_injury",
+      "loc_transient",
+      "vomiting",
+      "injury_within_24h"
+    ],
     "age": 50,
     "answers": [
       {
@@ -2055,6 +2212,9 @@
     "language": "en",
     "description": "Twisted ankle, swollen but weight-bearing — routine ortho",
     "opening": "I rolled my ankle playing football this afternoon. It's swollen and sore but I can sort of hobble on it.",
+    "present": [
+      "injury_within_24h"
+    ],
     "age": 22,
     "answers": [
       {
@@ -2113,6 +2273,9 @@
     "language": "th",
     "description": "มีดบาดนิ้ว แผลตื้น เลือดหยุดแล้ว — ทำแผล routine",
     "opening": "โดนมีดบาดนิ้วตอนหั่นหมูค่ะ แผลไม่ลึกมาก กดแผลไว้แล้วตอนนี้เลือดหยุดแล้ว",
+    "present": [
+      "injury_within_24h"
+    ],
     "age": 27,
     "answers": [
       {
@@ -2170,6 +2333,10 @@
     "language": "en",
     "description": "Stray dog bite broke the skin this morning — rabies/tetanus care today",
     "opening": "A stray dog bit me on the calf this morning. It broke the skin. I washed it but it's still stinging.",
+    "present": [
+      "injury_within_24h",
+      "animal_insect_bite_24h"
+    ],
     "age": 33,
     "answers": [
       {
@@ -2228,6 +2395,11 @@
     "language": "th",
     "description": "Undertriage trap: ท้อง 32 สัปดาห์ ลูกดิ้นน้อยลงชัดเจน — ต้องประเมินด่วน",
     "opening": "ท้อง 32 สัปดาห์ค่ะ ตั้งแต่เมื่อวานรู้สึกลูกดิ้นน้อยลงมากเลย ปกติดิ้นทั้งวัน",
+    "present": [
+      "pregnancy",
+      "ga_24w_or_more",
+      "decreased_fetal_movement"
+    ],
     "age": 30,
     "answers": [
       {
@@ -2271,6 +2443,10 @@
     "language": "en",
     "description": "Missed period, positive home test, no pain or bleeding — routine ANC start",
     "opening": "My period is about two weeks late and I've been queasy in the mornings. A home test came back positive yesterday.",
+    "present": [
+      "pregnancy",
+      "missed_period"
+    ],
     "age": 26,
     "answers": [
       {
@@ -2313,6 +2489,10 @@
     "language": "th",
     "description": "Undertriage trap: ซึมเศร้า + ความคิดอยากหายไปพูดแบบอ้อมๆ — ต้อง escalate เป็นเคสด่วน",
     "opening": "ช่วงนี้นอนไม่หลับเลยค่ะ เบื่ออาหาร ไม่อยากทำอะไร ร้องไห้เองบ่อยๆ ด้วย",
+    "present": [
+      "depression_symptoms",
+      "suicidal_ideation"
+    ],
     "age": 24,
     "answers": [
       {
@@ -2358,6 +2538,9 @@
     "language": "en",
     "description": "Three months of low mood, denies self-harm — psychiatry OPD",
     "opening": "I've been feeling really low for a few months now. No energy, can't enjoy anything, and work is becoming a real struggle.",
+    "present": [
+      "depression_symptoms"
+    ],
     "age": 35,
     "answers": [
       {
@@ -2400,6 +2583,10 @@
     "language": "th",
     "description": "เครียดงาน ใจสั่น นอนไม่หลับสองอาทิตย์ ไม่มีความคิดทำร้ายตัวเอง",
     "opening": "เครียดเรื่องงานหนักมากค่ะ ใจสั่น นอนไม่หลับมาสองอาทิตย์แล้ว",
+    "present": [
+      "severe_stress",
+      "palpitations"
+    ],
     "age": 41,
     "answers": [
       {
@@ -2445,6 +2632,9 @@
     "language": "en",
     "description": "Two weeks of low back pain now shooting down one leg — sciatica, ortho",
     "opening": "My lower back has been killing me for two weeks and now the pain shoots down the back of my right leg.",
+    "present": [
+      "back_pain_radiating_leg"
+    ],
     "age": 48,
     "answers": [
       {
@@ -2498,6 +2688,7 @@
     "language": "th",
     "description": "ปวดเข่าเรื้อรังตอนขึ้นบันได ผู้สูงวัย — ข้อเข่าเสื่อม routine",
     "opening": "ปวดเข่าเวลาขึ้นลงบันไดค่ะ เป็นมาเป็นเดือนแล้ว ช่วงนี้มีเสียงลั่นในเข่าด้วย",
+    "present": [],
     "age": 60,
     "answers": [
       {
@@ -2551,6 +2742,9 @@
     "language": "en",
     "description": "Burning urination + frequency, no fever or flank pain — simple cystitis",
     "opening": "It burns when I pee and I keep needing to go every half hour. Started a couple of days ago.",
+    "present": [
+      "dysuria"
+    ],
     "age": 31,
     "answers": [
       {
@@ -2593,6 +2787,11 @@
     "language": "th",
     "description": "ฉี่แสบขัด + ไข้หนาวสั่น + ปวดบั้นเอว — กรวยไตอักเสบ urgent",
     "opening": "ฉี่แสบขัดมาสามวันค่ะ วันนี้มีไข้หนาวสั่นด้วย แล้วก็ปวดบั้นเอวข้างขวา",
+    "present": [
+      "dysuria",
+      "fever",
+      "high_fever"
+    ],
     "age": 44,
     "answers": [
       {
@@ -2642,6 +2841,7 @@
     "language": "th",
     "description": "Generic fall-through: 'ไม่ค่อยสบายตัว' บอกไม่ถูกว่าเป็นอะไร",
     "opening": "รู้สึกไม่ค่อยสบายตัวมาสองสามวันค่ะ เพลียๆ บอกไม่ถูกเหมือนกันว่าเป็นอะไร",
+    "present": [],
     "age": 38,
     "answers": [
       {
@@ -2686,6 +2886,7 @@
     "language": "en",
     "description": "Generic fall-through: vague 'not feeling right' for a few days",
     "opening": "I just haven't been feeling right for a few days. Tired, a bit off, can't really put my finger on it.",
+    "present": [],
     "age": 45,
     "answers": [
       {
@@ -2730,6 +2931,11 @@
     "language": "th",
     "description": "Undertriage trap: ปากบวม คันทั้งตัว แน่นคอ หลังกินกุ้ง — anaphylaxis ต้องฉุกเฉิน",
     "opening": "เพิ่งกินกุ้งไปเมื่อกี้ค่ะ อยู่ดีๆ ปากก็บวม คันไปทั้งตัว แล้วรู้สึกแน่นๆ ในคอด้วย",
+    "present": [
+      "lip_swelling",
+      "rash_itching",
+      "dyspnea"
+    ],
     "age": 29,
     "answers": [
       {
@@ -2765,6 +2971,9 @@
     "language": "en",
     "description": "Generic fall-through: recurrent racing heart episodes — should reach cardiology",
     "opening": "My heart keeps racing out of nowhere, like it's fluttering in my chest. It's happened three times this week.",
+    "present": [
+      "palpitations"
+    ],
     "age": 41,
     "answers": [
       {
@@ -2819,6 +3028,10 @@
     "language": "th",
     "description": "Undertriage trap: ใจสั่นเป็นพักๆ + วูบหน้ามืดเมื่อวาน อายุ 50 — เสี่ยง arrhythmia",
     "opening": "ใจสั่นเป็นพักๆ ค่ะ แล้วเมื่อวานถึงขั้นหน้ามืดวูบไปแป๊บนึงเลย",
+    "present": [
+      "palpitations",
+      "syncope_24h"
+    ],
     "age": 50,
     "answers": [
       {
@@ -2872,6 +3085,9 @@
     "language": "en",
     "description": "Generic fall-through: itchy arm rash three days, no systemic signs",
     "opening": "I've got this itchy red rash on both arms, been there about three days. No swelling anywhere, just really itchy.",
+    "present": [
+      "rash_itching"
+    ],
     "age": 26,
     "answers": [
       {
@@ -2919,6 +3135,10 @@
     "language": "th",
     "description": "Generic fall-through: ท้องเสียถ่ายเหลวหลายรอบ ไม่มีเลือด ไม่ช็อก",
     "opening": "ท้องเสียตั้งแต่เมื่อคืนค่ะ เข้าห้องน้ำไปห้าหกรอบแล้ว ถ่ายเป็นน้ำเลยแต่ไม่มีเลือดปน",
+    "present": [
+      "diarrhea",
+      "abdominal_pain"
+    ],
     "age": 34,
     "answers": [
       {
@@ -2972,6 +3192,10 @@
     "language": "en",
     "description": "Generic fall-through: non-healing foot sore in a diabetic, three weeks — surgery clinic",
     "opening": "I've got a sore on the bottom of my foot that just won't heal. It's been three weeks. I'm diabetic, if that matters.",
+    "present": [
+      "chronic_wound",
+      "diabetes_history"
+    ],
     "age": 55,
     "answers": [
       {
@@ -3022,6 +3246,10 @@
     "language": "th",
     "description": "Generic fall-through: มารับยาความดันต่อ ไม่มีอาการ",
     "opening": "มารับยาความดันต่อค่ะ ยาที่หมอให้ใกล้หมดแล้ว ช่วงนี้ก็ไม่ได้มีอาการอะไร",
+    "present": [
+      "medication_run_out",
+      "hypertension_history"
+    ],
     "age": 61,
     "answers": [
       {
@@ -3069,6 +3297,7 @@
     "language": "en",
     "description": "Generic fall-through: medical certificate request, currently well",
     "opening": "I just need a medical certificate for work. I was out sick with a cold earlier this week but I'm fine now.",
+    "present": [],
     "age": 23,
     "answers": [
       {
@@ -3113,6 +3342,7 @@
     "language": "th",
     "description": "Undertriage trap: มาตรวจสุขภาพ ไม่มีอาการ แต่ความดันที่วัดได้ 200/120 — danger vitals เทิร์นแรก",
     "opening": "มาตรวจสุขภาพประจำปีค่ะ ช่วงนี้ก็ปกติดี ไม่ได้มีอาการอะไรเลย",
+    "present": [],
     "age": 47,
     "initial_vitals": {
       "sbp": 200,
@@ -3149,6 +3379,10 @@
     "language": "th",
     "description": "Generic fall-through: เวียนหัวบ้านหมุนตอนเปลี่ยนท่า ไม่มีอาการทางระบบประสาท",
     "opening": "เวียนหัวแบบบ้านหมุนเวลาลุกจากเตียงเร็วๆ ค่ะ เป็นแป๊บเดียวแล้วก็หาย เป็นมาสามวันแล้ว",
+    "present": [
+      "vertigo",
+      "vertigo_positional"
+    ],
     "age": 52,
     "answers": [
       {
@@ -3199,6 +3433,11 @@
     "language": "en",
     "description": "Undertriage trap: paracetamol overdose mentioned casually — emergency + psych risk",
     "opening": "I took a whole pack of paracetamol a few hours ago after a fight with my mum. I feel sick now and I'm scared.",
+    "present": [
+      "overdose_or_poison",
+      "self_harm_risk",
+      "abdominal_pain"
+    ],
     "age": 19,
     "answers": [
       {

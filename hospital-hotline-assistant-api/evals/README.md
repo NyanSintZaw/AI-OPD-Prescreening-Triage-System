@@ -44,6 +44,11 @@ explanations only, never decisions).
   "language": "th",                  // th | en — phrasing must be natural spoken language
   "description": "why this vignette exists",
   "opening": "แน่นหน้าอกเหมือนช้างเหยียบ...",   // the patient's first message
+  "present": ["chest_pain", "diaphoresis"],  // findings that are TRUE for this
+                                      // patient — REQUIRED (may be []). Answers
+                                      // the confirm-before-fire questions, whose
+                                      // synthesized ids match no regex. Only
+                                      // list what the vignette actually supports.
   "age": 60,                          // injected as turn_context age (booth/HIS prefill)
   "initial_vitals": {"temp": 37.9},  // optional: booth vitals present from turn 1
   "answers": [                        // adaptive script: first regex match wins
@@ -74,7 +79,13 @@ explanations only, never decisions).
 
 Answer matching prefers **question ids** (stable across LLM paraphrasing);
 text regexes are a fallback. Unmatched questions get a default "no"
-(scale questions get a "3"). The driver caps every vignette at 15 turns.
+(scale questions get a "3"), **except confirm-before-fire questions**: those
+are answered "yes" iff the finding being confirmed is in `present`, so the
+simulated patient neither denies its own opening (manufactured undertriage)
+nor claims a finding it never had (manufactured overtriage). A vignette with
+no `present` key at all gets a fail-safe "yes" plus a
+`NO_PRESENT_FOR_CONFIRM:<finding>` entry in the run's unmatched list — never a
+silent guess. The driver caps every vignette at 15 turns.
 
 ### Adding a vignette
 

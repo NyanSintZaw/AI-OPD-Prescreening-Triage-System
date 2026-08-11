@@ -218,6 +218,10 @@ def test_vignettes_file_valid(criteria):
         expected = vig["expected"]
         for cat in driver._as_list(expected["category"]):
             assert cat in valid_categories, (vig["id"], cat)
+        # Every vignette must declare which findings are TRUE for it (may be
+        # empty): the confirm-before-fire questions are synthesized, so no
+        # answer regex reaches them and a missing list means a guessed yes/no.
+        assert isinstance(vig.get("present"), list), vig["id"]
         lo, hi = driver.level_band(expected["level"])
         assert 1 <= lo <= hi <= 5, vig["id"]
         assert expected.get("must_not_leak") is True, vig["id"]

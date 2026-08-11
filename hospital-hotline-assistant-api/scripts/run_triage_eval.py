@@ -121,14 +121,22 @@ def pick_answer(
         unmatched.append(question_id)
     if kind_index.get(question_id) == "scale":
         return DEFAULT_SCALE_ANSWER[vig["language"]]
-    # A CONFIRM question exists only because the patient already said the
-    # thing — the gate is re-checking their own words before firing a level
-    # 1/2. Denying by default made the simulated patient contradict their own
-    # opening ("ปากก็บวม" -> "no lip swelling"), which manufactured four of the
-    # five critical undertriage misses in the 2026-08-10 run. Affirm unless
-    # the vignette says otherwise.
+    # A CONFIRM question re-checks ONE finding the patient's own words already
+    # produced, before a level-1/2 rule may fire. Answer it from the vignette's
+    # `present` list (the findings that are TRUE for this patient): a blanket
+    # "no" made the patient contradict its own opening ("ปากก็บวม" -> "no lip
+    # swelling", four manufactured undertriage misses), a blanket "yes" made it
+    # claim findings it never had (fishbone affirming airway obstruction).
+    # The question node asks confirming[0], so only that finding is answered.
     if confirming:
-        return DEFAULT_CONFIRM_ANSWER[vig["language"]]
+        present = vig.get("present")
+        if present is None:
+            # No authored truth = the answer would be a guess. Never silent.
+            if unmatched is not None:
+                unmatched.append(f"NO_PRESENT_FOR_CONFIRM:{confirming[0]}")
+            return DEFAULT_CONFIRM_ANSWER[vig["language"]]  # fail-safe: overtriage
+        answer = DEFAULT_CONFIRM_ANSWER if confirming[0] in present else DEFAULT_ANSWER
+        return answer[vig["language"]]
     return DEFAULT_ANSWER[vig["language"]]
 
 
@@ -768,6 +776,13 @@ async def main_async(args: argparse.Namespace) -> int:
     else:
         version_id, criteria = await load_db_criteria()
         print(f"using DB criteria version: {version_id or 'seed fallback'}")
+
+    # A typo'd `present` id would silently answer "no" to its confirm question —
+    # the exact class of bug the list exists to kill. Say so loudly.
+    for vig in vignettes:
+        unknown = [f for f in vig.get("present", []) if f not in criteria.finding_catalog]
+        if unknown:
+            print(f"WARNING {vig['id']}: unknown ids in present: {unknown}", file=sys.stderr)
 
     if args.dry_run:
         # The fake model raises on paraphrase calls by design (nodes fall back
