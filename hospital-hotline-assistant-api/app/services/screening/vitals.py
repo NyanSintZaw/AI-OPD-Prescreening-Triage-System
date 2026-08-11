@@ -83,8 +83,14 @@ def _to_float(value: Any) -> float | None:
 
 
 # Standard clinical fever threshold; the criteria's own severity cutoffs
-# (e.g. ≥38.5 in triage tuples) still decide how MUCH it matters.
+# still decide how MUCH it matters.
 FEVER_TEMP_C = 37.8
+# The catalog defines high_fever as "over 38.5°C" and the resource band counts
+# it as its own systemic finding — so a thermometer that reads 38.9 has to set
+# it. Before this only `fever` was derived, and a measured high fever counted
+# once instead of twice, holding cases at level 4 that the band would
+# otherwise have taken to 3.
+HIGH_FEVER_TEMP_C = 38.5
 
 
 def effective_vitals(state) -> dict[str, float]:
@@ -99,12 +105,20 @@ def apply_objective_findings(state) -> None:
     from .state import Finding  # local import: state.py imports nothing from here
 
     temp = effective_vitals(state).get("temp")
-    if temp is not None and float(temp) >= FEVER_TEMP_C:
-        existing = state.findings.get("fever")
+    if temp is None:
+        return
+    reading = float(temp)
+    for finding_id, threshold in (
+        ("fever", FEVER_TEMP_C),
+        ("high_fever", HIGH_FEVER_TEMP_C),
+    ):
+        if reading < threshold:
+            continue
+        existing = state.findings.get(finding_id)
         if existing is None or existing.state != "present":
-            state.findings["fever"] = Finding(
+            state.findings[finding_id] = Finding(
                 state="present",
-                value=f"measured {float(temp):.1f}C",
+                value=f"measured {reading:.1f}C",
                 source_turn=state.turn_count,
                 confirmed=True,  # instrument reading, not inference
             )
