@@ -190,7 +190,9 @@ def make_question_node(deps: GraphDeps):
             # Confirm-before-fire: a level-1/2 verdict is waiting on this
             # extraction-sourced finding. Ask its verbatim confirm question —
             # never paraphrased, so the answer maps mechanically.
-            selected = confirm_question_for(criteria, state.pending_confirm[0])
+            selected = confirm_question_for(
+                criteria, state.pending_confirm[0], state.complaint_category
+            )
         else:
             selected = next_question(criteria, interview_inputs(state, deps))
         if selected is None:

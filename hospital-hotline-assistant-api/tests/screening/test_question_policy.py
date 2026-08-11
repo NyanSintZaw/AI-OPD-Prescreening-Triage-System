@@ -4,6 +4,7 @@ import pytest
 
 from app.services.screening.rules.question_policy import (
     InterviewInputs,
+    confirm_question_for,
     is_interview_complete,
     next_question,
 )
@@ -493,3 +494,22 @@ def test_volunteered_finding_does_not_close_a_compound_red_flag(criteria):
         ask_counts={"ur_fever_flank": 2},
     )
     assert next_question(criteria, twice).id != "ur_fever_flank"
+
+
+def test_confirm_question_never_borrowed_from_another_template(criteria):
+    """Live defect: a fish bone in the THROAT (category nose_throat) got the
+    ear template's confirm question — "is something stuck in your ear?" — so a
+    truthful "no" erased a real level-2 ENT foreign body. Only the session's
+    own template may supply the verbatim wording; otherwise the synthesized
+    category-neutral confirm is used."""
+
+    q = confirm_question_for(criteria, "foreign_body_ent_24h", "nose_throat")
+    assert q.id != "ear_fb"
+    assert q.finding_ids == ["foreign_body_ent_24h"]
+    # Category-neutral wording: it names throat too, not the ear alone.
+    assert "throat" in q.text_en.lower() and "คอ" in q.text_th
+
+    # Preserved: the nurse-authored question IS used verbatim in its own template.
+    own = confirm_question_for(criteria, "foreign_body_ent_24h", "ear")
+    assert own.id == "ear_fb"
+    assert own.text_th == "มีสิ่งแปลกปลอมเข้าไปติดในหูไหมคะ"

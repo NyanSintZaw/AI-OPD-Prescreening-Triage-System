@@ -130,7 +130,9 @@ def build_screening_graph(deps: GraphDeps):
                 counts = Counter(state.asked_question_ids)
                 pending: list[str] = []
                 for fid in need:
-                    qid = confirm_question_for(criteria, fid).id
+                    qid = confirm_question_for(
+                        criteria, fid, state.complaint_category
+                    ).id
                     if counts.get(qid, 0) >= 2:
                         # Patient wouldn't clarify twice — accept the
                         # extraction so the safety rule can still fire.

@@ -207,7 +207,7 @@ def is_interview_complete(
 
 
 def confirm_question_for(
-    criteria: ScreeningCriteria, finding_id: str
+    criteria: ScreeningCriteria, finding_id: str, category: str | None = None
 ) -> QuestionTemplate:
     """The question that confirms one extraction-sourced critical finding.
 
@@ -215,12 +215,19 @@ def confirm_question_for(
     (verbatim wording, and a yes/no maps unambiguously); synthesize a plain
     yes/no confirm from the catalog labels otherwise — a multi-finding
     template question can't confirm one specific finding. Confirm questions
-    are never LLM-paraphrased."""
+    are never LLM-paraphrased.
 
-    for template in criteria.complaint_templates:
-        for q in [*criteria.universal_questions, *template.questions]:
-            if q.kind in ("red_flag", "associated") and q.finding_ids == [finding_id]:
-                return q
+    Only the SESSION's own template (plus the universal questions) is
+    searched. An unrelated template's wording can name the wrong body part —
+    "is something stuck in your EAR?" asked of a fish bone in the throat —
+    and a truthful "no" would erase a real level-2 finding. The synthesized
+    fallback is category-neutral, so it is always safe.
+    """
+
+    template = get_template(criteria, category)
+    for q in [*template.questions, *criteria.universal_questions]:
+        if q.kind in ("red_flag", "associated") and q.finding_ids == [finding_id]:
+            return q
 
     entry = criteria.finding_catalog.get(finding_id)
     label_en = entry.label_en if entry else finding_id

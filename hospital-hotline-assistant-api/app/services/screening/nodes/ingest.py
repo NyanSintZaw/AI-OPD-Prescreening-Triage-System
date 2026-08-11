@@ -32,16 +32,18 @@ def _pending_question(state, criteria):
         from ..rules.question_policy import confirm_question_for
 
         return confirm_question_for(
-            criteria, state.pending_question_id.removeprefix("confirm_")
+            criteria,
+            state.pending_question_id.removeprefix("confirm_"),
+            state.complaint_category,
         )
     template = get_template(criteria, state.complaint_category)
     questions = [
         *criteria.universal_questions,
         *template.questions,
         *criteria.pre_disposition_questions,
-        # Confirm-before-fire may serve a single-finding question borrowed
-        # from ANOTHER template (best verbatim wording wins) — search them all
-        # so the answer still maps back to the question that was asked.
+        # The complaint category can move mid-interview (a new symptom
+        # re-routes the template), so search every template — the answer must
+        # still map back to the question that was actually asked.
         *(q for t in criteria.complaint_templates for q in t.questions),
     ]
     for question in questions:
