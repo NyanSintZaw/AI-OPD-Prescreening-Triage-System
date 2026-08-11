@@ -1,0 +1,149 @@
+{
+  "meta": {
+    "dry_run": false,
+    "criteria_mode": "v2",
+    "model_label": "screening:vertexai:gemini-3.1-flash-lite",
+    "language_filter": null,
+    "generated_utc": "2026-08-11T07:03:00.835166+00:00"
+  },
+  "aggregates": {
+    "vignettes": 1,
+    "passed": 0,
+    "undertriage_rate_pct": 0.0,
+    "undertriage_ci95": null,
+    "undertriage_misses": [],
+    "critical_vignettes": 0,
+    "level_exact_pct": 100.0,
+    "level_within_1_pct": 100.0,
+    "qwk": 1.0,
+    "category_pct": 100.0,
+    "department_pct": 0.0,
+    "leak_count": 0,
+    "avg_turns": 8.0,
+    "total_wall_time_s": 24.8,
+    "by_language": {
+      "th": {
+        "vignettes": 1,
+        "passed": 0,
+        "undertriage_rate_pct": 0.0,
+        "undertriage_ci95": null,
+        "undertriage_misses": [],
+        "critical_vignettes": 0,
+        "level_exact_pct": 100.0,
+        "level_within_1_pct": 100.0,
+        "qwk": 1.0,
+        "category_pct": 100.0,
+        "department_pct": 0.0,
+        "leak_count": 0,
+        "avg_turns": 8.0,
+        "total_wall_time_s": 24.8
+      }
+    }
+  },
+  "results": [
+    {
+      "id": "nt_th_fishbone",
+      "language": "th",
+      "description": "ก้างปลาติดคอเมื่อวาน กลืนแล้วเจ็บ — foreign body ENT ภายใน 24 ชม.",
+      "category_expected": [
+        "nose_throat"
+      ],
+      "category_actual": "nose_throat",
+      "category_ok": true,
+      "level_expected": [
+        3,
+        4
+      ],
+      "level_actual": 4,
+      "level_ok": true,
+      "within_1": true,
+      "undertriage_expected": false,
+      "undertriage_critical_fail": false,
+      "department_expected": [
+        "opd_ent"
+      ],
+      "department_actual": "opd_general",
+      "department_ok": false,
+      "must_ask_missing": [],
+      "leaks": [],
+      "turns": 8,
+      "wall_time_s": 24.83,
+      "passed": false,
+      "fail_reasons": [
+        "department 'opd_general' not in ['opd_ent']"
+      ],
+      "transcript": [
+        {
+          "turn": 1,
+          "patient": "เมื่อวานตอนเย็นกินปลาแล้วรู้สึกเหมือนก้างติดคอค่ะ กลืนทีไรเจ็บแปลบทุกที",
+          "question_id": "confirm_foreign_body_ent_24h",
+          "reply": "ขอยืนยันให้แน่ใจนะคะ ตอนนี้คุณมีอาการนี้ใช่ไหมคะ: สิ่งแปลกปลอมติดในหู จมูก หรือคอ ภายใน 24 ชั่วโมง",
+          "awaiting_measurement": null,
+          "classified": false
+        },
+        {
+          "turn": 2,
+          "patient": "ไม่มีค่ะ",
+          "question_id": "uq_breathing",
+          "reply": "ตอนนี้คุณหายใจลำบากหรือหายใจเหนื่อยไหมคะ",
+          "awaiting_measurement": null,
+          "classified": false
+        },
+        {
+          "turn": 3,
+          "patient": "หายใจปกติค่ะ แค่เจ็บเวลากลืน",
+          "question_id": "nt_airway",
+          "reply": "คอบวมโต กลืนลำบาก หรือหายใจลำบากไหมคะ",
+          "awaiting_measurement": null,
+          "classified": false
+        },
+        {
+          "turn": 4,
+          "patient": "หายใจปกติค่ะ แค่เจ็บเวลากลืน",
+          "question_id": "nt_epistaxis",
+          "reply": "ถ้ามีเลือดกำเดา ตอนนี้หยุดแล้วหรือยังไหลอยู่คะ",
+          "awaiting_measurement": null,
+          "classified": false
+        },
+        {
+          "turn": 5,
+          "patient": "ไม่มีค่ะ",
+          "question_id": "nt_bp",
+          "reply": "กรุณาวัดความดันโลหิตตอนนี้ — ใช้เครื่องข้างตัวคุณหรือพิมพ์ตัวเลขก็ได้",
+          "awaiting_measurement": "sbp",
+          "classified": false
+        },
+        {
+          "turn": 6,
+          "patient": "วัดแล้วค่ะ",
+          "question_id": "nt_associated",
+          "reply": "นอกจากอาการเจ็บคอแล้ว คุณมีอาการอื่นร่วมด้วยไหมคะ เช่น มีก้อนในปากหรือคอ มีแผลในปาก หรือมีอาการภูมิแพ้ร่วมด้วยหรือไม่",
+          "awaiting_measurement": null,
+          "classified": false
+        },
+        {
+          "turn": 7,
+          "patient": "เจ็บตอนกลืนค่ะ น้ำลายกลืนยังเจ็บเลย",
+          "question_id": "pd_weight_height",
+          "reply": "กรุณากรอกน้ำหนักและส่วนสูงเพื่อให้ข้อมูลในบัตรครบถ้วน",
+          "awaiting_measurement": "weight",
+          "classified": false
+        },
+        {
+          "turn": 8,
+          "patient": "วัดแล้วค่ะ",
+          "question_id": null,
+          "reply": "จากอาการที่คุณแจ้งมา ทางโรงพยาบาลขอแนะนำให้คุณไปติดต่อที่แผนก OPD เวชปฏิบัติทั่วไปครับ เจ้าหน้าที่ประจำแผนกจะรอรับคุณเพื่อดำเนินการดูแลในขั้นตอนถัดไปครับ ก่อนไปนะคะ มีอะไรอยากถามหรืออยากบอกคุณหมอไหมคะ ดิฉันจะจดไว้ให้ค่ะ",
+          "awaiting_measurement": null,
+          "classified": true
+        },
+        {
+          "turn": 9,
+          "patient": "ไม่มีแล้วค่ะ ขอบคุณค่ะ",
+          "reply": "ได้ค่ะ กรุณาไปที่OPD เวชปฏิบัติทั่วไปนะคะ ดูแลตัวเองด้วยนะคะ",
+          "post_disposition": true
+        }
+      ]
+    }
+  ]
+}

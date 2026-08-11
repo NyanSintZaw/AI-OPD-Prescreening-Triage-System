@@ -131,6 +131,43 @@ And the standing caveat: gold levels come from the criteria's own rules, so
 this measures the pipeline, not the criteria's clinical validity. Nothing
 here is a clinical claim.
 
+### After the 2026-08-11 fixes (one clean run, committed tree)
+
+```
+n=65 passed=51 | UNDERTRIAGE 0/18 (CI95 0.0-18.5%) | QWK 0.946
+level exact 87.7% | within-1 100% | category 92.3% | dept 93.8%
+leaks 0 | avg turns 7.2
+th: QWK 0.953 exact 87.5% | en: QWK 0.932 exact 87.9% | both 0 undertriage
+```
+
+Three engine defects fixed, each found by measurement rather than reading:
+
+- **`high_fever` was never derived.** It counts in `SYSTEMIC_FINDINGS`,
+  where two systemic findings take a case from level 4 to 3, and the catalog
+  defines it as >38.5 C — but `apply_objective_findings` only ever set
+  `fever`. A thermometer at 38.9 scored one systemic finding, not two.
+- **A volunteered symptom closed compound red flags.** `_is_resolved`
+  treated a red flag as answered once *any* of its findings was present, so
+  a patient who mentioned fever silently deleted the rest of the question.
+  `meningitis_suspect` (fever + stiff neck, level 2) could therefore never
+  fire. The widest-reaching of the three.
+- **The confirm gate borrowed another template's wording**, asking *"is
+  something stuck in your ear?"* to confirm a throat foreign body. A
+  truthful "no" erased a level-2 airway finding.
+
+**What did not move, and why it matters more than what did.**
+`ur_th_flank_fever` still lands level 4 with a 38.9 C fever in the vignette,
+because the urinary template has **no temperature question** — the reading
+is never taken, so deriving `high_fever` correctly cannot help. Fixing how a
+number is interpreted does nothing where the number is never collected.
+
+Five of the eight borderline cases are **criteria gaps, not defects**:
+isolated adult chest pain, recurrent palpitations, hemoptysis,
+pyelonephritis and first-trimester bleeding have no rule giving them a
+floor, so `_resource_band` correctly caps a clean single-complaint
+presentation at level 4. The vignettes assert acuity the criteria do not
+encode. That is a question for the nurses who own the criteria.
+
 ---
 
 ## Part 2 — What the literature supports

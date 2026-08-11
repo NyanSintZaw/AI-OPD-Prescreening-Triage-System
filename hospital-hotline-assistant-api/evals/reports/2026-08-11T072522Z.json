@@ -1,0 +1,156 @@
+{
+  "meta": {
+    "dry_run": false,
+    "criteria_mode": "v2",
+    "model_label": "screening:vertexai:gemini-3.1-flash-lite",
+    "language_filter": null,
+    "generated_utc": "2026-08-11T07:24:57.369370+00:00"
+  },
+  "aggregates": {
+    "vignettes": 1,
+    "passed": 1,
+    "undertriage_rate_pct": 0.0,
+    "undertriage_ci95": null,
+    "undertriage_misses": [],
+    "critical_vignettes": 0,
+    "level_exact_pct": 100.0,
+    "level_within_1_pct": 100.0,
+    "qwk": 1.0,
+    "category_pct": 100.0,
+    "department_pct": 100.0,
+    "leak_count": 0,
+    "avg_turns": 9.0,
+    "total_wall_time_s": 24.8,
+    "by_language": {
+      "th": {
+        "vignettes": 1,
+        "passed": 1,
+        "undertriage_rate_pct": 0.0,
+        "undertriage_ci95": null,
+        "undertriage_misses": [],
+        "critical_vignettes": 0,
+        "level_exact_pct": 100.0,
+        "level_within_1_pct": 100.0,
+        "qwk": 1.0,
+        "category_pct": 100.0,
+        "department_pct": 100.0,
+        "leak_count": 0,
+        "avg_turns": 9.0,
+        "total_wall_time_s": 24.8
+      }
+    }
+  },
+  "results": [
+    {
+      "id": "gen_th_med_refill",
+      "language": "th",
+      "description": "Generic fall-through: มารับยาความดันต่อ ไม่มีอาการ",
+      "category_expected": [
+        "chronic_followup"
+      ],
+      "category_actual": "chronic_followup",
+      "category_ok": true,
+      "level_expected": [
+        5,
+        5
+      ],
+      "level_actual": 5,
+      "level_ok": true,
+      "within_1": true,
+      "undertriage_expected": false,
+      "undertriage_critical_fail": false,
+      "department_expected": [
+        "opd_general",
+        "opd_internal_medicine"
+      ],
+      "department_actual": "opd_general",
+      "department_ok": true,
+      "must_ask_missing": [],
+      "leaks": [],
+      "turns": 9,
+      "wall_time_s": 24.78,
+      "passed": true,
+      "fail_reasons": [],
+      "transcript": [
+        {
+          "turn": 1,
+          "patient": "มารับยาความดันต่อค่ะ ยาที่หมอให้ใกล้หมดแล้ว ช่วงนี้ก็ไม่ได้มีอาการอะไร",
+          "question_id": "uq_breathing",
+          "reply": "ตอนนี้คุณหายใจลำบากหรือหายใจเหนื่อยไหมคะ",
+          "awaiting_measurement": null,
+          "classified": false
+        },
+        {
+          "turn": 2,
+          "patient": "หายใจปกติค่ะ",
+          "question_id": "cf_symptoms",
+          "reply": "ตอนนี้มีเจ็บหน้าอก เหนื่อยง่าย หรืออาการน้ำตาลต่ำ เช่น มือสั่น เหงื่อแตก ไหมคะ",
+          "awaiting_measurement": null,
+          "classified": false
+        },
+        {
+          "turn": 3,
+          "patient": "ไม่มีค่ะ",
+          "question_id": "cf_bp",
+          "reply": "กรุณาวัดความดันโลหิตตอนนี้ — ใช้เครื่องข้างตัวคุณหรือพิมพ์ตัวเลขก็ได้",
+          "awaiting_measurement": "sbp",
+          "classified": false
+        },
+        {
+          "turn": 4,
+          "patient": "วัดแล้วค่ะ",
+          "question_id": "cf_condition",
+          "reply": "วันนี้คุณตั้งใจมาพบคุณหมอเพื่อติดตามอาการเกี่ยวกับเรื่องอะไรบ้างคะ",
+          "awaiting_measurement": null,
+          "classified": false
+        },
+        {
+          "turn": 5,
+          "patient": "ไม่มีค่ะ",
+          "question_id": "cf_meds",
+          "reply": "ตอนนี้ยาที่คุณหมอสั่งสำหรับโรคความดันเหลืออยู่กี่วันคะ หรือว่าหมดแล้วเอ่ย",
+          "awaiting_measurement": null,
+          "classified": false
+        },
+        {
+          "turn": 6,
+          "patient": "ไม่มีค่ะ",
+          "question_id": "cf_duration",
+          "reply": "คุณมาพบคุณหมอเพื่อติดตามอาการครั้งล่าสุดเมื่อไหร่คะ",
+          "awaiting_measurement": null,
+          "classified": false
+        },
+        {
+          "turn": 7,
+          "patient": "ไม่มีอาการค่ะ",
+          "question_id": "cf_history",
+          "reply": "นอกจากโรคความดันโลหิตสูงที่คุณรักษาอยู่แล้ว คุณมีโรคประจำตัวอื่น ๆ เช่น เบาหวาน หรือโรคหัวใจเพิ่มเติมบ้างไหมคะ",
+          "awaiting_measurement": null,
+          "classified": false
+        },
+        {
+          "turn": 8,
+          "patient": "ไม่มีค่ะ",
+          "question_id": "pd_weight_height",
+          "reply": "กรุณากรอกน้ำหนักและส่วนสูงเพื่อให้ข้อมูลในบัตรครบถ้วน",
+          "awaiting_measurement": "weight",
+          "classified": false
+        },
+        {
+          "turn": 9,
+          "patient": "วัดแล้วค่ะ",
+          "question_id": null,
+          "reply": "สำหรับการรับยาความดันต่อเนื่องในวันนี้ คุณสามารถติดต่อที่แผนก OPD เวชปฏิบัติทั่วไปได้เลยค่ะ เจ้าหน้าที่จะดำเนินการตรวจสอบข้อมูลและจัดเตรียมยาให้ตามขั้นตอนต่อไปค่ะ ก่อนไปนะคะ มีอะไรอยากถามหรืออยากบอกคุณหมอไหมคะ ดิฉันจะจดไว้ให้ค่ะ",
+          "awaiting_measurement": null,
+          "classified": true
+        },
+        {
+          "turn": 10,
+          "patient": "ไม่มีแล้วค่ะ ขอบคุณค่ะ",
+          "reply": "ได้ค่ะ กรุณาไปที่OPD เวชปฏิบัติทั่วไปนะคะ ดูแลตัวเองด้วยนะคะ",
+          "post_disposition": true
+        }
+      ]
+    }
+  ]
+}
