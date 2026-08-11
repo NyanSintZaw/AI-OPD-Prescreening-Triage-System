@@ -61,14 +61,19 @@ def _is_resolved(question: QuestionTemplate, inputs: InterviewInputs) -> bool:
     """A question is resolved when asking it would gain no new information."""
 
     if question.kind == "red_flag":
-        # Safety-critical: an unanswered red flag is re-asked ONCE — a garbled
-        # voice turn or an unmappable bare "yes" must not silently skip a
-        # stroke/meningitis check. Two unanswered asks then give up, so
-        # extraction failures can't loop the interview. Any PRESENT finding
-        # resolves it immediately (the flag has fired; disposition reacts).
+        # Safety-critical: a red flag is resolved only when EVERY finding it
+        # covers is known. A compound question ("fever or vomiting with the
+        # urinary symptoms?", "spreading redness, pus, or fever?") is NOT
+        # answered by the one finding the patient happened to volunteer — the
+        # rule that escalates usually needs the other one (wound infection
+        # signs + fever = level 2), and treating a present-but-harmless finding
+        # as an answer silently deleted that question from the interview.
+        # A present finding that really does fire a level-1/2 rule never
+        # reaches here: the completeness gate disposes first.
+        # Unknown findings get exactly ONE re-ask — a garbled voice turn or an
+        # unmappable bare "yes" must not silently skip a stroke/meningitis
+        # check — then two asks give up so extraction failures can't loop.
         states = [inputs.findings.get(fid) for fid in question.finding_ids]
-        if any(s == "present" for s in states):
-            return True
         if all(s is not None for s in states):
             return True
         return _ask_count(question, inputs) >= 2

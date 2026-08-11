@@ -454,3 +454,42 @@ def test_measurement_holds_completeness_when_slots_fill_early(criteria):
         ask_counts={"cp_bp": 2},
     )
     assert is_interview_complete(criteria, twice_asked, provisional_level=4)
+
+
+def test_volunteered_finding_does_not_close_a_compound_red_flag(criteria):
+    """One half of a compound red flag is not an answer to the other half.
+
+    Triage eval 2026-08-10 (ur_th_flank_fever): the patient said "burning
+    urine + fever + flank pain", extraction set fever=present, and
+    ``ur_fever_flank`` was then treated as resolved — so vomiting was never
+    asked. Same shape as the dangerous case: ``meningitis_suspect`` needs
+    fever AND stiff_neck, so a headache patient who volunteers a fever must
+    still be asked about neck stiffness.
+    """
+
+    resolved_breathing = {"dyspnea": "absent", "severe_respiratory_distress": "absent"}
+    headache = {
+        **resolved_breathing,
+        "facial_droop": "absent", "limb_weakness": "absent",
+        "slurred_speech": "absent", "sudden_vision_loss": "absent",
+        "balance_loss": "absent", "headache_sudden_severe": "absent",
+        "fever": "present",          # volunteered, stiff_neck still unknown
+    }
+    q = next_question(criteria, inputs(category="headache", findings=headache))
+    assert q is not None and q.id == "hd_stiff_neck"
+    assert not is_interview_complete(
+        criteria, inputs(category="headache", findings=headache), provisional_level=4
+    )
+
+    urinary = {**resolved_breathing, "fever": "present"}
+    q = next_question(criteria, inputs(category="urinary", findings=urinary))
+    assert q is not None and q.id == "ur_fever_flank"
+
+    # Terminates: unanswered after two asks, the interview moves on.
+    twice = inputs(
+        category="urinary",
+        findings=urinary,
+        asked=("ur_fever_flank",),
+        ask_counts={"ur_fever_flank": 2},
+    )
+    assert next_question(criteria, twice).id != "ur_fever_flank"
