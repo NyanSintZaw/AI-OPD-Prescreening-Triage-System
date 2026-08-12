@@ -291,6 +291,11 @@ def _apply(state, criteria, result: ExtractionResult, user_text: str = "") -> No
         record_rejections(state, rejected, source="reported")
     if "age_years" in accepted:
         state.age_years = accepted.pop("age_years")
+    if result.gender in ("male", "female") and state.gender == "unknown":
+        # Fill-only: a patient's answer establishes an unknown gender, but a
+        # later utterance never flips an HIS-recorded / already-given value
+        # mid-interview (that correction is a nurse action, not extraction).
+        state.gender = result.gender
     for name, value in accepted.items():
         state.vitals[name] = value
     for name in ("pain_score", "distress_score"):
@@ -357,6 +362,7 @@ def make_ingest_node(deps: GraphDeps):
                 ],
                 "slots": dict(result.slot_updates),
                 "age_years": result.age_years,
+                "gender": result.gender,
             },
         })
         _apply(state, criteria, result, user_text)

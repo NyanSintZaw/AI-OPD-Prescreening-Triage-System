@@ -32,18 +32,31 @@ def evaluate_condition(
     vitals: Mapping[str, float],
     age_years: float | None,
     age_bands: Mapping[str, AgeBand],
+    gender: str = "unknown",
 ) -> bool:
     """Evaluate a condition AST.
 
     ``findings`` maps finding id -> "present" | "absent"; ids not in the map
     are unknown and never satisfy a leaf (unknown is not absent).
     Missing vitals never satisfy a vital leaf.
+
+    ``gender`` predicate semantics are the OPPOSITE of a vital leaf, on
+    purpose: a session gender of "unknown" — or anything outside the closed
+    male/female set — MATCHES every gender predicate. The predicate only
+    excludes when a definite recorded gender differs from it. Failing toward
+    a match means an unknown gender can never suppress a rule (undertriage);
+    it can only cost an unnecessary question or an over-broad escalation.
     """
 
     if condition.age_band is not None:
         band = age_bands.get(condition.age_band)
         if band is None or not age_in_band(age_years, band):
             return False
+
+    if condition.gender is not None:
+        if gender in ("male", "female") and gender != condition.gender:
+            return False
+        # unknown/unexpected gender falls through: treated as matching
 
     if condition.finding_id is not None:
         return findings.get(condition.finding_id) == condition.state
@@ -65,7 +78,10 @@ def evaluate_condition(
         return ops[condition.op]
 
     # composite: all_of must all hold; any_of (when present) needs at least one
-    kwargs = dict(findings=findings, vitals=vitals, age_years=age_years, age_bands=age_bands)
+    kwargs = dict(
+        findings=findings, vitals=vitals, age_years=age_years,
+        age_bands=age_bands, gender=gender,
+    )
     if condition.all_of and not all(evaluate_condition(c, **kwargs) for c in condition.all_of):
         return False
     if condition.any_of and not any(evaluate_condition(c, **kwargs) for c in condition.any_of):

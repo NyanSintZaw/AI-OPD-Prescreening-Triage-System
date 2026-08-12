@@ -22,7 +22,7 @@ import os
 import sqlite3
 import uuid
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
@@ -127,6 +127,12 @@ class ResetIn(BaseModel):
     # also wipe the affected patients' history/last-vitals fields back to
     # "first-time patient" so the history-intake flow can be re-demoed.
     reset_history: bool = False
+
+
+class PatientGenderIn(BaseModel):
+    # Closed set, matching the patients.gender column. The booth only ever
+    # sends a definite value; "unknown" stays NULL in the record.
+    gender: Literal["male", "female"]
 
 
 class PatientHistoryIn(BaseModel):
@@ -347,6 +353,9 @@ def build_app(db_path: str | Path | None = None) -> FastAPI:
             "hn": row["hn"],
             "patient_name": row["patient_name"],
             "birthdate": row["birthdate"],
+            # 'male' / 'female', or null when the hospital record lacks it —
+            # the booth then asks the patient and may fill it (never overwrite).
+            "gender": row["gender"],
             # A patient with no recorded history yet is first-time — the
             # booth should collect it before the symptom interview.
             "is_first_time": row["history_recorded_at"] is None,
@@ -570,11 +579,15 @@ def build_app(db_path: str | Path | None = None) -> FastAPI:
         if row is None:
             raise HTTPException(status_code=404, detail="Visit not found")
         systolic, diastolic = parse_pressure(row["pressure"])
+        patient_row = fetch_patient(db, row["hnx"]) if row["hnx"] else None
         return {
             "visit_id": row["visit_id"],
             "hn": row["hnx"],
             "patient_name": row["patient_name"],
             "birthdate": row["birthdate"],
+            # From the HN master record: the triage rules need it like the
+            # age band, and the visit export has no gender column of its own.
+            "gender": patient_row["gender"] if patient_row else None,
             "active": row["visit_lock_status"] not in ("LOCKED", "FINANCIAL_DISCHARGE"),
             "appointment": bool(row["appointment"]),
             "vitals": {
@@ -649,6 +662,31 @@ def build_app(db_path: str | Path | None = None) -> FastAPI:
                 payload.family_history, hn,
             ),
         )
+        db.commit()
+        return {
+            "hn": hn,
+            "written": True,
+            "patient": patient_payload(fetch_patient(db, hn)),
+        }
+
+    @app.put("/api/v1/patients/{hn}/gender", dependencies=[Depends(require_imed_token)])
+    def imed_patient_gender_write(
+        hn: str, payload: PatientGenderIn, db: sqlite3.Connection = Depends(get_db)
+    ):
+        """Write back the gender the booth collected when the hospital record
+        lacks it. Same rule as the history write-back: only ever fills an
+        empty value, never overwrites what the hospital already holds."""
+        row = fetch_patient(db, hn)
+        if row is None:
+            raise HTTPException(status_code=404, detail="Patient not found")
+        if row["gender"]:
+            return {
+                "hn": hn,
+                "written": False,
+                "reason": "gender already on file — we never overwrite",
+                "patient": patient_payload(row),
+            }
+        db.execute("UPDATE patients SET gender = ? WHERE hn = ?", (payload.gender, hn))
         db.commit()
         return {
             "hn": hn,

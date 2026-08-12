@@ -32,14 +32,21 @@ def evaluate_red_flags(
     vitals: Mapping[str, float],
     age_years: float | None,
     criteria: ScreeningCriteria,
+    gender: str = "unknown",
 ) -> list[RuleHit]:
-    """Return every fired rule, ordered most severe first."""
+    """Return every fired rule, ordered most severe first.
+
+    ``gender`` defaults to "unknown", which matches every gender predicate
+    (see evaluator.py) — a caller that doesn't know the gender can never
+    switch off an escalating rule by omission.
+    """
 
     kwargs = dict(
         findings=findings,
         vitals=vitals,
         age_years=age_years,
         age_bands=criteria.age_bands,
+        gender=gender,
     )
     hits: list[RuleHit] = []
 

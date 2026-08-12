@@ -321,7 +321,7 @@ async def test_impossible_spoken_temperature_is_reasked_then_skipped(criteria):
     first = await engine.run_turn(
         session_id="s1", language="en", input_mode="text",
         content="I have a fever",
-        turn_context={"age_years": 30},
+        turn_context={"age_years": 30, "gender": "female"},
     )
     assert first["awaiting_measurement"] == "temp"
 

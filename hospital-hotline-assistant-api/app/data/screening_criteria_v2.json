@@ -3338,6 +3338,30 @@
    "priority": 1
   },
   {
+   "id": "uq_gender",
+   "kind": "gender",
+   "text_en": "May I ask your sex — male or female? It helps me ask only the questions that apply to you. You may skip this if you prefer.",
+   "text_th": "ขออนุญาตสอบถามเพศของคุณ เป็นเพศชายหรือเพศหญิงคะ เพื่อให้ถามเฉพาะคำถามที่เกี่ยวข้องกับคุณ หากไม่สะดวกตอบ ข้ามได้ค่ะ",
+   "options": [
+    {
+     "id": "male",
+     "text_en": "Male",
+     "text_th": "ชาย"
+    },
+    {
+     "id": "female",
+     "text_en": "Female",
+     "text_th": "หญิง"
+    },
+    {
+     "id": "decline",
+     "text_en": "Prefer not to say",
+     "text_th": "ไม่สะดวกระบุ"
+    }
+   ],
+   "priority": 3
+  },
+  {
    "id": "uq_breathing",
    "kind": "red_flag",
    "finding_ids": [
@@ -4224,8 +4248,9 @@
      ],
      "text_en": "(If applicable) Could you be pregnant, is your period late, or do you have any vaginal bleeding?",
      "text_th": "(ถ้าเกี่ยวข้อง) มีโอกาสตั้งครรภ์ ประจำเดือนขาด หรือมีเลือดออกทางช่องคลอดไหมคะ",
+     "skip_for_gender": "male",
      "priority": 3,
-     "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 4 (decision point B — possible ectopic pregnancy); MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย)"
+     "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 4 (decision point B — possible ectopic pregnancy); MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย); ⚠️ PLACEHOLDER gender skip pending nurse confirmation — asked unless the HIS/patient records male; unknown gender is always asked"
     },
     {
      "id": "ap_location",

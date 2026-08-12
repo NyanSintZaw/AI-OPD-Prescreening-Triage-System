@@ -2578,6 +2578,22 @@ history + last-vitals payload, so no per-patient detail proxy is needed.
 
 ---
 
+### `GET /admin/criteria/active`
+
+Get Active Criteria View.
+
+Nurse-readable read model of the criteria the booth is deciding with.
+
+Same document as ``/versions/{id}``, minus the AST: conditions come back
+rendered as text in both languages, rules carry their manual citation, and
+clauses awaiting hospital sign-off are flagged ``placeholder``.
+
+**Auth:** bearer token (roles: super_admin, nurse, viewer)
+
+**Response 200:** JSON (Successful Response)
+
+---
+
 ### `GET /admin/criteria/versions`
 
 List Criteria Versions.
@@ -2895,6 +2911,36 @@ Example request:
   "chronic_conditions": "string",
   "past_surgeries": "string",
   "family_history": "string"
+}
+```
+
+**Response 200:** JSON (Successful Response)
+
+---
+
+### `PUT /api/v1/patients/{hn}/gender`
+
+Imed Patient Gender Write.
+
+Write back the gender the booth collected when the hospital record
+lacks it. Same rule as the history write-back: only ever fills an
+empty value, never overwrites what the hospital already holds.
+
+**Auth:** none
+
+**Path params:** `hn`
+
+**Request body** (`application/json`, `PatientGenderIn`):
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `gender` | string — one of `male` \| `female` | Y | Gender |
+
+Example request:
+
+```json
+{
+  "gender": "male"
 }
 ```
 
@@ -3970,6 +4016,12 @@ Body of POST /api/v1/patient-assignments — mirrors the hospital's iMed contrac
 | Field | Type | Required | Notes |
 |---|---|---|---|
 | `follow_up` | string | Y | Follow Up |
+
+### `PatientGenderIn`
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `gender` | string — one of `male` \| `female` | Y | Gender |
 
 ### `PatientHistoryIn`
 

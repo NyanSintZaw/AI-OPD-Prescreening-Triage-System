@@ -48,6 +48,7 @@ def _confirmation_targets(state, criteria, provisional) -> list[str]:
         vitals=effective_vitals(state),
         age_years=state.age_years,
         criteria=criteria,
+        gender=state.gender,
     )
     if any(h.level <= 2 for h in confirmed_hits):
         return []
@@ -116,6 +117,7 @@ def build_screening_graph(deps: GraphDeps):
             age_years=state.age_years,
             complaint_category=state.complaint_category,
             criteria=criteria,
+            gender=state.gender,
         )
         # Confirm-before-fire: an emergency is never declared from free-text
         # extraction alone. If the level-1/2 verdict evaporates when only

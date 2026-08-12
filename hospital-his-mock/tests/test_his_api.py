@@ -648,3 +648,83 @@ async def test_v1_prescreen_sets_first_location_leaving_second_for_the_assignmen
     visit = (await client.get(f"/api/visits/{VISIT}", headers=HEADERS)).json()
     assert visit["first_location"]["id"] == "AI-BOOTH-01"   # booth survives
     assert visit["second_location"]["id"] == SPID_MED       # destination added
+
+
+# ── gender on the patient record ─────────────────────────────────────────────
+
+async def test_gender_seeded_and_exposed_on_reads(client):
+    """Seeded gender surfaces on the patient read, the v1 visit lookup, and
+    the nested patient object of the visit read."""
+    patient = (await client.get("/api/patients/09900001", headers=HEADERS)).json()
+    assert patient["gender"] == "male"
+    v1 = (await client.get("/api/v1/visits/990000000000000001", headers=BEARER)).json()
+    assert v1["gender"] == "male"
+    visit = (await client.get("/api/visits/990000000000000001", headers=HEADERS)).json()
+    assert visit["patient"]["gender"] == "male"
+
+
+async def test_gender_null_patient_stays_null_until_booth_fills(client):
+    """09900004 is seeded without a gender — the missing-data demo path."""
+    patient = (await client.get("/api/patients/09900004", headers=HEADERS)).json()
+    assert patient["gender"] is None
+    v1 = (await client.get("/api/v1/visits/990000000000000004", headers=BEARER)).json()
+    assert v1["gender"] is None
+
+
+async def test_gender_write_fills_empty_only(client):
+    hn = "09900004"
+    resp = await client.put(
+        f"/api/v1/patients/{hn}/gender", headers=BEARER, json={"gender": "female"}
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["written"] is True
+    assert body["patient"]["gender"] == "female"
+
+    # A second write NEVER overwrites — same rule as the history write-back.
+    resp = await client.put(
+        f"/api/v1/patients/{hn}/gender", headers=BEARER, json={"gender": "male"}
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["written"] is False
+    assert body["patient"]["gender"] == "female"
+
+
+async def test_gender_write_never_overwrites_hospital_value(client):
+    resp = await client.put(
+        "/api/v1/patients/09900002/gender", headers=BEARER, json={"gender": "male"}
+    )
+    assert resp.json()["written"] is False
+    patient = (await client.get("/api/patients/09900002", headers=HEADERS)).json()
+    assert patient["gender"] == "female"
+
+
+async def test_gender_write_rejects_open_values_and_unknown_patient(client):
+    resp = await client.put(
+        "/api/v1/patients/09900004/gender", headers=BEARER, json={"gender": "yes"}
+    )
+    assert resp.status_code == 400  # /api/v1 validation maps to invalid_request
+    resp = await client.put(
+        "/api/v1/patients/no-such-hn/gender", headers=BEARER, json={"gender": "male"}
+    )
+    assert resp.status_code == 404
+
+
+async def test_gender_column_patched_into_existing_db(tmp_path, monkeypatch):
+    """A pre-gender DB file (like the committed his_mock.db) gets the column
+    added by connect()'s ad-hoc migration instead of crashing."""
+    import sqlite3
+
+    from his_mock.database import connect
+
+    db_path = tmp_path / "old.db"
+    legacy = sqlite3.connect(db_path)
+    legacy.execute("CREATE TABLE patients (hn TEXT PRIMARY KEY, patient_name TEXT)")
+    legacy.execute("INSERT INTO patients (hn, patient_name) VALUES ('X1', 'Old Row')")
+    legacy.commit()
+    legacy.close()
+
+    conn = connect(db_path)
+    row = conn.execute("SELECT gender FROM patients WHERE hn = 'X1'").fetchone()
+    assert row["gender"] is None

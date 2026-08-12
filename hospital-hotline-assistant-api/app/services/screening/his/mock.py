@@ -38,6 +38,10 @@ class MockHisAdapter:
         logger.info("[MockHIS] patient history push hn=%s history=%s", hn, history)
         return True
 
+    async def push_patient_gender(self, hn: str, gender: str) -> bool:
+        logger.info("[MockHIS] patient gender push hn=%s gender=%s", hn, gender)
+        return True
+
     async def push_follow_up(self, visit_id: str, follow_up: str) -> bool:
         logger.info(
             "[MockHIS] follow-up push visit=%s text=%s", visit_id, follow_up

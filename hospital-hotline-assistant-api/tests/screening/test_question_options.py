@@ -41,6 +41,7 @@ def _state(**kwargs) -> ScreeningState:
         complaint_category="nose_throat",
         chief_complaint="sore throat",
         age_years=33.0,
+        gender="female",  # known, so uq_gender isn't the next question
         # resolve red flags + BP so the next unresolved question is nt_onset
         # (BP is always asked now — no age gate — so seed a measured reading)
         vitals={"sbp": 118.0, "dbp": 76.0},
@@ -157,6 +158,7 @@ def test_unanswered_red_flag_reasked_once(criteria):
             questions_asked=len(asked),
             question_budget=8,
             ask_counts=counts,
+            gender="female",
         )
 
     # asked once, still unanswered -> asked again
@@ -182,6 +184,7 @@ def test_unanswered_red_flag_reasked_once(criteria):
         questions_asked=1,
         question_budget=8,
         ask_counts={"hd_befast": 1},
+        gender="female",
     )
     q3 = next_question(criteria, answered)
     assert q3 is None or q3.id != "hd_befast"

@@ -6,4 +6,4 @@ description: |-
   **Roles:** super_admin, nurse
 url: "{{baseUrl}}/admin/criteria/versions/{{version_id}}/submit"
 method: POST
-order: 5000
+order: 6000

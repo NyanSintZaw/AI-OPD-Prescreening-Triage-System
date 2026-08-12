@@ -113,6 +113,9 @@ def _turn_context(metadata: dict[str, Any]) -> dict[str, Any] | None:
     patient_name = str(visit.get("patient_name") or "").strip()
     if patient_name:
         ctx["patient_name"] = patient_name
+    gender = visit.get("gender")
+    if gender in ("male", "female"):
+        ctx["gender"] = gender
     vitals = dict(metadata.get("vitals") or {})
     if vitals.pop("bp_recheck_pending", None):
         # The reading that opened a rest window is provisional: the patient
@@ -647,6 +650,12 @@ class TriageService:
             classification=classification,
         )
 
+        # Booth-collected gender → HIS HN record (fill-only server-side).
+        await self._maybe_push_gender(
+            metadata=existing_metadata,
+            gender=adk_result.get("gender"),
+        )
+
         await connection.execute(
             """
             UPDATE sessions
@@ -710,6 +719,33 @@ class TriageService:
         except Exception as exc:
             logger.warning("HIS push_follow_up failed: %s", exc)
             metadata["his_follow_up"] = {"status": "error", "text": text}
+
+    async def _maybe_push_gender(
+        self,
+        *,
+        metadata: dict[str, Any],
+        gender: Any,
+    ) -> None:
+        """Write a booth-collected gender to the HIS HN record (mutates
+        ``metadata``). Only fires when the HIS record lacked one — and the
+        HIS endpoint itself only ever fills an empty value, so a duplicate
+        push can never overwrite hospital data. Best-effort like every other
+        HIS write."""
+
+        visit = metadata.get("visit") or {}
+        hn = visit.get("hn")
+        if not hn or gender not in ("male", "female"):
+            return
+        if visit.get("gender") in ("male", "female"):
+            return  # the HIS already knows — nothing to fill
+        try:
+            ok = bool(await self.his_adapter.push_patient_gender(str(hn), gender))
+        except Exception:  # pragma: no cover — HIS must never break triage
+            logger.exception("HIS push_patient_gender failed hn=%s", hn)
+            ok = False
+        if ok:
+            # Remember it on the visit so later turns don't re-push.
+            metadata["visit"] = {**visit, "gender": gender}
 
     async def _maybe_push_referral(
         self,

@@ -65,6 +65,9 @@ CREATE TABLE IF NOT EXISTS patients (
     hn                   TEXT PRIMARY KEY,
     patient_name         TEXT,
     birthdate            TEXT,
+    -- Registered sex: 'male' / 'female', NULL when the hospital record
+    -- lacks it (the booth may then ask and fill it, never overwrite).
+    gender               TEXT,
     -- Patient history collected at the AI booth on a first visit.
     smoking_alcohol      TEXT,
     allergies            TEXT,
@@ -173,6 +176,9 @@ def connect(db_path: str | Path) -> sqlite3.Connection:
     for column in ("patient_name", "follow_up", "visit_lock_status"):
         if column not in existing:
             conn.execute(f"ALTER TABLE visits ADD COLUMN {column} TEXT")
+    existing_patients = {r["name"] for r in conn.execute("PRAGMA table_info(patients)")}
+    if "gender" not in existing_patients:
+        conn.execute("ALTER TABLE patients ADD COLUMN gender TEXT")
     conn.commit()
     return conn
 
@@ -293,15 +299,16 @@ def seed_patients_from_csv(conn: sqlite3.Connection, csv_path: str | Path) -> in
             conn.execute(
                 """
                 INSERT OR REPLACE INTO patients (
-                    hn, patient_name, birthdate, smoking_alcohol, allergies,
+                    hn, patient_name, birthdate, gender, smoking_alcohol, allergies,
                     chronic_conditions, past_surgeries, family_history,
                     history_recorded_at, last_weight, last_height, vitals_measured_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     hn,
                     _str(row.get("patient_name")),
                     _str(row.get("birthdate")),
+                    _str(row.get("gender")),
                     _str(row.get("smoking_alcohol")),
                     _str(row.get("allergies")),
                     _str(row.get("chronic_conditions")),

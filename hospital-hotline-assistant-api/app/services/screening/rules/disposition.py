@@ -135,9 +135,11 @@ def decide(
     age_years: float | None,
     complaint_category: str | None,
     criteria: ScreeningCriteria,
+    gender: str = "unknown",
 ) -> DispositionResult:
     hits = evaluate_red_flags(
         findings=findings, vitals=vitals, age_years=age_years, criteria=criteria,
+        gender=gender,
     )
     reasons = [
         DispositionReason(
@@ -172,6 +174,7 @@ def decide(
         vitals=vitals,
         age_years=age_years,
         criteria=criteria,
+        gender=gender,
     )
     reasons.append(DispositionReason(
         rule_id="department_routing",

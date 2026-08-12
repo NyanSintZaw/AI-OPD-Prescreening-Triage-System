@@ -54,6 +54,13 @@ class ExtractionResult(BaseModel):
     age_years: float | None = Field(
         default=None, description="Patient age in years when stated (0.5 = 6 months)"
     )
+    gender: Literal["male", "female"] | None = Field(
+        default=None,
+        description="The patient's sex ONLY when they explicitly state it "
+        "(e.g. 'male', 'female', 'ชาย', 'หญิง', typically answering the gender "
+        "question). Never guess it from the name, symptoms, or wording; null "
+        "when unstated or declined",
+    )
     pain_score: int | None = Field(
         default=None, ge=0, le=10, description="0-10 pain score when stated"
     )

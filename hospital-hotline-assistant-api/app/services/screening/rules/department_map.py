@@ -36,6 +36,7 @@ def resolve_department(
     age_years: float | None,
     criteria: ScreeningCriteria,
     emergency_department_code: str | None = None,
+    gender: str = "unknown",
 ) -> DepartmentDecision:
     if level <= 2:
         return DepartmentDecision(
@@ -65,6 +66,7 @@ def resolve_department(
         vitals=vitals,
         age_years=age_years,
         age_bands=criteria.age_bands,
+        gender=gender,
     )
     entries = [
         e for e in criteria.routing_table

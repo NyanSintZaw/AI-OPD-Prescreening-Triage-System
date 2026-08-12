@@ -132,6 +132,23 @@ request:
                   "description": "Patient age in years when stated (0.5 = 6 months)",
                   "title": "Age Years"
                 },
+                "gender": {
+                  "anyOf": [
+                    {
+                      "enum": [
+                        "male",
+                        "female"
+                      ],
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "default": null,
+                  "description": "The patient's sex ONLY when they explicitly state it (e.g. 'male', 'female', 'ชาย', 'หญิง', typically answering the gender question). Never guess it from the name, symptoms, or wording; null when unstated or declined",
+                  "title": "Gender"
+                },
                 "pain_score": {
                   "anyOf": [
                     {

@@ -8,4 +8,4 @@ url: "{{baseUrl}}/admin/criteria/versions/{{version_id}}/diff?against="
 method: GET
 queryParams:
   against: ""
-order: 4000
+order: 5000

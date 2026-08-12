@@ -6,4 +6,4 @@ description: |-
   **Roles:** super_admin, nurse, viewer
 url: "{{baseUrl}}/admin/criteria/versions/{{version_id}}"
 method: GET
-order: 2000
+order: 3000

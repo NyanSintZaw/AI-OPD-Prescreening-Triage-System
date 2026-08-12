@@ -2577,6 +2577,22 @@ history + last-vitals payload, so no per-patient detail proxy is needed.
 
 ---
 
+### `GET /admin/criteria/active`
+
+Get Active Criteria View.
+
+Nurse-readable read model of the criteria the booth is deciding with.
+
+Same document as ``/versions/{id}``, minus the AST: conditions come back
+rendered as text in both languages, rules carry their manual citation, and
+clauses awaiting hospital sign-off are flagged ``placeholder``.
+
+**Auth:** bearer token (roles: super_admin, nurse, viewer)
+
+**Response 200:** JSON (Successful Response)
+
+---
+
 ### `GET /admin/criteria/versions`
 
 List Criteria Versions.

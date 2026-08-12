@@ -21,6 +21,7 @@ def inputs(
     questions_asked=0,
     budget=8,
     ask_counts=None,
+    gender="female",  # known, so uq_gender doesn't lead every ordering test
 ):
     return InterviewInputs(
         complaint_category=category,
@@ -33,6 +34,7 @@ def inputs(
         questions_asked=questions_asked,
         question_budget=budget,
         ask_counts=ask_counts or {},
+        gender=gender,
     )
 
 

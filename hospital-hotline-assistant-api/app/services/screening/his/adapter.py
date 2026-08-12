@@ -44,6 +44,9 @@ class VisitInfo:
     is_active: bool = True
     birthdate: str | None = None          # ISO date "YYYY-MM-DD" from the HIS
     age_years: int | None = None          # computed from birthdate when available
+    # Registered sex from the HN master record: "male" / "female", or None
+    # when the HIS lacks it (the booth then asks; never inferred).
+    gender: str | None = None
     vitals: dict[str, Any] = field(default_factory=dict)  # HIS-recorded vitals
     appointment: bool = False
     patient_history: "PatientHistory | None" = None
@@ -96,6 +99,11 @@ class HisAdapter(Protocol):
         """Persist first-time-patient history (smoking/alcohol, allergies,
         chronic conditions, past surgeries, family history) onto the HN
         master record, so it carries forward to future visits."""
+
+    async def push_patient_gender(self, hn: str, gender: str) -> bool:
+        """Fill the HN master record's gender with a booth-collected value
+        ("male"/"female"). Like ``push_patient_history``, the HIS side only
+        ever fills an empty value and never overwrites a recorded one."""
 
     async def push_follow_up(self, visit_id: str, follow_up: str) -> bool:
         """Record the patient's own follow-up question/concern on the visit

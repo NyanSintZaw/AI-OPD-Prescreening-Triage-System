@@ -78,6 +78,14 @@ class ScreeningState(BaseModel):
     rejected_vitals: dict[str, dict[str, Any]] = Field(default_factory=dict)
     age_years: float | None = None
     age_asked: bool = False
+    # Closed set: "male" | "female" | "unknown". "unknown" (missing HIS value,
+    # declined answer, or any value outside the set) is the SAFE default —
+    # rule evaluation treats it as matching every gender predicate (never
+    # suppresses an escalation) and question policy treats it as "still ask"
+    # (a gender-skippable question is only skipped on a definite mismatch).
+    # Values come from the HIS record or the patient's own statement — never
+    # inferred from name, voice, or symptoms.
+    gender: Literal["male", "female", "unknown"] = "unknown"
 
     asked_question_ids: list[str] = Field(default_factory=list)
     questions_asked: int = 0

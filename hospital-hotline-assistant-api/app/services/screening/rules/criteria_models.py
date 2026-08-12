@@ -28,6 +28,11 @@ CompareOp = Literal["lt", "le", "gt", "ge", "eq"]
 
 FindingState = Literal["present", "absent"]
 
+# Closed gender set for predicates. The session value may also be "unknown";
+# a predicate can only name a definite gender — see the fail-safe semantics
+# on CriterionCondition.gender.
+Gender = Literal["male", "female"]
+
 
 class VitalBound(BaseModel):
     """Physiologically possible range for one vital — an INPUT FILTER.
@@ -158,6 +163,15 @@ class CriterionCondition(BaseModel):
     numeric vital with ``op``/``value``. ``age_band`` restricts any condition
     to sessions whose age falls inside the named band from
     ``ScreeningCriteria.age_bands``.
+
+    ``gender`` restricts a condition to sessions with that RECORDED gender —
+    but fail-safe: an unknown, missing, or unexpected session gender always
+    MATCHES the predicate (evaluator.py). Gender data is exactly the kind
+    that is missing or wrong, so the predicate can narrow a rule only when a
+    definite opposite value is on record; it can never silently switch a rule
+    off for a patient whose gender we don't know. Consequently it must NEVER
+    be used on any rule that escalates (level 1–2) — it cannot make such a
+    rule safer, only blind it for definitely-recorded patients.
     """
 
     finding_id: str | None = None
@@ -166,6 +180,7 @@ class CriterionCondition(BaseModel):
     op: CompareOp | None = None
     value: float | None = None
     age_band: str | None = None
+    gender: Gender | None = None
     all_of: list["CriterionCondition"] = Field(default_factory=list)
     any_of: list["CriterionCondition"] = Field(default_factory=list)
 
@@ -260,7 +275,8 @@ class RoutingEntry(BaseModel):
 
 
 QuestionKind = Literal[
-    "intake", "red_flag", "slot", "associated", "scale", "age", "measurement"
+    "intake", "red_flag", "slot", "associated", "scale", "age", "gender",
+    "measurement",
 ]
 
 OldcartsSlot = Literal[
@@ -302,6 +318,11 @@ class QuestionTemplate(BaseModel):
     # BP always-measure guard for age >= 60 on otherwise-minor complaints).
     # Unknown age also skips (resolved) so we never block the interview on it.
     min_age_years: float | None = None
+    # Skip this question when the session's RECORDED gender equals this value
+    # (e.g. don't ask a patient recorded male about pregnancy). Unknown gender
+    # never matches, so unknown always still gets asked — the skip is an
+    # efficiency for definite records only, never a safety gate.
+    skip_for_gender: Gender | None = None
     # Authored quick-reply options; kinds without authored options fall back
     # to engine defaults (yes/no for red_flag/associated).
     options: list[QuestionOption] = Field(default_factory=list)

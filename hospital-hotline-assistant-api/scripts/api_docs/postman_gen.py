@@ -314,6 +314,10 @@ ADAPTER_CALLS = [
     ("put", "/api/patients/{hn}/history",
      "⚠️ **OUR ASSUMPTION — iMed documents no counterpart (change request 6).**\n\n"
      "**WE PUT** — patient history (allergies, chronic conditions, …) updated at the booth (`HttpHisAdapter.push_patient_history`)."),
+    ("put", "/api/v1/patients/{hn}/gender",
+     "⚠️ **OUR ASSUMPTION — iMed documents no counterpart.**\n\n"
+     "**WE PUT** — patient gender collected at the booth when the HN record lacks it "
+     "(`HttpHisAdapter.push_patient_gender`). Fill-only: never overwrites a recorded value."),
 ]
 
 XKEY = {"key": "X-API-Key", "value": "{{hisToken}}"}

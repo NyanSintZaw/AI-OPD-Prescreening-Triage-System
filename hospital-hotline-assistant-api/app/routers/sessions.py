@@ -107,6 +107,7 @@ async def link_visit(
         "patient_name": info.patient_name,
         "birthdate": info.birthdate,
         "age_years": info.age_years,
+        "gender": info.gender,
         "appointment": info.appointment,
         "linked_at": datetime.now(timezone.utc).isoformat(),
         # Identity is asked once per kiosk walk-up: a relink within the same

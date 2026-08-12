@@ -71,6 +71,7 @@ def make_dispose_node(deps: GraphDeps):
             age_years=state.age_years,
             complaint_category=state.complaint_category,
             criteria=criteria,
+            gender=state.gender,
         )
         state.disposition = {
             "level": disposition.level,

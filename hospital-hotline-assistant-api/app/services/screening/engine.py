@@ -150,6 +150,7 @@ class ScreeningTriageEngine:
             "flow_complete": bool(result.get("flow_complete")),
             "post_disposition": bool(result.get("post_disposition")),
             "patient_follow_up": result.get("patient_follow_up"),
+            "gender": result.get("gender"),
         }
 
     def decision_from_classification(self, classification: dict[str, Any]) -> TriageDecision:
@@ -186,6 +187,12 @@ class ScreeningTriageEngine:
         if isinstance(age, (int, float)) and age >= 0:
             state.age_years = float(age)
             state.age_asked = True  # never ask — the HIS gave it to us
+        gender = str(turn_context.get("gender") or "").strip().lower()
+        if gender in ("male", "female"):
+            # HIS-recorded gender — never ask. A missing/unexpected value is
+            # deliberately NOT written: it must not clobber a booth-collected
+            # answer already in state, and "unknown" stays the default.
+            state.gender = gender  # type: ignore[assignment]
         patient_name = str(turn_context.get("patient_name") or "").strip()
         if patient_name:
             state.patient_name = patient_name
@@ -270,6 +277,9 @@ class ScreeningTriageEngine:
             "flow_complete": output.flow_complete,
             "post_disposition": output.post_disposition,
             "patient_follow_up": state.patient_follow_up,
+            # Surfaced so TriageService can write a booth-collected gender
+            # back to the HIS HN record (fill-only on the HIS side).
+            "gender": state.gender,
             "audit": result.get("audit") or [],
         }
 

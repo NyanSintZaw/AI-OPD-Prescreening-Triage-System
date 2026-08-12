@@ -90,6 +90,7 @@ def interview_inputs(state, deps: GraphDeps) -> InterviewInputs:
         question_budget=deps.question_budget,
         # duplicates appear when a red flag is re-asked (list, not set)
         ask_counts=Counter(state.asked_question_ids),
+        gender=state.gender,
     )
 
 

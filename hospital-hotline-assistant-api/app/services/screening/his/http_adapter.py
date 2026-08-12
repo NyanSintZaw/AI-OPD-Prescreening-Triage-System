@@ -28,6 +28,7 @@ ASSIGNMENTS_PATH = "/api/v1/patient-assignments"
 VISIT_PATH = "/api/v1/visits/{visit_id}"
 PATIENT_PATH = "/api/v1/patients/{hn}"
 PATIENT_HISTORY_PATH = "/api/v1/patients/{hn}/history"
+PATIENT_GENDER_PATH = "/api/v1/patients/{hn}/gender"
 PRESCREENS_PATH = "/api/v1/patient-prescreens"
 
 # The station identity the hospital assigns our booth, sent with a prescreen
@@ -85,6 +86,19 @@ def with_bmi(vitals: dict[str, Any]) -> dict[str, Any]:
     except (TypeError, ValueError):
         pass  # implausible values are already dropped upstream by check_vitals
     return out
+
+
+# Spellings a real HIS may use for the registered sex. Anything not listed
+# maps to None (unknown) — the safe direction: the booth asks, and no rule
+# is ever skipped on a value we didn't recognize.
+_GENDER_ALIASES = {
+    "male": "male", "m": "male", "ชาย": "male", "ช": "male",
+    "female": "female", "f": "female", "หญิง": "female", "ญ": "female",
+}
+
+
+def _normalize_gender(value: Any) -> str | None:
+    return _GENDER_ALIASES.get(str(value or "").strip().lower())
 
 
 def _age_from_birthdate(birthdate: str | None) -> int | None:
@@ -162,6 +176,7 @@ class HttpHisAdapter:
             is_active=True,
             birthdate=birthdate,
             age_years=_age_from_birthdate(birthdate),
+            gender=_normalize_gender(data.get("gender")),
             vitals=data.get("vitals") or {},
             appointment=bool(data.get("appointment")),
             patient_history=await self._patient_history(hn),
@@ -226,6 +241,21 @@ class HttpHisAdapter:
         if resp is None or resp.status_code != 200:
             logger.warning(
                 "[HIS] push_patient_history hn=%s → %s",
+                hn,
+                None if resp is None else resp.status_code,
+            )
+            return False
+        return True
+
+    async def push_patient_gender(self, hn: str, gender: str) -> bool:
+        # Fill-only on the HIS side (never overwrites), so this needs no
+        # client-side read-before-write.
+        resp = await self._request(
+            "PUT", PATIENT_GENDER_PATH.format(hn=hn), json={"gender": gender}
+        )
+        if resp is None or resp.status_code != 200:
+            logger.warning(
+                "[HIS] push_patient_gender hn=%s → %s",
                 hn,
                 None if resp is None else resp.status_code,
             )

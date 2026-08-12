@@ -34,6 +34,9 @@ class InterviewInputs:
     # implausible, get exactly ONE repeat; when not provided, membership in
     # asked_question_ids counts as exhausted (the old no-repeat behavior).
     ask_counts: Mapping[str, int] = field(default_factory=dict)
+    # "male" | "female" | "unknown". Only a definite value can skip a
+    # gender-skippable question; "unknown" means the question is still asked.
+    gender: str = "unknown"
 
 
 def get_template(criteria: ScreeningCriteria, category: str | None) -> ComplaintTemplate:
@@ -59,6 +62,18 @@ def _ask_count(question: QuestionTemplate, inputs: InterviewInputs) -> int:
 
 def _is_resolved(question: QuestionTemplate, inputs: InterviewInputs) -> bool:
     """A question is resolved when asking it would gain no new information."""
+
+    # Gender skip (e.g. pregnancy questions for a patient recorded male).
+    # Deliberately requires a DEFINITE matching gender: "unknown" (missing
+    # HIS value, declined answer, unexpected value) never skips — the safe
+    # direction is to ask. This skips only the QUESTION; the findings it
+    # would check stay unknown, and any rule over them can still fire from
+    # volunteered statements.
+    if (
+        question.skip_for_gender is not None
+        and inputs.gender == question.skip_for_gender
+    ):
+        return True
 
     if question.kind == "red_flag":
         # Safety-critical: a red flag is resolved only when EVERY finding it
@@ -102,6 +117,11 @@ def _is_resolved(question: QuestionTemplate, inputs: InterviewInputs) -> bool:
         return inputs.complaint_category is not None
     if question.kind == "age":
         return inputs.age_known
+    if question.kind == "gender":
+        # Resolved once known (HIS record or a prior answer). A declined or
+        # unmappable answer resolves via asked_question_ids above — never
+        # pressed twice; the session simply proceeds with gender unknown.
+        return inputs.gender in ("male", "female")
     if question.kind == "slot":
         return question.slot in inputs.answered_slots
     if question.kind == "scale":

@@ -500,6 +500,86 @@
     }
    }
   },
+  "/api/v1/patients/{hn}/gender": {
+   "put": {
+    "summary": "Imed Patient Gender Write",
+    "description": "Write back the gender the booth collected when the hospital record\nlacks it. Same rule as the history write-back: only ever fills an\nempty value, never overwrites what the hospital already holds.",
+    "operationId": "imed_patient_gender_write_api_v1_patients__hn__gender_put",
+    "parameters": [
+     {
+      "name": "hn",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Hn"
+      }
+     },
+     {
+      "name": "authorization",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Authorization"
+      }
+     },
+     {
+      "name": "x-api-key",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "X-Api-Key"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/PatientGenderIn"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
   "/api/v1/patient-prescreens": {
    "post": {
     "summary": "Imed Patient Prescreen",
@@ -1204,6 +1284,23 @@
     },
     "type": "object",
     "title": "HTTPValidationError"
+   },
+   "PatientGenderIn": {
+    "properties": {
+     "gender": {
+      "type": "string",
+      "enum": [
+       "male",
+       "female"
+      ],
+      "title": "Gender"
+     }
+    },
+    "type": "object",
+    "required": [
+     "gender"
+    ],
+    "title": "PatientGenderIn"
    },
    "PatientHistoryIn": {
     "properties": {
