@@ -265,3 +265,106 @@ ids, with the right present/absent state, and a faithful evidence quote"* —
 which is the only thing our LLM is responsible for. `run_extraction_eval.py`
 appears to have no precedent to copy, which is a reason to keep investing in
 it, not a reason to distrust it.
+
+---
+
+## Part 3 — Is the architecture itself defensible? (2026-08-12)
+
+Second research round, re-scoped to AI engineering only — no triage scales,
+no medical regulation. 112 agents, zero errors, adversarial verification.
+
+### The split is a named, published pattern
+
+"LLM converts speech to structured facts; a deterministic engine performs all
+inference" is **neurosymbolic AI / LLM-as-semantic-parser**, and two published
+systems are directly comparable:
+
+- **Logic-LM** (Findings of EMNLP 2023) — LLM translates the problem into a
+  symbolic formulation, "a deterministic symbolic solver performs inference".
+- **ProCDS** (MICCAI 2025) — SWI-Prolog + Llama3-8B on vLLM for clinical
+  decision support, motivated explicitly by hallucination containment.
+
+**Our version is strictly more constrained than either.** In both papers the
+LLM authors the *logic* as well as the facts. Ours emits only facts, against a
+fixed catalog, with hand-authored version-pinned rules. Cite this as "a named
+published pattern", never as "the same architecture".
+
+### Do NOT claim it is more accurate
+
+Three separate accuracy claims for the hybrid split were **refuted 0-3**,
+including Logic-LM's headline +39.2% (closed-world logic benchmarks, not
+conversational extraction) and ProCDS's 99.5% vs ~80% end-to-end.
+
+**No surviving evidence shows this split beats end-to-end LLM classification
+on accuracy in any domain resembling ours.** The honest justification is
+auditability, determinism and version control — a nurse can read why a level
+fired, and the same input gives the same output. That is worth a lot here.
+It is not an accuracy argument, and overselling it as one would not survive
+scrutiny.
+
+### Constrained decoding is vindicated
+
+The "grammar constraints degrade reasoning" claim **does not hold as a general
+result**. JSON-schema-constrained decoding matched or beat unconstrained
+generation on both reasoning and extraction tasks; grammar-constrained
+decoding lifted clinical extraction F1 from **0.062 to 0.413**. Where
+constraints did lose accuracy, the cause was **subword/token misalignment in
+the constraint implementation**, not constraint itself.
+
+### One finding that is a live risk, and one guard we already have
+
+**Schema enforcement is not a guarantee.** XGrammar — vLLM's preferred backend,
+which is what our on-prem deployment will use — was the **most permissive
+engine measured**. Re-validating emitted ids against the catalog is mandatory,
+not belt-and-braces. *Checked: `nodes/ingest.py:245` gates every finding update
+on `update.id in criteria.finding_catalog`, with no bypass. We are covered —
+but this must never be removed.*
+
+### Evidence quotes: auditability yes, accuracy no
+
+Requiring a verbatim span per finding is a shipped pattern (Google
+LangExtract flags unlocatable extractions with `char_interval=None`), and
+quote-locatability works as an automatic ungrounded-extraction filter. But:
+
+- the effect on task quality is **model-dependent** — macro-F1 up for two
+  models, significantly **down** for a third
+- it **reduces coverage** and raises invalid-output rates for every model
+  tested
+- a quote that verifiably appears is **not** a quote that supports the finding:
+  only **48-79%** of quoted predictions were judged actually supporting, and
+  self-judging does not close the gap
+- even flagship models produced quotes failing exact-substring verification in
+  **9-17%** of runs
+
+**This is the finding that matters most for us.** In this architecture a
+missed extraction is the *only* way a rule can fail to fire — so anything that
+reduces coverage is a direct safety cost. We require evidence quotes AND
+containment-check them, and we have never measured what that costs in recall.
+That experiment is a diff on the extraction schema plus a run of
+`run_extraction_eval.py`, and it is the single highest-value thing left.
+
+### Where the eval budget belongs
+
+Logic-LM's own limitation section identifies the natural-language-to-symbolic
+translation step as the dominant failure point. Ours fails **silently** — a
+finding that never arrives simply never fires a rule, with no error anywhere.
+That is an argument for spending on the extraction eval, not the rules tests,
+and it is what we have been doing.
+
+### Two honest evidence gaps
+
+Nothing survived on either of these, and no claims were even proposed:
+
+1. **Extraction failure modes at the level we depend on** — recall/miss rates
+   for conversational clinical IE, negation and hedging errors, ontology
+   coverage when mapping free speech onto a fixed id list, and the effect of a
+   100+ candidate list on recall and false positives. That last one is not
+   academic: turn 1 now offers ~131 findings, and the precision cost is
+   unmeasured.
+2. **Local 7B-14B open-weight models for structured extraction, and Thai IE.**
+   Three incidental data points, none Thai, none an extraction-quality
+   comparison.
+
+Both are unresearched, not settled. For a Thailand-first deployment on on-prem
+hardware, that means **our own extraction eval is the only evidence that will
+ever exist for this system** — there is no external benchmark to defer to.
