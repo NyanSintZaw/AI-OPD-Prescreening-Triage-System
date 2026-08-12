@@ -323,8 +323,7 @@ Example response:
   "age_years": 0,
   "appointment": false,
   "has_his_vitals": false,
-  "is_first_time": false,
-  "hn": "string"
+  "is_first_time": false
 }
 ```
 
@@ -447,8 +446,7 @@ Example response:
 {
   "saved": false,
   "pushed_to_his": false,
-  "is_first_time": false,
-  "hn": "string"
+  "is_first_time": false
 }
 ```
 
@@ -3700,7 +3698,6 @@ Hospital-DB connection state shown in admin Database Settings.
 | `appointment` | boolean | N | Appointment (default: `false`) |
 | `has_his_vitals` | boolean | N | Has His Vitals (default: `false`) |
 | `is_first_time` | boolean | N | Is First Time (default: `false`) |
-| `hn` | string or null | N | Hn |
 
 ### `MessageCreate`
 
@@ -3760,7 +3757,6 @@ First-time-patient structured history collected at the booth.
 | `saved` | boolean | Y | Saved |
 | `pushed_to_his` | boolean | Y | Pushed To His |
 | `is_first_time` | boolean | N | Is First Time (default: `false`) |
-| `hn` | string or null | N | Hn |
 
 ### `RoutingFeedbackOut`
 

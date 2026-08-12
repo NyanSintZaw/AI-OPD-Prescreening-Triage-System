@@ -12,6 +12,7 @@ identifiers do not reach the model.
 from __future__ import annotations
 
 import json
+from pathlib import Path
 from typing import Any
 
 from app.services.screening.extraction import ExtractionResult, build_extraction_prompt
@@ -19,7 +20,7 @@ from app.services.screening.nlu_backstop import _PROMPTS as GATE_PROMPTS
 from app.services.screening.nlu_backstop import _SCHEMAS as GATE_SCHEMAS
 from app.services.screening.nodes.explain import _EXPLAIN_PROMPT, _NAME_LINE
 from app.services.screening.nodes.question import PhrasedQuestion, _PARAPHRASE_PROMPT
-from app.services.screening.persistence import load_seed_criteria
+from app.services.screening.rules.criteria_models import parse_criteria
 from app.services.screening.state import ScreeningState
 
 # What the session holds and the model must never see.
@@ -31,6 +32,18 @@ WITHHELD = {
     "session_id": "1f0b8c2e-4a77-4d1e-9d3a-2b6e5c7f81aa",
     "birthdate": "1968-03-14",
 }
+
+
+# Render the criteria PRODUCTION runs, not the v1 seed. load_seed_criteria()
+# reads screening_criteria_v1.json, so the hospital-facing prompt was showing a
+# finding catalog the booth no longer uses — caught 2026-08-12.
+_ACTIVE_CRITERIA_PATH = (
+    Path(__file__).resolve().parents[2] / "app" / "data" / "screening_criteria_v2.json"
+)
+
+
+def _criteria():
+    return parse_criteria(json.loads(_ACTIVE_CRITERIA_PATH.read_text(encoding="utf-8")))
 
 
 def _state(language: str = "th") -> ScreeningState:
@@ -61,7 +74,7 @@ BILINGUAL_CALLS = {"question", "explain"}
 def calls(language: str = "th") -> list[dict[str, Any]]:
     """Every model call the engine can make, in the order a turn runs them."""
     state = _state(language)
-    criteria = load_seed_criteria()
+    criteria = _criteria()
 
     return [
         {

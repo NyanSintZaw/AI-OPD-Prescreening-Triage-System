@@ -1,0 +1,57 @@
+$kind: http-request
+description: |-
+  **Paraphrase — reword one approved question**
+
+  When the rules engine has picked the next question and it is safe to reword. Red-flag and measurement questions are asked verbatim from the criteria and never go near the model.
+
+  Carries no patient identifier — see `docs/ai-model-io.md`.
+url: "{{aiModelBaseUrl}}/chat/completions"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: |-
+    {
+      "model": "{{aiModelName}}",
+      "messages": [
+        {
+          "role": "user",
+          "content": "You are a warm, calm hospital screening assistant speaking English. Rephrase the following screening question conversationally, preserving its exact clinical meaning. Ask exactly ONE question, one or two short sentences, no lists, no medical jargon, and never mention triage levels or diagnoses.\nDo NOT re-ask anything already answered.\nAlso provide 3 or 4 short answer choices (max 30 characters each) the patient could tap to answer, in English, mutually distinct, covering the most likely answers; never include diagnoses, levels, or medication.\nPatient context: แน่นหน้าอกมา 2 ชั่วโมง\nAlready answered — do not re-ask: อายุ 58 ปี | ความดัน 158/94\nQuestion to rephrase: อาการเจ็บหน้าอกร้าวไปที่แขน คอ หรือกรามหรือไม่"
+        }
+      ],
+      "temperature": 0.1,
+      "stream": false,
+      "response_format": {
+        "type": "json_schema",
+        "json_schema": {
+          "name": "question (en)",
+          "strict": true,
+          "schema": {
+            "description": "Structured paraphrase: the reworded question + tappable answers.",
+            "properties": {
+              "question": {
+                "description": "The rephrased screening question",
+                "title": "Question",
+                "type": "string"
+              },
+              "options": {
+                "description": "3 or 4 short, mutually distinct answer choices the patient could tap, in the same language as the question",
+                "items": {
+                  "type": "string"
+                },
+                "title": "Options",
+                "type": "array"
+              }
+            },
+            "required": [
+              "question"
+            ],
+            "title": "PhrasedQuestion",
+            "type": "object"
+          }
+        }
+      }
+    }
+examples: ./.resources/question (en).resources/examples
+order: 7000

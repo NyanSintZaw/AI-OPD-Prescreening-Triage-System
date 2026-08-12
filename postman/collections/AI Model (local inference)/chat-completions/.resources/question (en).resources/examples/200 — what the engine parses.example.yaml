@@ -1,0 +1,79 @@
+$kind: http-example
+request:
+  url: "{{aiModelBaseUrl}}/chat/completions"
+  method: POST
+  headers:
+    Content-Type: application/json
+  body:
+    type: json
+    content: |-
+      {
+        "model": "{{aiModelName}}",
+        "messages": [
+          {
+            "role": "user",
+            "content": "You are a warm, calm hospital screening assistant speaking English. Rephrase the following screening question conversationally, preserving its exact clinical meaning. Ask exactly ONE question, one or two short sentences, no lists, no medical jargon, and never mention triage levels or diagnoses.\nDo NOT re-ask anything already answered.\nAlso provide 3 or 4 short answer choices (max 30 characters each) the patient could tap to answer, in English, mutually distinct, covering the most likely answers; never include diagnoses, levels, or medication.\nPatient context: แน่นหน้าอกมา 2 ชั่วโมง\nAlready answered — do not re-ask: อายุ 58 ปี | ความดัน 158/94\nQuestion to rephrase: อาการเจ็บหน้าอกร้าวไปที่แขน คอ หรือกรามหรือไม่"
+          }
+        ],
+        "temperature": 0.1,
+        "stream": false,
+        "response_format": {
+          "type": "json_schema",
+          "json_schema": {
+            "name": "question (en)",
+            "strict": true,
+            "schema": {
+              "description": "Structured paraphrase: the reworded question + tappable answers.",
+              "properties": {
+                "question": {
+                  "description": "The rephrased screening question",
+                  "title": "Question",
+                  "type": "string"
+                },
+                "options": {
+                  "description": "3 or 4 short, mutually distinct answer choices the patient could tap, in the same language as the question",
+                  "items": {
+                    "type": "string"
+                  },
+                  "title": "Options",
+                  "type": "array"
+                }
+              },
+              "required": [
+                "question"
+              ],
+              "title": "PhrasedQuestion",
+              "type": "object"
+            }
+          }
+        }
+      }
+response:
+  statusCode: 200
+  statusText: OK
+  headers:
+    Content-Type: application/json
+  body:
+    type: json
+    content: |-
+      {
+        "id": "chatcmpl-mfu-0001",
+        "object": "chat.completion",
+        "model": "{{aiModelName}}",
+        "choices": [
+          {
+            "index": 0,
+            "message": {
+              "role": "assistant",
+              "content": "{\"question\": \"อาการเจ็บที่หน้าอก มีร้าวไปที่แขน คอ หรือกรามด้วยไหมคะ\", \"options\": [\"ร้าวไปแขน\", \"ร้าวไปคอหรือกราม\", \"ไม่ร้าวไปไหน\", \"ไม่แน่ใจ\"]}"
+            },
+            "finish_reason": "stop"
+          }
+        ],
+        "usage": {
+          "prompt_tokens": 0,
+          "completion_tokens": 0,
+          "total_tokens": 0
+        }
+      }
+order: 1000

@@ -1,0 +1,27 @@
+$kind: http-request
+description: |-
+  **Explain — phrase the decision the rules already made**
+
+  Once, at disposition. The department and urgency are inputs, not something the model chooses.
+
+  Carries no patient identifier — see `docs/ai-model-io.md`.
+url: "{{aiModelBaseUrl}}/chat/completions"
+method: POST
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: |-
+    {
+      "model": "{{aiModelName}}",
+      "messages": [
+        {
+          "role": "user",
+          "content": "You are a warm, calm hospital screening assistant speaking English. The clinical rules engine has decided where this patient should go — your ONLY job is to explain it kindly in 2–4 short sentences.\nSTRICT RULES: never mention triage levels, colors, scores, or classifications; never diagnose or name a suspected disease; never recommend medication; do not name any other department.\nPatient's reported symptoms: แน่นหน้าอกมา 2 ชั่วโมง ร้าวไปแขนซ้าย\nSend the patient to: แผนก OPD MED (อายุรกรรม)\nAddress the patient once, naturally, writing the literal token [NAME] exactly where their name belongs (do not invent a name, do not translate the token).\n"
+        }
+      ],
+      "temperature": 0.1,
+      "stream": false
+    }
+examples: ./.resources/explain (en).resources/examples
+order: 8000

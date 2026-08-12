@@ -151,7 +151,12 @@ def build_postman_items() -> list[dict[str, Any]]:
     from postman_gen import JSON_HDR, example_response, pm_url
 
     items = []
-    for call in calls("th"):
+    # Thai is the booth's default; the English variants of the two
+    # patient-facing prompts ship alongside so the hospital can run both.
+    both = list(calls("th")) + [
+        {**c, "id": f"{c['id']} (en)"} for c in calls("en") if c["id"] in BILINGUAL_CALLS
+    ]
+    for call in both:
         body = openai_body(call, MODEL_NAME)
         request = {
             "method": "POST",

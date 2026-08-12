@@ -92,7 +92,7 @@ Context:
 Chief complaint so far: แน่นหน้าอกมา 2 ชั่วโมง
 The assistant just asked: คุณมีอาการเจ็บหน้าอกหรือไม่
 
-Allowed complaint categories (copy ONE id verbatim — never invent or combine ids): generic, chest_pain, dyspnea_cough, abdominal_pain, headache, fever, ear, nose_throat, eye, injury, pregnancy, mental_health, musculoskeletal, urinary
+Allowed complaint categories (copy ONE id verbatim — never invent or combine ids): generic, chest_pain, dyspnea_cough, abdominal_pain, headache, fever, ear, nose_throat, eye, injury, pregnancy, mental_health, musculoskeletal, urinary, wound_skin, gynecology, breast, palpitations, limb_vascular, forensic, gi, skin_rash, chronic_followup, administrative
 Pick the category from what the patient HAS, never from what they deny: "I have
 a fever but no headache" / "มีไข้ แต่ไม่ปวดหัว" is fever, not headache.
 
@@ -103,6 +103,7 @@ Finding catalog (use ONLY these ids):
 - active_bleeding: Heavy bleeding that won't stop / เลือดออกมากไม่หยุด (active bleeding) (also: bleeding a lot, can't stop the bleeding, เลือดไหลไม่หยุด, เลือดออกเยอะมาก)
 - agitation_violent: Severe agitation / violent behavior / คลุ้มคลั่ง อาละวาด (also: out of control, คลุ้มคลั่ง)
 - airway_obstruction: Airway obstruction / choking / ทางเดินหายใจอุดกั้น สำลักติดคอ (also: choking, something stuck in throat blocking breathing, สำลัก, ติดคอหายใจไม่ได้)
+- allergy_history: Known allergy (medication, food, or other) / มีประวัติแพ้ (ยา อาหาร หรืออื่น ๆ) (also: allergic to, drug allergy, food allergy, แพ้ยา, แพ้อาหาร, ประวัติแพ้)
 - allergy_symptoms: Allergy symptoms (sneezing, itchy runny nose) / อาการภูมิแพ้ (จามบ่อย คันจมูก น้ำมูกใส) (also: hay fever, ภูมิแพ้, แพ้อากาศ)
 - amniotic_fluid_leak: Water broke / amniotic fluid leaking / น้ำเดิน น้ำคร่ำไหล (also: water broke, น้ำเดิน)
 - animal_insect_bite_24h: Animal or insect bite/sting within 24 hours / แมลงสัตว์กัดต่อย ภายใน 24 ชั่วโมง (also: dog bite, snake bite, stung, หมากัด, งูกัด, แมลงต่อย)
@@ -115,18 +116,25 @@ Finding catalog (use ONLY these ids):
 - bloody_stool: Fresh blood in stool (recent) / ถ่ายเป็นเลือดสด (also: blood in stool, อุจจาระมีเลือด)
 - blue_lips: Blue lips / cyanosis / ริมฝีปากเขียว ตัวเขียว (also: turning blue, เขียวคล้ำ, ปากเขียว)
 - blurred_vision_sudden: Sudden blurred vision / ตามัว ตาพร่าฉับพลัน (also: vision suddenly blurry, ตามัวฉับพลัน)
+- breast_discharge: Discharge from nipple / มีสารคัดหลั่งจากหัวนม (also: น้ำไหลจากหัวนม)
+- breast_infection_signs: Breast redness, warmth, or swelling (possible infection/abscess) / เต้านมแดง ร้อน หรือบวม (อาจติดเชื้อหรือเป็นฝีหนอง) (also: breast abscess, mastitis, เต้านมอักเสบ, เต้านมบวมแดง)
+- breast_lump: Breast lump / คลำก้อนได้ที่เต้านม (also: lump in breast, ก้อนที่เต้านม)
+- breast_pain: Breast pain / เจ็บเต้านม (also: ปวดเต้านม)
 - burn_scald_24h: Burn or scald within 24 hours / ไฟไหม้ น้ำร้อนลวก ภายใน 24 ชั่วโมง (also: scalded, น้ำร้อนลวก, ไฟลวก)
 - cardiac_arrest: Cardiac arrest / not breathing, no pulse / หัวใจหยุดเต้น ไม่หายใจ ไม่มีชีพจร (also: no pulse, not breathing, collapsed and unresponsive, หัวใจหยุด, ไม่หายใจ, คลำชีพจรไม่ได้)
 - chest_pain: Chest pain / tightness / เจ็บแน่นหน้าอก (also: chest tightness, pressure on chest, chest discomfort, แน่นหน้าอก, เจ็บหน้าอก, จุกแน่นใต้ลิ้นปี่)
 - chest_pain_radiating: Chest pain radiating to neck, jaw, shoulder, or arm / เจ็บหน้าอกร้าวไปคอ กราม ไหล่ หรือแขน (also: pain spreading to jaw, pain going down the arm, เจ็บร้าวไปกราม, เจ็บร้าวไปไหล่)
 - chronic_cough_2w: Cough lasting more than 2 weeks / ไอเรื้อรังมากกว่า 2 สัปดาห์ (also: ไอเรื้อรัง)
+- chronic_wound: Chronic wound (diabetic foot, pressure sore, non-healing ulcer) / แผลเรื้อรัง (แผลเท้าเบาหวาน แผลกดทับ แผลไม่หาย) (also: wound that won't heal, แผลเบาหวาน, แผลกดทับ, แผลเรื้อรัง)
 - confusion: New confusion / drowsiness / disorientation (within 72 hours) / ซึม สับสน เรียกแล้วตอบช้า ภายใน 72 ชั่วโมง (also: disoriented, not making sense, very drowsy, สับสน, ซึมลง, พูดจาสับสน)
 - copd_history: History of COPD / chronic lung disease / มีโรคปอดอุดกั้นเรื้อรัง (COPD) (also: emphysema, ถุงลมโป่งพอง)
 - cough: Cough / ไอ (also: coughing, ไอแห้ง, ไอมีเสมหะ)
 - crowning: Baby is coming / part of baby visible / ทารกกำลังคลอด มีส่วนของทารกโผล่ออกมา (also: baby's head is coming out, เด็กกำลังจะคลอด, อยากเบ่ง)
 - decreased_fetal_movement: Baby moving less than usual / ลูกดิ้นน้อยลง (also: baby not moving much, ทารกดิ้นน้อยลง)
+- dehydration_signs: Signs of dehydration (cannot keep fluids down, little urine, dizzy on standing) / อาการขาดน้ำ (ดื่มน้ำแล้วอาเจียน ปัสสาวะน้อย ลุกแล้วหน้ามืด) (also: can't keep fluids down, dehydrated, ขาดน้ำ, กินน้ำไม่ได้)
 - depression_symptoms: Depressed mood / loss of interest / ซึมเศร้า เบื่อหน่าย ท้อแท้ (also: feeling depressed, เศร้า, หดหู่)
 - diabetes_history: History of diabetes / มีโรคเบาหวาน (also: diabetic, เบาหวาน)
+- dialysis_access_needed: Needs dialysis access creation (fistula / PD catheter) / ทำเส้นฟอกไต เตรียมฟอกไตหน้าท้อง (also: ทำเส้นฟอกไต)
 - diaphoresis: Sweating heavily / cold sweat with symptoms / เหงื่อออกมาก เหงื่อแตก (also: cold sweat, drenched in sweat, เหงื่อแตกท่วมตัว)
 - diarrhea: Diarrhea / ถ่ายเหลว ท้องเสีย (also: loose stools, ท้องร่วง)
 - dyspnea: Difficulty breathing / shortness of breath / หายใจเหนื่อย หายใจหอบ (also: short of breath, breathless, hard to breathe, เหนื่อยหอบ, หายใจไม่อิ่ม, หายใจลำบาก)
@@ -164,10 +172,16 @@ Finding catalog (use ONLY these ids):
 - hoarseness_over_2w: Hoarse voice for more than 2 weeks / เสียงแหบนานเกิน 2 สัปดาห์ (also: voice hoarse for weeks, เสียงแหบเรื้อรัง)
 - home_oxygen: Uses home oxygen / ใช้ออกซิเจนที่บ้าน (also: ให้ออกซิเจนที่บ้าน)
 - hypertension_history: History of high blood pressure / มีโรคความดันโลหิตสูง (also: hypertension, ความดันสูง)
+- hypoglycemia_symptoms: Low blood sugar symptoms (shaky, sweaty, confused, very hungry) / อาการน้ำตาลต่ำ (มือสั่น เหงื่อแตก มึนงง หิวมาก) (also: hypoglycemia, sugar crash, น้ำตาลตก, น้ำตาลต่ำ)
+- immediate_danger: Still in immediate danger / attacker nearby / ยังอยู่ในอันตราย / ผู้ก่อเหตุอยู่ใกล้ (also: not safe, ไม่ปลอดภัย)
 - injury_within_24h: Injury happened within the last 24 hours / บาดเจ็บภายใน 24 ชั่วโมงที่ผ่านมา
+- irregular_pulse: Irregular heartbeat / pulse / หัวใจเต้นผิดจังหวะ ชีพจรไม่สม่ำเสมอ (also: skipping beats, หัวใจเต้นไม่เป็นจังหวะ)
+- limb_ischemia: Cold, painful, or discolored hands/feet; chronic non-healing limb wounds / มือเท้าเย็น ปวดเวลาใช้แขนขา แผลเรื้อรัง/ซีดดำ (also: foot turning black, เท้าดำ, แขนขาขาดเลือด)
 - limb_weakness: Sudden weakness or numbness of arm/leg (one side) / แขนขาอ่อนแรงหรือชาครึ่งซีกฉับพลัน (also: one side weak, arm won't lift, อ่อนแรงครึ่งซีก, ยกแขนไม่ขึ้น, ชาครึ่งซีก)
 - lip_swelling: Swelling of lips, mouth, or face / ปากบวม หน้าบวม (also: swollen lips, face swelling up, ริมฝีปากบวม, หน้าบวม)
+- loc_transient: Brief loss of consciousness after injury / หมดสติหรือสลบชั่วครู่หลังบาดเจ็บ (also: blacked out, knocked out, passed out briefly, สลบ, หมดสติ, วูบหมดสติ)
 - major_trauma_mechanism: Car/motorcycle accident, fall from over 5 metres, or pedestrian hit by vehicle / อุบัติเหตุรถยนต์/จักรยานยนต์ ตกจากที่สูงเกิน 5 เมตร หรือคนเดินถนนถูกรถชน (also: motorbike crash, hit by a car, รถชน, รถล้ม, ตกจากที่สูง)
+- medication_run_out: Regular medication has run out / ยาประจำหมด (also: out of medication, refill, ยาหมด, มารับยา)
 - melena: Black tarry stool (recent) / ถ่ายดำ (also: black stools, อุจจาระสีดำ)
 - missed_period: Missed period / ประจำเดือนขาด (also: late period, เมนส์ไม่มา, ประจำเดือนไม่มา)
 - nasal_flaring: Nostrils flaring when breathing (child) / หายใจปีกจมูกบาน (also: ปีกจมูกบาน)
@@ -182,7 +196,9 @@ Finding catalog (use ONLY these ids):
 - penetrating_injury_torso: Stab or penetrating wound to neck, chest, or abdomen / ถูกแทงที่คอ หน้าอก หรือช่องท้อง (also: stabbed, ถูกแทง, ถูกยิง)
 - police_case: Has police report / forensic referral document / มีใบรายงานชันสูตรหรือใบนำส่งตรวจจากตำรวจ (also: police sent me for examination, มีใบนำส่งจากตำรวจ, คดีความ)
 - pregnancy: Currently pregnant / กำลังตั้งครรภ์ (also: expecting, ท้อง, มีครรภ์)
+- problem_scar: Problem scar (keloid, contracture, chronic painful/itchy scar) / แผลเป็นมีปัญหา (คีลอยด์ แผลเป็นหดรั้ง เจ็บหรือคันเรื้อรัง) (also: keloid, คีลอยด์, แผลเป็นนูน)
 - rash_itching: Itchy rash / hives / ผื่นคัน ลมพิษ (also: hives, ผื่นลมพิษ, ผื่นคันทั้งตัว)
+- rash_rapidly_spreading: Rash spreading rapidly (within hours) / ผื่นลามเร็วภายในไม่กี่ชั่วโมง (also: spreading rash, ผื่นลามเร็ว, ผื่นขึ้นทั้งตัว)
 - rash_vesicles: Red rash or fluid-filled blisters on the body / ผื่นแดงหรือตุ่มน้ำตามร่างกาย (also: blisters, ตุ่มน้ำใส, ผื่นขึ้นตามตัว)
 - recent_chemotherapy: Currently receiving chemotherapy / ได้รับยาเคมีบำบัดอยู่ (also: on chemo, ให้คีโม, รับยาเคมี)
 - retraction: Chest retractions when breathing / หายใจมีอกบุ๋ม (retraction) (also: ribs pulling in when breathing, อกบุ๋ม, ซี่โครงบุ๋ม)
@@ -192,6 +208,7 @@ Finding catalog (use ONLY these ids):
 - severe_morning_sickness: Severe pregnancy vomiting, cannot eat or drink / แพ้ท้องรุนแรงจนกินไม่ได้ (also: แพ้ท้องหนัก)
 - severe_respiratory_distress: Severe breathing difficulty (cannot speak full sentences / must sit up to breathe) / หายใจลำบากรุนแรง พูดเป็นประโยคไม่ได้ ต้องลุกนั่งหายใจ (also: can't speak full sentences, gasping for air, struggling to breathe, หายใจไม่ทัน, พูดไม่เป็นประโยค, หอบมาก)
 - severe_stress: Severe stress / overwhelming distress / เครียดมาก (also: extremely stressed, เครียดหนัก)
+- severe_uncontrolled_pain: Very severe pain that cannot be controlled / ปวดรุนแรงมากจนทนไม่ไหว (also: worst pain, unbearable pain, ปวดมากทนไม่ไหว, ปวดที่สุดในชีวิต)
 - sexual_assault_72h: Sexual assault within 72 hours / ถูกกระทำชำเราภายใน 72 ชั่วโมง (also: ถูกล่วงละเมิดทางเพศ)
 - slurred_speech: Slurred or garbled speech (sudden) / พูดไม่ชัด ลิ้นแข็ง พูดไม่ออกทันที (also: can't get words out, speech suddenly unclear, พูดอ้อแอ้, พูดไม่รู้เรื่องฉับพลัน)
 - smoking: Smoker / สูบบุหรี่ (also: สูบบุหรี่)
@@ -202,12 +219,15 @@ Finding catalog (use ONLY these ids):
 - suicidal_ideation: Thoughts of suicide or wanting to die / มีความคิดอยากตาย อยากฆ่าตัวตาย (also: want to end my life, อยากตาย, คิดสั้น)
 - syncope_24h: Fainting / near-fainting within 24 hours / วูบ หน้ามืด เป็นลม ภายใน 24 ชั่วโมง (also: blacked out, passed out today, เป็นลม, วูบหมดสติ)
 - tinnitus: Ringing or buzzing in the ear / เสียงดังในหู (วิ้ง เสียงแมลง) (also: ringing in ears, หูมีเสียงวิ้ง, เสียงดังในหู)
+- unilateral_leg_swelling: One leg swollen and painful / ขาบวมและปวดข้างเดียว (also: swollen calf, ขาบวมข้างเดียว, น่องบวม)
 - unresponsive: Unresponsive / cannot be woken / ซึมลงปลุกไม่ตื่น ไม่รู้สึกตัว (also: unconscious, won't wake up, passed out and not waking, หมดสติ, ปลุกไม่ตื่น, ไม่ตอบสนอง)
 - uterine_contractions_frequent: Frequent strong contractions (about every 2 minutes) / ท้องแข็ง เจ็บครรภ์ถี่ (ทุก ๆ 2 นาที) (also: contractions every few minutes, เจ็บท้องคลอดถี่, ท้องแข็งถี่)
 - vaginal_bleeding: Vaginal bleeding (abnormal) / เลือดออกทางช่องคลอดผิดปกติ (also: bleeding down there, เลือดออกช่องคลอด)
+- varicose_veins: Varicose veins / เส้นเลือดขอด (also: เส้นเลือดขอด)
 - vertigo: Dizziness / spinning sensation / เวียนศีรษะ บ้านหมุน (also: room spinning, บ้านหมุน, เวียนหัว)
 - vertigo_positional: Spinning dizziness related to head position / บ้านหมุนสัมพันธ์กับท่าทาง (also: dizzy when turning head, บ้านหมุนเวลาเปลี่ยนท่า)
 - vomiting: Vomiting / อาเจียน คลื่นไส้ (also: throwing up, nausea, คลื่นไส้, อ้วก)
+- wound_infection_signs: Wound infection signs (spreading redness, pus, warmth) / แผลมีอาการติดเชื้อ (แดงลาม มีหนอง ร้อน) (also: pus, infected wound, มีหนอง, แผลบวมแดง)
 
 Rules:
 - A denial ("no", "ไม่มีค่ะ", "none of these", "ไม่มีอาการเหล่านี้") of the pending
