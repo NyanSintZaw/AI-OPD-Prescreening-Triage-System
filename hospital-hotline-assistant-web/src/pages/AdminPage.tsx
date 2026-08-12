@@ -10,6 +10,7 @@ import { getAdminEmail, getAdminRole, getAdminToken } from '../api/client';
 import { Layout } from '../components/Layout';
 import { MessageBubble } from '../components/MessageBubble';
 import { BpDeviceManager } from '../components/BpDeviceManager';
+import { TempDeviceManager } from '../components/TempDeviceManager';
 import { OutbreakSurveillance } from '../components/OutbreakSurveillance';
 import { TriageManualUpload } from '../components/TriageManualUpload';
 import { CriteriaManager } from '../components/CriteriaManager';
@@ -393,7 +394,12 @@ export function AdminPage() {
         {activeTab === 'triage-manual' && <TriageManualUpload />}
         {activeTab === 'criteria' && <CriteriaManager />}
         {activeTab === 'criteria-book' && <CriteriaBook />}
-        {activeTab === 'bp-device' && <BpDeviceManager />}
+        {activeTab === 'bp-device' && (
+          <>
+            <BpDeviceManager />
+            <TempDeviceManager />
+          </>
+        )}
         {activeTab === 'hospital-db' && <HospitalDbPanel />}
         {activeTab === 'users' && <UserManagementPanel />}
 

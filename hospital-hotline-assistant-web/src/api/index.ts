@@ -12,6 +12,11 @@ import type {
   BpPairRequest,
   BpPairResponse,
   BpScanResponse,
+  TempDeviceStatusOut,
+  TempPairRequest,
+  TempPairResponse,
+  TempScanResponse,
+  TemperatureFetchResponse,
   ConversationSummaryOut,
   CriteriaActiveView,
   DepartmentOut,
@@ -372,6 +377,14 @@ export const api = {
       { method: 'POST', body: JSON.stringify(payload) },
     ),
 
+  /** Long-poll the kiosk thermometer: resolves when the device pushes a
+   *  measurement (the beep), or with status 'timeout' after timeoutSeconds. */
+  fetchTemperature: (sessionId?: string | null, timeoutSeconds = 60) =>
+    request<TemperatureFetchResponse>('/vitals/temperature/fetch', {
+      method: 'POST',
+      body: JSON.stringify({ session_id: sessionId ?? null, timeout_seconds: timeoutSeconds }),
+    }),
+
   getBpDeviceStatus: () => request<BpDeviceStatusOut>('/admin/bp-device'),
 
   scanBpDevices: () =>
@@ -379,6 +392,17 @@ export const api = {
 
   pairBpDevice: (payload: BpPairRequest) =>
     request<BpPairResponse>('/admin/bp-device/pair', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+
+  getTempDeviceStatus: () => request<TempDeviceStatusOut>('/admin/temp-device'),
+
+  scanTempDevices: () =>
+    request<TempScanResponse>('/admin/temp-device/scan', { method: 'POST' }),
+
+  pairTempDevice: (payload: TempPairRequest) =>
+    request<TempPairResponse>('/admin/temp-device/pair', {
       method: 'POST',
       body: JSON.stringify(payload),
     }),
