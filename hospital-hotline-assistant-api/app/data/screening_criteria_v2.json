@@ -3557,6 +3557,18 @@
      "text_th": "อาการปวดรุนแรงมากจนทนไม่ไหวเลยไหมคะ",
      "priority": 4,
      "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 4 (decision point B — high-risk presentation)"
+    },
+    {
+     "id": "gen_temp",
+     "kind": "measurement",
+     "vital": "temp",
+     "finding_ids": [
+      "fever"
+     ],
+     "text_en": "Please measure your temperature at the booth and enter it in °C.",
+     "text_th": "กรุณาวัดอุณหภูมิที่จุดคัดกรองแล้วกรอกค่าเป็นองศาเซลเซียสค่ะ",
+     "priority": 6,
+     "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (decision point D — temperature red flags, Table 6-2); MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย)"
     }
    ]
   },
@@ -4298,6 +4310,18 @@
      "text_th": "กรุณาวัดความดันโลหิตตอนนี้ — ใช้เครื่องข้างตัวคุณหรือพิมพ์ตัวเลขก็ได้",
      "priority": 7,
      "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (decision point D — full vital signs at triage); MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย)"
+    },
+    {
+     "id": "ap_temp",
+     "kind": "measurement",
+     "vital": "temp",
+     "finding_ids": [
+      "fever"
+     ],
+     "text_en": "Please measure your temperature at the booth and enter it in °C.",
+     "text_th": "กรุณาวัดอุณหภูมิที่จุดคัดกรองแล้วกรอกค่าเป็นองศาเซลเซียสค่ะ",
+     "priority": 6,
+     "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (decision point D — temperature red flags, Table 6-2); MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย)"
     }
    ]
   },
@@ -4542,6 +4566,18 @@
      "text_th": "กรุณาวัดความดันโลหิตตอนนี้ — ใช้เครื่องข้างตัวคุณหรือพิมพ์ตัวเลขก็ได้",
      "priority": 7,
      "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (decision point D — full vital signs at triage); MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย)"
+    },
+    {
+     "id": "hd_temp",
+     "kind": "measurement",
+     "vital": "temp",
+     "finding_ids": [
+      "fever"
+     ],
+     "text_en": "Please measure your temperature at the booth and enter it in °C.",
+     "text_th": "กรุณาวัดอุณหภูมิที่จุดคัดกรองแล้วกรอกค่าเป็นองศาเซลเซียสค่ะ",
+     "priority": 6,
+     "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (decision point D — temperature red flags, Table 6-2); MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย)"
     }
    ]
   },
@@ -4908,6 +4944,18 @@
      "text_th": "กรุณาวัดความดันโลหิตตอนนี้ — ใช้เครื่องข้างตัวคุณหรือพิมพ์ตัวเลขก็ได้",
      "priority": 7,
      "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (decision point D — full vital signs at triage); MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย)"
+    },
+    {
+     "id": "ear_temp",
+     "kind": "measurement",
+     "vital": "temp",
+     "finding_ids": [
+      "fever"
+     ],
+     "text_en": "Please measure your temperature at the booth and enter it in °C.",
+     "text_th": "กรุณาวัดอุณหภูมิที่จุดคัดกรองแล้วกรอกค่าเป็นองศาเซลเซียสค่ะ",
+     "priority": 6,
+     "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (decision point D — temperature red flags, Table 6-2); MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย)"
     }
    ]
   },
@@ -5050,6 +5098,18 @@
      "text_th": "กรุณาวัดความดันโลหิตตอนนี้ — ใช้เครื่องข้างตัวคุณหรือพิมพ์ตัวเลขก็ได้",
      "priority": 7,
      "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (decision point D — full vital signs at triage); MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย)"
+    },
+    {
+     "id": "nt_temp",
+     "kind": "measurement",
+     "vital": "temp",
+     "finding_ids": [
+      "fever"
+     ],
+     "text_en": "Please measure your temperature at the booth and enter it in °C.",
+     "text_th": "กรุณาวัดอุณหภูมิที่จุดคัดกรองแล้วกรอกค่าเป็นองศาเซลเซียสค่ะ",
+     "priority": 6,
+     "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (decision point D — temperature red flags, Table 6-2); MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย)"
     }
    ]
   },
@@ -5942,6 +6002,18 @@
      "text_th": "กรุณาวัดความดันโลหิตตอนนี้ — ใช้เครื่องข้างตัวคุณหรือพิมพ์ตัวเลขก็ได้",
      "priority": 7,
      "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (decision point D — full vital signs at triage); MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย)"
+    },
+    {
+     "id": "ur_temp",
+     "kind": "measurement",
+     "vital": "temp",
+     "finding_ids": [
+      "fever"
+     ],
+     "text_en": "Please measure your temperature at the booth and enter it in °C.",
+     "text_th": "กรุณาวัดอุณหภูมิที่จุดคัดกรองแล้วกรอกค่าเป็นองศาเซลเซียสค่ะ",
+     "priority": 6,
+     "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (decision point D — temperature red flags, Table 6-2); MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย)"
     }
    ]
   },
@@ -6168,6 +6240,27 @@
      "text_en": "Is it a long-standing wound, a problem scar, an animal or insect bite, or a burn?",
      "text_th": "เป็นแผลเรื้อรัง แผลเป็นมีปัญหา ถูกสัตว์หรือแมลงกัด หรือแผลไฟไหม้น้ำร้อนลวกไหมคะ",
      "priority": 50
+    },
+    {
+     "id": "ws_temp",
+     "kind": "measurement",
+     "vital": "temp",
+     "finding_ids": [
+      "fever"
+     ],
+     "text_en": "Please measure your temperature at the booth and enter it in °C.",
+     "text_th": "กรุณาวัดอุณหภูมิที่จุดคัดกรองแล้วกรอกค่าเป็นองศาเซลเซียสค่ะ",
+     "priority": 6,
+     "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (decision point D — temperature red flags, Table 6-2); MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย)"
+    },
+    {
+     "id": "ws_bp",
+     "kind": "measurement",
+     "vital": "sbp",
+     "text_en": "Please measure your blood pressure now — you can use the machine beside you or type the numbers.",
+     "text_th": "กรุณาวัดความดันโลหิตตอนนี้ — ใช้เครื่องข้างตัวคุณหรือพิมพ์ตัวเลขก็ได้",
+     "priority": 7,
+     "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (decision point D — full vital signs at triage); MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย)"
     }
    ]
   },
@@ -6332,6 +6425,27 @@
      "text_en": "Do you have any bleeding or fever as well?",
      "text_th": "มีเลือดออกหรือมีไข้ร่วมด้วยไหมคะ",
      "priority": 50
+    },
+    {
+     "id": "gyn_temp",
+     "kind": "measurement",
+     "vital": "temp",
+     "finding_ids": [
+      "fever"
+     ],
+     "text_en": "Please measure your temperature at the booth and enter it in °C.",
+     "text_th": "กรุณาวัดอุณหภูมิที่จุดคัดกรองแล้วกรอกค่าเป็นองศาเซลเซียสค่ะ",
+     "priority": 6,
+     "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (decision point D — temperature red flags, Table 6-2); MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย)"
+    },
+    {
+     "id": "gyn_bp",
+     "kind": "measurement",
+     "vital": "sbp",
+     "text_en": "Please measure your blood pressure now — you can use the machine beside you or type the numbers.",
+     "text_th": "กรุณาวัดความดันโลหิตตอนนี้ — ใช้เครื่องข้างตัวคุณหรือพิมพ์ตัวเลขก็ได้",
+     "priority": 7,
+     "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (decision point D — full vital signs at triage); MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย)"
     }
    ]
   },
@@ -6474,6 +6588,27 @@
      "text_en": "Do you have a lump, pain, or discharge from the nipple?",
      "text_th": "มีก้อน เจ็บเต้านม หรือน้ำไหลจากหัวนมไหมคะ",
      "priority": 50
+    },
+    {
+     "id": "br_temp",
+     "kind": "measurement",
+     "vital": "temp",
+     "finding_ids": [
+      "fever"
+     ],
+     "text_en": "Please measure your temperature at the booth and enter it in °C.",
+     "text_th": "กรุณาวัดอุณหภูมิที่จุดคัดกรองแล้วกรอกค่าเป็นองศาเซลเซียสค่ะ",
+     "priority": 6,
+     "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (decision point D — temperature red flags, Table 6-2); MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย)"
+    },
+    {
+     "id": "br_bp",
+     "kind": "measurement",
+     "vital": "sbp",
+     "text_en": "Please measure your blood pressure now — you can use the machine beside you or type the numbers.",
+     "text_th": "กรุณาวัดความดันโลหิตตอนนี้ — ใช้เครื่องข้างตัวคุณหรือพิมพ์ตัวเลขก็ได้",
+     "priority": 7,
+     "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (decision point D — full vital signs at triage); MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย)"
     }
    ]
   },
@@ -6800,6 +6935,15 @@
      "text_en": "Do you have varicose veins, swelling, or do you need dialysis access care?",
      "text_th": "มีเส้นเลือดขอด อาการบวม หรือต้องดูแลเส้นฟอกไตไหมคะ",
      "priority": 50
+    },
+    {
+     "id": "lv_bp",
+     "kind": "measurement",
+     "vital": "sbp",
+     "text_en": "Please measure your blood pressure now — you can use the machine beside you or type the numbers.",
+     "text_th": "กรุณาวัดความดันโลหิตตอนนี้ — ใช้เครื่องข้างตัวคุณหรือพิมพ์ตัวเลขก็ได้",
+     "priority": 7,
+     "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (decision point D — full vital signs at triage); MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย)"
     }
    ]
   },
@@ -6917,6 +7061,15 @@
      "text_en": "Has this been reported to the police, or would you like it to be?",
      "text_th": "ได้แจ้งความกับตำรวจแล้ว หรือต้องการแจ้งความไหมคะ",
      "priority": 30
+    },
+    {
+     "id": "fo_bp",
+     "kind": "measurement",
+     "vital": "sbp",
+     "text_en": "Please measure your blood pressure now — you can use the machine beside you or type the numbers.",
+     "text_th": "กรุณาวัดความดันโลหิตตอนนี้ — ใช้เครื่องข้างตัวคุณหรือพิมพ์ตัวเลขก็ได้",
+     "priority": 7,
+     "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (decision point D — full vital signs at triage); MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย)"
     }
    ]
   },
@@ -7078,6 +7231,27 @@
      "text_en": "Do you also have fever or stomach pain?",
      "text_th": "มีไข้หรือปวดท้องร่วมด้วยไหมคะ",
      "priority": 50
+    },
+    {
+     "id": "gi_temp",
+     "kind": "measurement",
+     "vital": "temp",
+     "finding_ids": [
+      "fever"
+     ],
+     "text_en": "Please measure your temperature at the booth and enter it in °C.",
+     "text_th": "กรุณาวัดอุณหภูมิที่จุดคัดกรองแล้วกรอกค่าเป็นองศาเซลเซียสค่ะ",
+     "priority": 6,
+     "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (decision point D — temperature red flags, Table 6-2); MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย)"
+    },
+    {
+     "id": "gi_bp",
+     "kind": "measurement",
+     "vital": "sbp",
+     "text_en": "Please measure your blood pressure now — you can use the machine beside you or type the numbers.",
+     "text_th": "กรุณาวัดความดันโลหิตตอนนี้ — ใช้เครื่องข้างตัวคุณหรือพิมพ์ตัวเลขก็ได้",
+     "priority": 7,
+     "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (decision point D — full vital signs at triage); MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย)"
     }
    ]
   },
@@ -7239,6 +7413,27 @@
      "text_en": "Is it itchy, are there blisters, or do you have known allergies?",
      "text_th": "มีอาการคัน มีตุ่มน้ำ หรือมีประวัติแพ้อะไรไหมคะ",
      "priority": 50
+    },
+    {
+     "id": "sr_temp",
+     "kind": "measurement",
+     "vital": "temp",
+     "finding_ids": [
+      "fever"
+     ],
+     "text_en": "Please measure your temperature at the booth and enter it in °C.",
+     "text_th": "กรุณาวัดอุณหภูมิที่จุดคัดกรองแล้วกรอกค่าเป็นองศาเซลเซียสค่ะ",
+     "priority": 6,
+     "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (decision point D — temperature red flags, Table 6-2); MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย)"
+    },
+    {
+     "id": "sr_bp",
+     "kind": "measurement",
+     "vital": "sbp",
+     "text_en": "Please measure your blood pressure now — you can use the machine beside you or type the numbers.",
+     "text_th": "กรุณาวัดความดันโลหิตตอนนี้ — ใช้เครื่องข้างตัวคุณหรือพิมพ์ตัวเลขก็ได้",
+     "priority": 7,
+     "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (decision point D — full vital signs at triage); MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย)"
     }
    ]
   },
@@ -7428,6 +7623,15 @@
        "text_th": "อย่างอื่น"
       }
      ]
+    },
+    {
+     "id": "ad_bp",
+     "kind": "measurement",
+     "vital": "sbp",
+     "text_en": "Please measure your blood pressure now — you can use the machine beside you or type the numbers.",
+     "text_th": "กรุณาวัดความดันโลหิตตอนนี้ — ใช้เครื่องข้างตัวคุณหรือพิมพ์ตัวเลขก็ได้",
+     "priority": 7,
+     "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (decision point D — full vital signs at triage); MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย)"
     }
    ]
   }

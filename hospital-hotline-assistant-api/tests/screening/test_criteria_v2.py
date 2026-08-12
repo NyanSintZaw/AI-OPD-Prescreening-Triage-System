@@ -90,7 +90,15 @@ def test_new_templates_fully_bilingual(criteria):
         if template.category not in new:
             continue
         assert template.label_en.strip() and template.label_th.strip()
-        assert 1 <= len(template.questions) <= 8, template.category
+        # The cap guards INTERVIEW length — how much the patient is asked.
+        # Measurement questions are booth actions, not interview turns: BP is
+        # a standard vital in every template, and temp only fires once fever
+        # is reported. Counting them would have blocked adding vitals to the
+        # templates that were missing them (2026-08-11), while the older
+        # templates this test does not cover already carry 11 questions each.
+        # Runtime length is bounded separately by question_budget.
+        asked = [q for q in template.questions if q.kind != "measurement"]
+        assert 1 <= len(asked) <= 8, template.category
         for q in template.questions:
             assert q.text_en.strip(), q.id
             assert q.text_th.strip(), q.id

@@ -1,0 +1,384 @@
+{
+  "meta": {
+    "dry_run": false,
+    "criteria_mode": "v2",
+    "model_label": "screening:vertexai:gemini-3.1-flash-lite",
+    "language_filter": null,
+    "generated_utc": "2026-08-12T06:15:43.203521+00:00"
+  },
+  "aggregates": {
+    "vignettes": 3,
+    "passed": 2,
+    "undertriage_rate_pct": 0.0,
+    "undertriage_ci95": null,
+    "undertriage_misses": [],
+    "critical_vignettes": 0,
+    "level_exact_pct": 100.0,
+    "level_within_1_pct": 100.0,
+    "qwk": 1.0,
+    "category_pct": 66.7,
+    "department_pct": 100.0,
+    "leak_count": 0,
+    "avg_turns": 9.0,
+    "total_wall_time_s": 58.4,
+    "by_language": {
+      "th": {
+        "vignettes": 3,
+        "passed": 2,
+        "undertriage_rate_pct": 0.0,
+        "undertriage_ci95": null,
+        "undertriage_misses": [],
+        "critical_vignettes": 0,
+        "level_exact_pct": 100.0,
+        "level_within_1_pct": 100.0,
+        "qwk": 1.0,
+        "category_pct": 66.7,
+        "department_pct": 100.0,
+        "leak_count": 0,
+        "avg_turns": 9.0,
+        "total_wall_time_s": 58.4
+      }
+    }
+  },
+  "results": [
+    {
+      "id": "inj_th_cut",
+      "language": "th",
+      "description": "มีดบาดนิ้ว แผลตื้น เลือดหยุดแล้ว — ทำแผล routine",
+      "category_expected": [
+        "injury"
+      ],
+      "category_actual": "wound_skin",
+      "category_ok": false,
+      "level_expected": [
+        4,
+        5
+      ],
+      "level_actual": 5,
+      "level_ok": true,
+      "within_1": true,
+      "undertriage_expected": false,
+      "undertriage_critical_fail": false,
+      "department_expected": [
+        "opd_surgery",
+        "opd_general"
+      ],
+      "department_actual": "opd_general",
+      "department_ok": true,
+      "must_ask_missing": [
+        "inj_bleeding"
+      ],
+      "leaks": [],
+      "turns": 9,
+      "wall_time_s": 21.01,
+      "passed": false,
+      "fail_reasons": [
+        "category 'wound_skin' not in ['injury']",
+        "must_ask not asked: ['inj_bleeding']"
+      ],
+      "transcript": [
+        {
+          "turn": 1,
+          "patient": "โดนมีดบาดนิ้วตอนหั่นหมูค่ะ แผลไม่ลึกมาก กดแผลไว้แล้วตอนนี้เลือดหยุดแล้ว",
+          "question_id": "uq_breathing",
+          "reply": "ตอนนี้คุณหายใจลำบากหรือหายใจเหนื่อยไหมคะ",
+          "awaiting_measurement": null,
+          "classified": false
+        },
+        {
+          "turn": 2,
+          "patient": "หายใจปกติค่ะ",
+          "question_id": "ws_infection",
+          "reply": "รอบแผลแดงลาม ร้อน มีหนอง หรือมีไข้ร่วมด้วยไหมคะ",
+          "awaiting_measurement": null,
+          "classified": false
+        },
+        {
+          "turn": 3,
+          "patient": "ไม่มีค่ะ",
+          "question_id": "ws_bp",
+          "reply": "กรุณาวัดความดันโลหิตตอนนี้ — ใช้เครื่องข้างตัวคุณหรือพิมพ์ตัวเลขก็ได้",
+          "awaiting_measurement": "sbp",
+          "classified": false
+        },
+        {
+          "turn": 4,
+          "patient": "วัดแล้วค่ะ",
+          "question_id": "ws_duration",
+          "reply": "แผลที่นิ้วของคุณเกิดขึ้นมานานหรือยังคะ",
+          "awaiting_measurement": null,
+          "classified": false
+        },
+        {
+          "turn": 5,
+          "patient": "ไม่มีค่ะ",
+          "question_id": "ws_character",
+          "reply": "แผลที่นิ้วของคุณมีลักษณะเป็นอย่างไรบ้างคะ เช่น แผลลึกหรือกว้างแค่ไหน",
+          "awaiting_measurement": null,
+          "classified": false
+        },
+        {
+          "turn": 6,
+          "patient": "ไม่มีค่ะ",
+          "question_id": "ws_severity",
+          "reply": "ให้คะแนนความเจ็บ 0 ถึง 10 ตอนนี้ประมาณเท่าไหร่คะ",
+          "awaiting_measurement": null,
+          "classified": false
+        },
+        {
+          "turn": 7,
+          "patient": "สัก 2 ค่ะ",
+          "question_id": "ws_associated",
+          "reply": "นอกจากแผลที่นิ้วแล้ว คุณมีแผลจากสาเหตุอื่น เช่น แผลไฟไหม้ น้ำร้อนลวก หรือแผลที่เกิดจากสัตว์กัดด้วยไหมคะ",
+          "awaiting_measurement": null,
+          "classified": false
+        },
+        {
+          "turn": 8,
+          "patient": "ไม่มีค่ะ",
+          "question_id": "pd_weight_height",
+          "reply": "กรุณากรอกน้ำหนักและส่วนสูงเพื่อให้ข้อมูลในบัตรครบถ้วน",
+          "awaiting_measurement": "weight",
+          "classified": false
+        },
+        {
+          "turn": 9,
+          "patient": "วัดแล้วค่ะ",
+          "question_id": null,
+          "reply": "จากอาการที่คุณแจ้งมา เพื่อให้ได้รับการดูแลที่เหมาะสมและรวดเร็วที่สุด ขอเชิญคุณไปติดต่อที่แผนก OPD เวชปฏิบัติทั่วไปได้เลยค่ะ เจ้าหน้าที่ที่นั่นพร้อมดูแลและทำแผลให้คุณแล้วค่ะ ก่อนไปนะคะ มีอะไรอยากถามหรืออยากบอกคุณหมอไหมคะ ดิฉันจะจดไว้ให้ค่ะ",
+          "awaiting_measurement": null,
+          "classified": true
+        },
+        {
+          "turn": 10,
+          "patient": "ไม่มีแล้วค่ะ ขอบคุณค่ะ",
+          "reply": "ได้ค่ะ กรุณาไปที่OPD เวชปฏิบัติทั่วไปนะคะ ดูแลตัวเองด้วยนะคะ",
+          "post_disposition": true
+        }
+      ]
+    },
+    {
+      "id": "ur_th_flank_fever",
+      "language": "th",
+      "description": "ฉี่แสบขัด + ไข้หนาวสั่น + ปวดบั้นเอว — กรวยไตอักเสบ urgent",
+      "category_expected": [
+        "urinary"
+      ],
+      "category_actual": "urinary",
+      "category_ok": true,
+      "level_expected": [
+        2,
+        3
+      ],
+      "level_actual": 3,
+      "level_ok": true,
+      "within_1": true,
+      "undertriage_expected": false,
+      "undertriage_critical_fail": false,
+      "department_expected": [
+        "emergency",
+        "opd_internal_medicine",
+        "opd_general"
+      ],
+      "department_actual": "opd_general",
+      "department_ok": true,
+      "must_ask_missing": [],
+      "leaks": [],
+      "turns": 9,
+      "wall_time_s": 17.29,
+      "passed": true,
+      "fail_reasons": [],
+      "transcript": [
+        {
+          "turn": 1,
+          "patient": "ฉี่แสบขัดมาสามวันค่ะ วันนี้มีไข้หนาวสั่นด้วย แล้วก็ปวดบั้นเอวข้างขวา",
+          "question_id": "uq_breathing",
+          "reply": "ตอนนี้คุณหายใจลำบากหรือหายใจเหนื่อยไหมคะ",
+          "awaiting_measurement": null,
+          "classified": false
+        },
+        {
+          "turn": 2,
+          "patient": "หายใจปกติค่ะ",
+          "question_id": "ur_fever_flank",
+          "reply": "มีไข้หรืออาเจียนร่วมกับอาการปัสสาวะไหมคะ",
+          "awaiting_measurement": null,
+          "classified": false
+        },
+        {
+          "turn": 3,
+          "patient": "มีไข้หนาวสั่นค่ะ ปวดบั้นเอวขวาด้วย",
+          "question_id": "ur_fever_flank",
+          "reply": "มีไข้หรืออาเจียนร่วมกับอาการปัสสาวะไหมคะ",
+          "awaiting_measurement": null,
+          "classified": false
+        },
+        {
+          "turn": 4,
+          "patient": "มีไข้หนาวสั่นค่ะ ปวดบั้นเอวขวาด้วย",
+          "question_id": "ur_temp",
+          "reply": "กรุณาวัดอุณหภูมิที่จุดคัดกรองแล้วกรอกค่าเป็นองศาเซลเซียสค่ะ",
+          "awaiting_measurement": "temp",
+          "classified": false
+        },
+        {
+          "turn": 5,
+          "patient": "วัดแล้วค่ะ",
+          "question_id": "ur_bp",
+          "reply": "กรุณาวัดความดันโลหิตตอนนี้ — ใช้เครื่องข้างตัวคุณหรือพิมพ์ตัวเลขก็ได้",
+          "awaiting_measurement": "sbp",
+          "classified": false
+        },
+        {
+          "turn": 6,
+          "patient": "วัดแล้วค่ะ",
+          "question_id": "ur_onset",
+          "reply": "นอกจากอาการปวดและไข้ที่คุณเล่ามา คุณมีอาการคลื่นไส้ อาเจียน หรือถ่ายเหลวร่วมด้วยไหมคะ",
+          "awaiting_measurement": null,
+          "classified": false
+        },
+        {
+          "turn": 7,
+          "patient": "สามวันก่อนค่ะ",
+          "question_id": "ur_character",
+          "reply": "นอกจากอาการแสบขัดแล้ว คุณสังเกตเห็นว่ามีเลือดปนมากับปัสสาวะ หรือมีอาการปัสสาวะไม่ออกบ้างไหมคะ",
+          "awaiting_measurement": null,
+          "classified": false
+        },
+        {
+          "turn": 8,
+          "patient": "แสบขัดตอนฉี่ ฉี่บ่อยด้วยค่ะ",
+          "question_id": "pd_weight_height",
+          "reply": "กรุณากรอกน้ำหนักและส่วนสูงเพื่อให้ข้อมูลในบัตรครบถ้วน",
+          "awaiting_measurement": "weight",
+          "classified": false
+        },
+        {
+          "turn": 9,
+          "patient": "วัดแล้วค่ะ",
+          "question_id": null,
+          "reply": "จากอาการที่คุณแจ้งมา ทางโรงพยาบาลขอแนะนำให้คุณไปติดต่อที่แผนก OPD เวชปฏิบัติทั่วไปครับ เจ้าหน้าที่ประจำแผนกจะรอรับคุณเพื่อดำเนินการในขั้นตอนถัดไปครับ ก่อนไปนะคะ มีอะไรอยากถามหรืออยากบอกคุณหมอไหมคะ ดิฉันจะจดไว้ให้ค่ะ",
+          "awaiting_measurement": null,
+          "classified": true
+        },
+        {
+          "turn": 10,
+          "patient": "ไม่มีแล้วค่ะ ขอบคุณค่ะ",
+          "reply": "ได้ค่ะ กรุณาไปที่OPD เวชปฏิบัติทั่วไปนะคะ ดูแลตัวเองด้วยนะคะ",
+          "post_disposition": true
+        }
+      ]
+    },
+    {
+      "id": "gen_th_diarrhea",
+      "language": "th",
+      "description": "Generic fall-through: ท้องเสียถ่ายเหลวหลายรอบ ไม่มีเลือด ไม่ช็อก",
+      "category_expected": [
+        "gi"
+      ],
+      "category_actual": "gi",
+      "category_ok": true,
+      "level_expected": [
+        3,
+        4
+      ],
+      "level_actual": 4,
+      "level_ok": true,
+      "within_1": true,
+      "undertriage_expected": false,
+      "undertriage_critical_fail": false,
+      "department_expected": [
+        "opd_general",
+        "opd_internal_medicine"
+      ],
+      "department_actual": "opd_general",
+      "department_ok": true,
+      "must_ask_missing": [],
+      "leaks": [],
+      "turns": 9,
+      "wall_time_s": 20.08,
+      "passed": true,
+      "fail_reasons": [],
+      "transcript": [
+        {
+          "turn": 1,
+          "patient": "ท้องเสียตั้งแต่เมื่อคืนค่ะ เข้าห้องน้ำไปห้าหกรอบแล้ว ถ่ายเป็นน้ำเลยแต่ไม่มีเลือดปน",
+          "question_id": "uq_breathing",
+          "reply": "ตอนนี้คุณหายใจลำบากหรือหายใจเหนื่อยไหมคะ",
+          "awaiting_measurement": null,
+          "classified": false
+        },
+        {
+          "turn": 2,
+          "patient": "หายใจปกติค่ะ",
+          "question_id": "gi_blood",
+          "reply": "อาเจียนเป็นเลือด ถ่ายเป็นเลือด หรือถ่ายดำไหมคะ",
+          "awaiting_measurement": null,
+          "classified": false
+        },
+        {
+          "turn": 3,
+          "patient": "ไม่มีค่ะ",
+          "question_id": "gi_dehydration",
+          "reply": "ดื่มน้ำแล้วอาเจียนออกหมด ปัสสาวะน้อยลงมาก หรือลุกแล้วหน้ามืดไหมคะ",
+          "awaiting_measurement": null,
+          "classified": false
+        },
+        {
+          "turn": 4,
+          "patient": "ไม่มีค่ะ",
+          "question_id": "gi_severe_pain",
+          "reply": "ปวดท้องรุนแรงมากจนทนไม่ไหวไหมคะ",
+          "awaiting_measurement": null,
+          "classified": false
+        },
+        {
+          "turn": 5,
+          "patient": "ไม่มีค่ะ",
+          "question_id": "gi_bp",
+          "reply": "กรุณาวัดความดันโลหิตตอนนี้ — ใช้เครื่องข้างตัวคุณหรือพิมพ์ตัวเลขก็ได้",
+          "awaiting_measurement": "sbp",
+          "classified": false
+        },
+        {
+          "turn": 6,
+          "patient": "วัดแล้วค่ะ",
+          "question_id": "gi_character",
+          "reply": "วันนี้คุณมีอาการถ่ายเหลวหรืออาเจียนรวมกันประมาณกี่ครั้งแล้วคะ",
+          "awaiting_measurement": null,
+          "classified": false
+        },
+        {
+          "turn": 7,
+          "patient": "ถ่ายเหลวเป็นน้ำค่ะ ปวดบิดๆ ท้อง",
+          "question_id": "gi_associated",
+          "reply": "นอกจากอาการท้องเสียแล้ว ตอนนี้คุณมีไข้ร่วมด้วยไหมคะ",
+          "awaiting_measurement": null,
+          "classified": false
+        },
+        {
+          "turn": 8,
+          "patient": "ไม่มีค่ะ",
+          "question_id": "pd_weight_height",
+          "reply": "กรุณากรอกน้ำหนักและส่วนสูงเพื่อให้ข้อมูลในบัตรครบถ้วน",
+          "awaiting_measurement": "weight",
+          "classified": false
+        },
+        {
+          "turn": 9,
+          "patient": "วัดแล้วค่ะ",
+          "question_id": null,
+          "reply": "จากอาการที่คุณแจ้งมา ทางโรงพยาบาลขอแนะนำให้คุณไปติดต่อที่แผนก OPD เวชปฏิบัติทั่วไปครับ เจ้าหน้าที่ประจำแผนกจะรอรับคุณเพื่อดำเนินการในขั้นตอนถัดไปครับ ก่อนไปนะคะ มีอะไรอยากถามหรืออยากบอกคุณหมอไหมคะ ดิฉันจะจดไว้ให้ค่ะ",
+          "awaiting_measurement": null,
+          "classified": true
+        },
+        {
+          "turn": 10,
+          "patient": "ไม่มีแล้วค่ะ ขอบคุณค่ะ",
+          "reply": "ได้ค่ะ กรุณาไปที่OPD เวชปฏิบัติทั่วไปนะคะ ดูแลตัวเองด้วยนะคะ",
+          "post_disposition": true
+        }
+      ]
+    }
+  ]
+}
