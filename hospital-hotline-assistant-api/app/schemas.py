@@ -110,7 +110,11 @@ class LinkVisitResponse(BaseModel):
     appointment: bool = False
     has_his_vitals: bool = False
     is_first_time: bool = False
-    hn: str | None = None
+    # No `hn`: this endpoint is unauthenticated by design — the VN the patient
+    # types IS the credential — so it must return only what the kiosk renders.
+    # Nothing consumed the HN (the admin panel gets it from its own API), and
+    # handing a hospital number to anyone who guesses a VN is the same leak
+    # that was just closed on GET /sessions/by-visit.
 
 
 class PatientHistoryIntakeRequest(BaseModel):
@@ -127,7 +131,8 @@ class PatientHistoryIntakeResponse(BaseModel):
     saved: bool
     pushed_to_his: bool
     is_first_time: bool = False
-    hn: str | None = None
+    # No `hn`: the kiosk never renders it, and a patient-facing response has no
+    # reason to carry a hospital number back to the browser.
 
 
 class BpFetchRequest(BaseModel):

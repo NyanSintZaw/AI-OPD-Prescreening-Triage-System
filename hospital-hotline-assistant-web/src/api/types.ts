@@ -644,7 +644,6 @@ export interface LinkVisitResponse {
   appointment?: boolean;
   has_his_vitals?: boolean;
   is_first_time?: boolean;
-  hn?: string | null;
 }
 
 /** Lookup an in-progress session already linked to this hospital visit (VN). */

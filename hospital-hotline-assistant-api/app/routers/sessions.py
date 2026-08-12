@@ -172,7 +172,6 @@ async def link_visit(
         is_first_time=bool(
             info.patient_history.is_first_time if info.patient_history else True
         ),
-        hn=info.patient_id,
     )
 
 
@@ -264,7 +263,6 @@ async def save_patient_history(
         saved=result["saved"],
         pushed_to_his=result["pushed_to_his"],
         is_first_time=False,
-        hn=result["hn"],
     )
 
 
