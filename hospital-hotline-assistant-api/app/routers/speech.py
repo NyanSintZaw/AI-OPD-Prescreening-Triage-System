@@ -7,8 +7,7 @@ from fastapi import (
     UploadFile,
 )
 from fastapi.responses import Response
-from app.services.google_stt import GoogleSttClient
-from app.services.google_tts import GoogleTtsClient
+from app.services.speech_adapter import SttClient, TtsClient
 
 logger = logging.getLogger(__name__)
 from app.schemas import (
@@ -24,7 +23,7 @@ router = APIRouter()
 async def text_to_speech(payload: TtsRequest, request: Request):
     """Synthesize speech for the given text. Returns audio/mpeg (MP3) bytes."""
 
-    tts_client: GoogleTtsClient = request.app.state.tts_client
+    tts_client: TtsClient = request.app.state.tts_client
     try:
         audio_bytes = await tts_client.synthesize(
             text=payload.text,
@@ -57,7 +56,7 @@ async def speech_to_text(
     if not audio_bytes:
         raise HTTPException(status_code=400, detail="audio file is empty")
 
-    stt_client: GoogleSttClient = request.app.state.stt_client
+    stt_client: SttClient = request.app.state.stt_client
     try:
         result = await stt_client.transcribe(
             audio_bytes=audio_bytes,

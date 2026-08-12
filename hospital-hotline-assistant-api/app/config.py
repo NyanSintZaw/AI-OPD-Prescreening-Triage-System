@@ -83,6 +83,22 @@ class Settings(BaseSettings):
     # `list_voices` works (Neural2 fallbacks: th-TH-Neural2-C / en-US-Neural2-F).
     tts_voice_th: str = "th-TH-Chirp3-HD-Leda"
     tts_voice_en: str = "en-US-Chirp3-HD-Leda"
+    # Speech backends (app/services/speech_adapter.py): "google" (default,
+    # Cloud STT/TTS) or "openai_compatible" — any OpenAI-audio-compatible HTTP
+    # server (faster-whisper-server/Speaches, kokoro-fastapi/openedai-speech)
+    # so patient AUDIO never leaves the hospital. Base URLs include /v1.
+    stt_provider: str = "google"
+    stt_base_url: str | None = None
+    stt_model: str = "whisper-1"
+    stt_api_key: str | None = None
+    tts_provider: str = "google"
+    tts_base_url: str | None = None
+    tts_model: str = "tts-1"
+    tts_api_key: str | None = None
+    # Local voices, per language (the Chirp names above are Google-only).
+    tts_local_voice_th: str = "alloy"
+    tts_local_voice_en: str = "alloy"
+    speech_http_timeout_s: float = 30.0
     # Button-first turn taking (product decision 2026-07-27): the patient
     # ends their turn with "I'm finished speaking". Silence auto-detect is
     # only a safety net for patients who never tap — long enough that it

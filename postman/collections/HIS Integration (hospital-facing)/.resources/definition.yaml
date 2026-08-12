@@ -14,7 +14,7 @@ description: |-
 
   *The calls our adapter makes against our own demo mock HIS live in a separate collection, `Mock HIS (demo only)` — they are our assumptions, not your API.*
 auth:
-  - id: 6b106c6d-809c-4239-abad-87dcc3234be7
+  - id: 59b01319-b4db-46b1-aeb2-ec5688e7a184
     type: bearer
     name: bearer auth
     credentials:

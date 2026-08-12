@@ -29,8 +29,14 @@ from app.schemas import (
 )
 
 from fastapi import APIRouter
+from app.services.rate_limit import rate_limit
 
 router = APIRouter()
+
+# A VN is short and near-sequential, so both VN-taking endpoints are
+# enumeration surfaces. One booth serves one patient at a time — 20/min per IP
+# is far above real kiosk use and far below a useful scan rate.
+_visit_rate_limit = Depends(rate_limit("visit_lookup", limit=20, window_seconds=60))
 
 @router.post("/sessions", response_model=SessionOut, status_code=status.HTTP_201_CREATED)
 async def create_session(payload: SessionCreate, connection: asyncpg.Connection = Depends(get_connection)):
@@ -57,7 +63,11 @@ async def create_session(payload: SessionCreate, connection: asyncpg.Connection 
     return record_to_dict(record)
 
 
-@router.post("/sessions/{session_id}/link-visit", response_model=LinkVisitResponse)
+@router.post(
+    "/sessions/{session_id}/link-visit",
+    response_model=LinkVisitResponse,
+    dependencies=[_visit_rate_limit],
+)
 async def link_visit(
     session_id: UUID,
     payload: LinkVisitRequest,
@@ -166,7 +176,11 @@ async def link_visit(
     )
 
 
-@router.get("/sessions/by-visit/{visit_id}", response_model=SessionByVisitOut)
+@router.get(
+    "/sessions/by-visit/{visit_id}",
+    response_model=SessionByVisitOut,
+    dependencies=[_visit_rate_limit],
+)
 async def get_session_by_visit(
     visit_id: str,
     connection: asyncpg.Connection = Depends(get_connection),
@@ -192,6 +206,16 @@ async def get_session_by_visit(
     visit_meta = (session.get("metadata") or {}).get("visit") or {}
     patient_name = visit_meta.get("patient_name")
     needs_history = needs_history_intake(session.get("metadata"))
+    # PDPA data minimisation: this lookup is unauthenticated (the kiosk calls
+    # it before a session exists) and a VN is guessable, so it must return
+    # ONLY what the resume screen renders. The raw row's metadata carries HN,
+    # birthdate, allergies, chronic conditions, family history and vitals —
+    # sensitive personal data that never leaves an anonymous lookup.
+    # (patient_name stays: the resume/finished screens show it, and the same
+    # VN already yields it from link-visit's "Is this you?" step.)
+    session["metadata"] = {}
+    session["user_agent"] = None
+    session["ip_hash"] = None
     return SessionByVisitOut(
         found=True,
         visit_id=cleaned,

@@ -10,7 +10,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-from model_io import WITHHELD, calls, openai_body, openai_response
+from model_io import BILINGUAL_CALLS, WITHHELD, calls, openai_body, openai_response
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 DOC_PATH = REPO_ROOT / "docs" / "ai-model-io.md"
@@ -99,11 +99,31 @@ def build_markdown() -> str:
     )
     parts = [HEADER.format(withheld_rows=rows)]
 
+    english = {c["id"]: c for c in calls("en")}
     for call in calls("th"):
         parts.append(f"### {call['title']}\n")
         parts.append(f"**When:** {call['when']}\n")
-        parts.append("**Prompt sent:**\n")
-        parts.append(_fence(call["prompt"], "text"))
+        if call["id"] in BILINGUAL_CALLS:
+            parts.append(
+                "**Prompt language: bilingual.** The booth sends the Thai "
+                "prompt to a Thai session and the English one to an English "
+                "session — the model is instructed in the language it must "
+                "reply in, because this reply reaches the patient.\n"
+            )
+            parts.append("**Prompt sent (Thai session):**\n")
+            parts.append(_fence(call["prompt"], "text"))
+            parts.append("\n**Prompt sent (English session):**\n")
+            parts.append(_fence(english[call["id"]]["prompt"], "text"))
+        else:
+            parts.append(
+                "**Prompt language: English**, whatever the patient speaks — "
+                "this call produces structured data, not patient-facing text, "
+                "so the instructions do not need translating. The patient's "
+                "own words pass through verbatim in whatever language they "
+                "spoke, and the finding catalog carries both languages.\n"
+            )
+            parts.append("**Prompt sent:**\n")
+            parts.append(_fence(call["prompt"], "text"))
         if call["structured"]:
             parts.append(
                 "\n**Reply is schema-constrained** — the server is given this "

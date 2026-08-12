@@ -47,6 +47,17 @@ def _schema(model: Any) -> dict:
     return model.model_json_schema()
 
 
+# Which call sites have a genuinely different prompt per language, versus an
+# English instruction scaffold that is identical whatever the patient speaks.
+# Verified against the source, not assumed:
+#   extraction  — English scaffold (extraction.py); Thai enters only as the
+#                 patient's words and the catalog's bilingual labels
+#   question    — bilingual (_PARAPHRASE_PROMPT has "en" and "th")
+#   explain     — bilingual (_EXPLAIN_PROMPT has "en" and "th")
+#   gate:*      — English only (_PROMPTS), carrying "Session language: th"
+BILINGUAL_CALLS = {"question", "explain"}
+
+
 def calls(language: str = "th") -> list[dict[str, Any]]:
     """Every model call the engine can make, in the order a turn runs them."""
     state = _state(language)

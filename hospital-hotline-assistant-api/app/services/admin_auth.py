@@ -9,16 +9,52 @@ from typing import Any
 TOKEN_TTL_HOURS = 12
 
 
-def hash_password_sha256(password: str) -> str:
-    digest = hashlib.sha256(password.encode("utf-8")).hexdigest()
-    return f"sha256${digest}"
+# Password hashing: stdlib scrypt (memory-hard, no extra dependency).
+# n=2**14, r=8 → ~16 MB and ~50 ms per verify, inside OpenSSL's 32 MB default.
+# ponytail: that ~50 ms blocks the event loop; move to run_in_executor only if
+# login volume ever grows past a handful of staff per shift.
+_SCRYPT_PARAMS = (2**14, 8, 1)
+_SCRYPT_PREFIX = "scrypt${}${}${}$".format(*_SCRYPT_PARAMS)
+
+
+def hash_password(password: str) -> str:
+    n, r, p = _SCRYPT_PARAMS
+    salt = secrets.token_bytes(16)
+    digest = hashlib.scrypt(
+        password.encode("utf-8"), salt=salt, n=n, r=r, p=p, dklen=32
+    )
+    return f"{_SCRYPT_PREFIX}{salt.hex()}${digest.hex()}"
 
 
 def verify_password(password: str, stored_hash: str) -> bool:
-    if not stored_hash.startswith("sha256$"):
-        return False
-    expected = hash_password_sha256(password)
-    return secrets.compare_digest(expected, stored_hash)
+    """Check a password against a stored hash (scrypt, or legacy sha256).
+
+    Legacy unsalted ``sha256$`` hashes still verify so nobody is locked out;
+    ``needs_rehash`` tells the login route to replace them in place.
+    """
+    if stored_hash.startswith("scrypt$"):
+        try:
+            _, n, r, p, salt_hex, digest_hex = stored_hash.split("$")
+            expected = hashlib.scrypt(
+                password.encode("utf-8"),
+                salt=bytes.fromhex(salt_hex),
+                n=int(n),
+                r=int(r),
+                p=int(p),
+                dklen=len(digest_hex) // 2,
+            )
+        except ValueError:
+            return False
+        return secrets.compare_digest(expected.hex(), digest_hex)
+    if stored_hash.startswith("sha256$"):
+        expected = hashlib.sha256(password.encode("utf-8")).hexdigest()
+        return secrets.compare_digest(f"sha256${expected}", stored_hash)
+    return False
+
+
+def needs_rehash(stored_hash: str) -> bool:
+    """True when the stored hash is legacy or uses outdated scrypt params."""
+    return not stored_hash.startswith(_SCRYPT_PREFIX)
 
 
 def issue_admin_token(

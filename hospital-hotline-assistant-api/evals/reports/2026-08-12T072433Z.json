@@ -1,0 +1,378 @@
+{
+  "meta": {
+    "dry_run": false,
+    "criteria_mode": "v2",
+    "model_label": "screening:vertexai:gemini-3.1-flash-lite",
+    "language_filter": null,
+    "generated_utc": "2026-08-12T07:23:36.027009+00:00"
+  },
+  "aggregates": {
+    "vignettes": 3,
+    "passed": 2,
+    "undertriage_rate_pct": 0.0,
+    "undertriage_ci95": null,
+    "undertriage_misses": [],
+    "critical_vignettes": 0,
+    "level_exact_pct": 100.0,
+    "level_within_1_pct": 100.0,
+    "qwk": 1.0,
+    "category_pct": 100.0,
+    "department_pct": 66.7,
+    "leak_count": 0,
+    "avg_turns": 8.3,
+    "total_wall_time_s": 57.7,
+    "by_language": {
+      "th": {
+        "vignettes": 2,
+        "passed": 1,
+        "undertriage_rate_pct": 0.0,
+        "undertriage_ci95": null,
+        "undertriage_misses": [],
+        "critical_vignettes": 0,
+        "level_exact_pct": 100.0,
+        "level_within_1_pct": 100.0,
+        "qwk": 1.0,
+        "category_pct": 100.0,
+        "department_pct": 50.0,
+        "leak_count": 0,
+        "avg_turns": 9.5,
+        "total_wall_time_s": 44.7
+      },
+      "en": {
+        "vignettes": 1,
+        "passed": 1,
+        "undertriage_rate_pct": 0.0,
+        "undertriage_ci95": null,
+        "undertriage_misses": [],
+        "critical_vignettes": 0,
+        "level_exact_pct": 100.0,
+        "level_within_1_pct": 100.0,
+        "qwk": 1.0,
+        "category_pct": 100.0,
+        "department_pct": 100.0,
+        "leak_count": 0,
+        "avg_turns": 6.0,
+        "total_wall_time_s": 13.0
+      }
+    }
+  },
+  "results": [
+    {
+      "id": "fv_th_rash_child",
+      "language": "th",
+      "description": "เด็ก 4 ขวบ ไข้สามวัน + ผื่นขึ้น — ต้องรีบดู (ไข้เลือดออก/หัด)",
+      "category_expected": [
+        "fever"
+      ],
+      "category_actual": "fever",
+      "category_ok": true,
+      "level_expected": [
+        2,
+        3
+      ],
+      "level_actual": 3,
+      "level_ok": true,
+      "within_1": true,
+      "undertriage_expected": false,
+      "undertriage_critical_fail": false,
+      "department_expected": [
+        "emergency",
+        "opd_pediatrics"
+      ],
+      "department_actual": "opd_pediatrics",
+      "department_ok": true,
+      "must_ask_missing": [],
+      "leaks": [],
+      "turns": 11,
+      "wall_time_s": 27.69,
+      "passed": true,
+      "fail_reasons": [],
+      "transcript": [
+        {
+          "turn": 1,
+          "patient": "ลูกสี่ขวบค่ะ มีไข้มาสามวันแล้ว วันนี้มีผื่นแดงๆ ขึ้นตามตัวกับแขนด้วยค่ะ",
+          "question_id": "uq_breathing",
+          "reply": "ตอนนี้คุณหายใจลำบากหรือหายใจเหนื่อยไหมคะ",
+          "awaiting_measurement": null,
+          "classified": false
+        },
+        {
+          "turn": 2,
+          "patient": "หายใจปกติค่ะ",
+          "question_id": "fv_danger",
+          "reply": "มีซึมสับสน หายใจเหนื่อย หรือคอแข็งร่วมกับไข้ไหมคะ",
+          "awaiting_measurement": null,
+          "classified": false
+        },
+        {
+          "turn": 3,
+          "patient": "ไม่ถึงกับซึมค่ะ ยังเล่นได้บ้าง",
+          "question_id": "fv_danger",
+          "reply": "มีซึมสับสน หายใจเหนื่อย หรือคอแข็งร่วมกับไข้ไหมคะ",
+          "awaiting_measurement": null,
+          "classified": false
+        },
+        {
+          "turn": 4,
+          "patient": "ไม่ถึงกับซึมค่ะ ยังเล่นได้บ้าง",
+          "question_id": "fv_chemo",
+          "reply": "ตอนนี้กำลังได้รับยาเคมีบำบัดอยู่ไหมคะ",
+          "awaiting_measurement": null,
+          "classified": false
+        },
+        {
+          "turn": 5,
+          "patient": "ไม่มีค่ะ",
+          "question_id": "fv_rash",
+          "reply": "มีผื่นหรือตุ่มน้ำตามตัว โดยเฉพาะฝ่ามือ ฝ่าเท้า หรือรอบปากไหมคะ",
+          "awaiting_measurement": null,
+          "classified": false
+        },
+        {
+          "turn": 6,
+          "patient": "มีผื่นแดงขึ้นตามตัวกับแขนค่ะ",
+          "question_id": "fv_temp",
+          "reply": "กรุณาวัดอุณหภูมิที่จุดคัดกรองแล้วกรอกค่าเป็นองศาเซลเซียสค่ะ",
+          "awaiting_measurement": "temp",
+          "classified": false
+        },
+        {
+          "turn": 7,
+          "patient": "วัดแล้วค่ะ",
+          "question_id": "fv_bp",
+          "reply": "กรุณาวัดความดันโลหิตตอนนี้ — ใช้เครื่องข้างตัวคุณหรือพิมพ์ตัวเลขก็ได้",
+          "awaiting_measurement": "sbp",
+          "classified": false
+        },
+        {
+          "turn": 8,
+          "patient": "วัดแล้วค่ะ",
+          "question_id": "fv_onset",
+          "reply": "นอกจากไข้และผื่นที่พบแล้ว ตอนนี้ลูกมีอาการอื่นร่วมด้วยไหมคะ เช่น ไอ น้ำมูก หรือเจ็บคอ",
+          "awaiting_measurement": null,
+          "classified": false
+        },
+        {
+          "turn": 9,
+          "patient": "สามวันก่อนค่ะ",
+          "question_id": "fv_associated",
+          "reply": "นอกจากไข้และผื่นแล้ว น้องมีอาการอื่นร่วมด้วยไหมคะ เช่น ไอ เจ็บคอ มีน้ำมูก ถ่ายเหลว หรือปัสสาวะแสบขัดบ้างไหมคะ",
+          "awaiting_measurement": null,
+          "classified": false
+        },
+        {
+          "turn": 10,
+          "patient": "กินได้น้อยลงนิดหน่อยค่ะ",
+          "question_id": "pd_weight_height",
+          "reply": "กรุณากรอกน้ำหนักและส่วนสูงเพื่อให้ข้อมูลในบัตรครบถ้วน",
+          "awaiting_measurement": "weight",
+          "classified": false
+        },
+        {
+          "turn": 11,
+          "patient": "วัดแล้วค่ะ",
+          "question_id": null,
+          "reply": "เพื่อให้คุณแม่และน้องได้รับความดูแลที่เหมาะสมที่สุด รบกวนเชิญที่แผนก OPD กุมารเวชกรรมได้เลยค่ะ เจ้าหน้าที่ที่นั่นพร้อมดูแลและให้คำแนะนำเพิ่มเติมแก่คุณแม่และน้องแล้วค่ะ ก่อนไปนะคะ มีอะไรอยากถามหรืออยากบอกคุณหมอไหมคะ ดิฉันจะจดไว้ให้ค่ะ",
+          "awaiting_measurement": null,
+          "classified": true
+        },
+        {
+          "turn": 12,
+          "patient": "ไม่มีแล้วค่ะ ขอบคุณค่ะ",
+          "reply": "ได้ค่ะ กรุณาไปที่OPD กุมารเวชกรรมนะคะ ดูแลตัวเองด้วยนะคะ",
+          "post_disposition": true
+        }
+      ]
+    },
+    {
+      "id": "nt_th_fishbone",
+      "language": "th",
+      "description": "ก้างปลาติดคอเมื่อวาน กลืนแล้วเจ็บ — foreign body ENT ภายใน 24 ชม.",
+      "category_expected": [
+        "nose_throat"
+      ],
+      "category_actual": "nose_throat",
+      "category_ok": true,
+      "level_expected": [
+        3,
+        4
+      ],
+      "level_actual": 4,
+      "level_ok": true,
+      "within_1": true,
+      "undertriage_expected": false,
+      "undertriage_critical_fail": false,
+      "department_expected": [
+        "opd_ent"
+      ],
+      "department_actual": "opd_general",
+      "department_ok": false,
+      "must_ask_missing": [],
+      "leaks": [],
+      "turns": 8,
+      "wall_time_s": 17.03,
+      "passed": false,
+      "fail_reasons": [
+        "department 'opd_general' not in ['opd_ent']"
+      ],
+      "transcript": [
+        {
+          "turn": 1,
+          "patient": "เมื่อวานตอนเย็นกินปลาแล้วรู้สึกเหมือนก้างติดคอค่ะ กลืนทีไรเจ็บแปลบทุกที",
+          "question_id": "uq_breathing",
+          "reply": "ตอนนี้คุณหายใจลำบากหรือหายใจเหนื่อยไหมคะ",
+          "awaiting_measurement": null,
+          "classified": false
+        },
+        {
+          "turn": 2,
+          "patient": "หายใจปกติค่ะ แค่เจ็บเวลากลืน",
+          "question_id": "nt_airway",
+          "reply": "คอบวมโต กลืนลำบาก หรือหายใจลำบากไหมคะ",
+          "awaiting_measurement": null,
+          "classified": false
+        },
+        {
+          "turn": 3,
+          "patient": "หายใจปกติค่ะ แค่เจ็บเวลากลืน",
+          "question_id": "nt_epistaxis",
+          "reply": "ถ้ามีเลือดกำเดา ตอนนี้หยุดแล้วหรือยังไหลอยู่คะ",
+          "awaiting_measurement": null,
+          "classified": false
+        },
+        {
+          "turn": 4,
+          "patient": "ไม่มีค่ะ",
+          "question_id": "nt_temp",
+          "reply": "กรุณาวัดอุณหภูมิที่จุดคัดกรองแล้วกรอกค่าเป็นองศาเซลเซียสค่ะ",
+          "awaiting_measurement": "temp",
+          "classified": false
+        },
+        {
+          "turn": 5,
+          "patient": "วัดแล้วค่ะ",
+          "question_id": "nt_bp",
+          "reply": "กรุณาวัดความดันโลหิตตอนนี้ — ใช้เครื่องข้างตัวคุณหรือพิมพ์ตัวเลขก็ได้",
+          "awaiting_measurement": "sbp",
+          "classified": false
+        },
+        {
+          "turn": 6,
+          "patient": "วัดแล้วค่ะ",
+          "question_id": "nt_associated",
+          "reply": "นอกจากอาการเจ็บคอแล้ว คุณมีอาการอื่นร่วมด้วยไหมคะ เช่น มีก้อนในคอ แผลในปาก หรืออาการภูมิแพ้",
+          "awaiting_measurement": null,
+          "classified": false
+        },
+        {
+          "turn": 7,
+          "patient": "เจ็บตอนกลืนค่ะ น้ำลายกลืนยังเจ็บเลย",
+          "question_id": "pd_weight_height",
+          "reply": "กรุณากรอกน้ำหนักและส่วนสูงเพื่อให้ข้อมูลในบัตรครบถ้วน",
+          "awaiting_measurement": "weight",
+          "classified": false
+        },
+        {
+          "turn": 8,
+          "patient": "วัดแล้วค่ะ",
+          "question_id": null,
+          "reply": "จากอาการที่คุณแจ้งมา ทางโรงพยาบาลขอแนะนำให้คุณไปติดต่อที่แผนก OPD เวชปฏิบัติทั่วไปครับ เจ้าหน้าที่ประจำแผนกจะรอรับคุณเพื่อดำเนินการดูแลในขั้นตอนถัดไปครับ ก่อนไปนะคะ มีอะไรอยากถามหรืออยากบอกคุณหมอไหมคะ ดิฉันจะจดไว้ให้ค่ะ",
+          "awaiting_measurement": null,
+          "classified": true
+        },
+        {
+          "turn": 9,
+          "patient": "ไม่มีแล้วค่ะ ขอบคุณค่ะ",
+          "reply": "ได้ค่ะ กรุณาไปที่OPD เวชปฏิบัติทั่วไปนะคะ ดูแลตัวเองด้วยนะคะ",
+          "post_disposition": true
+        }
+      ]
+    },
+    {
+      "id": "gen_en_certificate",
+      "language": "en",
+      "description": "Generic fall-through: medical certificate request, currently well",
+      "category_expected": [
+        "administrative"
+      ],
+      "category_actual": "administrative",
+      "category_ok": true,
+      "level_expected": [
+        5,
+        5
+      ],
+      "level_actual": 5,
+      "level_ok": true,
+      "within_1": true,
+      "undertriage_expected": false,
+      "undertriage_critical_fail": false,
+      "department_expected": [
+        "opd_general"
+      ],
+      "department_actual": "opd_general",
+      "department_ok": true,
+      "must_ask_missing": [],
+      "leaks": [],
+      "turns": 6,
+      "wall_time_s": 13.0,
+      "passed": true,
+      "fail_reasons": [],
+      "transcript": [
+        {
+          "turn": 1,
+          "patient": "I just need a medical certificate for work. I was out sick with a cold earlier this week but I'm fine now.",
+          "question_id": "uq_breathing",
+          "reply": "Right now, are you having any trouble breathing?",
+          "awaiting_measurement": null,
+          "classified": false
+        },
+        {
+          "turn": 2,
+          "patient": "breathing is fine",
+          "question_id": "ad_temp",
+          "reply": "Please measure your temperature at the booth and enter it in °C.",
+          "awaiting_measurement": "temp",
+          "classified": false
+        },
+        {
+          "turn": 3,
+          "patient": "okay, measured",
+          "question_id": "ad_bp",
+          "reply": "Please measure your blood pressure now — you can use the machine beside you or type the numbers.",
+          "awaiting_measurement": "sbp",
+          "classified": false
+        },
+        {
+          "turn": 4,
+          "patient": "okay, measured",
+          "question_id": "ad_service",
+          "reply": "Could you tell me a bit more about the specific document you are looking for today?",
+          "awaiting_measurement": null,
+          "classified": false
+        },
+        {
+          "turn": 5,
+          "patient": "no",
+          "question_id": "pd_weight_height",
+          "reply": "Please enter your weight and height so we can complete your chart.",
+          "awaiting_measurement": "weight",
+          "classified": false
+        },
+        {
+          "turn": 6,
+          "patient": "okay, measured",
+          "question_id": null,
+          "reply": "I can certainly help you with that request. Please proceed to the General Practice clinic, where a staff member will assist you with your documentation. Before you go — is there anything you'd like to ask or tell the doctor? I'll note it for them.",
+          "awaiting_measurement": null,
+          "classified": true
+        },
+        {
+          "turn": 7,
+          "patient": "no, that's all, thank you",
+          "reply": "Alright — please proceed to OPD General Practice. Take care.",
+          "post_disposition": true
+        }
+      ]
+    }
+  ]
+}

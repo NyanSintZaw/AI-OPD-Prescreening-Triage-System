@@ -2625,13 +2625,46 @@
   },
   {
    "id": "ent_foreign_body_24h",
-   "label_en": "Foreign body in ear/nose/throat within 24 hours",
-   "label_th": "สิ่งแปลกปลอมติดในหู จมูก คอ ภายใน 24 ชั่วโมง",
-   "citation": "MFU Triage — Level 2 หู คอ จมูก",
+   "label_en": "ENT foreign body within 24 hours WITH airway involvement",
+   "label_th": "สิ่งแปลกปลอมติดในหู จมูก คอ ภายใน 24 ชั่วโมง ร่วมกับอาการทางเดินหายใจ",
+   "citation": "MFU Triage — Level 2 หู คอ จมูก. Narrowed 2026-08-12: an ENT foreign body only warrants the ER when the airway is involved; without it the patient goes to the ENT clinic (see ent_foreign_body_24h_no_airway).",
    "department_code": "emergency",
    "min_level": 2,
    "condition": {
-    "finding_id": "foreign_body_ent_24h"
+    "all_of": [
+     {
+      "finding_id": "foreign_body_ent_24h",
+      "state": "present"
+     },
+     {
+      "any_of": [
+       {
+        "finding_id": "airway_obstruction",
+        "state": "present"
+       },
+       {
+        "finding_id": "neck_swelling_dysphagia",
+        "state": "present"
+       },
+       {
+        "finding_id": "dyspnea",
+        "state": "present"
+       }
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "id": "ent_foreign_body_24h_no_airway",
+   "label_en": "ENT foreign body within 24 hours, airway intact",
+   "label_th": "สิ่งแปลกปลอมติดในหู จมูก คอ ภายใน 24 ชั่วโมง ไม่มีอาการทางเดินหายใจ",
+   "citation": "MFU routing — หู คอ จมูก. ⚠️ PLACEHOLDER department pending the hospital's confirmed department list; opd_ent is the reasonable destination for a foreign body the patient can still breathe and talk around.",
+   "department_code": "opd_ent",
+   "min_level": 3,
+   "condition": {
+    "finding_id": "foreign_body_ent_24h",
+    "state": "present"
    }
   },
   {
@@ -3562,13 +3595,10 @@
      "id": "gen_temp",
      "kind": "measurement",
      "vital": "temp",
-     "finding_ids": [
-      "fever"
-     ],
      "text_en": "Please measure your temperature at the booth and enter it in °C.",
      "text_th": "กรุณาวัดอุณหภูมิที่จุดคัดกรองแล้วกรอกค่าเป็นองศาเซลเซียสค่ะ",
      "priority": 6,
-     "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (decision point D — temperature red flags, Table 6-2); MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย)"
+     "citation": "MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย) — ขอบเขต: ผู้ป่วยนอกทุกราย; วัตถุประสงค์ ข้อ 2 เพื่อแยกผู้ป่วยโรคติดต่อ โรคอุบัติใหม่ อุบัติซ้ำ; MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (temperature red flags)"
     }
    ]
   },
@@ -3813,6 +3843,15 @@
      "text_th": "กรุณาวัดความดันโลหิตตอนนี้ — ใช้เครื่องข้างตัวคุณหรือพิมพ์ตัวเลขก็ได้",
      "priority": 7,
      "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (decision point D — full vital signs at triage); MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย)"
+    },
+    {
+     "id": "cp_temp",
+     "kind": "measurement",
+     "vital": "temp",
+     "text_en": "Please measure your temperature at the booth and enter it in °C.",
+     "text_th": "กรุณาวัดอุณหภูมิที่จุดคัดกรองแล้วกรอกค่าเป็นองศาเซลเซียสค่ะ",
+     "priority": 6,
+     "citation": "MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย) — ขอบเขต: ผู้ป่วยนอกทุกราย; วัตถุประสงค์ ข้อ 2 เพื่อแยกผู้ป่วยโรคติดต่อ โรคอุบัติใหม่ อุบัติซ้ำ; MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (temperature red flags)"
     }
    ]
   },
@@ -3968,13 +4007,10 @@
      "id": "dc_temp",
      "kind": "measurement",
      "vital": "temp",
-     "finding_ids": [
-      "fever"
-     ],
      "text_en": "Please measure your temperature at the booth and enter it in °C.",
      "text_th": "กรุณาวัดอุณหภูมิที่จุดคัดกรองแล้วกรอกค่าเป็นองศาเซลเซียสค่ะ",
      "priority": 6,
-     "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (decision point D — temperature red flags, Table 6-2); MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย)"
+     "citation": "MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย) — ขอบเขต: ผู้ป่วยนอกทุกราย; วัตถุประสงค์ ข้อ 2 เพื่อแยกผู้ป่วยโรคติดต่อ โรคอุบัติใหม่ อุบัติซ้ำ; MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (temperature red flags)"
     },
     {
      "id": "dc_onset",
@@ -4315,13 +4351,10 @@
      "id": "ap_temp",
      "kind": "measurement",
      "vital": "temp",
-     "finding_ids": [
-      "fever"
-     ],
      "text_en": "Please measure your temperature at the booth and enter it in °C.",
      "text_th": "กรุณาวัดอุณหภูมิที่จุดคัดกรองแล้วกรอกค่าเป็นองศาเซลเซียสค่ะ",
      "priority": 6,
-     "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (decision point D — temperature red flags, Table 6-2); MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย)"
+     "citation": "MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย) — ขอบเขต: ผู้ป่วยนอกทุกราย; วัตถุประสงค์ ข้อ 2 เพื่อแยกผู้ป่วยโรคติดต่อ โรคอุบัติใหม่ อุบัติซ้ำ; MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (temperature red flags)"
     }
    ]
   },
@@ -4571,13 +4604,10 @@
      "id": "hd_temp",
      "kind": "measurement",
      "vital": "temp",
-     "finding_ids": [
-      "fever"
-     ],
      "text_en": "Please measure your temperature at the booth and enter it in °C.",
      "text_th": "กรุณาวัดอุณหภูมิที่จุดคัดกรองแล้วกรอกค่าเป็นองศาเซลเซียสค่ะ",
      "priority": 6,
-     "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (decision point D — temperature red flags, Table 6-2); MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย)"
+     "citation": "MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย) — ขอบเขต: ผู้ป่วยนอกทุกราย; วัตถุประสงค์ ข้อ 2 เพื่อแยกผู้ป่วยโรคติดต่อ โรคอุบัติใหม่ อุบัติซ้ำ; MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (temperature red flags)"
     }
    ]
   },
@@ -4650,13 +4680,10 @@
      "id": "fv_temp",
      "kind": "measurement",
      "vital": "temp",
-     "finding_ids": [
-      "fever"
-     ],
      "text_en": "Please measure your temperature at the booth and enter it in °C.",
      "text_th": "กรุณาวัดอุณหภูมิที่จุดคัดกรองแล้วกรอกค่าเป็นองศาเซลเซียสค่ะ",
      "priority": 5,
-     "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (decision point D — temperature red flags, Table 6-2); MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย)"
+     "citation": "MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย) — ขอบเขต: ผู้ป่วยนอกทุกราย; วัตถุประสงค์ ข้อ 2 เพื่อแยกผู้ป่วยโรคติดต่อ โรคอุบัติใหม่ อุบัติซ้ำ; MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (temperature red flags)"
     },
     {
      "id": "fv_onset",
@@ -4949,13 +4976,10 @@
      "id": "ear_temp",
      "kind": "measurement",
      "vital": "temp",
-     "finding_ids": [
-      "fever"
-     ],
      "text_en": "Please measure your temperature at the booth and enter it in °C.",
      "text_th": "กรุณาวัดอุณหภูมิที่จุดคัดกรองแล้วกรอกค่าเป็นองศาเซลเซียสค่ะ",
      "priority": 6,
-     "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (decision point D — temperature red flags, Table 6-2); MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย)"
+     "citation": "MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย) — ขอบเขต: ผู้ป่วยนอกทุกราย; วัตถุประสงค์ ข้อ 2 เพื่อแยกผู้ป่วยโรคติดต่อ โรคอุบัติใหม่ อุบัติซ้ำ; MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (temperature red flags)"
     }
    ]
   },
@@ -5103,13 +5127,10 @@
      "id": "nt_temp",
      "kind": "measurement",
      "vital": "temp",
-     "finding_ids": [
-      "fever"
-     ],
      "text_en": "Please measure your temperature at the booth and enter it in °C.",
      "text_th": "กรุณาวัดอุณหภูมิที่จุดคัดกรองแล้วกรอกค่าเป็นองศาเซลเซียสค่ะ",
      "priority": 6,
-     "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (decision point D — temperature red flags, Table 6-2); MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย)"
+     "citation": "MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย) — ขอบเขต: ผู้ป่วยนอกทุกราย; วัตถุประสงค์ ข้อ 2 เพื่อแยกผู้ป่วยโรคติดต่อ โรคอุบัติใหม่ อุบัติซ้ำ; MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (temperature red flags)"
     }
    ]
   },
@@ -5227,6 +5248,15 @@
      "text_th": "กรุณาวัดความดันโลหิตตอนนี้ — ใช้เครื่องข้างตัวคุณหรือพิมพ์ตัวเลขก็ได้",
      "priority": 7,
      "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (decision point D — full vital signs at triage); MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย)"
+    },
+    {
+     "id": "eye_temp",
+     "kind": "measurement",
+     "vital": "temp",
+     "text_en": "Please measure your temperature at the booth and enter it in °C.",
+     "text_th": "กรุณาวัดอุณหภูมิที่จุดคัดกรองแล้วกรอกค่าเป็นองศาเซลเซียสค่ะ",
+     "priority": 6,
+     "citation": "MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย) — ขอบเขต: ผู้ป่วยนอกทุกราย; วัตถุประสงค์ ข้อ 2 เพื่อแยกผู้ป่วยโรคติดต่อ โรคอุบัติใหม่ อุบัติซ้ำ; MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (temperature red flags)"
     }
    ]
   },
@@ -5426,6 +5456,15 @@
      "text_th": "กรุณาวัดความดันโลหิตตอนนี้ — ใช้เครื่องข้างตัวคุณหรือพิมพ์ตัวเลขก็ได้",
      "priority": 7,
      "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (decision point D — full vital signs at triage); MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย)"
+    },
+    {
+     "id": "inj_temp",
+     "kind": "measurement",
+     "vital": "temp",
+     "text_en": "Please measure your temperature at the booth and enter it in °C.",
+     "text_th": "กรุณาวัดอุณหภูมิที่จุดคัดกรองแล้วกรอกค่าเป็นองศาเซลเซียสค่ะ",
+     "priority": 6,
+     "citation": "MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย) — ขอบเขต: ผู้ป่วยนอกทุกราย; วัตถุประสงค์ ข้อ 2 เพื่อแยกผู้ป่วยโรคติดต่อ โรคอุบัติใหม่ อุบัติซ้ำ; MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (temperature red flags)"
     }
    ]
   },
@@ -5545,6 +5584,15 @@
      "text_th": "กรุณาวัดความดันโลหิตตอนนี้ — ใช้เครื่องข้างตัวคุณหรือพิมพ์ตัวเลขก็ได้",
      "priority": 7,
      "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 4 (decision point B — suspected preeclampsia — obstetric high-risk); MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย)"
+    },
+    {
+     "id": "pg_temp",
+     "kind": "measurement",
+     "vital": "temp",
+     "text_en": "Please measure your temperature at the booth and enter it in °C.",
+     "text_th": "กรุณาวัดอุณหภูมิที่จุดคัดกรองแล้วกรอกค่าเป็นองศาเซลเซียสค่ะ",
+     "priority": 6,
+     "citation": "MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย) — ขอบเขต: ผู้ป่วยนอกทุกราย; วัตถุประสงค์ ข้อ 2 เพื่อแยกผู้ป่วยโรคติดต่อ โรคอุบัติใหม่ อุบัติซ้ำ; MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (temperature red flags)"
     }
    ]
   },
@@ -5670,6 +5718,15 @@
      "text_th": "กรุณาวัดความดันโลหิตตอนนี้ — ใช้เครื่องข้างตัวคุณหรือพิมพ์ตัวเลขก็ได้",
      "priority": 7,
      "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (decision point D — full vital signs at triage); MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย)"
+    },
+    {
+     "id": "mh_temp",
+     "kind": "measurement",
+     "vital": "temp",
+     "text_en": "Please measure your temperature at the booth and enter it in °C.",
+     "text_th": "กรุณาวัดอุณหภูมิที่จุดคัดกรองแล้วกรอกค่าเป็นองศาเซลเซียสค่ะ",
+     "priority": 6,
+     "citation": "MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย) — ขอบเขต: ผู้ป่วยนอกทุกราย; วัตถุประสงค์ ข้อ 2 เพื่อแยกผู้ป่วยโรคติดต่อ โรคอุบัติใหม่ อุบัติซ้ำ; MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (temperature red flags)"
     }
    ]
   },
@@ -5864,6 +5921,15 @@
      "text_th": "กรุณาวัดความดันโลหิตตอนนี้ — ใช้เครื่องข้างตัวคุณหรือพิมพ์ตัวเลขก็ได้",
      "priority": 7,
      "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (decision point D — full vital signs at triage); MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย)"
+    },
+    {
+     "id": "msk_temp",
+     "kind": "measurement",
+     "vital": "temp",
+     "text_en": "Please measure your temperature at the booth and enter it in °C.",
+     "text_th": "กรุณาวัดอุณหภูมิที่จุดคัดกรองแล้วกรอกค่าเป็นองศาเซลเซียสค่ะ",
+     "priority": 6,
+     "citation": "MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย) — ขอบเขต: ผู้ป่วยนอกทุกราย; วัตถุประสงค์ ข้อ 2 เพื่อแยกผู้ป่วยโรคติดต่อ โรคอุบัติใหม่ อุบัติซ้ำ; MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (temperature red flags)"
     }
    ]
   },
@@ -6007,13 +6073,10 @@
      "id": "ur_temp",
      "kind": "measurement",
      "vital": "temp",
-     "finding_ids": [
-      "fever"
-     ],
      "text_en": "Please measure your temperature at the booth and enter it in °C.",
      "text_th": "กรุณาวัดอุณหภูมิที่จุดคัดกรองแล้วกรอกค่าเป็นองศาเซลเซียสค่ะ",
      "priority": 6,
-     "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (decision point D — temperature red flags, Table 6-2); MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย)"
+     "citation": "MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย) — ขอบเขต: ผู้ป่วยนอกทุกราย; วัตถุประสงค์ ข้อ 2 เพื่อแยกผู้ป่วยโรคติดต่อ โรคอุบัติใหม่ อุบัติซ้ำ; MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (temperature red flags)"
     }
    ]
   },
@@ -6245,13 +6308,10 @@
      "id": "ws_temp",
      "kind": "measurement",
      "vital": "temp",
-     "finding_ids": [
-      "fever"
-     ],
      "text_en": "Please measure your temperature at the booth and enter it in °C.",
      "text_th": "กรุณาวัดอุณหภูมิที่จุดคัดกรองแล้วกรอกค่าเป็นองศาเซลเซียสค่ะ",
      "priority": 6,
-     "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (decision point D — temperature red flags, Table 6-2); MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย)"
+     "citation": "MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย) — ขอบเขต: ผู้ป่วยนอกทุกราย; วัตถุประสงค์ ข้อ 2 เพื่อแยกผู้ป่วยโรคติดต่อ โรคอุบัติใหม่ อุบัติซ้ำ; MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (temperature red flags)"
     },
     {
      "id": "ws_bp",
@@ -6430,13 +6490,10 @@
      "id": "gyn_temp",
      "kind": "measurement",
      "vital": "temp",
-     "finding_ids": [
-      "fever"
-     ],
      "text_en": "Please measure your temperature at the booth and enter it in °C.",
      "text_th": "กรุณาวัดอุณหภูมิที่จุดคัดกรองแล้วกรอกค่าเป็นองศาเซลเซียสค่ะ",
      "priority": 6,
-     "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (decision point D — temperature red flags, Table 6-2); MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย)"
+     "citation": "MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย) — ขอบเขต: ผู้ป่วยนอกทุกราย; วัตถุประสงค์ ข้อ 2 เพื่อแยกผู้ป่วยโรคติดต่อ โรคอุบัติใหม่ อุบัติซ้ำ; MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (temperature red flags)"
     },
     {
      "id": "gyn_bp",
@@ -6593,13 +6650,10 @@
      "id": "br_temp",
      "kind": "measurement",
      "vital": "temp",
-     "finding_ids": [
-      "fever"
-     ],
      "text_en": "Please measure your temperature at the booth and enter it in °C.",
      "text_th": "กรุณาวัดอุณหภูมิที่จุดคัดกรองแล้วกรอกค่าเป็นองศาเซลเซียสค่ะ",
      "priority": 6,
-     "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (decision point D — temperature red flags, Table 6-2); MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย)"
+     "citation": "MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย) — ขอบเขต: ผู้ป่วยนอกทุกราย; วัตถุประสงค์ ข้อ 2 เพื่อแยกผู้ป่วยโรคติดต่อ โรคอุบัติใหม่ อุบัติซ้ำ; MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (temperature red flags)"
     },
     {
      "id": "br_bp",
@@ -6782,6 +6836,15 @@
      "text_en": "Please measure your blood pressure now — you can use the machine beside you or type the numbers.",
      "text_th": "กรุณาวัดความดันโลหิตตอนนี้ — ใช้เครื่องข้างตัวคุณหรือพิมพ์ตัวเลขก็ได้",
      "priority": 7
+    },
+    {
+     "id": "palp_temp",
+     "kind": "measurement",
+     "vital": "temp",
+     "text_en": "Please measure your temperature at the booth and enter it in °C.",
+     "text_th": "กรุณาวัดอุณหภูมิที่จุดคัดกรองแล้วกรอกค่าเป็นองศาเซลเซียสค่ะ",
+     "priority": 6,
+     "citation": "MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย) — ขอบเขต: ผู้ป่วยนอกทุกราย; วัตถุประสงค์ ข้อ 2 เพื่อแยกผู้ป่วยโรคติดต่อ โรคอุบัติใหม่ อุบัติซ้ำ; MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (temperature red flags)"
     }
    ]
   },
@@ -6944,6 +7007,15 @@
      "text_th": "กรุณาวัดความดันโลหิตตอนนี้ — ใช้เครื่องข้างตัวคุณหรือพิมพ์ตัวเลขก็ได้",
      "priority": 7,
      "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (decision point D — full vital signs at triage); MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย)"
+    },
+    {
+     "id": "lv_temp",
+     "kind": "measurement",
+     "vital": "temp",
+     "text_en": "Please measure your temperature at the booth and enter it in °C.",
+     "text_th": "กรุณาวัดอุณหภูมิที่จุดคัดกรองแล้วกรอกค่าเป็นองศาเซลเซียสค่ะ",
+     "priority": 6,
+     "citation": "MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย) — ขอบเขต: ผู้ป่วยนอกทุกราย; วัตถุประสงค์ ข้อ 2 เพื่อแยกผู้ป่วยโรคติดต่อ โรคอุบัติใหม่ อุบัติซ้ำ; MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (temperature red flags)"
     }
    ]
   },
@@ -7070,6 +7142,15 @@
      "text_th": "กรุณาวัดความดันโลหิตตอนนี้ — ใช้เครื่องข้างตัวคุณหรือพิมพ์ตัวเลขก็ได้",
      "priority": 7,
      "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (decision point D — full vital signs at triage); MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย)"
+    },
+    {
+     "id": "fo_temp",
+     "kind": "measurement",
+     "vital": "temp",
+     "text_en": "Please measure your temperature at the booth and enter it in °C.",
+     "text_th": "กรุณาวัดอุณหภูมิที่จุดคัดกรองแล้วกรอกค่าเป็นองศาเซลเซียสค่ะ",
+     "priority": 6,
+     "citation": "MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย) — ขอบเขต: ผู้ป่วยนอกทุกราย; วัตถุประสงค์ ข้อ 2 เพื่อแยกผู้ป่วยโรคติดต่อ โรคอุบัติใหม่ อุบัติซ้ำ; MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (temperature red flags)"
     }
    ]
   },
@@ -7236,13 +7317,10 @@
      "id": "gi_temp",
      "kind": "measurement",
      "vital": "temp",
-     "finding_ids": [
-      "fever"
-     ],
      "text_en": "Please measure your temperature at the booth and enter it in °C.",
      "text_th": "กรุณาวัดอุณหภูมิที่จุดคัดกรองแล้วกรอกค่าเป็นองศาเซลเซียสค่ะ",
      "priority": 6,
-     "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (decision point D — temperature red flags, Table 6-2); MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย)"
+     "citation": "MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย) — ขอบเขต: ผู้ป่วยนอกทุกราย; วัตถุประสงค์ ข้อ 2 เพื่อแยกผู้ป่วยโรคติดต่อ โรคอุบัติใหม่ อุบัติซ้ำ; MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (temperature red flags)"
     },
     {
      "id": "gi_bp",
@@ -7418,13 +7496,10 @@
      "id": "sr_temp",
      "kind": "measurement",
      "vital": "temp",
-     "finding_ids": [
-      "fever"
-     ],
      "text_en": "Please measure your temperature at the booth and enter it in °C.",
      "text_th": "กรุณาวัดอุณหภูมิที่จุดคัดกรองแล้วกรอกค่าเป็นองศาเซลเซียสค่ะ",
      "priority": 6,
-     "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (decision point D — temperature red flags, Table 6-2); MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย)"
+     "citation": "MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย) — ขอบเขต: ผู้ป่วยนอกทุกราย; วัตถุประสงค์ ข้อ 2 เพื่อแยกผู้ป่วยโรคติดต่อ โรคอุบัติใหม่ อุบัติซ้ำ; MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (temperature red flags)"
     },
     {
      "id": "sr_bp",
@@ -7568,6 +7643,15 @@
      "text_en": "Please measure your blood pressure now — you can use the machine beside you or type the numbers.",
      "text_th": "กรุณาวัดความดันโลหิตตอนนี้ — ใช้เครื่องข้างตัวคุณหรือพิมพ์ตัวเลขก็ได้",
      "priority": 7
+    },
+    {
+     "id": "cf_temp",
+     "kind": "measurement",
+     "vital": "temp",
+     "text_en": "Please measure your temperature at the booth and enter it in °C.",
+     "text_th": "กรุณาวัดอุณหภูมิที่จุดคัดกรองแล้วกรอกค่าเป็นองศาเซลเซียสค่ะ",
+     "priority": 6,
+     "citation": "MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย) — ขอบเขต: ผู้ป่วยนอกทุกราย; วัตถุประสงค์ ข้อ 2 เพื่อแยกผู้ป่วยโรคติดต่อ โรคอุบัติใหม่ อุบัติซ้ำ; MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (temperature red flags)"
     }
    ]
   },
@@ -7632,6 +7716,15 @@
      "text_th": "กรุณาวัดความดันโลหิตตอนนี้ — ใช้เครื่องข้างตัวคุณหรือพิมพ์ตัวเลขก็ได้",
      "priority": 7,
      "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (decision point D — full vital signs at triage); MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย)"
+    },
+    {
+     "id": "ad_temp",
+     "kind": "measurement",
+     "vital": "temp",
+     "text_en": "Please measure your temperature at the booth and enter it in °C.",
+     "text_th": "กรุณาวัดอุณหภูมิที่จุดคัดกรองแล้วกรอกค่าเป็นองศาเซลเซียสค่ะ",
+     "priority": 6,
+     "citation": "MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย) — ขอบเขต: ผู้ป่วยนอกทุกราย; วัตถุประสงค์ ข้อ 2 เพื่อแยกผู้ป่วยโรคติดต่อ โรคอุบัติใหม่ อุบัติซ้ำ; MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (temperature red flags)"
     }
    ]
   }

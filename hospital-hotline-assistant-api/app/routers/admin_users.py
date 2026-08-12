@@ -9,8 +9,9 @@ from fastapi import (
 )
 from app.database import get_connection
 from app.services.admin_auth import (
-    hash_password_sha256,
+    hash_password,
     issue_admin_token,
+    needs_rehash,
     verify_password,
 )
 
@@ -26,10 +27,17 @@ from app.schemas import (
 
 from fastapi import APIRouter
 from app.routers.deps import auth_scheme, require_roles
+from app.services.rate_limit import rate_limit
 
 router = APIRouter()
 
-@router.post("/admin/login", response_model=AdminLoginResponse)
+# Staff log in about once a shift; 10/min per IP still stops credential
+# stuffing dead without ever hitting a real nurse.
+@router.post(
+    "/admin/login",
+    response_model=AdminLoginResponse,
+    dependencies=[Depends(rate_limit("admin_login", limit=10, window_seconds=60))],
+)
 async def admin_login(
     payload: AdminLoginRequest,
     request: Request,
@@ -54,9 +62,19 @@ async def admin_login(
         email=user["email"],
         role=user["role"],
     )
+    # Upgrade legacy (unsalted sha256) hashes in place on the only occasion we
+    # ever hold the plaintext — a successful login. No password reset needed.
+    upgraded = (
+        hash_password(payload.password) if needs_rehash(user["password_hash"]) else None
+    )
     await connection.execute(
-        "UPDATE admin_users SET last_login_at = NOW() WHERE id = $1",
+        """
+        UPDATE admin_users
+        SET last_login_at = NOW(), password_hash = COALESCE($2, password_hash)
+        WHERE id = $1
+        """,
         user["id"],
+        upgraded,
     )
     return AdminLoginResponse(
         access_token=token,
@@ -153,7 +171,7 @@ async def admin_create_user(
         RETURNING *
         """,
         email,
-        hash_password_sha256(payload.password),
+        hash_password(payload.password),
         payload.full_name.strip(),
     )
     return _manage_user_out(row)
@@ -179,7 +197,7 @@ async def admin_update_user(
         """,
         user_id,
         payload.full_name.strip() if payload.full_name else None,
-        hash_password_sha256(payload.password) if payload.password else None,
+        hash_password(payload.password) if payload.password else None,
         payload.is_active,
     )
     return _manage_user_out(row)

@@ -11,9 +11,8 @@ from app.config import settings
 from app.database import create_pool
 from app.services import TriageService
 from app.services.blood_pressure import BloodPressureService
-from app.services.google_stt import GoogleSttClient
-from app.services.google_tts import GoogleTtsClient
 from app.services.notification_service import MockNotificationService
+from app.services.speech_adapter import build_stt_client, build_tts_client
 
 logger = logging.getLogger(__name__)
 
@@ -37,8 +36,10 @@ async def lifespan(app: FastAPI):
         triage_engine=triage_engine,
         his_adapter=app.state.his_adapter,
     )
-    app.state.tts_client = GoogleTtsClient()
-    app.state.stt_client = GoogleSttClient()
+    # Speech backends are a config choice (STT_PROVIDER/TTS_PROVIDER):
+    # Google Cloud by default, an OpenAI-compatible local server on-prem.
+    app.state.tts_client = build_tts_client(settings)
+    app.state.stt_client = build_stt_client(settings)
     # Voice runs turn-by-turn through the same screening pipeline as text
     # chat (STT → process_chat_stream → TTS), so the deterministic engine
     # controls voice too. Owns the per-call WebSocket state for /ws/voice.

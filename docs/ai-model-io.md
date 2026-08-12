@@ -76,6 +76,8 @@ deterministic behaviour rather than blocking the booth.
 
 **When:** Every turn, first. The only call whose output changes the triage: it reports what the patient said, and the rules engine decides what that means.
 
+**Prompt language: English**, whatever the patient speaks — this call produces structured data, not patient-facing text, so the instructions do not need translating. The patient's own words pass through verbatim in whatever language they spoke, and the finding catalog carries both languages.
+
 **Prompt sent:**
 
 ```text
@@ -95,37 +97,51 @@ Pick the category from what the patient HAS, never from what they deny: "I have
 a fever but no headache" / "มีไข้ แต่ไม่ปวดหัว" is fever, not headache.
 
 Finding catalog (use ONLY these ids):
+- abdominal_mass: Lump felt in the abdomen / คลำก้อนได้ที่ท้อง (also: lump in belly, ก้อนที่ท้อง)
 - abdominal_pain: Abdominal pain / ปวดท้อง (also: stomach ache, belly pain, ปวดท้องน้อย, จุกท้อง)
 - abnormal_breath_sounds: Audible abnormal breathing (wheeze/stridor) / เสียงหายใจผิดปกติ (หวีด/ครืดคราด) ได้ยินโดยไม่ใช้เครื่องฟัง (also: wheezing, noisy breathing, หายใจมีเสียงหวีด, หายใจครืดคราด)
 - active_bleeding: Heavy bleeding that won't stop / เลือดออกมากไม่หยุด (active bleeding) (also: bleeding a lot, can't stop the bleeding, เลือดไหลไม่หยุด, เลือดออกเยอะมาก)
 - agitation_violent: Severe agitation / violent behavior / คลุ้มคลั่ง อาละวาด (also: out of control, คลุ้มคลั่ง)
 - airway_obstruction: Airway obstruction / choking / ทางเดินหายใจอุดกั้น สำลักติดคอ (also: choking, something stuck in throat blocking breathing, สำลัก, ติดคอหายใจไม่ได้)
+- allergy_symptoms: Allergy symptoms (sneezing, itchy runny nose) / อาการภูมิแพ้ (จามบ่อย คันจมูก น้ำมูกใส) (also: hay fever, ภูมิแพ้, แพ้อากาศ)
 - amniotic_fluid_leak: Water broke / amniotic fluid leaking / น้ำเดิน น้ำคร่ำไหล (also: water broke, น้ำเดิน)
 - animal_insect_bite_24h: Animal or insect bite/sting within 24 hours / แมลงสัตว์กัดต่อย ภายใน 24 ชั่วโมง (also: dog bite, snake bite, stung, หมากัด, งูกัด, แมลงต่อย)
+- anosmia: Loss of smell / จมูกไม่ได้กลิ่น (also: can't smell, ไม่ได้กลิ่น)
 - apnea: Stopped breathing (apnea) / หยุดหายใจ (also: stops breathing, หยุดหายใจเป็นพัก)
 - assault_24h: Physically assaulted within 24 hours / ถูกทำร้ายร่างกายภายใน 24 ชั่วโมง (also: was attacked, ถูกทำร้าย, โดนซ้อม)
+- auditory_hallucinations: Hearing voices (understandable speech) / หูแว่วเสียงคน จับใจความได้ (also: hearing voices, หูแว่ว, ได้ยินเสียงคนพูด)
+- back_pain_radiating_leg: Back pain radiating down the leg / ปวดหลังร้าวลงขา (also: sciatica-like pain, ปวดหลังร้าวลงขา)
 - balance_loss: Sudden loss of balance / severe dizziness with unsteady walking / เสียการทรงตัว เดินเซ เวียนศีรษะรุนแรงฉับพลัน (also: staggering, can't walk straight, เดินเซ, ทรงตัวไม่ได้)
 - bloody_stool: Fresh blood in stool (recent) / ถ่ายเป็นเลือดสด (also: blood in stool, อุจจาระมีเลือด)
 - blue_lips: Blue lips / cyanosis / ริมฝีปากเขียว ตัวเขียว (also: turning blue, เขียวคล้ำ, ปากเขียว)
+- blurred_vision_sudden: Sudden blurred vision / ตามัว ตาพร่าฉับพลัน (also: vision suddenly blurry, ตามัวฉับพลัน)
 - burn_scald_24h: Burn or scald within 24 hours / ไฟไหม้ น้ำร้อนลวก ภายใน 24 ชั่วโมง (also: scalded, น้ำร้อนลวก, ไฟลวก)
 - cardiac_arrest: Cardiac arrest / not breathing, no pulse / หัวใจหยุดเต้น ไม่หายใจ ไม่มีชีพจร (also: no pulse, not breathing, collapsed and unresponsive, หัวใจหยุด, ไม่หายใจ, คลำชีพจรไม่ได้)
 - chest_pain: Chest pain / tightness / เจ็บแน่นหน้าอก (also: chest tightness, pressure on chest, chest discomfort, แน่นหน้าอก, เจ็บหน้าอก, จุกแน่นใต้ลิ้นปี่)
 - chest_pain_radiating: Chest pain radiating to neck, jaw, shoulder, or arm / เจ็บหน้าอกร้าวไปคอ กราม ไหล่ หรือแขน (also: pain spreading to jaw, pain going down the arm, เจ็บร้าวไปกราม, เจ็บร้าวไปไหล่)
 - chronic_cough_2w: Cough lasting more than 2 weeks / ไอเรื้อรังมากกว่า 2 สัปดาห์ (also: ไอเรื้อรัง)
 - confusion: New confusion / drowsiness / disorientation (within 72 hours) / ซึม สับสน เรียกแล้วตอบช้า ภายใน 72 ชั่วโมง (also: disoriented, not making sense, very drowsy, สับสน, ซึมลง, พูดจาสับสน)
+- copd_history: History of COPD / chronic lung disease / มีโรคปอดอุดกั้นเรื้อรัง (COPD) (also: emphysema, ถุงลมโป่งพอง)
 - cough: Cough / ไอ (also: coughing, ไอแห้ง, ไอมีเสมหะ)
 - crowning: Baby is coming / part of baby visible / ทารกกำลังคลอด มีส่วนของทารกโผล่ออกมา (also: baby's head is coming out, เด็กกำลังจะคลอด, อยากเบ่ง)
 - decreased_fetal_movement: Baby moving less than usual / ลูกดิ้นน้อยลง (also: baby not moving much, ทารกดิ้นน้อยลง)
+- depression_symptoms: Depressed mood / loss of interest / ซึมเศร้า เบื่อหน่าย ท้อแท้ (also: feeling depressed, เศร้า, หดหู่)
+- diabetes_history: History of diabetes / มีโรคเบาหวาน (also: diabetic, เบาหวาน)
 - diaphoresis: Sweating heavily / cold sweat with symptoms / เหงื่อออกมาก เหงื่อแตก (also: cold sweat, drenched in sweat, เหงื่อแตกท่วมตัว)
 - diarrhea: Diarrhea / ถ่ายเหลว ท้องเสีย (also: loose stools, ท้องร่วง)
 - dyspnea: Difficulty breathing / shortness of breath / หายใจเหนื่อย หายใจหอบ (also: short of breath, breathless, hard to breathe, เหนื่อยหอบ, หายใจไม่อิ่ม, หายใจลำบาก)
 - dysuria: Painful or burning urination / ปัสสาวะแสบขัด (also: burning when peeing, ฉี่แสบ, ปัสสาวะขัด)
+- ear_discharge: Fluid draining from the ear / น้ำไหลจากหู (also: หูน้ำหนวก)
 - ear_pain: Ear pain / ปวดหู (also: earache, เจ็บหู)
+- edema: Swelling of legs or body / บวมที่ขาหรือตามตัว (also: swollen legs, puffy ankles, ขาบวม, ตัวบวม)
 - electric_shock_24h: Electric shock within 24 hours / ไฟดูด ภายใน 24 ชั่วโมง (also: electrocuted, ไฟดูด, ไฟช็อต)
 - epistaxis_uncontrolled: Nosebleed that will not stop / เลือดกำเดาไหลไม่หยุด (also: เลือดกำเดาไม่หยุด)
 - evening_fever: Low-grade fever in the evenings / มีไข้ตอนเย็น ไข้ต่ำ ๆ ช่วงเย็น (also: ไข้ตอนเย็น)
 - eye_active_bleeding: Eye bleeding that won't stop / เลือดออกที่ตาไม่หยุด (also: เลือดออกในตา)
 - eye_chemical_exposure: Chemical or animal venom splashed into eye / สารเคมีหรือพิษสัตว์กระเด็นเข้าตา (also: chemical in eye, สารเคมีเข้าตา)
+- eye_lump_swelling: Red swollen lump at the eye / ก้อนบวมแดงที่ตา (also: stye, ตากุ้งยิง, ก้อนที่เปลือกตา)
+- eye_pain_severe: Severe eye pain / ปวดตามาก (also: ปวดตารุนแรง)
+- eye_redness_severe: Very red eye / ตาแดงมาก (also: ตาแดงจัด)
 - eye_trauma: Eye injury / accident involving the eye / อุบัติเหตุทางตา (also: hit in the eye, ตาโดนกระแทก)
 - facial_droop: Facial droop / crooked mouth (sudden) / ปากเบี้ยว หน้าเบี้ยวฉับพลัน (also: face drooping on one side, หน้าเบี้ยว, มุมปากตก)
 - fatigue_weight_loss: Fatigue with unexplained weight loss / อ่อนเพลีย น้ำหนักลด (also: losing weight, น้ำหนักลด, เพลีย)
@@ -135,11 +151,18 @@ Finding catalog (use ONLY these ids):
 - fracture_suspected: Suspected broken bone or dislocated joint / สงสัยกระดูกหักหรือข้อหลุด (also: bone might be broken, joint popped out, กระดูกหัก, ข้อเคลื่อน, ข้อหลุด)
 - ga_24w_or_more: Pregnancy at 24 weeks or more / อายุครรภ์ 24 สัปดาห์ขึ้นไป (also: 6 months pregnant or more, ครรภ์ 6 เดือนขึ้นไป)
 - gasping: Gasping breaths / หายใจเฮือก (also: หายใจเฮือก ๆ)
+- hallucination_paranoia: Hallucinations or paranoia / ภาพหลอน หวาดระแวง (also: seeing things, paranoid, เห็นภาพหลอน, ระแวง)
+- head_injury: Head injury / hit head / ศีรษะกระแทก บาดเจ็บที่ศีรษะ (also: hit my head, หัวกระแทก, หัวฟาดพื้น)
 - headache: Headache / ปวดศีรษะ (also: head hurts, ปวดหัว)
 - headache_sudden_severe: Sudden very severe headache (worst ever) / ปวดศีรษะรุนแรงฉับพลัน (ปวดที่สุดในชีวิต) (also: thunderclap headache, ปวดหัวรุนแรงที่สุด)
+- hearing_loss: Hearing loss / reduced hearing / การได้ยินลดลง หูอื้อ (also: can't hear well, หูอื้อ, หูตึง, ได้ยินไม่ชัด)
+- heart_disease_history: History of heart disease / coronary artery disease / มีประวัติโรคหัวใจ เส้นเลือดหัวใจตีบ (also: heart problems before, โรคหัวใจ, เส้นเลือดหัวใจตีบ)
 - heavy_vaginal_bleeding: Heavy vaginal bleeding (soaking a pad every hour) / เลือดออกมากทางช่องคลอด (เปียกชุ่มผ้าอนามัยทุก 1 ชั่วโมง) (also: soaking pads, เลือดชุ่มผ้าอนามัย)
 - hematemesis: Vomiting blood (recent) / อาเจียนเป็นเลือด (also: threw up blood, อ้วกเป็นเลือด)
 - hemoptysis: Coughing up blood / blood-streaked sputum / ไอเป็นเลือด เสมหะปนเลือด (also: blood in sputum, ไอมีเลือดปน)
+- high_fever: High fever (over 38.5°C) / ไข้สูง (เกิน 38.5 องศา) (also: burning up, ไข้สูงมาก)
+- hoarseness_over_2w: Hoarse voice for more than 2 weeks / เสียงแหบนานเกิน 2 สัปดาห์ (also: voice hoarse for weeks, เสียงแหบเรื้อรัง)
+- home_oxygen: Uses home oxygen / ใช้ออกซิเจนที่บ้าน (also: ให้ออกซิเจนที่บ้าน)
 - hypertension_history: History of high blood pressure / มีโรคความดันโลหิตสูง (also: hypertension, ความดันสูง)
 - injury_within_24h: Injury happened within the last 24 hours / บาดเจ็บภายใน 24 ชั่วโมงที่ผ่านมา
 - limb_weakness: Sudden weakness or numbness of arm/leg (one side) / แขนขาอ่อนแรงหรือชาครึ่งซีกฉับพลัน (also: one side weak, arm won't lift, อ่อนแรงครึ่งซีก, ยกแขนไม่ขึ้น, ชาครึ่งซีก)
@@ -148,12 +171,19 @@ Finding catalog (use ONLY these ids):
 - melena: Black tarry stool (recent) / ถ่ายดำ (also: black stools, อุจจาระสีดำ)
 - missed_period: Missed period / ประจำเดือนขาด (also: late period, เมนส์ไม่มา, ประจำเดือนไม่มา)
 - nasal_flaring: Nostrils flaring when breathing (child) / หายใจปีกจมูกบาน (also: ปีกจมูกบาน)
+- neck_mass: Lump in the neck / ก้อนที่คอ (also: neck lump, ก้อนที่ลำคอ)
+- neck_swelling_dysphagia: Neck swelling with trouble swallowing or breathing / คอบวมโต กลืนลำบาก หายใจลำบาก (also: can't swallow, กลืนลำบาก, คอบวม)
+- oral_ulcer_chronic: Chronic mouth ulcer that won't heal / แผลในช่องปากเรื้อรังไม่หาย (also: แผลในปากไม่หาย)
+- orthopnea: Cannot lie flat to breathe / นอนราบไม่ได้ ต้องนั่งหายใจ (also: needs to sit up to breathe at night, นอนราบแล้วเหนื่อย)
 - overdose_or_poison: Drug overdose or exposure to poison/chemicals / ได้รับยาเกินขนาด หรือสัมผัสสารพิษ/สารเคมี (also: took too many pills, swallowed chemicals, กินยาเกินขนาด, โดนสารพิษ)
 - pale_cold_sweaty: Pale AND cold AND clammy skin together (shock signs) / ผิวหนังซีดและตัวเย็นชื้นพร้อมกัน (สัญญาณช็อก) (also: cold and clammy, pale and cold to the touch, ตัวเย็นหน้าซีด, หน้าซีดตัวเย็น)
 - palm_sole_rash: Red rash on palms, soles, or around the mouth / ผื่นแดงตามฝ่ามือ ฝ่าเท้า รอบปาก (also: ผื่นฝ่ามือฝ่าเท้า)
+- palpitations: Palpitations / racing heart / ใจสั่น หัวใจเต้นเร็วผิดปกติ (also: heart racing, heart pounding, ใจเต้นแรง, ใจสั่นรัว)
 - penetrating_injury_torso: Stab or penetrating wound to neck, chest, or abdomen / ถูกแทงที่คอ หน้าอก หรือช่องท้อง (also: stabbed, ถูกแทง, ถูกยิง)
+- police_case: Has police report / forensic referral document / มีใบรายงานชันสูตรหรือใบนำส่งตรวจจากตำรวจ (also: police sent me for examination, มีใบนำส่งจากตำรวจ, คดีความ)
 - pregnancy: Currently pregnant / กำลังตั้งครรภ์ (also: expecting, ท้อง, มีครรภ์)
 - rash_itching: Itchy rash / hives / ผื่นคัน ลมพิษ (also: hives, ผื่นลมพิษ, ผื่นคันทั้งตัว)
+- rash_vesicles: Red rash or fluid-filled blisters on the body / ผื่นแดงหรือตุ่มน้ำตามร่างกาย (also: blisters, ตุ่มน้ำใส, ผื่นขึ้นตามตัว)
 - recent_chemotherapy: Currently receiving chemotherapy / ได้รับยาเคมีบำบัดอยู่ (also: on chemo, ให้คีโม, รับยาเคมี)
 - retraction: Chest retractions when breathing / หายใจมีอกบุ๋ม (retraction) (also: ribs pulling in when breathing, อกบุ๋ม, ซี่โครงบุ๋ม)
 - runny_nose: Runny nose / น้ำมูกไหล (also: มีน้ำมูก)
@@ -161,16 +191,22 @@ Finding catalog (use ONLY these ids):
 - self_harm_risk: Risk of harming self or others / recent self-harm / เสี่ยงทำร้ายตนเองหรือผู้อื่น หรือเพิ่งทำร้ายตนเอง (also: hurt myself, ทำร้ายตัวเอง)
 - severe_morning_sickness: Severe pregnancy vomiting, cannot eat or drink / แพ้ท้องรุนแรงจนกินไม่ได้ (also: แพ้ท้องหนัก)
 - severe_respiratory_distress: Severe breathing difficulty (cannot speak full sentences / must sit up to breathe) / หายใจลำบากรุนแรง พูดเป็นประโยคไม่ได้ ต้องลุกนั่งหายใจ (also: can't speak full sentences, gasping for air, struggling to breathe, หายใจไม่ทัน, พูดไม่เป็นประโยค, หอบมาก)
+- severe_stress: Severe stress / overwhelming distress / เครียดมาก (also: extremely stressed, เครียดหนัก)
 - sexual_assault_72h: Sexual assault within 72 hours / ถูกกระทำชำเราภายใน 72 ชั่วโมง (also: ถูกล่วงละเมิดทางเพศ)
 - slurred_speech: Slurred or garbled speech (sudden) / พูดไม่ชัด ลิ้นแข็ง พูดไม่ออกทันที (also: can't get words out, speech suddenly unclear, พูดอ้อแอ้, พูดไม่รู้เรื่องฉับพลัน)
+- smoking: Smoker / สูบบุหรี่ (also: สูบบุหรี่)
+- snoring: Snoring / suspected sleep apnea / นอนกรน (also: กรน)
 - sore_throat: Sore throat / เจ็บคอ (also: เจ็บคอ)
 - stiff_neck: Stiff neck with fever / คอแข็ง ก้มคอไม่ได้ ร่วมกับไข้ (also: คอแข็ง)
 - sudden_vision_loss: Sudden loss of vision / double vision / ตามองไม่เห็นเฉียบพลัน เห็นภาพซ้อน (also: suddenly can't see, double vision, ตามืดฉับพลัน, เห็นภาพซ้อน)
 - suicidal_ideation: Thoughts of suicide or wanting to die / มีความคิดอยากตาย อยากฆ่าตัวตาย (also: want to end my life, อยากตาย, คิดสั้น)
 - syncope_24h: Fainting / near-fainting within 24 hours / วูบ หน้ามืด เป็นลม ภายใน 24 ชั่วโมง (also: blacked out, passed out today, เป็นลม, วูบหมดสติ)
+- tinnitus: Ringing or buzzing in the ear / เสียงดังในหู (วิ้ง เสียงแมลง) (also: ringing in ears, หูมีเสียงวิ้ง, เสียงดังในหู)
 - unresponsive: Unresponsive / cannot be woken / ซึมลงปลุกไม่ตื่น ไม่รู้สึกตัว (also: unconscious, won't wake up, passed out and not waking, หมดสติ, ปลุกไม่ตื่น, ไม่ตอบสนอง)
 - uterine_contractions_frequent: Frequent strong contractions (about every 2 minutes) / ท้องแข็ง เจ็บครรภ์ถี่ (ทุก ๆ 2 นาที) (also: contractions every few minutes, เจ็บท้องคลอดถี่, ท้องแข็งถี่)
 - vaginal_bleeding: Vaginal bleeding (abnormal) / เลือดออกทางช่องคลอดผิดปกติ (also: bleeding down there, เลือดออกช่องคลอด)
+- vertigo: Dizziness / spinning sensation / เวียนศีรษะ บ้านหมุน (also: room spinning, บ้านหมุน, เวียนหัว)
+- vertigo_positional: Spinning dizziness related to head position / บ้านหมุนสัมพันธ์กับท่าทาง (also: dizzy when turning head, บ้านหมุนเวลาเปลี่ยนท่า)
 - vomiting: Vomiting / อาเจียน คลื่นไส้ (also: throwing up, nausea, คลื่นไส้, อ้วก)
 
 Rules:
@@ -417,7 +453,9 @@ Patient message:
 
 **When:** When the rules engine has picked the next question and it is safe to reword. Red-flag and measurement questions are asked verbatim from the criteria and never go near the model.
 
-**Prompt sent:**
+**Prompt language: bilingual.** The booth sends the Thai prompt to a Thai session and the English one to an English session — the model is instructed in the language it must reply in, because this reply reaches the patient.
+
+**Prompt sent (Thai session):**
 
 ```text
 คุณเป็นผู้ช่วยคัดกรองของโรงพยาบาลที่พูดจาอบอุ่นและใจเย็น พูดภาษาไทยเท่านั้น ช่วยเรียบเรียงคำถามคัดกรองต่อไปนี้ให้เป็นธรรมชาติ โดยคงความหมายทางคลินิกเดิมทุกประการ ถามเพียงหนึ่งคำถาม ความยาวหนึ่งถึงสองประโยคสั้น ๆ ห้ามใช้ศัพท์แพทย์ และห้ามพูดถึงระดับการคัดกรองหรือการวินิจฉัย
@@ -426,6 +464,17 @@ Patient message:
 บริบทผู้ป่วย: แน่นหน้าอกมา 2 ชั่วโมง
 ข้อมูลที่ผู้ป่วยตอบแล้ว ห้ามถามซ้ำ: อายุ 58 ปี | ความดัน 158/94
 คำถามที่ต้องเรียบเรียง: อาการเจ็บหน้าอกร้าวไปที่แขน คอ หรือกรามหรือไม่
+```
+
+**Prompt sent (English session):**
+
+```text
+You are a warm, calm hospital screening assistant speaking English. Rephrase the following screening question conversationally, preserving its exact clinical meaning. Ask exactly ONE question, one or two short sentences, no lists, no medical jargon, and never mention triage levels or diagnoses.
+Do NOT re-ask anything already answered.
+Also provide 3 or 4 short answer choices (max 30 characters each) the patient could tap to answer, in English, mutually distinct, covering the most likely answers; never include diagnoses, levels, or medication.
+Patient context: แน่นหน้าอกมา 2 ชั่วโมง
+Already answered — do not re-ask: อายุ 58 ปี | ความดัน 158/94
+Question to rephrase: อาการเจ็บหน้าอกร้าวไปที่แขน คอ หรือกรามหรือไม่
 ```
 
 **Reply is schema-constrained** — the server is given this JSON Schema, so a local model cannot answer with prose:
@@ -474,7 +523,9 @@ Patient message:
 
 **When:** Once, at disposition. The department and urgency are inputs, not something the model chooses.
 
-**Prompt sent:**
+**Prompt language: bilingual.** The booth sends the Thai prompt to a Thai session and the English one to an English session — the model is instructed in the language it must reply in, because this reply reaches the patient.
+
+**Prompt sent (Thai session):**
 
 ```text
 คุณเป็นผู้ช่วยคัดกรองของโรงพยาบาล พูดภาษาไทยอย่างอบอุ่นและใจเย็น ระบบเกณฑ์ทางคลินิกได้ตัดสินใจแล้วว่าผู้ป่วยควรไปที่แผนกใด หน้าที่ของคุณคืออธิบายอย่างสุภาพใน 2-4 ประโยคสั้น ๆ เท่านั้น
@@ -482,6 +533,17 @@ Patient message:
 อาการที่ผู้ป่วยเล่า: แน่นหน้าอกมา 2 ชั่วโมง ร้าวไปแขนซ้าย
 ให้ผู้ป่วยไปที่: แผนก OPD MED (อายุรกรรม)
 เรียกผู้ป่วยหนึ่งครั้งอย่างเป็นธรรมชาติ โดยเขียนโทเคน [NAME] ตรงตำแหน่งที่ควรเป็นชื่อ (ห้ามแต่งชื่อขึ้นเอง และห้ามแปลโทเคนนี้)
+
+```
+
+**Prompt sent (English session):**
+
+```text
+You are a warm, calm hospital screening assistant speaking English. The clinical rules engine has decided where this patient should go — your ONLY job is to explain it kindly in 2–4 short sentences.
+STRICT RULES: never mention triage levels, colors, scores, or classifications; never diagnose or name a suspected disease; never recommend medication; do not name any other department.
+Patient's reported symptoms: แน่นหน้าอกมา 2 ชั่วโมง ร้าวไปแขนซ้าย
+Send the patient to: แผนก OPD MED (อายุรกรรม)
+Address the patient once, naturally, writing the literal token [NAME] exactly where their name belongs (do not invent a name, do not translate the token).
 
 ```
 
@@ -497,6 +559,8 @@ Patient message:
 ### Gate (followup_decline) — classify one yes/no-ish reply
 
 **When:** Only when the deterministic regex classifier is unsure. The model returns one enum value and never generates anything the patient hears.
+
+**Prompt language: English**, whatever the patient speaks — this call produces structured data, not patient-facing text, so the instructions do not need translating. The patient's own words pass through verbatim in whatever language they spoke, and the finding catalog carries both languages.
 
 **Prompt sent:**
 
@@ -545,6 +609,8 @@ Patient reply: 'ไม่มีแล้วค่ะ ขอบคุณค่ะ
 
 **When:** Only when the deterministic regex classifier is unsure. The model returns one enum value and never generates anything the patient hears.
 
+**Prompt language: English**, whatever the patient speaks — this call produces structured data, not patient-facing text, so the instructions do not need translating. The patient's own words pass through verbatim in whatever language they spoke, and the finding catalog carries both languages.
+
 **Prompt sent:**
 
 ```text
@@ -591,6 +657,8 @@ Patient reply: 'ไม่มีแล้วค่ะ ขอบคุณค่ะ
 ### Gate (resume_choice) — classify one yes/no-ish reply
 
 **When:** Only when the deterministic regex classifier is unsure. The model returns one enum value and never generates anything the patient hears.
+
+**Prompt language: English**, whatever the patient speaks — this call produces structured data, not patient-facing text, so the instructions do not need translating. The patient's own words pass through verbatim in whatever language they spoke, and the finding catalog carries both languages.
 
 **Prompt sent:**
 
