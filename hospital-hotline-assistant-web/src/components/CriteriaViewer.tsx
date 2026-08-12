@@ -33,6 +33,8 @@ interface RuleLike {
   risk_factors_any?: string[];
   department_code?: string;
   complaint_category?: string;
+  specialty_conditions?: Cond[];
+  fallback_department_code?: string;
 }
 
 interface QuestionOption {
@@ -432,12 +434,23 @@ export function CriteriaViewer({ doc }: { doc: CriteriaDoc }) {
   const routingRows = useMemo<RuleRow[]>(() => {
     const rows: RuleRow[] = [];
     for (const r of asArr<RuleLike>(doc.routing_table)) {
+      // A routing entry with specialty_conditions sends the category to the
+      // specialist department ONLY when one matches, else the fallback. The
+      // old hardcoded '—' hid that entirely — dyspnea_cough read as "every
+      // cough goes to cardiology", which is exactly wrong.
+      const specialty = asArr<Cond>(r.specialty_conditions);
+      const cond = specialty.length
+        ? specialty.map((c) => condText(c, findings, lang)).join(` ${t('criteriaCondOr')} `)
+        : t('criteriaCondAlways');
+      const effect = specialty.length && r.fallback_department_code
+        ? `→ ${r.department_code ?? '?'}; ${t('criteriaCondElse')} → ${r.fallback_department_code}`
+        : `→ ${r.department_code ?? '?'}`;
       rows.push({
         key: `rt-${r.complaint_category}-${r.department_code}`,
         group: t('criteriaGroupRouting'),
         label: r.complaint_category ?? '—',
-        cond: '—',
-        effect: `→ ${r.department_code ?? '?'}`,
+        cond,
+        effect,
         citation: r.citation ?? '',
       });
     }
