@@ -15,6 +15,7 @@ Usage:
     uv run python scripts/run_triage_eval.py --dry-run
     uv run python scripts/run_triage_eval.py --language th --ids cp_th_crushing
     uv run python scripts/run_triage_eval.py --criteria active
+    uv run python scripts/run_triage_eval.py --criteria v2 --rag
 """
 
 from __future__ import annotations
@@ -145,18 +146,49 @@ def pick_answer(
 
 def build_engine(
     criteria: ScreeningCriteria, model: Any, *, question_budget: int = 8,
-    model_label: str = "screening:eval",
+    model_label: str = "screening:eval", rag_search: Any = None,
 ) -> tuple[ScreeningTriageEngine, InMemoryStateStore]:
-    """Engine over an in-memory store — DB-free; RAG off (explanation-only)."""
+    """Engine over an in-memory store — DB-free. RAG (explanation-only, and
+    only for non-emergency dispositions) is off unless a search fn is passed."""
     store = InMemoryStateStore(criteria)
     engine = ScreeningTriageEngine(
         model=model,
         store=store,
         question_budget=question_budget,
         model_label=model_label,
-        rag_search=None,
+        rag_search=rag_search,
     )
     return engine, store
+
+
+RAG_CALLS: list[dict[str, Any]] = []
+
+
+async def build_rag_search() -> Any:
+    """production `search_triage_manual`, wrapped to record what it returned.
+
+    Prewarmed first: the explain node gives RAG a 1.5s budget, and a cold index
+    (HuggingFace embed model load) blows that on the very first vignette."""
+    from app.services.ai.rag_query import prewarm_rag_query_engine, search_triage_manual
+
+    warm = await prewarm_rag_query_engine()
+    print(f"RAG: enabled (index prewarm {'ok' if warm else 'FAILED — expect misses'})")
+
+    async def counting_search(query: str) -> str:
+        try:
+            text = await search_triage_manual(query)
+        except Exception as exc:  # search_triage_manual swallows its own, belt+braces
+            RAG_CALLS.append({"query": query, "chars": 0, "error": repr(exc)})
+            raise
+        RAG_CALLS.append({
+            "query": query,
+            "chars": len(text or ""),
+            # the fn returns this sentence instead of raising when the index is down
+            "hit": bool(text.strip()) and not text.startswith("ไม่พบข้อมูลจากคู่มือ"),
+        })
+        return text
+
+    return counting_search
 
 
 def build_real_model() -> tuple[Any, str]:
@@ -796,9 +828,12 @@ async def main_async(args: argparse.Namespace) -> int:
         model, model_label = build_real_model()
         feeder = None
 
-    engine, store = build_engine(criteria, model, model_label=model_label)
+    rag_search = await build_rag_search() if args.rag else None
+    engine, store = build_engine(criteria, model, model_label=model_label,
+                                 rag_search=rag_search)
     meta = {
         "dry_run": args.dry_run,
+        "rag": bool(args.rag),
         "criteria_mode": args.criteria,
         "model_label": model_label,
         "language_filter": args.language,
@@ -813,6 +848,14 @@ async def main_async(args: argparse.Namespace) -> int:
         meta=meta,
     )
     print_summary(aggregates, results)
+    if args.rag:
+        hits = sum(1 for c in RAG_CALLS if c.get("hit"))
+        chars = [c["chars"] for c in RAG_CALLS if c.get("hit")]
+        print(
+            f"RAG: {len(RAG_CALLS)} retrievals completed "
+            f"(explain calls it once per NON-emergency disposition), "
+            f"{hits} non-empty, avg {round(sum(chars)/len(chars)) if chars else 0} chars"
+        )
     return 0
 
 
@@ -828,6 +871,11 @@ def main() -> int:
         "--criteria", choices=["v1", "v2", "active"], default="v1",
         help="v1 = bundled seed (DB-free); v2/active = active DB version "
         "(needs DATABASE_URL) and scores against expected.category_v2 labels",
+    )
+    parser.add_argument(
+        "--rag", action="store_true",
+        help="ground the explain node in the indexed manual (needs a populated "
+        "pgvector index). OFF by default so numbers stay comparable to past runs",
     )
     parser.add_argument("--vignettes", default=str(VIGNETTES_PATH))
     parser.add_argument("--out-dir", default=str(REPORTS_DIR))
