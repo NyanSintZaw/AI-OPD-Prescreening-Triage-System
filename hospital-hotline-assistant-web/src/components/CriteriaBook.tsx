@@ -89,6 +89,13 @@ function QuestionList({ questions, lang }: { questions: CriteriaViewQuestion[]; 
   );
 }
 
+/** "OPD หู คอ จมูก (opd_ent)" instead of a bare code — same names the booth
+ * speaks to patients. Falls back to the raw code for anything unmapped. */
+function deptLabel(code?: string | null, nameTh?: string | null): string {
+  if (!code) return '';
+  return nameTh ? `${nameTh} (${code})` : code;
+}
+
 export function CriteriaBook() {
   const { t, i18n } = useTranslation();
   const lang: 'th' | 'en' = i18n.language?.startsWith('th') ? 'th' : 'en';
@@ -167,7 +174,7 @@ export function CriteriaBook() {
   const effectOf = (r: CriteriaViewRule) => {
     const level = r.level != null ? `${levelWord} ${r.level}` : null;
     const min = r.min_level != null ? `≥ ${levelWord} ${r.min_level}` : null;
-    return [level ?? min, r.department_code ? `→ ${r.department_code}` : null]
+    return [level ?? min, r.department_code ? `→ ${deptLabel(r.department_code, r.department_name_th)}` : null]
       .filter(Boolean)
       .join(' ');
   };
@@ -393,10 +400,10 @@ export function CriteriaBook() {
                   </td>
                   <td className="cm-cond">{condition(r) === '—' ? t('criteriaBookAlways') : condition(r)}</td>
                   <td className="cm-effect">
-                    → {r.department_code}
+                    → {deptLabel(r.department_code, r.department_name_th)}
                     {r.fallback_department_code && (
                       <div className="muted">
-                        {t('criteriaBookElse')} → {r.fallback_department_code}
+                        {t('criteriaBookElse')} → {deptLabel(r.fallback_department_code, null)}
                       </div>
                     )}
                   </td>

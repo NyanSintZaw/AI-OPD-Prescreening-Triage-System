@@ -5,6 +5,7 @@ import { api, type MessageOut } from '../api';
 import { getAdminEmail, getAdminRole, getAdminToken } from '../api/client';
 import { Layout } from '../components/Layout';
 import { MessageBubble } from '../components/MessageBubble';
+import { CriteriaBook } from '../components/CriteriaBook';
 import { DoctorScheduleManager } from '../components/DoctorScheduleManager';
 import { useLanguage } from '../hooks/useSession';
 import { slipCode, slipSearchKey } from '../utils/slipCode';
@@ -16,7 +17,7 @@ import type {
   RoutingFeedbackOut,
 } from '../api/types';
 
-type NurseTab = 'reviews' | 'schedules';
+type NurseTab = 'reviews' | 'schedules' | 'criteria';
 type ReviewModalTab = 'assessment' | 'conversation' | 'history';
 type ReviewFilter = 'all' | 'pending' | 'reviewed';
 
@@ -157,8 +158,13 @@ export function NursePage() {
   // one — /nurse and /nurse?tab=schedules share a route element, so nothing
   // remounts on a same-route jump and local state would stay stale.
   const [searchParams, setSearchParams] = useSearchParams();
+  const tabParam = searchParams.get('tab');
   const activeTab: NurseTab =
-    searchParams.get('tab') === 'schedules' && !isReadOnly ? 'schedules' : 'reviews';
+    tabParam === 'criteria'
+      ? 'criteria'
+      : tabParam === 'schedules' && !isReadOnly
+        ? 'schedules'
+        : 'reviews';
   const setActiveTab = (tab: NurseTab) => {
     const next = new URLSearchParams(searchParams);
     next.set('tab', tab);
@@ -445,6 +451,16 @@ export function NursePage() {
               {t('scheduleTabDoctors')}
             </button>
           )}
+          {/* Read-only rule book — the criteria the booth decides on, with
+              the MFU manual citations. The endpoint already allows nurses;
+              without this tab the page built for them was unreachable. */}
+          <button
+            type="button"
+            className={`nurse-tab-btn ${activeTab === 'criteria' ? 'active' : ''}`}
+            onClick={() => setActiveTab('criteria')}
+          >
+            📖 {t('criteriaBookTab')}
+          </button>
         </div>
 
         {authError ? <p className="error-text">{authError}</p> : null}
@@ -452,6 +468,8 @@ export function NursePage() {
         {activeTab === 'schedules' && (
           <DoctorScheduleManager departments={departments} />
         )}
+
+        {activeTab === 'criteria' && <CriteriaBook />}
 
         {activeTab === 'reviews' && <div className="admin-toolbar nurse-toolbar">
           <input

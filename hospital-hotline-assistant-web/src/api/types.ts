@@ -854,6 +854,8 @@ export interface CriteriaViewRule {
   level: number | null;
   min_level: number | null;
   department_code: string | null;
+  department_name_en: string | null;
+  department_name_th: string | null;
   citation: string;
   placeholder: boolean;
 }
@@ -880,6 +882,8 @@ export interface CriteriaViewRouting {
   complaint_category: string;
   department_code: string;
   fallback_department_code: string | null;
+  department_name_en: string | null;
+  department_name_th: string | null;
   condition_en: string;
   condition_th: string;
   citation: string;

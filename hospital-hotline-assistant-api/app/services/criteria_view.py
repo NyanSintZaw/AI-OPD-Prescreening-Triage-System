@@ -12,6 +12,22 @@ document that fails validation must still be viewable).
 
 from __future__ import annotations
 
+from app.services.screening.templates import DEPARTMENT_NAMES
+
+
+def _dept_names(code: str | None) -> dict[str, str | None]:
+    """Bilingual display names beside every department code.
+
+    A nurse reading “opd_ent” has to translate in her head; the booth already
+    holds the human names it speaks to patients, so the rule book shows the
+    same ones. An unknown code yields None rather than a guess — unmapped IS
+    the information there."""
+    entry = DEPARTMENT_NAMES.get(code or "")
+    return {
+        "department_name_en": entry.get("en") if entry else None,
+        "department_name_th": entry.get("th") if entry else None,
+    }
+
 from typing import Any
 
 _OPS = {"lt": "<", "le": "≤", "gt": ">", "ge": "≥", "eq": "="}
@@ -117,6 +133,7 @@ def _rule(raw: dict, group: str, labels: dict[str, str], labels_th: dict[str, st
         "level": raw.get("level"),
         "min_level": raw.get("min_level") or raw.get("force_min_level"),
         "department_code": raw.get("department_code"),
+        **_dept_names(raw.get("department_code")),
         "citation": citation,
         "placeholder": _is_placeholder(citation),
     }
@@ -155,6 +172,7 @@ def build_criteria_view(payload: dict, meta: dict | None = None) -> dict:
         routing.append({
             "complaint_category": entry.get("complaint_category"),
             "department_code": entry.get("department_code"),
+            **_dept_names(entry.get("department_code")),
             "fallback_department_code": entry.get("fallback_department_code"),
             "condition_en": (
                 render_condition({"any_of": conditions}, labels, "en") if conditions else ""
