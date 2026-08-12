@@ -402,3 +402,37 @@ duplicating the prompt catalog, plus a per-call dynamic model needing an
 
 `ingest.py:245` stays. It is currently the only enforcement, and it is doing
 its job at zero measured cost.
+
+### Measured: RAG in the explain node makes English replies worse (2026-08-12)
+
+First run ever with retrieval actually on (`--rag`; every prior number was
+RAG-off). Aggregates: no change, as predicted — undertriage 0/18 both arms,
+leaks 0 both, department identical; retrieval cannot reach the rules engine
+by construction. All 44 non-emergency dispositions retrieved successfully
+(avg 2993 chars). Latency: none measurable.
+
+The reply text is where the effect is, and it is negative:
+
+| EN non-emergency replies falling back to the canned template | count |
+|---|---|
+| RAG off | 5/25 |
+| RAG on | **15/25** |
+
+Mechanism, confirmed by direct probe: the retrieved passages push the model
+into empathic openers — *"I understand you have been experiencing a
+headache…"* — and `validator.py` flags bare `\byou have\b` as a diagnosis
+leak. Both attempts fail validation → the patient gets the flat deterministic
+template instead of a warm reply. Thai has no equivalent trigger phrase,
+so 0 Thai replies flipped. The validator held (leaks stayed 0); the cost is
+tone, not safety.
+
+Two conclusions:
+
+1. **`--rag` stays off by default.** The index holds clinician routing tables
+   (lab thresholds, department lists) — nothing usable in a 2-4 sentence
+   patient reply that may not name a diagnosis or another department. RAG
+   here has value only if the manual ever gains patient-facing sections.
+2. **The real bug is the validator's `\byou have\b` rule** — a false-positive
+   generator on ordinary empathy, punishing warm English replies with or
+   without RAG. Tightening it to require a condition noun after "have" would
+   recover them. Queued (screening/ is mid-edit by the gender work).
