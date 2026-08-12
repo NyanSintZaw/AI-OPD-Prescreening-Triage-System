@@ -226,9 +226,22 @@ async def test_golden_en_ear_fails_ent_criteria_to_general(criteria):
             "tinnitus": "absent", "vertigo_positional": "absent",
         })),
     ]
-    for text, extraction in answers:
-        if r["classification"].get("classified"):
-            break
+    # Supply booth readings when the engine requests them (temp and BP are
+    # standard vitals in every template); interview answers otherwise.
+    i = 0
+    while i < len(answers) and not r["classification"].get("classified"):
+        vital = r.get("awaiting_measurement")
+        if vital == "temp":
+            r = await j.turn("36.6", ext(), turn_context={"vitals": {"temp": 36.6}})
+            continue
+        if vital == "sbp":
+            r = await j.turn(
+                "BP 118/76", ext(),
+                turn_context={"vitals": {"sbp": 118, "dbp": 76}},
+            )
+            continue
+        text, extraction = answers[i]
+        i += 1
         r = await j.turn(text, extraction)
 
     if not r["classification"].get("classified"):

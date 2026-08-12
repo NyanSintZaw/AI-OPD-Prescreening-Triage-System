@@ -7,9 +7,6 @@ and the prompt carries what the patient already answered so nothing is re-asked.
 
 from __future__ import annotations
 
-import json
-from pathlib import Path
-
 import pytest
 
 from app.services.screening.nodes.base import GraphDeps
@@ -18,19 +15,15 @@ from app.services.screening.nodes.question import (
     known_answers_line,
     make_question_node,
 )
-from app.services.screening.rules.criteria_models import parse_criteria
+from app.services.screening.rules.criteria_store import load_seed_criteria
 from app.services.screening.state import Finding, ScreeningState
 
 from .fakes import FakeChatModel
 
-CRITERIA_PATH = (
-    Path(__file__).resolve().parents[2] / "app" / "data" / "screening_criteria_v1.json"
-)
-
 
 @pytest.fixture(scope="module")
 def criteria():
-    return parse_criteria(json.loads(CRITERIA_PATH.read_text(encoding="utf-8")))
+    return load_seed_criteria()
 
 
 def _state(**kwargs) -> ScreeningState:
@@ -42,9 +35,10 @@ def _state(**kwargs) -> ScreeningState:
         chief_complaint="sore throat",
         age_years=33.0,
         gender="female",  # known, so uq_gender isn't the next question
-        # resolve red flags + BP so the next unresolved question is nt_onset
-        # (BP is always asked now — no age gate — so seed a measured reading)
-        vitals={"sbp": 118.0, "dbp": 76.0},
+        # resolve red flags + BP + temp so the next unresolved question is
+        # nt_onset (BP and temp are standard booth vitals in every template,
+        # so seed measured readings)
+        vitals={"sbp": 118.0, "dbp": 76.0, "temp": 36.8},
         findings={
             "dyspnea": Finding(state="absent"),
             "severe_respiratory_distress": Finding(state="absent"),

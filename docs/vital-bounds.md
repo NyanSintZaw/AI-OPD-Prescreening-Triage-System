@@ -25,7 +25,7 @@ Bounds are an **input filter**, never a triage threshold. If a bound were
 tightened to the point where a real hypertensive crisis (or a real fever) fell
 outside it, the system would silently stop detecting that emergency. That is
 why the bounds are deliberately far wider than any clinical band, and why
-`test_criteria_v2.py` pins that `250/140` still fits inside them.
+`test_criteria.py` pins that `250/140` still fits inside them.
 
 ---
 
@@ -146,9 +146,9 @@ pins this.
 
 The bounds are data, not code. `default_vital_bounds()` in
 `app/services/screening/rules/criteria_models.py` supplies them to any criteria
-document that doesn't author its own (so v1, still the active version, gets a
-working filter without being rewritten); `screening_criteria_v2.json` authors
-them explicitly with nurse-worded Thai and English.
+document that doesn't author its own; the bundled
+`screening_criteria.json` authors them explicitly with nurse-worded Thai and
+English.
 
 To retune them, edit `vital_bounds` in the criteria document and take it
 through the usual draft → review → approve → activate flow. Bound changes show
@@ -156,5 +156,5 @@ up in the admin review diff (`diff_criteria` includes the section). The whole
 document is one JSONB column, so **no database migration is involved**.
 
 If you change a bound, check it still admits the readings the danger-vital
-rules are meant to catch — that is what `test_criteria_v2.py` and
+rules are meant to catch — that is what `test_criteria.py` and
 `test_guardrail_precedence.py` verify.

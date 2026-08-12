@@ -22,7 +22,6 @@ never new code. Re-run after tuning; reports land in evals/reports/.
 Usage:
   uv run python scripts/run_extraction_eval.py            # real model (.env)
   uv run python scripts/run_extraction_eval.py --ids cp_th_1,befast_en
-  uv run python scripts/run_extraction_eval.py --criteria v2   # default: v2 file
 """
 
 from __future__ import annotations
@@ -42,7 +41,7 @@ from app.services.screening.extraction import (  # noqa: E402
     build_extraction_prompt,
 )
 from app.services.screening.model_adapter import build_chat_model  # noqa: E402
-from app.services.screening.rules.criteria_models import parse_criteria  # noqa: E402
+from app.services.screening.rules.criteria_store import load_seed_criteria  # noqa: E402
 from app.services.screening.rules.red_flags import critical_finding_ids  # noqa: E402
 from app.services.screening.state import ScreeningState  # noqa: E402
 
@@ -105,7 +104,6 @@ async def run_case(model, criteria, case, sem) -> dict:
 async def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--ids", default="")
-    ap.add_argument("--criteria", default="v2", choices=["v1", "v2"])
     args = ap.parse_args()
 
     corpus = json.loads((ROOT / "evals" / "extraction_phrases.json").read_text())
@@ -114,9 +112,7 @@ async def main() -> None:
         wanted = set(args.ids.split(","))
         cases = [c for c in cases if c["id"] in wanted]
 
-    criteria = parse_criteria(json.loads(
-        (ROOT / "app" / "data" / f"screening_criteria_{args.criteria}.json").read_text()
-    ))
+    criteria = load_seed_criteria()
     model = build_chat_model(settings)
     sem = asyncio.Semaphore(CONCURRENCY)
     results = await asyncio.gather(
@@ -154,7 +150,7 @@ async def main() -> None:
     stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     out = ROOT / "evals" / "reports" / f"extraction-{stamp}.json"
     out.write_text(json.dumps(
-        {"criteria": args.criteria, "model": settings.screening_model_name,
+        {"criteria": "seed", "model": settings.screening_model_name,
          "passed": len(ok), "total": len(results), "results": results},
         ensure_ascii=False, indent=1))
     print("report:", out)

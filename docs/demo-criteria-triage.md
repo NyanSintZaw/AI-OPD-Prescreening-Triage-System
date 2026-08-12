@@ -71,18 +71,16 @@ Full setup in [demo-runbook.md §0](demo-runbook.md). The criteria-specific bits
 ```bash
 docker compose up -d                                  # postgres + mock HIS
 cd hospital-hotline-assistant-api
-uv run python scripts/init_db.py                      # migrations + seed criteria
-uv run python scripts/seed_screening_criteria.py --activate-v2   # ← demo on v2
+uv run python scripts/init_db.py                      # migrations + seed criteria (active)
 uv run uvicorn app.main:app --reload
 cd ../hospital-hotline-assistant-web && npm run dev
 ```
 
-**Which criteria version?** Every verdict below is identical on **v1 and v2** —
-deliberately, so you can demo on either. v2 is recommended because it adds the
-breadth (24 complaint categories vs 14, 19 triage tuples vs 6) and authors the
-plausibility bounds with nurse-written Thai. Show the active version in
-**Admin → Screening Criteria**; the version is pinned per session, so a mid-demo
-activation never changes a running interview.
+**Which criteria version?** A fresh database seeds the bundled
+`screening_criteria.json` as version 1, active — 24 complaint categories,
+19 triage tuples, plausibility bounds authored with nurse-written Thai. Show
+the active version in **Admin → Screening Criteria**; the version is pinned
+per session, so a mid-demo activation never changes a running interview.
 
 **Tabs to have open:** Kiosk `/patient` · Nurse `/nurse` · Admin `/admin`
 (Screening Criteria tab, so you can jump to a rule when someone asks).
@@ -379,18 +377,19 @@ They can't, structurally. Every rule only ever *raises* acuity; the engine takes
 the most severe hit. There is no rule that lowers a level, and no override chain
 — what the engine decides is what gets persisted.
 
-**"Why didn't it ask for blood pressure?"**
-Because that complaint template has no BP question. Sixteen of the 24 v2
-templates ask for BP; wound/skin, gynecology, breast, limb-vascular, forensic,
-GI, rash and administrative do not. It is a per-template clinical decision in
-the criteria, editable by the hospital — not a hard-coded rule.
+**"Why did it ask for blood pressure / temperature?"**
+Every one of the 24 templates carries BP and temperature measurement
+questions — the MFU manual's "vitals always recorded" rule (temperature for
+all outpatients, communicable-disease screening). They are per-template
+clinical decisions in the criteria, editable by the hospital — not
+hard-coded rules.
 
 ---
 
 ## Appendix — verdict cheat sheet
 
 Keep this open on a second screen. Every row is verified against the seeded
-criteria (both v1 and v2).
+criteria.
 
 | Input | Level | Department | Rule |
 |---|---|---|---|

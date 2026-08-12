@@ -1,24 +1,22 @@
-"""Seed (or refresh) screening criteria from the bundled JSON files.
+"""Seed (or refresh) screening criteria from the bundled JSON file.
 
-Run with: ``uv run python scripts/seed_screening_criteria.py [--activate-v2]``.
+Run with: ``uv run python scripts/seed_screening_criteria.py``.
 
-Idempotent: validates each bundled document against the schema, then
+Idempotent: validates ``app/data/screening_criteria.json`` against the
+schema, then inserts it as version 1, status ``active`` — the initial
+version — if no version-1 row exists yet.
 
-- v1 (``screening_criteria_v1.json``) is inserted as ``active`` if no
-  version-1 row exists yet;
-- v2 (``screening_criteria_v2.json``) is inserted as a ``draft`` awaiting
-  the admin review flow.
+If the version-1 row already exists, its JSON is refreshed in place only
+when it is still ``active`` and differs from the file (hand-edits during
+development); otherwise nothing changes. Later versions come from the
+admin review flow or ``scripts/deploy_criteria.py``.
 
-If a row already exists (matched on ``version_no`` — unique index), its JSON
-is refreshed in place only when it still has its seeded status (v1 active,
-v2 draft) and differs from the file (hand-edits during development);
-otherwise nothing changes.
-
-``--activate-v2`` (dev shortcut): activates the v2 row using the same SQL
-semantics as the ``/admin/criteria/.../activate`` endpoint — one transaction
-that retires the current active row and marks v2 active (the partial unique
-index guarantees exactly one active). Production activates via the admin UI
-review flow instead.
+``--reset-to-initial`` (DESTRUCTIVE, dev/UAT setup): collapses the whole
+version history to a single row — version 1, active, the bundled file. All
+other rows are DELETED; ``screening_sessions.criteria_version_id`` and
+``ai_inference_audit.criteria_version_id`` referencing them are set NULL
+(audit rows keep everything else; in-flight sessions lose their pinned
+version and fall back to the active criteria). One transaction.
 """
 
 from __future__ import annotations
@@ -35,43 +33,26 @@ sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
 
 from app.services.screening.rules.criteria_models import parse_criteria  # noqa: E402
 
-DATA_DIR = pathlib.Path(__file__).resolve().parents[1] / "app" / "data"
-SEEDS = [
-    # (version_no, path, seeded status, change_summary)
-    (
-        1,
-        DATA_DIR / "screening_criteria_v1.json",
-        "active",
-        "Initial hand-encoded criteria from the MFU patient triage manual "
-        "(คู่มือเกณฑ์การคัดกรองผู้ป่วย)",
-    ),
-    (
-        2,
-        DATA_DIR / "screening_criteria_v2.json",
-        "draft",
-        "v2 breadth additions (ESI v5-cited): 10 new complaint categories "
-        "and source_standards provenance",
-    ),
-]
+CRITERIA_PATH = (
+    pathlib.Path(__file__).resolve().parents[1] / "app" / "data" / "screening_criteria.json"
+)
+CHANGE_SUMMARY = (
+    "Initial criteria seed: MFU patient triage manual "
+    "(คู่มือเกณฑ์การคัดกรองผู้ป่วย) with standards-cited breadth "
+    "(MOPH ED Triage leading, ESI v5 referenced)"
+)
 DATABASE_URL = os.environ.get(
     "DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/hospital_hotline"
 )
 
 
-async def seed_version(
-    conn: asyncpg.Connection,
-    version_no: int,
-    path: pathlib.Path,
-    status: str,
-    change_summary: str,
-) -> None:
-    payload = json.loads(path.read_text(encoding="utf-8"))
+async def seed(conn: asyncpg.Connection) -> None:
+    payload = json.loads(CRITERIA_PATH.read_text(encoding="utf-8"))
     parse_criteria(payload)  # raises on invalid criteria
-    print(f"Validated {path.name}")
+    print(f"Validated {CRITERIA_PATH.name}")
 
     row = await conn.fetchrow(
-        "SELECT id, status, criteria FROM screening_criteria_versions WHERE version_no = $1",
-        version_no,
+        "SELECT id, status, criteria FROM screening_criteria_versions WHERE version_no = 1"
     )
     criteria_json = json.dumps(payload, ensure_ascii=False)
     if row is None:
@@ -79,56 +60,61 @@ async def seed_version(
             """
             INSERT INTO screening_criteria_versions
                 (version_no, status, criteria, change_summary, uploaded_by, activated_at)
-            VALUES ($1, $2, $3::jsonb, $4, 'system-seed',
-                    CASE WHEN $5 THEN NOW() END)
+            VALUES (1, 'active', $1::jsonb, $2, 'system-seed', NOW())
             """,
-            version_no,
-            status,
             criteria_json,
-            change_summary,
-            status == "active",
+            CHANGE_SUMMARY,
         )
-        print(f"Inserted screening criteria version {version_no} ({status})")
-    elif row["status"] == status and json.loads(row["criteria"]) != payload:
+        print("Inserted screening criteria version 1 (active)")
+    elif row["status"] == "active" and json.loads(row["criteria"]) != payload:
         await conn.execute(
             "UPDATE screening_criteria_versions SET criteria = $1::jsonb WHERE id = $2",
             criteria_json,
             row["id"],
         )
-        print(f"Refreshed {status} version {version_no} criteria from file")
+        print("Refreshed active version 1 criteria from file")
     else:
-        print(f"Version {version_no} already present (status={row['status']}); no change")
+        print(f"Version 1 already present (status={row['status']}); no change")
 
 
-async def activate_v2(conn: asyncpg.Connection) -> None:
-    """Dev shortcut mirroring the activate endpoint's transaction."""
-    row = await conn.fetchrow(
-        "SELECT id, status FROM screening_criteria_versions WHERE version_no = 2"
-    )
-    if row is None:
-        raise SystemExit("--activate-v2: no version 2 row exists to activate")
-    if row["status"] == "active":
-        print("Version 2 already active; no change")
-        return
+async def reset_to_initial(conn: asyncpg.Connection) -> None:
+    """DESTRUCTIVE: replace the entire version history with one row —
+    version 1, active, the bundled file. Nulls the (nullable) FK references
+    first so the deletes cannot fail."""
+    payload = json.loads(CRITERIA_PATH.read_text(encoding="utf-8"))
+    parse_criteria(payload)  # raises on invalid criteria
+    print(f"Validated {CRITERIA_PATH.name}")
+
     async with conn.transaction():
-        await conn.execute(
-            "UPDATE screening_criteria_versions SET status = 'retired' WHERE status = 'active'"
+        sessions = await conn.execute(
+            "UPDATE screening_sessions SET criteria_version_id = NULL "
+            "WHERE criteria_version_id IS NOT NULL"
         )
-        await conn.execute(
-            """UPDATE screening_criteria_versions
-                  SET status = 'active', activated_at = NOW() WHERE id = $1""",
-            row["id"],
+        audit = await conn.execute(
+            "UPDATE ai_inference_audit SET criteria_version_id = NULL "
+            "WHERE criteria_version_id IS NOT NULL"
         )
-    print("Activated version 2 (previous active retired)")
+        deleted = await conn.execute("DELETE FROM screening_criteria_versions")
+        await conn.execute(
+            """
+            INSERT INTO screening_criteria_versions
+                (version_no, status, criteria, change_summary, uploaded_by, activated_at)
+            VALUES (1, 'active', $1::jsonb, $2, 'system-seed', NOW())
+            """,
+            json.dumps(payload, ensure_ascii=False),
+            CHANGE_SUMMARY,
+        )
+    print(f"Unpinned sessions: {sessions}; audit rows: {audit}; deleted versions: {deleted}")
+    print("Reset complete: single version 1 (active) from the bundled file")
 
 
-async def main(activate_v2_flag: bool = False) -> None:
+async def main(reset: bool = False) -> None:
     conn = await asyncpg.connect(DATABASE_URL)
     try:
-        for version_no, path, status, change_summary in SEEDS:
-            await seed_version(conn, version_no, path, status, change_summary)
-        if activate_v2_flag:
-            await activate_v2(conn)
+        if reset:
+            await reset_to_initial(conn)
+        else:
+            await seed(conn)
         rows = await conn.fetch(
             "SELECT version_no, status FROM screening_criteria_versions ORDER BY version_no"
         )
@@ -141,4 +127,4 @@ async def main(activate_v2_flag: bool = False) -> None:
 
 
 if __name__ == "__main__":
-    asyncio.run(main(activate_v2_flag="--activate-v2" in sys.argv[1:]))
+    asyncio.run(main(reset="--reset-to-initial" in sys.argv[1:]))

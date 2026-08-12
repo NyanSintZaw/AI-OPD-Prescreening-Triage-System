@@ -12,7 +12,6 @@ identifiers do not reach the model.
 from __future__ import annotations
 
 import json
-from pathlib import Path
 from typing import Any
 
 from app.services.screening.extraction import ExtractionResult, build_extraction_prompt
@@ -20,7 +19,6 @@ from app.services.screening.nlu_backstop import _PROMPTS as GATE_PROMPTS
 from app.services.screening.nlu_backstop import _SCHEMAS as GATE_SCHEMAS
 from app.services.screening.nodes.explain import _EXPLAIN_PROMPT, _NAME_LINE
 from app.services.screening.nodes.question import PhrasedQuestion, _PARAPHRASE_PROMPT
-from app.services.screening.rules.criteria_models import parse_criteria
 from app.services.screening.state import ScreeningState
 
 # What the session holds and the model must never see.
@@ -34,16 +32,13 @@ WITHHELD = {
 }
 
 
-# Render the criteria PRODUCTION runs, not the v1 seed. load_seed_criteria()
-# reads screening_criteria_v1.json, so the hospital-facing prompt was showing a
-# finding catalog the booth no longer uses — caught 2026-08-12.
-_ACTIVE_CRITERIA_PATH = (
-    Path(__file__).resolve().parents[2] / "app" / "data" / "screening_criteria_v2.json"
-)
-
-
+# Render the bundled criteria (app/data/screening_criteria.json) — the same
+# document a fresh database seeds as version 1 active, so the hospital-facing
+# prompt examples match what the booth runs.
 def _criteria():
-    return parse_criteria(json.loads(_ACTIVE_CRITERIA_PATH.read_text(encoding="utf-8")))
+    from app.services.screening.rules.criteria_store import load_seed_criteria
+
+    return load_seed_criteria()
 
 
 def _state(language: str = "th") -> ScreeningState:

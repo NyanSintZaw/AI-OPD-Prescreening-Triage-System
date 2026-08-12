@@ -17,7 +17,7 @@ phrases.
 | What it is | Structured, machine-readable rules (red flags, danger vitals, chief-complaint → department routing, age bands) | The raw manual PDF, chunked + embedded for semantic search (RAG) |
 | Role | **Decides** the MOPH level + department | **Grounds the wording** of the patient explanation |
 | Consumed by | The pure rules engine (`rules/`), every turn | Only the `explain` node, and only on **non-emergency** turns |
-| Backed by | `screening_criteria_versions` table + `screening_criteria_v1.json` | `triage_knowledge` pgvector table (`rag_query.py` / `rag_ingest.py`) |
+| Backed by | `screening_criteria_versions` table + `screening_criteria.json` | `triage_knowledge` pgvector table (`rag_query.py` / `rag_ingest.py`) |
 | Governance | Versioned: upload → draft → review → approve → **activate** | Plain upload → re-index (no versioning/approval) |
 | Required? | **Yes** — this is the triage. A seeded v1 is always active. | **No** — optional. |
 | If absent / not uploaded | (never absent — bundled v1 falls back automatically) | Explanations fall back to a clean bilingual template |

@@ -14,11 +14,10 @@ Readies BOTH databases the demo needs, in one command:
 4. Applies every ``migrations/NNN_*.sql`` file in lexicographic order
    inside a single transaction per file, then records it in
    ``schema_migrations``.  Already-recorded files are skipped.
-5. Seeds screening-criteria v1 as active and v2 as a draft (idempotent —
+5. Seeds the bundled screening criteria as version 1, active (idempotent —
    same as ``seed_screening_criteria.py``) so the criteria-governance UI
-   shows an active version plus the v2 draft awaiting review. The engine
-   also falls back to the bundled JSON, so this is a convenience, not a
-   hard requirement.
+   shows an active version. The engine also falls back to the bundled
+   JSON, so this is a convenience, not a hard requirement.
 6. Prints a summary of tables + seed-table row counts.
 
 **Mock hospital DB (HIS, SQLite)**: a separate service that auto-seeds its
@@ -154,7 +153,7 @@ async def count_rows(conn: asyncpg.Connection, table: str) -> int | None:
 
 
 async def seed_criteria() -> None:
-    """Seed screening-criteria v1 (active) + v2 (draft); reuses
+    """Seed the bundled criteria as version 1 (active); reuses
     seed_screening_criteria.main, which prints a version/status summary.
 
     Runs after migrations so the screening_criteria_versions table exists.
@@ -252,7 +251,7 @@ async def main() -> int:
     finally:
         await conn.close()
 
-    print("\nSeeding screening criteria v1 (Postgres):")
+    print("\nSeeding screening criteria (Postgres):")
     await seed_criteria()
 
     print("\nTriage manual RAG index:")

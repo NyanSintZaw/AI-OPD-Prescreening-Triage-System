@@ -15,7 +15,7 @@ Usage:
     uv run python scripts/run_triage_eval.py --dry-run
     uv run python scripts/run_triage_eval.py --language th --ids cp_th_crushing
     uv run python scripts/run_triage_eval.py --criteria active
-    uv run python scripts/run_triage_eval.py --criteria v2 --rag
+    uv run python scripts/run_triage_eval.py --rag
 """
 
 from __future__ import annotations
@@ -365,10 +365,15 @@ async def run_vignette(
 
 
 def expected_categories(vig: dict[str, Any], criteria_mode: str) -> list[str]:
-    """v1 runs score against ``expected.category``; v2/active runs score
-    against ``expected.category_v2`` when the label differs, else v1."""
+    """Score against ``expected.category_v2`` when present, else ``category``.
+
+    The ``category_v2`` key name is historical: it was added when a richer
+    "v2" criteria document coexisted with the original seed. That document IS
+    the criteria now, so the key simply means "the more specific label" and is
+    preferred whenever a vignette carries it.
+    """
     expected = vig.get("expected", {})
-    if criteria_mode != "v1" and expected.get("category_v2"):
+    if expected.get("category_v2"):
         return _as_list(expected["category_v2"])
     return _as_list(expected.get("category"))
 
@@ -698,7 +703,7 @@ async def run_suite(
     *,
     model: Any = None,
     feeder: Any = None,
-    criteria_mode: str = "v1",
+    criteria_mode: str = "seed",
     turn_cap: int = TURN_CAP,
     out_dir: Path | None = None,
     meta: dict[str, Any] | None = None,
@@ -721,7 +726,7 @@ async def run_suite(
 
 async def load_db_criteria() -> tuple[str | None, ScreeningCriteria]:
     """Fetch the ACTIVE criteria version over a single read-only connection
-    (only needed for --criteria v2/active); state still stays in memory."""
+    (only needed for --criteria active); state still stays in memory."""
     import asyncpg
 
     from app.config import settings
@@ -793,18 +798,8 @@ async def main_async(args: argparse.Namespace) -> int:
         print("no vignettes selected", file=sys.stderr)
         return 2
 
-    if args.criteria == "v1":
+    if args.criteria == "seed":
         criteria = load_seed_criteria()
-    elif args.criteria == "v2":
-        # v2 may still be a draft in the DB (get_active_criteria would return
-        # v1) — evaluate the bundled v2 seed file directly.
-        import json as _json
-
-        from app.services.screening.rules.criteria_models import parse_criteria
-
-        v2_path = ROOT / "app" / "data" / "screening_criteria_v2.json"
-        criteria = parse_criteria(_json.loads(v2_path.read_text(encoding="utf-8")))
-        print(f"using bundled criteria file: {v2_path.name}")
     else:
         version_id, criteria = await load_db_criteria()
         print(f"using DB criteria version: {version_id or 'seed fallback'}")
@@ -868,9 +863,9 @@ def main() -> int:
         help="fake model, no API spend — proves the machinery only",
     )
     parser.add_argument(
-        "--criteria", choices=["v1", "v2", "active"], default="v1",
-        help="v1 = bundled seed (DB-free); v2/active = active DB version "
-        "(needs DATABASE_URL) and scores against expected.category_v2 labels",
+        "--criteria", choices=["seed", "active"], default="seed",
+        help="seed = bundled screening_criteria.json (DB-free); "
+        "active = live DB version (needs DATABASE_URL)",
     )
     parser.add_argument(
         "--rag", action="store_true",

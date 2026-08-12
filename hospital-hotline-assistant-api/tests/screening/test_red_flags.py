@@ -58,7 +58,9 @@ CASES = [
     ("GA>=24w with fluid leak", {"ga_24w_or_more": "present", "amniotic_fluid_leak": "present"}, {}, 30, "ob_ga24_warning"),
     ("eye chemical", {"eye_chemical_exposure": "present"}, {}, 30, "eye_chemical"),
     ("uncontrolled epistaxis", {"epistaxis_uncontrolled": "present"}, {}, 40, "ent_epistaxis_uncontrolled"),
-    ("ENT foreign body 24h", {"foreign_body_ent_24h": "present"}, {}, 20, "ent_foreign_body_24h"),
+    # Narrowed 2026-08-12: ER only with airway involvement; alone -> ENT clinic.
+    ("ENT foreign body 24h + airway", {"foreign_body_ent_24h": "present", "dyspnea": "present"}, {}, 20, "ent_foreign_body_24h"),
+    ("ENT foreign body 24h airway intact", {"foreign_body_ent_24h": "present"}, {}, 20, "ent_foreign_body_24h_no_airway"),
     ("suicidal ideation", {"suicidal_ideation": "present"}, {}, 30, "psych_code_purple"),
     ("overdose", {"overdose_or_poison": "present"}, {}, 30, "med_overdose_poison"),
     ("syncope 24h", {"syncope_24h": "present"}, {}, 60, "med_syncope_24h"),

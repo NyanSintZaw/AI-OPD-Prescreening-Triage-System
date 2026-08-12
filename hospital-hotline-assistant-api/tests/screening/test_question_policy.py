@@ -67,15 +67,20 @@ def test_slots_in_template_priority_order(criteria):
         "chest_pain_radiating": "absent", "diaphoresis": "absent",
         "pale_cold_sweaty": "absent",
     }
-    # BP measurement (priority 7) precedes OLDCARTS slots (priority 10+).
+    # Measurements (temp priority 6, BP priority 7) precede OLDCARTS slots
+    # (priority 10+).
     q0 = next_question(criteria, inputs(findings=findings))
-    assert q0.id == "cp_bp"
-    q1 = next_question(criteria, inputs(findings=findings, measured_vitals={"sbp"}))
-    assert q1.id == "cp_onset"
+    assert q0.id == "cp_temp"
+    q1 = next_question(criteria, inputs(findings=findings, measured_vitals={"temp"}))
+    assert q1.id == "cp_bp"
     q2 = next_question(criteria, inputs(
-        findings=findings, measured_vitals={"sbp"}, answered_slots={"onset"},
+        findings=findings, measured_vitals={"temp", "sbp"},
     ))
-    assert q2.id == "cp_duration"
+    assert q2.id == "cp_onset"
+    q3 = next_question(criteria, inputs(
+        findings=findings, measured_vitals={"temp", "sbp"}, answered_slots={"onset"},
+    ))
+    assert q3.id == "cp_duration"
 
 
 def test_asked_questions_never_repeat(criteria):
@@ -102,7 +107,7 @@ def test_scale_resolved_by_severity_slot(criteria):
     ivs = inputs(
         findings=findings,
         answered_slots={"onset", "duration", "character", "severity"},
-        measured_vitals={"sbp"},
+        measured_vitals={"sbp", "temp"},
     )
     q = next_question(criteria, ivs)
     assert q is not None and q.id == "cp_history"  # associated, not the scale
@@ -156,7 +161,7 @@ def test_min_slots_satisfied_completes(criteria):
     ivs = inputs(
         findings=findings,
         answered_slots={"onset", "duration", "character"},
-        measured_vitals={"sbp", "weight"},
+        measured_vitals={"sbp", "temp", "weight"},
     )
     # chest_pain min_slots_by_level[4] == 3
     assert is_interview_complete(criteria, ivs, provisional_level=4)
@@ -168,7 +173,7 @@ def test_bp_always_asked_for_chest_pain(criteria):
         "chest_pain_radiating": "absent", "diaphoresis": "absent",
         "pale_cold_sweaty": "absent",
     }
-    q = next_question(criteria, inputs(findings=findings))
+    q = next_question(criteria, inputs(findings=findings, measured_vitals={"temp"}))
     assert q is not None and q.id == "cp_bp" and q.vital == "sbp"
 
 
@@ -261,7 +266,7 @@ def test_pre_disposition_asked_after_template(criteria):
     q = next_question(criteria, inputs(
         findings=findings,
         answered_slots={"onset", "duration", "character", "severity"},
-        measured_vitals={"sbp"},
+        measured_vitals={"sbp", "temp"},
         asked={"cp_history"},
     ))
     assert q is not None and q.id == "pd_weight_height" and q.vital == "weight"
@@ -320,10 +325,14 @@ def test_breathing_scale_fires_when_dyspnea_present(criteria):
     assert q is not None and q.id == "dc_distress_scale"
 
 
-def test_temp_measurement_fires_only_when_fever_present(criteria):
-    # No fever -> temperature never requested.
+def test_temp_measurement_asked_for_every_patient(criteria):
+    """MFU manual scope: อุณหภูมิ ผู้ป่วยนอกทุกราย — temperature is a standard
+    booth vital in every template, requested even when fever is denied
+    (communicable-disease screening), and resolves once measured."""
+    # Fever denied -> the temperature measurement is still requested.
     no_fever = {"fever": "absent"}
     seen = set()
+    saw_temp = False
     for _ in range(20):
         q = next_question(criteria, inputs(
             category="fever", findings=no_fever, asked=seen,
@@ -331,8 +340,11 @@ def test_temp_measurement_fires_only_when_fever_present(criteria):
         ))
         if q is None:
             break
-        assert q.id != "fv_temp"
+        if q.id == "fv_temp":
+            saw_temp = True
+            break
         seen.add(q.id)
+    assert saw_temp
 
     # Fever present + temp not yet measured -> the measurement is requested.
     febrile = {"fever": "present", "confusion": "absent", "dyspnea": "absent",
@@ -436,7 +448,7 @@ def test_measurement_holds_completeness_when_slots_fill_early(criteria):
     ivs = inputs(
         findings=findings,
         answered_slots={"onset", "duration", "character"},
-        measured_vitals={"weight"},   # wrap-up done; BP still missing
+        measured_vitals={"temp", "weight"},   # wrap-up done; BP still missing
     )
     assert not is_interview_complete(criteria, ivs, provisional_level=4)
     q = next_question(criteria, ivs)
@@ -446,13 +458,13 @@ def test_measurement_holds_completeness_when_slots_fill_early(criteria):
     measured = inputs(
         findings=findings,
         answered_slots={"onset", "duration", "character"},
-        measured_vitals={"sbp", "weight"},
+        measured_vitals={"sbp", "temp", "weight"},
     )
     assert is_interview_complete(criteria, measured, provisional_level=4)
     twice_asked = inputs(
         findings=findings,
         answered_slots={"onset", "duration", "character"},
-        measured_vitals={"weight"},
+        measured_vitals={"temp", "weight"},
         asked=("cp_bp",),
         ask_counts={"cp_bp": 2},
     )

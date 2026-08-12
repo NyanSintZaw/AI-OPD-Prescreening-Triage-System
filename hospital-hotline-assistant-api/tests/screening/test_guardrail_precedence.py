@@ -10,13 +10,11 @@ the BP-crisis rest-then-confirm flow, and the level<=2 => emergency
 department forcing. Each test is a demonstration, not an assertion of
 intent: it must FAIL if the code's precedence ever changes.
 
-Parametrized over the v1 seed and the v2 criteria document wherever the
-rule exists in both; v2-only where the rule is new (infant fever danger
-vital, palpitations+syncope tuple).
+All tests run against the bundled criteria seed — the same document the
+engine's DB-empty fallback uses.
 """
 
 import json
-import pathlib
 
 import pytest
 
@@ -25,8 +23,10 @@ from app.services.bp_rest import (
     CRISIS_SBP,
     is_hypertensive_crisis,
 )
-from app.services.screening.rules.criteria_models import parse_criteria
-from app.services.screening.rules.criteria_store import load_seed_criteria
+from app.services.screening.rules.criteria_store import (
+    SEED_CRITERIA_PATH,
+    load_seed_criteria,
+)
 from app.services.screening.rules.department_map import resolve_department
 from app.services.screening.rules.disposition import (
     HIGH_RISK_PAIN_FINDINGS,
@@ -43,24 +43,14 @@ from app.services.screening.vitals import (
 )
 from app.services.triage_service import _turn_context
 
-DATA_DIR = pathlib.Path(__file__).resolve().parents[2] / "app" / "data"
-
-
-def _load_json(version: str) -> dict:
-    return json.loads(
-        (DATA_DIR / f"screening_criteria_{version}.json").read_text(encoding="utf-8")
-    )
+def _load_json() -> dict:
+    return json.loads(SEED_CRITERIA_PATH.read_text(encoding="utf-8"))
 
 
 @pytest.fixture(scope="module")
-def criteria_v2():
-    return parse_criteria(_load_json("v2"))
-
-
-@pytest.fixture(scope="module", params=["v1", "v2"])
-def versioned_criteria(request, criteria_v2):
-    # v1 via the same loader the engine's DB-empty fallback uses.
-    return load_seed_criteria() if request.param == "v1" else criteria_v2
+def criteria():
+    # The same loader the engine's DB-empty fallback uses.
+    return load_seed_criteria()
 
 
 def dispose(criteria, findings=None, vitals=None, age=None, category=None):
@@ -81,15 +71,14 @@ def reason_ids(result):
     return {r.rule_id for r in result.reasons}
 
 
-# Catalog findings referenced by NO rule condition in either version —
+# Catalog findings referenced by NO rule condition —
 # they exist only to feed the resource band (verified below).
 BENIGN_FINDINGS = ("cough", "sore_throat", "runny_nose", "nasal_congestion")
 
 
-@pytest.mark.parametrize("version", ["v1", "v2"])
-def test_benign_findings_really_are_unruled(version):
+def test_benign_findings_really_are_unruled():
     """Guard the premise of the band tests: no rule mentions these ids."""
-    doc = _load_json(version)
+    doc = _load_json()
     conditions = json.dumps([
         r.get("condition")
         for section in ("level1_criteria", "danger_vitals", "department_rules", "fast_tracks")
@@ -107,11 +96,11 @@ def test_benign_findings_really_are_unruled(version):
 # --- 1. Level-1 criteria beat everything -----------------------------------
 
 @pytest.mark.parametrize("category", [None, "generic", "ear"])
-def test_level1_fires_with_zero_supporting_evidence(versioned_criteria, category):
+def test_level1_fires_with_zero_supporting_evidence(criteria, category):
     """cardiac_arrest alone: band would say 4, pain says nothing, category is
     irrelevant — level is 1 and the department is emergency."""
     result = dispose(
-        versioned_criteria,
+        criteria,
         {"cardiac_arrest": "present"},
         {"pain_score": 0},
         age=40,
@@ -124,9 +113,9 @@ def test_level1_fires_with_zero_supporting_evidence(versioned_criteria, category
     assert _resource_band({"cardiac_arrest": "present"}) == 4
 
 
-def test_level1_beats_simultaneous_level2_hits(versioned_criteria):
+def test_level1_beats_simultaneous_level2_hits(criteria):
     result = dispose(
-        versioned_criteria,
+        criteria,
         {"cardiac_arrest": "present", "chest_pain": "present", "diaphoresis": "present"},
         age=50,
     )
@@ -136,33 +125,33 @@ def test_level1_beats_simultaneous_level2_hits(versioned_criteria):
 
 # --- 2. Danger vitals beat the resource band -------------------------------
 
-def test_measured_bp_crisis_overrides_band4_profile(versioned_criteria):
+def test_measured_bp_crisis_overrides_band4_profile(criteria):
     """One benign finding bands to 4; a 200/120 cuff reading disposes 2."""
     findings = {"cough": "present"}
     assert _resource_band(findings) == 4
-    result = dispose(versioned_criteria, findings, {"sbp": 200, "dbp": 120}, age=40)
+    result = dispose(criteria, findings, {"sbp": 200, "dbp": 120}, age=40)
     assert result.level == 2
     assert result.department_code == "emergency"
     assert "dv_adult_bp_crisis" in hit_ids(result)
 
 
-def test_low_spo2_with_dyspnea_is_level1_over_band(versioned_criteria):
+def test_low_spo2_with_dyspnea_is_level1_over_band(criteria):
     findings = {"dyspnea": "present"}
     assert _resource_band(findings) == 4
-    result = dispose(versioned_criteria, findings, {"spo2": 88}, age=30)
+    result = dispose(criteria, findings, {"spo2": 88}, age=30)
     assert result.level == 1
     assert "l1_adult_spo2_low" in hit_ids(result)
 
 
-def test_no_vitals_no_findings_is_level5_not_emergency(versioned_criteria):
-    result = dispose(versioned_criteria, age=30, category="generic")
+def test_no_vitals_no_findings_is_level5_not_emergency(criteria):
+    result = dispose(criteria, age=30, category="generic")
     assert result.level == 5
     assert result.rule_hits == []
 
 
 # --- 3. Triage tuples force their min level --------------------------------
 
-def test_tt_anaphylaxis_forces_level2_over_band4(versioned_criteria):
+def test_tt_anaphylaxis_forces_level2_over_band4(criteria):
     """rash + lip swelling + vomiting: only one systemic finding, three
     present findings — band says 4; the tuple forces 2."""
     findings = {
@@ -171,20 +160,20 @@ def test_tt_anaphylaxis_forces_level2_over_band4(versioned_criteria):
         "vomiting": "present",
     }
     assert _resource_band(findings) == 4
-    result = dispose(versioned_criteria, findings, age=30, category="skin_rash")
+    result = dispose(criteria, findings, age=30, category="skin_rash")
     assert result.level == 2
     assert result.department_code == "emergency"
     assert "tt_anaphylaxis" in hit_ids(result)
 
 
-def test_tt_palpitations_syncope_v2_forces_level2(criteria_v2):
+def test_tt_palpitations_syncope_forces_level2(criteria):
     findings = {"palpitations": "present", "syncope_24h": "present"}
     hits = evaluate_red_flags(
-        findings=findings, vitals={}, age_years=45, criteria=criteria_v2,
+        findings=findings, vitals={}, age_years=45, criteria=criteria,
     )
     tuple_hits = [h for h in hits if h.rule_id == "tt_palpitations_syncope"]
     assert tuple_hits and tuple_hits[0].level == 2
-    result = dispose(criteria_v2, findings, age=45, category="palpitations")
+    result = dispose(criteria, findings, age=45, category="palpitations")
     assert result.level == 2
     assert result.department_code == "emergency"
     assert "tt_palpitations_syncope" in hit_ids(result)
@@ -192,10 +181,10 @@ def test_tt_palpitations_syncope_v2_forces_level2(criteria_v2):
 
 # --- 4. Resource band is capped at level 3 ---------------------------------
 
-def test_resource_band_never_upgrades_past_level3(versioned_criteria):
+def test_resource_band_never_upgrades_past_level3(criteria):
     """Four present findings with no red flags: exactly 3, never 2."""
     findings = {fid: "present" for fid in BENIGN_FINDINGS}
-    result = dispose(versioned_criteria, findings, age=30, category="generic")
+    result = dispose(criteria, findings, age=30, category="generic")
     assert result.level == 3
     assert result.rule_hits == []  # nothing fired — the band alone decided
     assert "resource_band_level_3" in reason_ids(result)
@@ -206,12 +195,12 @@ def test_resource_band_never_upgrades_past_level3(versioned_criteria):
 
 # --- 5. Scale escalation ----------------------------------------------------
 
-def test_pain8_with_high_risk_finding_escalates_to_2(versioned_criteria):
+def test_pain8_with_high_risk_finding_escalates_to_2(criteria):
     """dyspnea is a HIGH_RISK_PAIN_FINDINGS member that fires no criteria
     rule by itself, so the level-2 outcome is attributable to the scale."""
     assert "dyspnea" in HIGH_RISK_PAIN_FINDINGS
     result = dispose(
-        versioned_criteria, {"dyspnea": "present"}, {"pain_score": 8}, age=40,
+        criteria, {"dyspnea": "present"}, {"pain_score": 8}, age=40,
     )
     assert result.rule_hits == []  # no red-flag rule fired
     assert result.level == 2
@@ -219,12 +208,12 @@ def test_pain8_with_high_risk_finding_escalates_to_2(versioned_criteria):
     assert "scale_pain_high_risk" in reason_ids(result)
 
 
-def test_pain8_without_high_risk_finding_is_level3_not_2(versioned_criteria):
+def test_pain8_without_high_risk_finding_is_level3_not_2(criteria):
     """Pinned current behavior: adult pain 8 with only a benign finding does
     NOT reach level 2 — it falls through to the pain>=7 branch and lands at
     urgent (3), which also overrides the band's 4."""
     findings = {"cough": "present"}
-    result = dispose(versioned_criteria, findings, {"pain_score": 8}, age=40)
+    result = dispose(criteria, findings, {"pain_score": 8}, age=40)
     assert result.level == 3
     assert result.level != 2
     assert "scale_severe_no_red_flags" in reason_ids(result)
@@ -241,11 +230,11 @@ def test_scale_escalation_unit_branches():
     assert _scale_escalation({}, {"pain_score": 6}) == (None, None)
 
 
-def test_level2_hit_preempts_scale_escalation(versioned_criteria):
+def test_level2_hit_preempts_scale_escalation(criteria):
     """When a criteria rule fires at <=2 the scale never runs: chest pain +
     pain 8 is level 2 via surg_severe_pain_critical_site, not the scale."""
     result = dispose(
-        versioned_criteria, {"chest_pain": "present"}, {"pain_score": 8}, age=40,
+        criteria, {"chest_pain": "present"}, {"pain_score": 8}, age=40,
     )
     assert result.level == 2
     assert "surg_severe_pain_critical_site" in hit_ids(result)
@@ -254,7 +243,7 @@ def test_level2_hit_preempts_scale_escalation(versioned_criteria):
 
 # --- 6. Measured vitals beat spoken vitals ---------------------------------
 
-def test_measured_temp_beats_spoken_temp_infant_fever_v2(criteria_v2):
+def test_measured_temp_beats_spoken_temp_infant_fever(criteria):
     """Mirrors nodes/dispose.py: decide(vitals=effective_vitals(state)).
     Spoken 37.2 in state.vitals, thermometer 39.5 in measured_vitals,
     6-month-old -> dv_infant_fever_1_12m fires level 2."""
@@ -271,14 +260,14 @@ def test_measured_temp_beats_spoken_temp_infant_fever_v2(criteria_v2):
         vitals=merged,
         age_years=state.age_years,
         complaint_category=state.complaint_category,
-        criteria=criteria_v2,
+        criteria=criteria,
     )
     assert result.level == 2
     assert result.department_code == "emergency"
     assert "dv_infant_fever_1_12m" in hit_ids(result)
 
 
-def test_spoken_temp_alone_does_not_fire_infant_fever_v2(criteria_v2):
+def test_spoken_temp_alone_does_not_fire_infant_fever(criteria):
     """Control: same state without the measured reading stays sub-threshold."""
     state = ScreeningState(session_id="test", vitals={"temp": 37.2}, age_years=0.5)
     result = decide(
@@ -286,7 +275,7 @@ def test_spoken_temp_alone_does_not_fire_infant_fever_v2(criteria_v2):
         vitals=effective_vitals(state),
         age_years=state.age_years,
         complaint_category=None,
-        criteria=criteria_v2,
+        criteria=criteria,
     )
     assert "dv_infant_fever_1_12m" not in hit_ids(result)
     assert result.level > 2
@@ -294,11 +283,10 @@ def test_spoken_temp_alone_does_not_fire_infant_fever_v2(criteria_v2):
 
 # --- 7. BP-crisis rest-then-confirm ----------------------------------------
 
-@pytest.mark.parametrize("version", ["v1", "v2"])
-def test_bp_rest_thresholds_match_criteria_json(version):
+def test_bp_rest_thresholds_match_criteria_json():
     """bp_rest.py duplicates dv_adult_bp_crisis's thresholds as constants.
     This test FAILS if the JSON and the constants ever drift apart."""
-    doc = _load_json(version)
+    doc = _load_json()
     rule = next(r for r in doc["danger_vitals"] if r["id"] == "dv_adult_bp_crisis")
     clauses = {
         (c["vital"], c["op"], c["value"]) for c in rule["condition"]["any_of"]
@@ -316,7 +304,7 @@ def test_is_hypertensive_crisis_boundary_matches_gt_op():
     assert not is_hypertensive_crisis(None, None)
 
 
-def test_first_crisis_reading_is_withheld_from_the_engine(versioned_criteria):
+def test_first_crisis_reading_is_withheld_from_the_engine(criteria):
     """First crisis reading: main.py stores bp_recheck_pending and opens the
     15-min rest window; _turn_context then strips the BP numbers so decide()
     cannot dispose emergency on the provisional reading."""
@@ -336,12 +324,12 @@ def test_first_crisis_reading_is_withheld_from_the_engine(versioned_criteria):
     assert ctx["vitals"]["temperature"] == 37.0  # non-BP vitals still flow
 
     engine_vitals = normalize_vitals(ctx["vitals"])  # engine._apply_turn_context
-    result = dispose(versioned_criteria, {}, engine_vitals, age=55)
+    result = dispose(criteria, {}, engine_vitals, age=55)
     assert "dv_adult_bp_crisis" not in hit_ids(result)
     assert result.level > 2  # no emergency dispose on the provisional reading
 
 
-def test_confirmatory_reading_disposes_emergency(versioned_criteria):
+def test_confirmatory_reading_disposes_emergency(criteria):
     """Post-rest reading carries no bp_recheck_pending flag (has_prior_window
     is true, so main.py never re-sets it): the BP reaches the engine and the
     danger-vital rule disposes level 2 / emergency."""
@@ -353,7 +341,7 @@ def test_confirmatory_reading_disposes_emergency(versioned_criteria):
     assert ctx is not None
     engine_vitals = normalize_vitals(ctx["vitals"])
     assert engine_vitals["sbp"] == 200 and engine_vitals["dbp"] == 120
-    result = dispose(versioned_criteria, {}, engine_vitals, age=55)
+    result = dispose(criteria, {}, engine_vitals, age=55)
     assert result.level == 2
     assert result.department_code == "emergency"
     assert "dv_adult_bp_crisis" in hit_ids(result)
@@ -364,7 +352,7 @@ def test_confirmatory_reading_disposes_emergency(versioned_criteria):
 @pytest.mark.parametrize("level", [1, 2])
 @pytest.mark.parametrize("category", ["ear", "eye", "musculoskeletal", "generic", None])
 def test_resolve_department_forces_emergency_at_level_le2(
-    versioned_criteria, level, category
+    criteria, level, category
 ):
     decision = resolve_department(
         level=level,
@@ -372,23 +360,23 @@ def test_resolve_department_forces_emergency_at_level_le2(
         findings={},
         vitals={},
         age_years=40,
-        criteria=versioned_criteria,
+        criteria=criteria,
     )
     assert decision.department_code == "emergency"
 
 
-def test_level2_ent_complaint_goes_to_emergency_not_ent_clinic(versioned_criteria):
+def test_level2_ent_complaint_goes_to_emergency_not_ent_clinic(criteria):
     """Control pair: the same 'ear' category routes to a clinic at level 4,
     so the emergency outcome below is attributable to the level, not the
     category."""
     routine = dispose(
-        versioned_criteria, {"tinnitus": "present"}, age=40, category="ear",
+        criteria, {"tinnitus": "present"}, age=40, category="ear",
     )
     assert routine.level == 4
     assert routine.department_code != "emergency"
 
     emergent = dispose(
-        versioned_criteria,
+        criteria,
         {"epistaxis_uncontrolled": "present"},
         age=40,
         category="ear",
@@ -404,8 +392,7 @@ def test_level2_ent_complaint_goes_to_emergency_not_ent_clinic(versioned_criteri
 # window and dispose an emergency off a reading that never happened. A real
 # 250/130 crisis must still fire. These tests pin both halves.
 
-def test_impossible_cuff_reading_never_disposes_emergency(versioned_criteria):
-    criteria = versioned_criteria
+def test_impossible_cuff_reading_never_disposes_emergency(criteria):
     accepted, rejected = check_vitals({"systolic": 300, "diastolic": 220})
     assert rejected, "300/220 must be refused as physiologically impossible"
 
@@ -423,9 +410,8 @@ def test_impossible_cuff_reading_never_disposes_emergency(versioned_criteria):
     assert result.level > 2
 
 
-def test_real_crisis_reading_still_disposes_emergency(versioned_criteria):
+def test_real_crisis_reading_still_disposes_emergency(criteria):
     """Control: a critical-but-possible reading must NOT be filtered out."""
-    criteria = versioned_criteria
     accepted, rejected = check_vitals({"systolic": 250, "diastolic": 130})
     assert not rejected
 

@@ -155,8 +155,8 @@ def test_keyword_category_fallback():
     assert _keyword_category("เมื่อวานรู้สึกเวียนหัวมากเลยค่ะ", criteria) == "headache"
     # เวียนหัว (headache) + บ้านหมุน (ear/vertigo) tie -> refuse to guess
     assert _keyword_category("เวียนหัว บ้านหมุนๆ ค่ะ", criteria) is None
-    # no keyword match -> stays unresolved (rash has no category in v1)
-    assert _keyword_category("i have a rash on my arm", criteria) is None
+    # rash maps to the skin_rash template via its keywords
+    assert _keyword_category("i have a rash on my arm", criteria) == "skin_rash"
     # short denial answers never re-categorize
     assert _keyword_category("No, none of those", criteria) is None
 

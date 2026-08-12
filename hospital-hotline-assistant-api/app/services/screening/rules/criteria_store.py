@@ -16,7 +16,7 @@ from .criteria_models import ScreeningCriteria, parse_criteria
 
 logger = logging.getLogger(__name__)
 
-SEED_CRITERIA_PATH = Path(__file__).resolve().parents[3] / "data" / "screening_criteria_v1.json"
+SEED_CRITERIA_PATH = Path(__file__).resolve().parents[3] / "data" / "screening_criteria.json"
 
 _cache: dict[str, ScreeningCriteria] = {}
 

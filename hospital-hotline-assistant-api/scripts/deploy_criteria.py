@@ -2,11 +2,9 @@
 """Publish an edited criteria file to the live booth.
 
 The engine reads the ACTIVE row in ``screening_criteria_versions``, not the
-JSON on disk, so editing ``app/data/screening_criteria_v2.json`` changes the
+JSON on disk, so editing ``app/data/screening_criteria.json`` changes the
 evals and nothing else. ``seed_screening_criteria.py`` cannot push it either:
-its refresh branch only fires when the row's status matches the status it
-seeds v2 as (``draft``), and v2 has been ``active`` since 2026-07-28. So an
-edited criteria file had no supported route to production at all.
+its refresh branch only fires while version 1 is still the active row.
 
 This inserts the file as the next version number in ``draft``, then runs the
 same transaction the activate endpoint uses — retire the current active row,
@@ -33,7 +31,7 @@ import asyncpg  # noqa: E402
 from app.services.screening.rules.criteria_models import parse_criteria  # noqa: E402
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
-CRITERIA_PATH = ROOT / "app" / "data" / "screening_criteria_v2.json"
+CRITERIA_PATH = ROOT / "app" / "data" / "screening_criteria.json"
 DSN = os.getenv(
     "DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/hospital_hotline"
 )

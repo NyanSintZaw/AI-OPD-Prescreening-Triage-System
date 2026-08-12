@@ -20,7 +20,7 @@ Language is a **per-session lock**, set once and honored everywhere:
   the utterance, so a Thai session stays Thai even if the patient drops an
   English word.
 - **Everything downstream is bilingual by construction:**
-  - Seed criteria (`app/data/screening_criteria_v1.json`) require both
+  - Seed criteria (`app/data/screening_criteria.json`) require both
     `text_en`/`text_th` on every question and both-language finding
     synonyms — pydantic rejects a criteria version missing either.
   - Deterministic template outputs (verbatim red-flag/scale questions,

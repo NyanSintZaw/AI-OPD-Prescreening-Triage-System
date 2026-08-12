@@ -63,8 +63,11 @@ explanations only, never decisions).
   "follow_up_expected": "decline",   // optional: decline must close the flow and
                                       // must NOT be recorded as a patient note
   "expected": {
-    "category": "chest_pain",        // v1 label; string or list of acceptable ids
-    "category_v2": ["palpitations"], // optional: label under richer v2 criteria
+    "category": "chest_pain",        // string or list of acceptable ids
+    "category_v2": ["palpitations"], // optional, preferred when present: the more
+                                      // specific label (key name is historical —
+                                      // added while a richer "v2" document
+                                      // coexisted with the original seed)
     "level": [1, 2],                 // exact int or [min, max] band
     "department": "emergency",       // string or list of acceptable codes
     "undertriage_critical": true,    // true whenever expected level <= 2
@@ -95,9 +98,9 @@ silent guess. The driver caps every vignette at 15 turns.
    particles, casual English. Never clinical phrasing; the whole point is
    testing extraction from how patients actually talk.
 3. Label `expected` with the **clinically correct** answer, not what the
-   engine currently does. If the correct category only exists in a future
-   criteria v2 (e.g. `palpitations`), keep the v1 fall-through in `category`
-   and add `category_v2` — the harness scores against whichever is active.
+   engine currently does. When a more specific label exists (e.g.
+   `palpitations`), put it in `category_v2` (historical key name) — the
+   harness prefers it whenever present.
 4. Give answers for every red-flag question of the category plus onset /
    duration / character / severity, so real-model runs never stall on defaults.
 5. `uv run pytest tests/screening/test_eval_driver.py` — schema is validated.
@@ -111,7 +114,7 @@ silent guess. The driver caps every vignette at 15 turns.
 | QWK | Quadratic-weighted Cohen's kappa over (expected, assessed) level pairs, 5 classes. **Band convention:** for a banded expectation `[lo, hi]`, the "expected" value in the pair is the assessed level clamped into the band — an in-band assessment scores perfect agreement; an out-of-band one is penalised only by its quadratic distance to the nearest band edge. Unclassified vignettes are excluded from QWK (they still count as undertriage/level fails). |
 | Level exact | Assessed level inside the expected band (an exact int label is a width-1 band). |
 | Level within 1 | Assessed level within band ± 1. |
-| Category match | Final `complaint_category` in the accepted list (v1 or v2 labels per `--criteria`). |
+| Category match | Final `complaint_category` in the accepted list (`category_v2` preferred when present). |
 | Department match | Disposed `department_code` in the accepted list. |
 | Leak count | Total validator violations (`validate_reply`) across every patient-facing reply of every turn — must be 0. |
 | must_ask coverage | Each listed pattern matched an asked question id or question text before disposal. |

@@ -1,10 +1,7 @@
 """Natural-language chief complaint (symptoms_summary) formatter tests."""
 
-import json
-import pathlib
-
 from app.services.screening.chief_complaint import format_chief_complaint_summary
-from app.services.screening.rules.criteria_models import parse_criteria
+from app.services.screening.rules.criteria_store import load_seed_criteria
 from app.services.screening.nodes.dispose import build_classification, _summary
 from app.services.screening.rules.disposition import DispositionResult, DispositionReason
 from app.services.screening.state import Finding, ScreeningState
@@ -81,16 +78,8 @@ def test_category_fallback_when_no_free_text():
     assert "1 day" in text
 
 
-def _v2_criteria():
-    path = (
-        pathlib.Path(__file__).resolve().parents[2]
-        / "app" / "data" / "screening_criteria_v2.json"
-    )
-    return parse_criteria(json.loads(path.read_text(encoding="utf-8")))
-
-
-def test_v2_category_labels_come_from_criteria_templates():
-    criteria = _v2_criteria()
+def test_category_labels_come_from_criteria_templates():
+    criteria = load_seed_criteria()
     text = format_chief_complaint_summary(
         _state(chief_complaint=None, complaint_category="chronic_followup", slots={}),
         criteria,
@@ -112,7 +101,7 @@ def test_v2_category_labels_come_from_criteria_templates():
 def test_unknown_category_falls_back_to_raw_id():
     text = format_chief_complaint_summary(
         _state(chief_complaint=None, complaint_category="mystery_cat", slots={}),
-        _v2_criteria(),
+        load_seed_criteria(),
     )
     assert "mystery_cat" in text.lower()
 

@@ -1,5 +1,5 @@
 {
- "schema_version": 1,
+ "schema_version": 2,
  "age_bands": {
   "infant_0_1m": {
    "min_years": 0,
@@ -1489,6 +1489,124 @@
     "โรคในครอบครัว"
    ],
    "is_risk_factor": true
+  },
+  "wound_infection_signs": {
+   "label_en": "Wound infection signs (spreading redness, pus, warmth)",
+   "label_th": "แผลมีอาการติดเชื้อ (แดงลาม มีหนอง ร้อน)",
+   "synonyms_en": [
+    "pus",
+    "infected wound"
+   ],
+   "synonyms_th": [
+    "มีหนอง",
+    "แผลบวมแดง"
+   ]
+  },
+  "breast_infection_signs": {
+   "label_en": "Breast redness, warmth, or swelling (possible infection/abscess)",
+   "label_th": "เต้านมแดง ร้อน หรือบวม (อาจติดเชื้อหรือเป็นฝีหนอง)",
+   "synonyms_en": [
+    "breast abscess",
+    "mastitis"
+   ],
+   "synonyms_th": [
+    "เต้านมอักเสบ",
+    "เต้านมบวมแดง"
+   ]
+  },
+  "unilateral_leg_swelling": {
+   "label_en": "One leg swollen and painful",
+   "label_th": "ขาบวมและปวดข้างเดียว",
+   "synonyms_en": [
+    "swollen calf"
+   ],
+   "synonyms_th": [
+    "ขาบวมข้างเดียว",
+    "น่องบวม"
+   ]
+  },
+  "immediate_danger": {
+   "label_en": "Still in immediate danger / attacker nearby",
+   "label_th": "ยังอยู่ในอันตราย / ผู้ก่อเหตุอยู่ใกล้",
+   "synonyms_en": [
+    "not safe"
+   ],
+   "synonyms_th": [
+    "ไม่ปลอดภัย"
+   ]
+  },
+  "dehydration_signs": {
+   "label_en": "Signs of dehydration (cannot keep fluids down, little urine, dizzy on standing)",
+   "label_th": "อาการขาดน้ำ (ดื่มน้ำแล้วอาเจียน ปัสสาวะน้อย ลุกแล้วหน้ามืด)",
+   "synonyms_en": [
+    "can't keep fluids down",
+    "dehydrated"
+   ],
+   "synonyms_th": [
+    "ขาดน้ำ",
+    "กินน้ำไม่ได้"
+   ]
+  },
+  "rash_rapidly_spreading": {
+   "label_en": "Rash spreading rapidly (within hours)",
+   "label_th": "ผื่นลามเร็วภายในไม่กี่ชั่วโมง",
+   "synonyms_en": [
+    "spreading rash"
+   ],
+   "synonyms_th": [
+    "ผื่นลามเร็ว",
+    "ผื่นขึ้นทั้งตัว"
+   ]
+  },
+  "hypoglycemia_symptoms": {
+   "label_en": "Low blood sugar symptoms (shaky, sweaty, confused, very hungry)",
+   "label_th": "อาการน้ำตาลต่ำ (มือสั่น เหงื่อแตก มึนงง หิวมาก)",
+   "synonyms_en": [
+    "hypoglycemia",
+    "sugar crash"
+   ],
+   "synonyms_th": [
+    "น้ำตาลตก",
+    "น้ำตาลต่ำ"
+   ]
+  },
+  "medication_run_out": {
+   "label_en": "Regular medication has run out",
+   "label_th": "ยาประจำหมด",
+   "synonyms_en": [
+    "out of medication",
+    "refill"
+   ],
+   "synonyms_th": [
+    "ยาหมด",
+    "มารับยา"
+   ]
+  },
+  "severe_uncontrolled_pain": {
+   "label_en": "Very severe pain that cannot be controlled",
+   "label_th": "ปวดรุนแรงมากจนทนไม่ไหว",
+   "synonyms_en": [
+    "worst pain",
+    "unbearable pain"
+   ],
+   "synonyms_th": [
+    "ปวดมากทนไม่ไหว",
+    "ปวดที่สุดในชีวิต"
+   ]
+  },
+  "loc_transient": {
+   "label_en": "Brief loss of consciousness after injury",
+   "label_th": "หมดสติหรือสลบชั่วครู่หลังบาดเจ็บ",
+   "synonyms_en": [
+    "blacked out",
+    "knocked out",
+    "passed out briefly"
+   ],
+   "synonyms_th": [
+    "สลบ",
+    "หมดสติ",
+    "วูบหมดสติ"
+   ]
   }
  },
  "level1_criteria": [
@@ -1496,7 +1614,7 @@
    "id": "l1_cardiac_arrest",
    "label_en": "Cardiac arrest",
    "label_th": "หัวใจหยุดเต้น",
-   "citation": "MFU Triage — Level 1: ระบบหัวใจและหลอดเลือด",
+   "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 3 (decision point A — cardiac and/or pulmonary arrest); MFU Triage — Level 1: ระบบหัวใจและหลอดเลือด",
    "condition": {
     "finding_id": "cardiac_arrest"
    }
@@ -1505,7 +1623,7 @@
    "id": "l1_unresponsive",
    "label_en": "Unresponsive / cannot be woken",
    "label_th": "ซึมลงปลุกไม่ตื่น",
-   "citation": "MFU Triage — Level 1: ระบบประสาทและสมอง",
+   "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 3 (decision point A — obtunded/unresponsive patient); MFU Triage — Level 1: ระบบประสาทและสมอง",
    "condition": {
     "finding_id": "unresponsive"
    }
@@ -1514,7 +1632,7 @@
    "id": "l1_seizure_now",
    "label_en": "Active seizure with unresponsiveness",
    "label_th": "ชักเกร็งเรียกไม่รู้สึกตัว",
-   "citation": "MFU Triage — Level 1: ระบบประสาทและสมอง",
+   "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 3 (decision point A — active seizure); MFU Triage — Level 1: ระบบประสาทและสมอง",
    "condition": {
     "finding_id": "seizure_now"
    }
@@ -1523,7 +1641,7 @@
    "id": "l1_airway_obstruction",
    "label_en": "Airway obstruction",
    "label_th": "ทางเดินหายใจอุดกั้น",
-   "citation": "MFU Triage — Level 1: ระบบการหายใจ",
+   "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 3 (decision point A — occluded airway / ineffective airway clearance); MFU Triage — Level 1: ระบบการหายใจ",
    "condition": {
     "finding_id": "airway_obstruction"
    }
@@ -1532,7 +1650,7 @@
    "id": "l1_apnea",
    "label_en": "Apnea",
    "label_th": "ภาวะหยุดหายใจ",
-   "citation": "MFU Triage — Level 1: ระบบการหายใจ",
+   "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 3 (decision point A — ineffective respiratory pattern); MFU Triage — Level 1: ระบบการหายใจ",
    "condition": {
     "finding_id": "apnea"
    }
@@ -1541,7 +1659,7 @@
    "id": "l1_severe_respiratory_distress",
    "label_en": "Severe respiratory distress",
    "label_th": "หายใจลำบากรุนแรง",
-   "citation": "MFU Triage — Level 1: ระบบการหายใจ",
+   "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 3 (decision point A — impaired gas exchange / severe respiratory distress); MFU Triage — Level 1: ระบบการหายใจ",
    "condition": {
     "finding_id": "severe_respiratory_distress"
    }
@@ -1550,7 +1668,7 @@
    "id": "l1_adult_hr_high",
    "label_en": "Heart rate over 150/min (adult)",
    "label_th": "หัวใจเต้นเร็วกว่า 150 ครั้ง/นาที (ผู้ใหญ่)",
-   "citation": "MFU Triage — Level 1: หัวใจเต้น > 150/min",
+   "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 3 (decision point A — severe tachycardia); MFU Triage — Level 1: หัวใจเต้น > 150/min",
    "condition": {
     "age_band": "adult",
     "all_of": [
@@ -1566,7 +1684,7 @@
    "id": "l1_adult_hr_low_symptomatic",
    "label_en": "Heart rate under 50/min with chest pain or shock signs (adult)",
    "label_th": "หัวใจเต้นช้ากว่า 50 ครั้ง/นาที ร่วมกับเจ็บแน่นหน้าอกหรือภาวะช็อก (ผู้ใหญ่)",
-   "citation": "MFU Triage — Level 1: หัวใจเต้น < 50/min ร่วมกับอาการ",
+   "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 3 (decision point A — severe bradycardia with signs of hypoperfusion); MFU Triage — Level 1: หัวใจเต้น < 50/min ร่วมกับอาการ",
    "condition": {
     "age_band": "adult",
     "all_of": [
@@ -1592,7 +1710,7 @@
    "id": "l1_adult_shock_bp",
    "label_en": "Shock: SBP < 90 or MAP < 60 mmHg (adult)",
    "label_th": "ภาวะช็อก: ความดันตัวบน < 90 หรือ MAP < 60 mmHg (ผู้ใหญ่)",
-   "citation": "MFU Triage — Level 1: มีภาวะช็อค",
+   "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 3 (decision point A — hypotension with signs of hypoperfusion); MFU Triage — Level 1: มีภาวะช็อค",
    "condition": {
     "age_band": "adult",
     "any_of": [
@@ -1613,7 +1731,7 @@
    "id": "l1_shock_skin_signs",
    "label_en": "Shock signs: pale, cold, sweaty skin",
    "label_th": "ภาวะช็อก: ผิวหนังซีด ตัวเย็น เหงื่อแตก",
-   "citation": "MFU Triage — Level 1: มีภาวะช็อค",
+   "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 3 (decision point A — ineffective tissue perfusion); MFU Triage — Level 1: มีภาวะช็อค",
    "condition": {
     "finding_id": "pale_cold_sweaty"
    }
@@ -1622,7 +1740,7 @@
    "id": "l1_adult_rr_extreme",
    "label_en": "Breathing rate over 30 or under 8/min (adult)",
    "label_th": "หายใจเร็วกว่า 30 หรือช้ากว่า 8 ครั้ง/นาที (ผู้ใหญ่)",
-   "citation": "MFU Triage — Level 1: ระบบการหายใจ",
+   "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 3 (decision point A — ineffective respiratory pattern); MFU Triage — Level 1: ระบบการหายใจ",
    "condition": {
     "age_band": "adult",
     "any_of": [
@@ -1643,7 +1761,7 @@
    "id": "l1_adult_spo2_low",
    "label_en": "SpO2 < 90% with breathing difficulty and retraction (adult; COPD target 88–92% — nurse verify)",
    "label_th": "ออกซิเจนปลายนิ้ว < 90% ร่วมกับหายใจเหนื่อยและอกบุ๋ม (ผู้ใหญ่; ผู้ป่วย COPD เป้า 88–92% ให้พยาบาลยืนยัน)",
-   "citation": "MFU Triage — Level 1: O2 sat < 90% ยกเว้น COPD",
+   "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 3 (decision point A — SpO2 < 90% not patient's norm, with respiratory compromise); MFU Triage — Level 1: O2 sat < 90% ยกเว้น COPD",
    "condition": {
     "age_band": "adult",
     "all_of": [
@@ -1662,7 +1780,7 @@
    "id": "l1_child_cyanosis",
    "label_en": "Child: blue / unresponsive / floppy",
    "label_th": "เด็ก: เขียว ไม่ตอบสนอง ตัวอ่อนปวกเปียก",
-   "citation": "MFU Triage — Level 1 เด็ก",
+   "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 3 (decision point A — flaccid infant / impaired gas exchange); MFU Triage — Level 1 เด็ก",
    "condition": {
     "age_band": "child_any",
     "any_of": [
@@ -1679,7 +1797,7 @@
    "id": "l1_child_gasping",
    "label_en": "Child: gasping / labored breathing",
    "label_th": "เด็ก: หายใจเฮือก หายใจเหนื่อย",
-   "citation": "MFU Triage — Level 1 เด็ก",
+   "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 3 (decision point A — ineffective respiratory pattern); MFU Triage — Level 1 เด็ก",
    "condition": {
     "age_band": "child_any",
     "any_of": [
@@ -1693,7 +1811,7 @@
    "id": "l1_child_spo2",
    "label_en": "Child: SpO2 < 90% (except known cardiac)",
    "label_th": "เด็ก: O2 Sat < 90% (ยกเว้นผู้ป่วยโรคหัวใจ)",
-   "citation": "MFU Triage — Level 1 เด็ก",
+   "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 3 (decision point A — SpO2 < 90% not patient's norm); MFU Triage — Level 1 เด็ก",
    "condition": {
     "age_band": "child_any",
     "all_of": [
@@ -1709,7 +1827,7 @@
    "id": "l1_child_hr_infant",
    "label_en": "Child under 1 year: HR > 220/min",
    "label_th": "เด็กอายุน้อยกว่า 1 ปี: ชีพจร > 220 ครั้ง/นาที",
-   "citation": "MFU Triage — Level 1 เด็ก",
+   "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 3 (decision point A — severe tachycardia (pediatric)); MFU Triage — Level 1 เด็ก",
    "condition": {
     "any_of": [
      {
@@ -1739,7 +1857,7 @@
    "id": "l1_child_hr_over1y",
    "label_en": "Child 1–15 years: HR > 180/min",
    "label_th": "เด็กอายุ 1 ปีขึ้นไป: ชีพจร > 180 ครั้ง/นาที",
-   "citation": "MFU Triage — Level 1 เด็ก",
+   "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 3 (decision point A — severe tachycardia (pediatric)); MFU Triage — Level 1 เด็ก",
    "condition": {
     "any_of": [
      {
@@ -1789,7 +1907,7 @@
    "id": "l1_child_hr_low",
    "label_en": "Child: HR < 60/min",
    "label_th": "เด็ก: ชีพจร < 60 ครั้ง/นาที",
-   "citation": "MFU Triage — Level 1 เด็ก",
+   "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 3 (decision point A — severe bradycardia (pediatric)); MFU Triage — Level 1 เด็ก",
    "condition": {
     "age_band": "child_any",
     "all_of": [
@@ -1805,7 +1923,7 @@
    "id": "l1_ob_active_labor",
    "label_en": "Obstetric: contractions every 2 minutes with severe pain, or baby crowning",
    "label_th": "สูติกรรม: เจ็บครรภ์ถี่ทุก 2 นาทีร่วมกับปวดรุนแรง หรือทารกกำลังคลอด",
-   "citation": "MFU Triage — Level 1 สูติ-นรีเวช",
+   "citation": "MOPH ED Triage (5-level), obstetric emergencies; MFU Triage — Level 1 สูติ-นรีเวช",
    "condition": {
     "any_of": [
      {
@@ -1830,7 +1948,7 @@
    "id": "l1_pregnancy_seizure",
    "label_en": "Pregnant and seizing (suspected eclampsia)",
    "label_th": "ตั้งครรภ์และกำลังชัก (สงสัยครรภ์เป็นพิษชัก)",
-   "citation": "MFU Triage — การดูแลหญิงตั้งครรภ์: กำลังชัก",
+   "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 3 (decision point A — active seizure (suspected eclampsia)); MFU Triage — การดูแลหญิงตั้งครรภ์: กำลังชัก",
    "condition": {
     "all_of": [
      {
@@ -1848,7 +1966,7 @@
    "id": "dv_adult_bp_crisis",
    "label_en": "Hypertensive crisis: SBP > 180 or DBP > 110 mmHg",
    "label_th": "ความดันโลหิตวิกฤต: ตัวบน > 180 หรือตัวล่าง > 110 mmHg",
-   "citation": "MFU Triage — สัญญาณชีพอันตราย (CPG Hypertensive crisis)",
+   "citation": "MOPH ED Triage (5-level), danger-zone vitals; MFU Triage — สัญญาณชีพอันตราย (CPG Hypertensive crisis)",
    "level": 2,
    "condition": {
     "age_band": "adult",
@@ -1870,7 +1988,7 @@
    "id": "dv_adult_hr_120_rest",
    "label_en": "Resting heart rate > 120/min (adult)",
    "label_th": "ชีพจรขณะพัก > 120 ครั้ง/นาที (ผู้ใหญ่)",
-   "citation": "MFU Triage — สัญญาณชีพอันตราย",
+   "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (decision point D — high-risk vital signs: adult HR); MFU Triage — สัญญาณชีพอันตราย",
    "level": 2,
    "condition": {
     "age_band": "adult",
@@ -1887,7 +2005,7 @@
    "id": "dv_adult_rr_retraction",
    "label_en": "Breathing 21–30/min with retraction or audible wheeze/stridor (adult)",
    "label_th": "หายใจ 21–30 ครั้ง/นาที ร่วมกับอกบุ๋มหรือเสียงหายใจผิดปกติ (ผู้ใหญ่)",
-   "citation": "MFU Triage — สัญญาณชีพอันตราย",
+   "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (decision point D — high-risk vital signs: adult RR, with increased work of breathing); MFU Triage — สัญญาณชีพอันตราย",
    "level": 2,
    "condition": {
     "age_band": "adult",
@@ -1919,7 +2037,7 @@
    "id": "dv_adult_spo2_90_94",
    "label_en": "SpO2 90–94% with breathing difficulty and retraction (adult)",
    "label_th": "ออกซิเจน 90–94% ร่วมกับหายใจเหนื่อยและอกบุ๋ม (ผู้ใหญ่)",
-   "citation": "MFU Triage — สัญญาณชีพอันตราย",
+   "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (decision point D — SpO2 danger zone, with respiratory compromise); MFU Triage — สัญญาณชีพอันตราย",
    "level": 2,
    "condition": {
     "age_band": "adult",
@@ -1947,7 +2065,7 @@
    "id": "dv_child_0_1m",
    "label_en": "Newborn (<1 month): HR > 190, RR > 60, or SBP < 60",
    "label_th": "ทารกแรกเกิด (<1 เดือน): ชีพจร > 190, หายใจ > 60, หรือความดันตัวบน < 60",
-   "citation": "MFU Triage — สัญญาณชีพอันตรายสำหรับเด็ก (ENA 2023 ESI 5th, PALS 2020)",
+   "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (decision point D — age-banded pediatric vital signs, Table 6-1); MFU Triage — สัญญาณชีพอันตรายสำหรับเด็ก (ENA 2023 ESI 5th, PALS 2020)",
    "level": 2,
    "condition": {
     "age_band": "infant_0_1m",
@@ -1974,7 +2092,7 @@
    "id": "dv_child_1_12m",
    "label_en": "Infant (1–12 months): HR > 180, RR > 55, or SBP < 70",
    "label_th": "ทารก (1–12 เดือน): ชีพจร > 180, หายใจ > 55, หรือความดันตัวบน < 70",
-   "citation": "MFU Triage — สัญญาณชีพอันตรายสำหรับเด็ก",
+   "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (decision point D — age-banded pediatric vital signs, Table 6-1); MFU Triage — สัญญาณชีพอันตรายสำหรับเด็ก",
    "level": 2,
    "condition": {
     "age_band": "infant_1_12m",
@@ -2001,7 +2119,7 @@
    "id": "dv_child_1_3y",
    "label_en": "Child 1–3 years: HR > 140, RR > 40, or SBP < 76",
    "label_th": "เด็ก 1–3 ปี: ชีพจร > 140, หายใจ > 40, หรือความดันตัวบน < 76 (70 + อายุ×2)",
-   "citation": "MFU Triage — สัญญาณชีพอันตรายสำหรับเด็ก",
+   "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (decision point D — age-banded pediatric vital signs, Table 6-1); MFU Triage — สัญญาณชีพอันตรายสำหรับเด็ก",
    "level": 2,
    "condition": {
     "age_band": "child_1_3y",
@@ -2028,7 +2146,7 @@
    "id": "dv_child_3_5y",
    "label_en": "Child 3–5 years: HR > 120, RR > 35, or SBP < 80",
    "label_th": "เด็ก 3–5 ปี: ชีพจร > 120, หายใจ > 35, หรือความดันตัวบน < 80 (70 + อายุ×2)",
-   "citation": "MFU Triage — สัญญาณชีพอันตรายสำหรับเด็ก",
+   "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (decision point D — age-banded pediatric vital signs, Table 6-1); MFU Triage — สัญญาณชีพอันตรายสำหรับเด็ก",
    "level": 2,
    "condition": {
     "age_band": "child_3_5y",
@@ -2055,7 +2173,7 @@
    "id": "dv_child_5_10y",
    "label_en": "Child 6–10 years: HR > 120, RR > 30, or SBP < 90",
    "label_th": "เด็ก 6–10 ปี: ชีพจร > 120, หายใจ > 30, หรือความดันตัวบน < 90 (70 + อายุ×2)",
-   "citation": "MFU Triage — สัญญาณชีพอันตรายสำหรับเด็ก",
+   "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (decision point D — age-banded pediatric vital signs, Table 6-1); MFU Triage — สัญญาณชีพอันตรายสำหรับเด็ก",
    "level": 2,
    "condition": {
     "age_band": "child_5_10y",
@@ -2082,7 +2200,7 @@
    "id": "dv_child_10_15y",
    "label_en": "Child over 10 years: HR > 100, RR > 20, or SBP < 90",
    "label_th": "เด็กอายุมากกว่า 10 ปี: ชีพจร > 100, หายใจ > 20, หรือความดันตัวบน < 90",
-   "citation": "MFU Triage — สัญญาณชีพอันตรายสำหรับเด็ก",
+   "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (decision point D — age-banded pediatric vital signs, Table 6-1); MFU Triage — สัญญาณชีพอันตรายสำหรับเด็ก",
    "level": 2,
    "condition": {
     "age_band": "child_10_15y",
@@ -2109,7 +2227,7 @@
    "id": "dv_child_work_of_breathing",
    "label_en": "Child: rapid breathing with retraction and nasal flaring",
    "label_th": "เด็ก: หายใจเร็ว ร่วมกับอกบุ๋ม ปีกจมูกบาน",
-   "citation": "MFU Triage — เด็ก: หายใจเร็วร่วมกับ Retraction ปีกจมูกบาน",
+   "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 4 (decision point B — increasing respiratory effort); MFU Triage — เด็ก: หายใจเร็วร่วมกับ Retraction ปีกจมูกบาน",
    "level": 2,
    "condition": {
     "age_band": "child_any",
@@ -2127,7 +2245,7 @@
    "id": "dv_child_spo2_94",
    "label_en": "Child: SpO2 < 94%",
    "label_th": "เด็ก: O2 Sat < 94%",
-   "citation": "MFU Triage — เด็ก",
+   "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (decision point D — SpO2 danger zone); MFU Triage — เด็ก",
    "level": 2,
    "condition": {
     "age_band": "child_any",
@@ -2144,7 +2262,7 @@
    "id": "dv_child_aoc",
    "label_en": "Child: altered consciousness",
    "label_th": "เด็ก: ระดับความรู้สึกตัวเปลี่ยนแปลง",
-   "citation": "MFU Triage — เด็ก: Alteration of consciousness",
+   "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 4 (decision point B — new confusion/lethargy/disorientation); MFU Triage — เด็ก: Alteration of consciousness",
    "level": 2,
    "condition": {
     "age_band": "child_any",
@@ -2159,7 +2277,7 @@
    "id": "dv_child_severe_pain",
    "label_en": "Child: severe pain (score > 7)",
    "label_th": "เด็ก: ปวดมาก (คะแนน > 7)",
-   "citation": "MFU Triage — เด็ก: NIPS/FLACC/FACES/NRS > 7",
+   "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 4 (decision point B — severe pain/distress, pain ≥ 7/10); MFU Triage — เด็ก: NIPS/FLACC/FACES/NRS > 7",
    "level": 2,
    "condition": {
     "age_band": "child_any",
@@ -2171,6 +2289,40 @@
      }
     ]
    }
+  },
+  {
+   "id": "dv_infant_fever_0_1m",
+   "label_en": "Fever ≥ 38.0 °C in a neonate (< 1 month)",
+   "label_th": "ไข้ ≥ 38.0 °C ในทารกแรกเกิด (อายุน้อยกว่า 1 เดือน)",
+   "level": 2,
+   "condition": {
+    "age_band": "infant_0_1m",
+    "any_of": [
+     {
+      "vital": "temp",
+      "op": "ge",
+      "value": 38.0
+     }
+    ]
+   },
+   "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (decision point D — temperature red flags, Table 6-2); MOPH ED Triage (5-level)"
+  },
+  {
+   "id": "dv_infant_fever_1_12m",
+   "label_en": "Fever ≥ 39.0 °C in an infant (1–12 months)",
+   "label_th": "ไข้ ≥ 39.0 °C ในทารก (1–12 เดือน)",
+   "level": 2,
+   "condition": {
+    "age_band": "infant_1_12m",
+    "any_of": [
+     {
+      "vital": "temp",
+      "op": "ge",
+      "value": 39.0
+     }
+    ]
+   },
+   "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (decision point D — temperature red flags, Table 6-2); MOPH ED Triage (5-level)"
   }
  ],
  "department_rules": [
@@ -2473,13 +2625,46 @@
   },
   {
    "id": "ent_foreign_body_24h",
-   "label_en": "Foreign body in ear/nose/throat within 24 hours",
-   "label_th": "สิ่งแปลกปลอมติดในหู จมูก คอ ภายใน 24 ชั่วโมง",
-   "citation": "MFU Triage — Level 2 หู คอ จมูก",
+   "label_en": "ENT foreign body within 24 hours WITH airway involvement",
+   "label_th": "สิ่งแปลกปลอมติดในหู จมูก คอ ภายใน 24 ชั่วโมง ร่วมกับอาการทางเดินหายใจ",
+   "citation": "MFU Triage — Level 2 หู คอ จมูก. Narrowed 2026-08-12: an ENT foreign body only warrants the ER when the airway is involved; without it the patient goes to the ENT clinic (see ent_foreign_body_24h_no_airway).",
    "department_code": "emergency",
    "min_level": 2,
    "condition": {
-    "finding_id": "foreign_body_ent_24h"
+    "all_of": [
+     {
+      "finding_id": "foreign_body_ent_24h",
+      "state": "present"
+     },
+     {
+      "any_of": [
+       {
+        "finding_id": "airway_obstruction",
+        "state": "present"
+       },
+       {
+        "finding_id": "neck_swelling_dysphagia",
+        "state": "present"
+       },
+       {
+        "finding_id": "dyspnea",
+        "state": "present"
+       }
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "id": "ent_foreign_body_24h_no_airway",
+   "label_en": "ENT foreign body within 24 hours, airway intact",
+   "label_th": "สิ่งแปลกปลอมติดในหู จมูก คอ ภายใน 24 ชั่วโมง ไม่มีอาการทางเดินหายใจ",
+   "citation": "MFU routing — หู คอ จมูก. ⚠️ PLACEHOLDER department pending the hospital's confirmed department list; opd_ent is the reasonable destination for a foreign body the patient can still breathe and talk around.",
+   "department_code": "opd_ent",
+   "min_level": 3,
+   "condition": {
+    "finding_id": "foreign_body_ent_24h",
+    "state": "present"
    }
   },
   {
@@ -2581,7 +2766,7 @@
     "diaphoresis"
    ],
    "force_min_level": 2,
-   "citation": "MFU Chest Pain Checklist — อาการร่วม เหงื่อออก ตัวเย็น"
+   "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 4 (decision point B — chest pain suspicious for acute coronary syndrome); MFU Chest Pain Checklist — อาการร่วม เหงื่อออก ตัวเย็น"
   },
   {
    "id": "tt_chest_pain_dyspnea",
@@ -2592,7 +2777,7 @@
     "dyspnea"
    ],
    "force_min_level": 2,
-   "citation": "MFU Chest Pain Checklist"
+   "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 4 (decision point B — chest pain suspicious for acute coronary syndrome); MFU Chest Pain Checklist"
   },
   {
    "id": "tt_anaphylaxis",
@@ -2608,7 +2793,7 @@
     "diarrhea"
    ],
    "force_min_level": 2,
-   "citation": "MFU Triage — Level 2 อายุรกรรม: สงสัยอาการแพ้รุนแรง"
+   "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 4 (decision point B — suspected severe allergic reaction, likely to deteriorate); MFU Triage — Level 2 อายุรกรรม: สงสัยอาการแพ้รุนแรง"
   },
   {
    "id": "tt_fever_chemo",
@@ -2619,7 +2804,7 @@
     "recent_chemotherapy"
    ],
    "force_min_level": 2,
-   "citation": "MFU Triage — Level 2 อายุรกรรม: ผู้ป่วยเคมีบำบัดมีไข้ > 38°C"
+   "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 4 (decision point B — patient on chemotherapy, immunocompromised, with fever); MFU Triage — Level 2 อายุรกรรม: ผู้ป่วยเคมีบำบัดมีไข้ > 38°C"
   },
   {
    "id": "tt_pregnancy_hypertension",
@@ -2630,7 +2815,7 @@
     "hypertension_history"
    ],
    "force_min_level": 2,
-   "citation": "MFU Triage — หญิงตั้งครรภ์: ความดัน ≥ 140/90 หรือสงสัยครรภ์เป็นพิษ"
+   "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 4 (decision point B — suspected preeclampsia — obstetric high-risk); MFU Triage — หญิงตั้งครรภ์: ความดัน ≥ 140/90 หรือสงสัยครรภ์เป็นพิษ"
   },
   {
    "id": "tt_tb_suspect",
@@ -2646,7 +2831,149 @@
     "dyspnea"
    ],
    "force_min_level": 2,
-   "citation": "MFU Triage — เด็ก/ผู้ใหญ่: ไอเรื้อรัง > 2 สัปดาห์ ส่งห้องแยกโรคทันที"
+   "citation": "MOPH ED Triage (5-level), airborne isolation — suspected TB; MFU Triage — เด็ก/ผู้ใหญ่: ไอเรื้อรัง > 2 สัปดาห์ ส่งห้องแยกโรคทันที"
+  },
+  {
+   "id": "tt_palpitations_chest_pain",
+   "label_en": "Palpitations with chest pain",
+   "label_th": "ใจสั่นร่วมกับเจ็บหน้าอก",
+   "findings_all": [
+    "palpitations",
+    "chest_pain"
+   ],
+   "force_min_level": 2,
+   "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 4 (decision point B — high-risk presentation)"
+  },
+  {
+   "id": "tt_palpitations_cardiac_history",
+   "label_en": "Palpitations with known heart disease",
+   "label_th": "ใจสั่นในผู้ที่มีโรคหัวใจอยู่เดิม",
+   "findings_all": [
+    "palpitations",
+    "heart_disease_history"
+   ],
+   "force_min_level": 2,
+   "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 4 (decision point B — high-risk presentation)"
+  },
+  {
+   "id": "tt_wound_systemic_infection",
+   "label_en": "Wound infection signs with fever (possible systemic infection)",
+   "label_th": "แผลติดเชื้อร่วมกับมีไข้ (อาจติดเชื้อในกระแสเลือด)",
+   "findings_all": [
+    "wound_infection_signs",
+    "fever"
+   ],
+   "force_min_level": 2,
+   "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 4 (decision point B — high-risk presentation)"
+  },
+  {
+   "id": "tt_breast_abscess",
+   "label_en": "Breast infection signs with fever (possible abscess)",
+   "label_th": "เต้านมอักเสบร่วมกับมีไข้ (อาจเป็นฝีหนอง)",
+   "findings_all": [
+    "breast_infection_signs",
+    "fever"
+   ],
+   "force_min_level": 3,
+   "citation": "Local acuity-escalation heuristic (MFU); band pattern after ESI resource-prediction concept (decision point C)"
+  },
+  {
+   "id": "tt_acute_limb_ischemia",
+   "label_en": "Acute limb ischemia (sudden pale, cold, painful limb)",
+   "label_th": "แขนขาขาดเลือดเฉียบพลัน (ซีด เย็น ปวดรุนแรง)",
+   "findings_all": [
+    "limb_ischemia"
+   ],
+   "force_min_level": 2,
+   "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 4 (decision point B — high-risk presentation)"
+  },
+  {
+   "id": "tt_dvt_suspect",
+   "label_en": "Unilateral swollen painful leg (possible DVT)",
+   "label_th": "ขาบวมปวดข้างเดียว (สงสัยลิ่มเลือดอุดตัน)",
+   "findings_all": [
+    "unilateral_leg_swelling"
+   ],
+   "force_min_level": 2,
+   "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 4 (decision point B — high-risk presentation)"
+  },
+  {
+   "id": "tt_forensic_danger",
+   "label_en": "Patient still in immediate danger",
+   "label_th": "ผู้ป่วยยังอยู่ในอันตราย",
+   "findings_all": [
+    "immediate_danger"
+   ],
+   "force_min_level": 2,
+   "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 4 (decision point B — high-risk presentation)"
+  },
+  {
+   "id": "tt_gi_dehydration",
+   "label_en": "Severe dehydration / cannot keep fluids down",
+   "label_th": "ขาดน้ำรุนแรง / ดื่มน้ำไม่ได้",
+   "findings_all": [
+    "dehydration_signs"
+   ],
+   "force_min_level": 2,
+   "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 4 (decision point B — high-risk presentation)"
+  },
+  {
+   "id": "tt_rash_spreading_fever",
+   "label_en": "Rapidly spreading rash with fever",
+   "label_th": "ผื่นลามเร็วร่วมกับมีไข้",
+   "findings_all": [
+    "rash_rapidly_spreading",
+    "fever"
+   ],
+   "force_min_level": 2,
+   "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 4 (decision point B — high-risk presentation)"
+  },
+  {
+   "id": "tt_hypoglycemia",
+   "label_en": "Symptomatic low blood sugar",
+   "label_th": "อาการน้ำตาลต่ำแสดงอาการ",
+   "findings_all": [
+    "hypoglycemia_symptoms"
+   ],
+   "force_min_level": 2,
+   "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 4 (decision point B — high-risk presentation)"
+  },
+  {
+   "id": "tt_severe_uncontrolled_pain",
+   "label_en": "Severe uncontrolled pain",
+   "label_th": "ปวดรุนแรงจนควบคุมไม่ได้",
+   "findings_all": [
+    "severe_uncontrolled_pain"
+   ],
+   "force_min_level": 2,
+   "citation": "Local acuity-escalation heuristic (MFU); threshold pattern after ESI v5 severe-pain consideration (pain ≥ 7/10)"
+  },
+  {
+   "id": "tt_palpitations_syncope",
+   "label_en": "Palpitations with syncope or near-syncope",
+   "label_th": "ใจสั่นร่วมกับเป็นลมหรือหน้ามืดจะเป็นลม",
+   "findings_all": [
+    "palpitations",
+    "syncope_24h"
+   ],
+   "risk_factors_any": [],
+   "force_min_level": 2,
+   "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 4 (decision point B — syncope/near-syncope with palpitations)"
+  },
+  {
+   "id": "tt_head_injury_risk",
+   "label_en": "Head injury with loss of consciousness, vomiting, or confusion",
+   "label_th": "บาดเจ็บที่ศีรษะร่วมกับหมดสติ อาเจียน หรือสับสน",
+   "findings_all": [
+    "head_injury"
+   ],
+   "risk_factors_any": [
+    "loc_transient",
+    "vomiting",
+    "confusion"
+   ],
+   "force_min_level": 2,
+   "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 4 (decision point B — head trauma with LOC or neurologic symptoms)"
   }
  ],
  "fast_tracks": [
@@ -2654,7 +2981,7 @@
    "id": "ft_stroke_befast",
    "label_en": "Stroke fast track (BEFAST within 72 hours)",
    "label_th": "ทางด่วนโรคหลอดเลือดสมอง (BEFAST ภายใน 72 ชั่วโมง)",
-   "citation": "MFU Stroke Fast Track — BEFAST",
+   "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 4 (decision point B — signs of stroke); BE-FAST stroke recognition; MFU Stroke Fast Track — BEFAST",
    "department_code": "emergency",
    "level": 2,
    "condition": {
@@ -2681,7 +3008,7 @@
    "id": "ft_mi_chest_pain",
    "label_en": "Heart attack fast track (chest pain radiating to neck/jaw/shoulder)",
    "label_th": "ทางด่วนกล้ามเนื้อหัวใจขาดเลือด (เจ็บอกร้าวไปคอ กราม ไหล่)",
-   "citation": "MFU Triage — MI FASTTRACK",
+   "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 4 (decision point B — chest pain suspicious for acute coronary syndrome); MFU Triage — MI FASTTRACK",
    "department_code": "emergency",
    "level": 2,
    "condition": {
@@ -2973,6 +3300,26 @@
    "complaint_category": "generic",
    "department_code": "opd_general",
    "citation": "อาการทั่วไป → OPD ทั่วไป"
+  },
+  {
+   "complaint_category": "gi",
+   "department_code": "opd_general",
+   "citation": "MFU OPD routing — ท้องเสีย/อาเจียนไม่ฉุกเฉิน → OPD ทั่วไป"
+  },
+  {
+   "complaint_category": "skin_rash",
+   "department_code": "opd_general",
+   "citation": "MFU OPD routing — ผื่นทั่วไป → OPD ทั่วไป"
+  },
+  {
+   "complaint_category": "chronic_followup",
+   "department_code": "opd_general",
+   "citation": "MFU OPD routing — ติดตามโรคเรื้อรัง/รับยาต่อเนื่อง → OPD ทั่วไป"
+  },
+  {
+   "complaint_category": "administrative",
+   "department_code": "opd_general",
+   "citation": "MFU OPD routing — เอกสาร/ตรวจสุขภาพ/วัคซีน → OPD ทั่วไป"
   }
  ],
  "universal_questions": [
@@ -3023,7 +3370,8 @@
    ],
    "text_en": "Right now, are you having any trouble breathing?",
    "text_th": "ตอนนี้คุณหายใจลำบากหรือหายใจเหนื่อยไหมคะ",
-   "priority": 2
+   "priority": 2,
+   "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 3 (decision point A — severe respiratory distress); MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย)"
   }
  ],
  "complaint_templates": [
@@ -3197,7 +3545,8 @@
        "text_en": "10",
        "text_th": "10"
       }
-     ]
+     ],
+     "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 4 (decision point B — severe pain/distress, pain ≥ 7/10); MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย)"
     },
     {
      "id": "gen_associated",
@@ -3217,7 +3566,63 @@
      "vital": "sbp",
      "text_en": "Please measure your blood pressure now — you can use the machine beside you or type the numbers.",
      "text_th": "กรุณาวัดความดันโลหิตตอนนี้ — ใช้เครื่องข้างตัวคุณหรือพิมพ์ตัวเลขก็ได้",
-     "priority": 7
+     "priority": 7,
+     "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (decision point D — full vital signs at triage); MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย)"
+    },
+    {
+     "id": "gen_bleeding",
+     "kind": "red_flag",
+     "finding_ids": [
+      "active_bleeding"
+     ],
+     "text_en": "Do you have heavy bleeding that won't stop?",
+     "text_th": "มีเลือดออกมากจนห้ามไม่หยุดไหมคะ",
+     "priority": 1,
+     "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 4 (decision point B — high-risk presentation)"
+    },
+    {
+     "id": "gen_syncope_confusion",
+     "kind": "red_flag",
+     "finding_ids": [
+      "syncope_24h",
+      "confusion"
+     ],
+     "text_en": "Have you fainted, or become newly confused or unusually drowsy?",
+     "text_th": "มีวูบหมดสติ หรือรู้สึกสับสน ซึมผิดปกติไหมคะ",
+     "priority": 2,
+     "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 4 (decision point B — high-risk presentation)"
+    },
+    {
+     "id": "gen_self_harm",
+     "kind": "red_flag",
+     "finding_ids": [
+      "suicidal_ideation",
+      "self_harm_risk"
+     ],
+     "text_en": "Have you had thoughts of hurting yourself or ending your life?",
+     "text_th": "มีความคิดอยากทำร้ายตัวเองหรืออยากตายไหมคะ",
+     "priority": 3,
+     "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 4 (decision point B — high-risk presentation)"
+    },
+    {
+     "id": "gen_severe_pain",
+     "kind": "red_flag",
+     "finding_ids": [
+      "severe_uncontrolled_pain"
+     ],
+     "text_en": "Is your pain so severe that you cannot bear it?",
+     "text_th": "อาการปวดรุนแรงมากจนทนไม่ไหวเลยไหมคะ",
+     "priority": 4,
+     "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 4 (decision point B — high-risk presentation)"
+    },
+    {
+     "id": "gen_temp",
+     "kind": "measurement",
+     "vital": "temp",
+     "text_en": "Please measure your temperature at the booth and enter it in °C.",
+     "text_th": "กรุณาวัดอุณหภูมิที่จุดคัดกรองแล้วกรอกค่าเป็นองศาเซลเซียสค่ะ",
+     "priority": 6,
+     "citation": "MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย) — ขอบเขต: ผู้ป่วยนอกทุกราย; วัตถุประสงค์ ข้อ 2 เพื่อแยกผู้ป่วยโรคติดต่อ โรคอุบัติใหม่ อุบัติซ้ำ; MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (temperature red flags)"
     }
    ]
   },
@@ -3259,7 +3664,8 @@
      ],
      "text_en": "Does the pain spread to your neck, jaw, shoulder, or arm?",
      "text_th": "อาการเจ็บร้าวไปที่คอ กราม ไหล่ หรือแขนไหมคะ",
-     "priority": 1
+     "priority": 1,
+     "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 4 (decision point B — chest pain suspicious for acute coronary syndrome); MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย)"
     },
     {
      "id": "cp_diaphoresis",
@@ -3270,7 +3676,8 @@
      ],
      "text_en": "Are you sweating a lot, or feeling cold and clammy?",
      "text_th": "มีเหงื่อแตก ตัวเย็น หรือใจสั่นร่วมด้วยไหมคะ",
-     "priority": 2
+     "priority": 2,
+     "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 4 (decision point B — chest pain suspicious for acute coronary syndrome); MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย)"
     },
     {
      "id": "cp_dyspnea",
@@ -3280,7 +3687,8 @@
      ],
      "text_en": "Are you having trouble breathing along with the chest pain?",
      "text_th": "หายใจเหนื่อยหรือหายใจลำบากร่วมกับเจ็บหน้าอกไหมคะ",
-     "priority": 3
+     "priority": 3,
+     "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 4 (decision point B — chest pain suspicious for acute coronary syndrome); MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย)"
     },
     {
      "id": "cp_onset",
@@ -3435,7 +3843,8 @@
        "text_en": "10",
        "text_th": "10"
       }
-     ]
+     ],
+     "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 4 (decision point B — severe pain/distress, pain ≥ 7/10); MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย)"
     },
     {
      "id": "cp_history",
@@ -3456,7 +3865,17 @@
      "vital": "sbp",
      "text_en": "Please measure your blood pressure now — you can use the machine beside you or type the numbers.",
      "text_th": "กรุณาวัดความดันโลหิตตอนนี้ — ใช้เครื่องข้างตัวคุณหรือพิมพ์ตัวเลขก็ได้",
-     "priority": 7
+     "priority": 7,
+     "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (decision point D — full vital signs at triage); MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย)"
+    },
+    {
+     "id": "cp_temp",
+     "kind": "measurement",
+     "vital": "temp",
+     "text_en": "Please measure your temperature at the booth and enter it in °C.",
+     "text_th": "กรุณาวัดอุณหภูมิที่จุดคัดกรองแล้วกรอกค่าเป็นองศาเซลเซียสค่ะ",
+     "priority": 6,
+     "citation": "MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย) — ขอบเขต: ผู้ป่วยนอกทุกราย; วัตถุประสงค์ ข้อ 2 เพื่อแยกผู้ป่วยโรคติดต่อ โรคอุบัติใหม่ อุบัติซ้ำ; MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (temperature red flags)"
     }
    ]
   },
@@ -3501,7 +3920,8 @@
      ],
      "text_en": "Are you able to talk in full sentences right now, or does it feel like a struggle to breathe? Have your lips or fingertips looked bluish?",
      "text_th": "ตอนนี้พูดเป็นประโยคยาว ๆ ได้ไหมคะ หรือรู้สึกเหนื่อยจนหายใจลำบาก และริมฝีปากหรือปลายนิ้วดูเขียวคล้ำไหมคะ",
-     "priority": 1
+     "priority": 1,
+     "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 3 (decision point A — severe respiratory distress); MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย)"
     },
     {
      "id": "dc_hemoptysis",
@@ -3511,7 +3931,8 @@
      ],
      "text_en": "Have you coughed up any blood?",
      "text_th": "ไอมีเลือดปนออกมาไหมคะ",
-     "priority": 2
+     "priority": 2,
+     "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 4 (decision point B — high-risk presentation: hemoptysis); MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย)"
     },
     {
      "id": "dc_chest_pain",
@@ -3521,7 +3942,8 @@
      ],
      "text_en": "Do you have chest pain or tightness with it?",
      "text_th": "มีเจ็บหรือแน่นหน้าอกร่วมด้วยไหมคะ",
-     "priority": 3
+     "priority": 3,
+     "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 4 (decision point B — chest pain suspicious for acute coronary syndrome); MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย)"
     },
     {
      "id": "dc_fever",
@@ -3532,7 +3954,8 @@
      ],
      "text_en": "Do you have a fever?",
      "text_th": "มีไข้ไหมคะ",
-     "priority": 4
+     "priority": 4,
+     "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 4 (decision point B — high-risk presentation); MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย)"
     },
     {
      "id": "dc_distress_scale",
@@ -3601,18 +4024,17 @@
        "text_en": "10",
        "text_th": "10"
       }
-     ]
+     ],
+     "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 4 (decision point B — severe pain/distress); MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย)"
     },
     {
      "id": "dc_temp",
      "kind": "measurement",
      "vital": "temp",
-     "finding_ids": [
-      "fever"
-     ],
      "text_en": "Please measure your temperature at the booth and enter it in °C.",
      "text_th": "กรุณาวัดอุณหภูมิที่จุดคัดกรองแล้วกรอกค่าเป็นองศาเซลเซียสค่ะ",
-     "priority": 6
+     "priority": 6,
+     "citation": "MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย) — ขอบเขต: ผู้ป่วยนอกทุกราย; วัตถุประสงค์ ข้อ 2 เพื่อแยกผู้ป่วยโรคติดต่อ โรคอุบัติใหม่ อุบัติซ้ำ; MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (temperature red flags)"
     },
     {
      "id": "dc_onset",
@@ -3703,7 +4125,8 @@
      "vital": "sbp",
      "text_en": "Please measure your blood pressure now — you can use the machine beside you or type the numbers.",
      "text_th": "กรุณาวัดความดันโลหิตตอนนี้ — ใช้เครื่องข้างตัวคุณหรือพิมพ์ตัวเลขก็ได้",
-     "priority": 7
+     "priority": 7,
+     "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (decision point D — full vital signs at triage); MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย)"
     }
    ]
   },
@@ -3746,7 +4169,8 @@
      ],
      "text_en": "Have you vomited blood, or had bloody or black stools in the past week?",
      "text_th": "ในสัปดาห์ที่ผ่านมา อาเจียนเป็นเลือด ถ่ายเป็นเลือด หรือถ่ายดำไหมคะ",
-     "priority": 1
+     "priority": 1,
+     "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 4 (decision point B — high-risk presentation: gastrointestinal bleeding); MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย)"
     },
     {
      "id": "ap_severity",
@@ -3811,7 +4235,8 @@
        "text_en": "10",
        "text_th": "10"
       }
-     ]
+     ],
+     "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 4 (decision point B — severe pain/distress, pain ≥ 7/10); MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย)"
     },
     {
      "id": "ap_pregnancy",
@@ -3825,7 +4250,7 @@
      "text_th": "(ถ้าเกี่ยวข้อง) มีโอกาสตั้งครรภ์ ประจำเดือนขาด หรือมีเลือดออกทางช่องคลอดไหมคะ",
      "skip_for_gender": "male",
      "priority": 3,
-     "citation": "⚠️ PLACEHOLDER gender skip pending nurse confirmation — asked unless the HIS/patient records male; unknown gender is always asked"
+     "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 4 (decision point B — possible ectopic pregnancy); MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย); ⚠️ PLACEHOLDER gender skip pending nurse confirmation — asked unless the HIS/patient records male; unknown gender is always asked"
     },
     {
      "id": "ap_location",
@@ -3944,7 +4369,17 @@
      "vital": "sbp",
      "text_en": "Please measure your blood pressure now — you can use the machine beside you or type the numbers.",
      "text_th": "กรุณาวัดความดันโลหิตตอนนี้ — ใช้เครื่องข้างตัวคุณหรือพิมพ์ตัวเลขก็ได้",
-     "priority": 7
+     "priority": 7,
+     "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (decision point D — full vital signs at triage); MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย)"
+    },
+    {
+     "id": "ap_temp",
+     "kind": "measurement",
+     "vital": "temp",
+     "text_en": "Please measure your temperature at the booth and enter it in °C.",
+     "text_th": "กรุณาวัดอุณหภูมิที่จุดคัดกรองแล้วกรอกค่าเป็นองศาเซลเซียสค่ะ",
+     "priority": 6,
+     "citation": "MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย) — ขอบเขต: ผู้ป่วยนอกทุกราย; วัตถุประสงค์ ข้อ 2 เพื่อแยกผู้ป่วยโรคติดต่อ โรคอุบัติใหม่ อุบัติซ้ำ; MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (temperature red flags)"
     }
    ]
   },
@@ -3988,7 +4423,8 @@
      ],
      "text_en": "Any face drooping, arm or leg weakness, slurred speech, sudden vision loss, or loss of balance?",
      "text_th": "มีปากเบี้ยว แขนขาอ่อนแรง พูดไม่ชัด ตามองไม่เห็นฉับพลัน หรือเดินเซไหมคะ",
-     "priority": 1
+     "priority": 1,
+     "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 4 (decision point B — signs of stroke); BE-FAST stroke recognition; MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย)"
     },
     {
      "id": "hd_thunderclap",
@@ -3998,7 +4434,8 @@
      ],
      "text_en": "Did the headache come on suddenly and feel like the worst headache of your life?",
      "text_th": "ปวดขึ้นมาฉับพลันรุนแรงที่สุดในชีวิตเลยไหมคะ",
-     "priority": 2
+     "priority": 2,
+     "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 4 (decision point B — sudden severe headache — high-risk); MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย)"
     },
     {
      "id": "hd_stiff_neck",
@@ -4009,7 +4446,8 @@
      ],
      "text_en": "Do you have fever with a stiff neck?",
      "text_th": "มีไข้ร่วมกับคอแข็ง ก้มคอลำบากไหมคะ",
-     "priority": 3
+     "priority": 3,
+     "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 4 (decision point B — fever with stiff neck — suspected meningitis); MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย)"
     },
     {
      "id": "hd_severity",
@@ -4074,7 +4512,8 @@
        "text_en": "10",
        "text_th": "10"
       }
-     ]
+     ],
+     "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 4 (decision point B — severe pain/distress, pain ≥ 7/10); MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย)"
     },
     {
      "id": "hd_onset",
@@ -4183,7 +4622,17 @@
      "vital": "sbp",
      "text_en": "Please measure your blood pressure now — you can use the machine beside you or type the numbers.",
      "text_th": "กรุณาวัดความดันโลหิตตอนนี้ — ใช้เครื่องข้างตัวคุณหรือพิมพ์ตัวเลขก็ได้",
-     "priority": 7
+     "priority": 7,
+     "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (decision point D — full vital signs at triage); MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย)"
+    },
+    {
+     "id": "hd_temp",
+     "kind": "measurement",
+     "vital": "temp",
+     "text_en": "Please measure your temperature at the booth and enter it in °C.",
+     "text_th": "กรุณาวัดอุณหภูมิที่จุดคัดกรองแล้วกรอกค่าเป็นองศาเซลเซียสค่ะ",
+     "priority": 6,
+     "citation": "MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย) — ขอบเขต: ผู้ป่วยนอกทุกราย; วัตถุประสงค์ ข้อ 2 เพื่อแยกผู้ป่วยโรคติดต่อ โรคอุบัติใหม่ อุบัติซ้ำ; MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (temperature red flags)"
     }
    ]
   },
@@ -4226,7 +4675,8 @@
      ],
      "text_en": "Any confusion, trouble breathing, or stiff neck with the fever?",
      "text_th": "มีซึมสับสน หายใจเหนื่อย หรือคอแข็งร่วมกับไข้ไหมคะ",
-     "priority": 1
+     "priority": 1,
+     "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 4 (decision point B — new confusion / respiratory distress with fever); MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย)"
     },
     {
      "id": "fv_chemo",
@@ -4236,7 +4686,8 @@
      ],
      "text_en": "Are you currently receiving chemotherapy?",
      "text_th": "ตอนนี้กำลังได้รับยาเคมีบำบัดอยู่ไหมคะ",
-     "priority": 2
+     "priority": 2,
+     "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 4 (decision point B — patient on chemotherapy, immunocompromised, with fever); MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย)"
     },
     {
      "id": "fv_rash",
@@ -4247,18 +4698,17 @@
      ],
      "text_en": "Do you have any rash or blisters, especially on palms, soles, or around the mouth?",
      "text_th": "มีผื่นหรือตุ่มน้ำตามตัว โดยเฉพาะฝ่ามือ ฝ่าเท้า หรือรอบปากไหมคะ",
-     "priority": 3
+     "priority": 3,
+     "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 4 (decision point B — fever with rash — possible serious infection); MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย)"
     },
     {
      "id": "fv_temp",
      "kind": "measurement",
      "vital": "temp",
-     "finding_ids": [
-      "fever"
-     ],
      "text_en": "Please measure your temperature at the booth and enter it in °C.",
      "text_th": "กรุณาวัดอุณหภูมิที่จุดคัดกรองแล้วกรอกค่าเป็นองศาเซลเซียสค่ะ",
-     "priority": 5
+     "priority": 5,
+     "citation": "MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย) — ขอบเขต: ผู้ป่วยนอกทุกราย; วัตถุประสงค์ ข้อ 2 เพื่อแยกผู้ป่วยโรคติดต่อ โรคอุบัติใหม่ อุบัติซ้ำ; MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (temperature red flags)"
     },
     {
      "id": "fv_onset",
@@ -4340,7 +4790,8 @@
      "vital": "sbp",
      "text_en": "Please measure your blood pressure now — you can use the machine beside you or type the numbers.",
      "text_th": "กรุณาวัดความดันโลหิตตอนนี้ — ใช้เครื่องข้างตัวคุณหรือพิมพ์ตัวเลขก็ได้",
-     "priority": 7
+     "priority": 7,
+     "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (decision point D — full vital signs at triage); MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย)"
     }
    ]
   },
@@ -4384,7 +4835,8 @@
      ],
      "text_en": "Along with the ear pain, is your face drooping on one side?",
      "text_th": "นอกจากปวดหู มีหน้าเบี้ยวข้างใดข้างหนึ่งไหมคะ",
-     "priority": 1
+     "priority": 1,
+     "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 4 (decision point B — signs of stroke); BE-FAST stroke recognition; MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย)"
     },
     {
      "id": "ear_fb",
@@ -4394,7 +4846,8 @@
      ],
      "text_en": "Is there something stuck in your ear?",
      "text_th": "มีสิ่งแปลกปลอมเข้าไปติดในหูไหมคะ",
-     "priority": 2
+     "priority": 2,
+     "citation": "MOPH ED Triage (5-level), ENT presentations; MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย)"
     },
     {
      "id": "ear_severity",
@@ -4459,7 +4912,8 @@
        "text_en": "10",
        "text_th": "10"
       }
-     ]
+     ],
+     "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 4 (decision point B — severe pain/distress, pain ≥ 7/10); MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย)"
     },
     {
      "id": "ear_onset",
@@ -4540,7 +4994,17 @@
      "vital": "sbp",
      "text_en": "Please measure your blood pressure now — you can use the machine beside you or type the numbers.",
      "text_th": "กรุณาวัดความดันโลหิตตอนนี้ — ใช้เครื่องข้างตัวคุณหรือพิมพ์ตัวเลขก็ได้",
-     "priority": 7
+     "priority": 7,
+     "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (decision point D — full vital signs at triage); MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย)"
+    },
+    {
+     "id": "ear_temp",
+     "kind": "measurement",
+     "vital": "temp",
+     "text_en": "Please measure your temperature at the booth and enter it in °C.",
+     "text_th": "กรุณาวัดอุณหภูมิที่จุดคัดกรองแล้วกรอกค่าเป็นองศาเซลเซียสค่ะ",
+     "priority": 6,
+     "citation": "MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย) — ขอบเขต: ผู้ป่วยนอกทุกราย; วัตถุประสงค์ ข้อ 2 เพื่อแยกผู้ป่วยโรคติดต่อ โรคอุบัติใหม่ อุบัติซ้ำ; MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (temperature red flags)"
     }
    ]
   },
@@ -4587,7 +5051,8 @@
      ],
      "text_en": "Is your neck swollen, or is it hard to swallow or breathe?",
      "text_th": "คอบวมโต กลืนลำบาก หรือหายใจลำบากไหมคะ",
-     "priority": 1
+     "priority": 1,
+     "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 4 (decision point B — unable to manage secretions / stridor — airway emergency); MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย)"
     },
     {
      "id": "nt_epistaxis",
@@ -4597,7 +5062,8 @@
      ],
      "text_en": "If your nose is bleeding, has it stopped, or is it still bleeding now?",
      "text_th": "ถ้ามีเลือดกำเดา ตอนนี้หยุดแล้วหรือยังไหลอยู่คะ",
-     "priority": 2
+     "priority": 2,
+     "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 4 (decision point B — uncontrolled epistaxis — high-risk); MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย)"
     },
     {
      "id": "nt_onset",
@@ -4679,7 +5145,17 @@
      "vital": "sbp",
      "text_en": "Please measure your blood pressure now — you can use the machine beside you or type the numbers.",
      "text_th": "กรุณาวัดความดันโลหิตตอนนี้ — ใช้เครื่องข้างตัวคุณหรือพิมพ์ตัวเลขก็ได้",
-     "priority": 7
+     "priority": 7,
+     "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (decision point D — full vital signs at triage); MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย)"
+    },
+    {
+     "id": "nt_temp",
+     "kind": "measurement",
+     "vital": "temp",
+     "text_en": "Please measure your temperature at the booth and enter it in °C.",
+     "text_th": "กรุณาวัดอุณหภูมิที่จุดคัดกรองแล้วกรอกค่าเป็นองศาเซลเซียสค่ะ",
+     "priority": 6,
+     "citation": "MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย) — ขอบเขต: ผู้ป่วยนอกทุกราย; วัตถุประสงค์ ข้อ 2 เพื่อแยกผู้ป่วยโรคติดต่อ โรคอุบัติใหม่ อุบัติซ้ำ; MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (temperature red flags)"
     }
    ]
   },
@@ -4720,7 +5196,8 @@
      ],
      "text_en": "Did any chemical or venom splash into your eye?",
      "text_th": "มีสารเคมีหรือพิษสัตว์กระเด็นเข้าตาไหมคะ",
-     "priority": 1
+     "priority": 1,
+     "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 4 (decision point B — chemical eye exposure — threat to sight, time-sensitive); MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย)"
     },
     {
      "id": "eye_trauma_q",
@@ -4731,7 +5208,8 @@
      ],
      "text_en": "Was there an injury to the eye, and is it bleeding?",
      "text_th": "ตาโดนกระแทกหรือได้รับอุบัติเหตุไหมคะ แล้วมีเลือดออกไหม",
-     "priority": 2
+     "priority": 2,
+     "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 4 (decision point B — ocular trauma — threat to sight); MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย)"
     },
     {
      "id": "eye_vision",
@@ -4742,7 +5220,8 @@
      ],
      "text_en": "Has your vision suddenly become blurry or gone dark?",
      "text_th": "ตามัวหรือมองไม่เห็นขึ้นมาฉับพลันไหมคะ",
-     "priority": 3
+     "priority": 3,
+     "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 4 (decision point B — sudden vision change / visual loss); MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย)"
     },
     {
      "id": "eye_onset",
@@ -4792,7 +5271,17 @@
      "vital": "sbp",
      "text_en": "Please measure your blood pressure now — you can use the machine beside you or type the numbers.",
      "text_th": "กรุณาวัดความดันโลหิตตอนนี้ — ใช้เครื่องข้างตัวคุณหรือพิมพ์ตัวเลขก็ได้",
-     "priority": 7
+     "priority": 7,
+     "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (decision point D — full vital signs at triage); MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย)"
+    },
+    {
+     "id": "eye_temp",
+     "kind": "measurement",
+     "vital": "temp",
+     "text_en": "Please measure your temperature at the booth and enter it in °C.",
+     "text_th": "กรุณาวัดอุณหภูมิที่จุดคัดกรองแล้วกรอกค่าเป็นองศาเซลเซียสค่ะ",
+     "priority": 6,
+     "citation": "MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย) — ขอบเขต: ผู้ป่วยนอกทุกราย; วัตถุประสงค์ ข้อ 2 เพื่อแยกผู้ป่วยโรคติดต่อ โรคอุบัติใหม่ อุบัติซ้ำ; MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (temperature red flags)"
     }
    ]
   },
@@ -4839,7 +5328,8 @@
      ],
      "text_en": "How did the injury happen — was it a vehicle accident, a fall from height, or a stab wound?",
      "text_th": "บาดเจ็บจากอะไรคะ รถชน ตกจากที่สูง หรือถูกของมีคมแทง",
-     "priority": 1
+     "priority": 1,
+     "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 4 (decision point B — high-risk mechanism of injury / penetrating trauma); MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย)"
     },
     {
      "id": "inj_bleeding",
@@ -4849,7 +5339,8 @@
      ],
      "text_en": "Is there heavy bleeding that won't stop?",
      "text_th": "มีเลือดออกมากจนหยุดไม่ได้ไหมคะ",
-     "priority": 2
+     "priority": 2,
+     "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 3 (decision point A — uncontrolled hemorrhage — lifesaving intervention required); MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย)"
     },
     {
      "id": "inj_head",
@@ -4857,11 +5348,13 @@
      "finding_ids": [
       "head_injury",
       "confusion",
-      "vomiting"
+      "vomiting",
+      "loc_transient"
      ],
      "text_en": "Did you hit your head? Any confusion or vomiting since?",
      "text_th": "ศีรษะกระแทกไหมคะ หลังจากนั้นมีซึมสับสนหรืออาเจียนไหม",
-     "priority": 3
+     "priority": 3,
+     "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 4 (decision point B — head injury with confusion or vomiting); MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย)"
     },
     {
      "id": "inj_when",
@@ -4966,7 +5459,8 @@
        "text_en": "10",
        "text_th": "10"
       }
-     ]
+     ],
+     "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 4 (decision point B — severe pain/distress, pain ≥ 7/10); MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย)"
     },
     {
      "id": "inj_police",
@@ -4985,7 +5479,17 @@
      "vital": "sbp",
      "text_en": "Please measure your blood pressure now — you can use the machine beside you or type the numbers.",
      "text_th": "กรุณาวัดความดันโลหิตตอนนี้ — ใช้เครื่องข้างตัวคุณหรือพิมพ์ตัวเลขก็ได้",
-     "priority": 7
+     "priority": 7,
+     "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (decision point D — full vital signs at triage); MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย)"
+    },
+    {
+     "id": "inj_temp",
+     "kind": "measurement",
+     "vital": "temp",
+     "text_en": "Please measure your temperature at the booth and enter it in °C.",
+     "text_th": "กรุณาวัดอุณหภูมิที่จุดคัดกรองแล้วกรอกค่าเป็นองศาเซลเซียสค่ะ",
+     "priority": 6,
+     "citation": "MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย) — ขอบเขต: ผู้ป่วยนอกทุกราย; วัตถุประสงค์ ข้อ 2 เพื่อแยกผู้ป่วยโรคติดต่อ โรคอุบัติใหม่ อุบัติซ้ำ; MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (temperature red flags)"
     }
    ]
   },
@@ -5029,7 +5533,8 @@
      ],
      "text_en": "Are contractions coming very frequently (every 2–3 minutes), or do you feel the baby coming?",
      "text_th": "เจ็บครรภ์ถี่มาก (ทุก 2–3 นาที) หรือรู้สึกอยากเบ่ง เหมือนเด็กกำลังจะคลอดไหมคะ",
-     "priority": 1
+     "priority": 1,
+     "citation": "MOPH ED Triage (5-level), obstetric emergencies; MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย)"
     },
     {
      "id": "pg_ga",
@@ -5039,7 +5544,8 @@
      ],
      "text_en": "How many weeks pregnant are you — 24 weeks or more?",
      "text_th": "อายุครรภ์กี่สัปดาห์แล้วคะ ถึง 24 สัปดาห์หรือยัง",
-     "priority": 2
+     "priority": 2,
+     "citation": "MOPH ED Triage (5-level), obstetric care pathway (GA ≥ 24 wks); MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย)"
     },
     {
      "id": "pg_warning",
@@ -5051,7 +5557,8 @@
      ],
      "text_en": "Any water leaking, vaginal bleeding, or the baby moving less than usual?",
      "text_th": "มีน้ำเดิน เลือดออกทางช่องคลอด หรือลูกดิ้นน้อยลงไหมคะ",
-     "priority": 3
+     "priority": 3,
+     "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 4 (decision point B — obstetric high-risk: bleeding, fluid leak, decreased fetal movement); MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย)"
     },
     {
      "id": "pg_bp",
@@ -5100,7 +5607,17 @@
      "vital": "sbp",
      "text_en": "Please measure your blood pressure now — you can use the machine beside you or type the numbers.",
      "text_th": "กรุณาวัดความดันโลหิตตอนนี้ — ใช้เครื่องข้างตัวคุณหรือพิมพ์ตัวเลขก็ได้",
-     "priority": 7
+     "priority": 7,
+     "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 4 (decision point B — suspected preeclampsia — obstetric high-risk); MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย)"
+    },
+    {
+     "id": "pg_temp",
+     "kind": "measurement",
+     "vital": "temp",
+     "text_en": "Please measure your temperature at the booth and enter it in °C.",
+     "text_th": "กรุณาวัดอุณหภูมิที่จุดคัดกรองแล้วกรอกค่าเป็นองศาเซลเซียสค่ะ",
+     "priority": 6,
+     "citation": "MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย) — ขอบเขต: ผู้ป่วยนอกทุกราย; วัตถุประสงค์ ข้อ 2 เพื่อแยกผู้ป่วยโรคติดต่อ โรคอุบัติใหม่ อุบัติซ้ำ; MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (temperature red flags)"
     }
    ]
   },
@@ -5144,7 +5661,8 @@
      ],
      "text_en": "Have you had thoughts of hurting yourself or ending your life?",
      "text_th": "มีความคิดอยากทำร้ายตัวเองหรืออยากตายไหมคะ",
-     "priority": 1
+     "priority": 1,
+     "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 4 (decision point B — actively suicidal patient); MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย)"
     },
     {
      "id": "mh_onset",
@@ -5223,7 +5741,17 @@
      "vital": "sbp",
      "text_en": "Please measure your blood pressure now — you can use the machine beside you or type the numbers.",
      "text_th": "กรุณาวัดความดันโลหิตตอนนี้ — ใช้เครื่องข้างตัวคุณหรือพิมพ์ตัวเลขก็ได้",
-     "priority": 7
+     "priority": 7,
+     "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (decision point D — full vital signs at triage); MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย)"
+    },
+    {
+     "id": "mh_temp",
+     "kind": "measurement",
+     "vital": "temp",
+     "text_en": "Please measure your temperature at the booth and enter it in °C.",
+     "text_th": "กรุณาวัดอุณหภูมิที่จุดคัดกรองแล้วกรอกค่าเป็นองศาเซลเซียสค่ะ",
+     "priority": 6,
+     "citation": "MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย) — ขอบเขต: ผู้ป่วยนอกทุกราย; วัตถุประสงค์ ข้อ 2 เพื่อแยกผู้ป่วยโรคติดต่อ โรคอุบัติใหม่ อุบัติซ้ำ; MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (temperature red flags)"
     }
    ]
   },
@@ -5263,7 +5791,8 @@
      ],
      "text_en": "Was there a recent injury, and does anything look broken or dislocated?",
      "text_th": "มีอุบัติเหตุหรือการบาดเจ็บมาก่อนไหมคะ มีส่วนไหนผิดรูปเหมือนกระดูกหักหรือข้อหลุดไหม",
-     "priority": 1
+     "priority": 1,
+     "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 4 (decision point B — high-risk orthopedic injury / suspected fracture); MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย)"
     },
     {
      "id": "msk_radiating",
@@ -5398,7 +5927,8 @@
        "text_en": "10",
        "text_th": "10"
       }
-     ]
+     ],
+     "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 4 (decision point B — severe pain/distress, pain ≥ 7/10); MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย)"
     },
     {
      "id": "msk_aggravating",
@@ -5414,7 +5944,17 @@
      "vital": "sbp",
      "text_en": "Please measure your blood pressure now — you can use the machine beside you or type the numbers.",
      "text_th": "กรุณาวัดความดันโลหิตตอนนี้ — ใช้เครื่องข้างตัวคุณหรือพิมพ์ตัวเลขก็ได้",
-     "priority": 7
+     "priority": 7,
+     "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (decision point D — full vital signs at triage); MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย)"
+    },
+    {
+     "id": "msk_temp",
+     "kind": "measurement",
+     "vital": "temp",
+     "text_en": "Please measure your temperature at the booth and enter it in °C.",
+     "text_th": "กรุณาวัดอุณหภูมิที่จุดคัดกรองแล้วกรอกค่าเป็นองศาเซลเซียสค่ะ",
+     "priority": 6,
+     "citation": "MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย) — ขอบเขต: ผู้ป่วยนอกทุกราย; วัตถุประสงค์ ข้อ 2 เพื่อแยกผู้ป่วยโรคติดต่อ โรคอุบัติใหม่ อุบัติซ้ำ; MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (temperature red flags)"
     }
    ]
   },
@@ -5452,7 +5992,8 @@
      ],
      "text_en": "Do you have fever or vomiting along with the urinary symptoms?",
      "text_th": "มีไข้หรืออาเจียนร่วมกับอาการปัสสาวะไหมคะ",
-     "priority": 1
+     "priority": 1,
+     "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 4 (decision point B — fever/vomiting with urinary symptoms — possible pyelonephritis); MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย)"
     },
     {
      "id": "ur_onset",
@@ -5550,7 +6091,1665 @@
      "vital": "sbp",
      "text_en": "Please measure your blood pressure now — you can use the machine beside you or type the numbers.",
      "text_th": "กรุณาวัดความดันโลหิตตอนนี้ — ใช้เครื่องข้างตัวคุณหรือพิมพ์ตัวเลขก็ได้",
+     "priority": 7,
+     "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (decision point D — full vital signs at triage); MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย)"
+    },
+    {
+     "id": "ur_temp",
+     "kind": "measurement",
+     "vital": "temp",
+     "text_en": "Please measure your temperature at the booth and enter it in °C.",
+     "text_th": "กรุณาวัดอุณหภูมิที่จุดคัดกรองแล้วกรอกค่าเป็นองศาเซลเซียสค่ะ",
+     "priority": 6,
+     "citation": "MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย) — ขอบเขต: ผู้ป่วยนอกทุกราย; วัตถุประสงค์ ข้อ 2 เพื่อแยกผู้ป่วยโรคติดต่อ โรคอุบัติใหม่ อุบัติซ้ำ; MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (temperature red flags)"
+    }
+   ]
+  },
+  {
+   "category": "wound_skin",
+   "label_en": "Wound / skin problem",
+   "label_th": "แผลหรือปัญหาผิวหนัง",
+   "keywords_en": [
+    "wound",
+    "cut",
+    "ulcer",
+    "scar",
+    "bite",
+    "burn"
+   ],
+   "keywords_th": [
+    "แผล",
+    "แผลเรื้อรัง",
+    "แผลเป็น",
+    "ถูกบาด",
+    "น้ำร้อนลวก",
+    "สัตว์กัด"
+   ],
+   "min_slots_by_level": {
+    "3": 3,
+    "4": 3,
+    "5": 2
+   },
+   "associated_finding_ids": [
+    "chronic_wound",
+    "problem_scar",
+    "animal_insect_bite_24h",
+    "burn_scald_24h",
+    "fever"
+   ],
+   "questions": [
+    {
+     "id": "ws_bleeding",
+     "kind": "red_flag",
+     "finding_ids": [
+      "active_bleeding"
+     ],
+     "text_en": "Is the wound bleeding heavily and won't stop?",
+     "text_th": "แผลมีเลือดออกมากจนห้ามเลือดไม่หยุดไหมคะ",
+     "priority": 1,
+     "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 4 (decision point B — high-risk presentation)"
+    },
+    {
+     "id": "ws_infection",
+     "kind": "red_flag",
+     "finding_ids": [
+      "wound_infection_signs",
+      "fever"
+     ],
+     "text_en": "Is the skin around the wound spreading red, hot, or draining pus — or do you have a fever?",
+     "text_th": "รอบแผลแดงลาม ร้อน มีหนอง หรือมีไข้ร่วมด้วยไหมคะ",
+     "priority": 2,
+     "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 4 (decision point B — high-risk presentation)"
+    },
+    {
+     "id": "ws_onset",
+     "kind": "slot",
+     "slot": "onset",
+     "text_en": "When did the wound happen?",
+     "text_th": "แผลนี้เกิดขึ้นเมื่อไหร่คะ",
+     "priority": 10,
+     "options": [
+      {
+       "id": "today",
+       "text_en": "Today",
+       "text_th": "วันนี้"
+      },
+      {
+       "id": "2_3_days",
+       "text_en": "2–3 days",
+       "text_th": "2–3 วัน"
+      },
+      {
+       "id": "about_a_week",
+       "text_en": "About a week",
+       "text_th": "ประมาณหนึ่งสัปดาห์"
+      },
+      {
+       "id": "longer",
+       "text_en": "Longer than a week",
+       "text_th": "นานกว่าหนึ่งสัปดาห์"
+      }
+     ]
+    },
+    {
+     "id": "ws_duration",
+     "kind": "slot",
+     "slot": "duration",
+     "text_en": "How long has the wound been there?",
+     "text_th": "เป็นแผลมานานแค่ไหนแล้วคะ",
+     "priority": 20,
+     "options": [
+      {
+       "id": "today",
+       "text_en": "Today",
+       "text_th": "วันนี้"
+      },
+      {
+       "id": "2_3_days",
+       "text_en": "2–3 days",
+       "text_th": "2–3 วัน"
+      },
+      {
+       "id": "about_a_week",
+       "text_en": "About a week",
+       "text_th": "ประมาณหนึ่งสัปดาห์"
+      },
+      {
+       "id": "longer",
+       "text_en": "Longer than a week",
+       "text_th": "นานกว่าหนึ่งสัปดาห์"
+      }
+     ]
+    },
+    {
+     "id": "ws_character",
+     "kind": "slot",
+     "slot": "character",
+     "text_en": "What kind of wound or skin problem is it?",
+     "text_th": "แผลหรือปัญหาผิวหนังเป็นแบบไหนคะ",
+     "priority": 30,
+     "options": [
+      {
+       "id": "fresh_cut",
+       "text_en": "Fresh cut",
+       "text_th": "แผลสดถูกบาด"
+      },
+      {
+       "id": "chronic_wound",
+       "text_en": "Chronic wound that won't heal",
+       "text_th": "แผลเรื้อรังไม่หาย"
+      },
+      {
+       "id": "burn",
+       "text_en": "Burn or scald",
+       "text_th": "แผลไฟไหม้น้ำร้อนลวก"
+      },
+      {
+       "id": "other",
+       "text_en": "Something else",
+       "text_th": "อย่างอื่น"
+      }
+     ]
+    },
+    {
+     "id": "ws_severity",
+     "kind": "scale",
+     "slot": "severity",
+     "text_en": "On a scale of 0 to 10, how much does it hurt right now?",
+     "text_th": "ให้คะแนนความเจ็บ 0 ถึง 10 ตอนนี้ประมาณเท่าไหร่คะ",
+     "priority": 40,
+     "options": [
+      {
+       "id": "0",
+       "text_en": "0",
+       "text_th": "0"
+      },
+      {
+       "id": "1",
+       "text_en": "1",
+       "text_th": "1"
+      },
+      {
+       "id": "2",
+       "text_en": "2",
+       "text_th": "2"
+      },
+      {
+       "id": "3",
+       "text_en": "3",
+       "text_th": "3"
+      },
+      {
+       "id": "4",
+       "text_en": "4",
+       "text_th": "4"
+      },
+      {
+       "id": "5",
+       "text_en": "5",
+       "text_th": "5"
+      },
+      {
+       "id": "6",
+       "text_en": "6",
+       "text_th": "6"
+      },
+      {
+       "id": "7",
+       "text_en": "7",
+       "text_th": "7"
+      },
+      {
+       "id": "8",
+       "text_en": "8",
+       "text_th": "8"
+      },
+      {
+       "id": "9",
+       "text_en": "9",
+       "text_th": "9"
+      },
+      {
+       "id": "10",
+       "text_en": "10",
+       "text_th": "10"
+      }
+     ]
+    },
+    {
+     "id": "ws_associated",
+     "kind": "associated",
+     "finding_ids": [
+      "chronic_wound",
+      "problem_scar",
+      "animal_insect_bite_24h",
+      "burn_scald_24h"
+     ],
+     "text_en": "Is it a long-standing wound, a problem scar, an animal or insect bite, or a burn?",
+     "text_th": "เป็นแผลเรื้อรัง แผลเป็นมีปัญหา ถูกสัตว์หรือแมลงกัด หรือแผลไฟไหม้น้ำร้อนลวกไหมคะ",
+     "priority": 50
+    },
+    {
+     "id": "ws_temp",
+     "kind": "measurement",
+     "vital": "temp",
+     "text_en": "Please measure your temperature at the booth and enter it in °C.",
+     "text_th": "กรุณาวัดอุณหภูมิที่จุดคัดกรองแล้วกรอกค่าเป็นองศาเซลเซียสค่ะ",
+     "priority": 6,
+     "citation": "MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย) — ขอบเขต: ผู้ป่วยนอกทุกราย; วัตถุประสงค์ ข้อ 2 เพื่อแยกผู้ป่วยโรคติดต่อ โรคอุบัติใหม่ อุบัติซ้ำ; MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (temperature red flags)"
+    },
+    {
+     "id": "ws_bp",
+     "kind": "measurement",
+     "vital": "sbp",
+     "text_en": "Please measure your blood pressure now — you can use the machine beside you or type the numbers.",
+     "text_th": "กรุณาวัดความดันโลหิตตอนนี้ — ใช้เครื่องข้างตัวคุณหรือพิมพ์ตัวเลขก็ได้",
+     "priority": 7,
+     "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (decision point D — full vital signs at triage); MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย)"
+    }
+   ]
+  },
+  {
+   "category": "gynecology",
+   "label_en": "Gynecologic symptoms",
+   "label_th": "อาการทางนรีเวช",
+   "keywords_en": [
+    "vaginal bleeding",
+    "discharge",
+    "pelvic pain",
+    "irregular period"
+   ],
+   "keywords_th": [
+    "เลือดออกทางช่องคลอด",
+    "ตกขาว",
+    "ปวดท้องน้อย",
+    "ประจำเดือนผิดปกติ"
+   ],
+   "min_slots_by_level": {
+    "3": 3,
+    "4": 3,
+    "5": 2
+   },
+   "associated_finding_ids": [
+    "vaginal_bleeding",
+    "fever",
+    "abdominal_pain"
+   ],
+   "questions": [
+    {
+     "id": "gyn_heavy_bleeding",
+     "kind": "red_flag",
+     "finding_ids": [
+      "heavy_vaginal_bleeding"
+     ],
+     "text_en": "Is the vaginal bleeding very heavy — soaking a pad every hour?",
+     "text_th": "เลือดออกทางช่องคลอดมากจนผ้าอนามัยชุ่มทุก 1 ชั่วโมงไหมคะ",
+     "priority": 1,
+     "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 4 (decision point B — high-risk presentation)"
+    },
+    {
+     "id": "gyn_pregnancy",
+     "kind": "red_flag",
+     "finding_ids": [
+      "pregnancy",
+      "missed_period"
+     ],
+     "text_en": "Could you be pregnant, or is your period late?",
+     "text_th": "มีโอกาสตั้งครรภ์ หรือประจำเดือนขาดไหมคะ",
+     "priority": 2,
+     "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 4 (decision point B — high-risk presentation)"
+    },
+    {
+     "id": "gyn_pelvic_pain",
+     "kind": "red_flag",
+     "finding_ids": [
+      "abdominal_pain"
+     ],
+     "text_en": "Do you have severe pain in your lower abdomen or pelvis?",
+     "text_th": "ปวดท้องน้อยหรืออุ้งเชิงกรานรุนแรงไหมคะ",
+     "priority": 3,
+     "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 4 (decision point B — high-risk presentation)"
+    },
+    {
+     "id": "gyn_onset",
+     "kind": "slot",
+     "slot": "onset",
+     "text_en": "When did the symptoms start?",
+     "text_th": "อาการเริ่มเป็นเมื่อไหร่คะ",
+     "priority": 10,
+     "options": [
+      {
+       "id": "today",
+       "text_en": "Today",
+       "text_th": "วันนี้"
+      },
+      {
+       "id": "2_3_days",
+       "text_en": "2–3 days",
+       "text_th": "2–3 วัน"
+      },
+      {
+       "id": "about_a_week",
+       "text_en": "About a week",
+       "text_th": "ประมาณหนึ่งสัปดาห์"
+      },
+      {
+       "id": "longer",
+       "text_en": "Longer than a week",
+       "text_th": "นานกว่าหนึ่งสัปดาห์"
+      }
+     ]
+    },
+    {
+     "id": "gyn_duration",
+     "kind": "slot",
+     "slot": "duration",
+     "text_en": "How long has it been going on?",
+     "text_th": "เป็นมานานแค่ไหนแล้วคะ",
+     "priority": 20,
+     "options": [
+      {
+       "id": "today",
+       "text_en": "Today",
+       "text_th": "วันนี้"
+      },
+      {
+       "id": "2_3_days",
+       "text_en": "2–3 days",
+       "text_th": "2–3 วัน"
+      },
+      {
+       "id": "about_a_week",
+       "text_en": "About a week",
+       "text_th": "ประมาณหนึ่งสัปดาห์"
+      },
+      {
+       "id": "longer",
+       "text_en": "Longer than a week",
+       "text_th": "นานกว่าหนึ่งสัปดาห์"
+      }
+     ]
+    },
+    {
+     "id": "gyn_character",
+     "kind": "slot",
+     "slot": "character",
+     "text_en": "What is the main problem — bleeding, discharge, itching, or irregular periods?",
+     "text_th": "อาการหลักคืออะไรคะ เลือดออก ตกขาว คัน หรือประจำเดือนมาไม่ปกติ",
+     "priority": 30,
+     "options": [
+      {
+       "id": "bleeding",
+       "text_en": "Bleeding",
+       "text_th": "เลือดออก"
+      },
+      {
+       "id": "discharge",
+       "text_en": "Discharge",
+       "text_th": "ตกขาว"
+      },
+      {
+       "id": "itching",
+       "text_en": "Itching",
+       "text_th": "คัน"
+      },
+      {
+       "id": "irregular_period",
+       "text_en": "Irregular periods",
+       "text_th": "ประจำเดือนมาไม่ปกติ"
+      }
+     ]
+    },
+    {
+     "id": "gyn_associated",
+     "kind": "associated",
+     "finding_ids": [
+      "vaginal_bleeding",
+      "fever"
+     ],
+     "text_en": "Do you have any bleeding or fever as well?",
+     "text_th": "มีเลือดออกหรือมีไข้ร่วมด้วยไหมคะ",
+     "priority": 50
+    },
+    {
+     "id": "gyn_temp",
+     "kind": "measurement",
+     "vital": "temp",
+     "text_en": "Please measure your temperature at the booth and enter it in °C.",
+     "text_th": "กรุณาวัดอุณหภูมิที่จุดคัดกรองแล้วกรอกค่าเป็นองศาเซลเซียสค่ะ",
+     "priority": 6,
+     "citation": "MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย) — ขอบเขต: ผู้ป่วยนอกทุกราย; วัตถุประสงค์ ข้อ 2 เพื่อแยกผู้ป่วยโรคติดต่อ โรคอุบัติใหม่ อุบัติซ้ำ; MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (temperature red flags)"
+    },
+    {
+     "id": "gyn_bp",
+     "kind": "measurement",
+     "vital": "sbp",
+     "text_en": "Please measure your blood pressure now — you can use the machine beside you or type the numbers.",
+     "text_th": "กรุณาวัดความดันโลหิตตอนนี้ — ใช้เครื่องข้างตัวคุณหรือพิมพ์ตัวเลขก็ได้",
+     "priority": 7,
+     "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (decision point D — full vital signs at triage); MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย)"
+    }
+   ]
+  },
+  {
+   "category": "breast",
+   "label_en": "Breast symptoms",
+   "label_th": "อาการเต้านม",
+   "keywords_en": [
+    "breast lump",
+    "breast pain",
+    "nipple discharge"
+   ],
+   "keywords_th": [
+    "ก้อนที่เต้านม",
+    "เจ็บเต้านม",
+    "น้ำไหลจากหัวนม"
+   ],
+   "min_slots_by_level": {
+    "3": 3,
+    "4": 3,
+    "5": 2
+   },
+   "associated_finding_ids": [
+    "breast_lump",
+    "breast_pain",
+    "breast_discharge",
+    "fever"
+   ],
+   "questions": [
+    {
+     "id": "br_infection",
+     "kind": "red_flag",
+     "finding_ids": [
+      "breast_infection_signs",
+      "fever"
+     ],
+     "text_en": "Is the breast red, hot, or swollen — or do you have a fever?",
+     "text_th": "เต้านมแดง ร้อน หรือบวม หรือมีไข้ร่วมด้วยไหมคะ",
+     "priority": 1,
+     "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 4 (decision point B — high-risk presentation)"
+    },
+    {
+     "id": "br_onset",
+     "kind": "slot",
+     "slot": "onset",
+     "text_en": "When did you first notice it?",
+     "text_th": "สังเกตเห็นอาการครั้งแรกเมื่อไหร่คะ",
+     "priority": 10,
+     "options": [
+      {
+       "id": "today",
+       "text_en": "Today",
+       "text_th": "วันนี้"
+      },
+      {
+       "id": "2_3_days",
+       "text_en": "2–3 days",
+       "text_th": "2–3 วัน"
+      },
+      {
+       "id": "about_a_week",
+       "text_en": "About a week",
+       "text_th": "ประมาณหนึ่งสัปดาห์"
+      },
+      {
+       "id": "longer",
+       "text_en": "Longer than a week",
+       "text_th": "นานกว่าหนึ่งสัปดาห์"
+      }
+     ]
+    },
+    {
+     "id": "br_duration",
+     "kind": "slot",
+     "slot": "duration",
+     "text_en": "How long have you noticed the lump or symptom?",
+     "text_th": "สังเกตเห็นก้อนหรืออาการนี้มานานแค่ไหนแล้วคะ",
+     "priority": 20,
+     "options": [
+      {
+       "id": "today",
+       "text_en": "Today",
+       "text_th": "วันนี้"
+      },
+      {
+       "id": "2_3_days",
+       "text_en": "2–3 days",
+       "text_th": "2–3 วัน"
+      },
+      {
+       "id": "about_a_week",
+       "text_en": "About a week",
+       "text_th": "ประมาณหนึ่งสัปดาห์"
+      },
+      {
+       "id": "longer",
+       "text_en": "Longer than a week",
+       "text_th": "นานกว่าหนึ่งสัปดาห์"
+      }
+     ]
+    },
+    {
+     "id": "br_character",
+     "kind": "slot",
+     "slot": "character",
+     "text_en": "What is the main concern — a lump, pain, or discharge from the nipple?",
+     "text_th": "อาการหลักคืออะไรคะ มีก้อน เจ็บ หรือมีน้ำไหลจากหัวนม",
+     "priority": 30,
+     "options": [
+      {
+       "id": "lump",
+       "text_en": "A lump",
+       "text_th": "มีก้อน"
+      },
+      {
+       "id": "pain",
+       "text_en": "Pain",
+       "text_th": "เจ็บ"
+      },
+      {
+       "id": "discharge",
+       "text_en": "Discharge",
+       "text_th": "มีน้ำไหลจากหัวนม"
+      },
+      {
+       "id": "other",
+       "text_en": "Something else",
+       "text_th": "อย่างอื่น"
+      }
+     ]
+    },
+    {
+     "id": "br_associated",
+     "kind": "associated",
+     "finding_ids": [
+      "breast_lump",
+      "breast_pain",
+      "breast_discharge"
+     ],
+     "text_en": "Do you have a lump, pain, or discharge from the nipple?",
+     "text_th": "มีก้อน เจ็บเต้านม หรือน้ำไหลจากหัวนมไหมคะ",
+     "priority": 50
+    },
+    {
+     "id": "br_temp",
+     "kind": "measurement",
+     "vital": "temp",
+     "text_en": "Please measure your temperature at the booth and enter it in °C.",
+     "text_th": "กรุณาวัดอุณหภูมิที่จุดคัดกรองแล้วกรอกค่าเป็นองศาเซลเซียสค่ะ",
+     "priority": 6,
+     "citation": "MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย) — ขอบเขต: ผู้ป่วยนอกทุกราย; วัตถุประสงค์ ข้อ 2 เพื่อแยกผู้ป่วยโรคติดต่อ โรคอุบัติใหม่ อุบัติซ้ำ; MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (temperature red flags)"
+    },
+    {
+     "id": "br_bp",
+     "kind": "measurement",
+     "vital": "sbp",
+     "text_en": "Please measure your blood pressure now — you can use the machine beside you or type the numbers.",
+     "text_th": "กรุณาวัดความดันโลหิตตอนนี้ — ใช้เครื่องข้างตัวคุณหรือพิมพ์ตัวเลขก็ได้",
+     "priority": 7,
+     "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (decision point D — full vital signs at triage); MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย)"
+    }
+   ]
+  },
+  {
+   "category": "palpitations",
+   "label_en": "Palpitations",
+   "label_th": "ใจสั่น",
+   "keywords_en": [
+    "palpitations",
+    "racing heart",
+    "irregular heartbeat",
+    "skipped beats"
+   ],
+   "keywords_th": [
+    "ใจสั่น",
+    "หัวใจเต้นเร็ว",
+    "หัวใจเต้นผิดจังหวะ"
+   ],
+   "min_slots_by_level": {
+    "3": 3,
+    "4": 3,
+    "5": 2
+   },
+   "associated_finding_ids": [
+    "irregular_pulse",
+    "dyspnea",
+    "hypertension_history",
+    "diabetes_history"
+   ],
+   "questions": [
+    {
+     "id": "palp_syncope",
+     "kind": "red_flag",
+     "finding_ids": [
+      "syncope_24h"
+     ],
+     "text_en": "Have you fainted or nearly fainted in the past 24 hours?",
+     "text_th": "ช่วง 24 ชั่วโมงที่ผ่านมา มีวูบหมดสติหรือเกือบหมดสติไหมคะ",
+     "priority": 1,
+     "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 4 (decision point B — high-risk presentation)"
+    },
+    {
+     "id": "palp_chest_pain",
+     "kind": "red_flag",
+     "finding_ids": [
+      "chest_pain"
+     ],
+     "text_en": "Do you have chest pain or tightness along with the palpitations?",
+     "text_th": "มีเจ็บหรือแน่นหน้าอกร่วมกับใจสั่นไหมคะ",
+     "priority": 2,
+     "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 4 (decision point B — high-risk presentation)"
+    },
+    {
+     "id": "palp_cardiac_history",
+     "kind": "red_flag",
+     "finding_ids": [
+      "heart_disease_history"
+     ],
+     "text_en": "Do you have known heart disease or an existing heart rhythm problem?",
+     "text_th": "มีโรคหัวใจหรือหัวใจเต้นผิดจังหวะอยู่เดิมไหมคะ",
+     "priority": 3,
+     "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 4 (decision point B — high-risk presentation)"
+    },
+    {
+     "id": "palp_onset",
+     "kind": "slot",
+     "slot": "onset",
+     "text_en": "When did the palpitations start?",
+     "text_th": "อาการใจสั่นเริ่มเป็นเมื่อไหร่คะ",
+     "priority": 10,
+     "options": [
+      {
+       "id": "today",
+       "text_en": "Today",
+       "text_th": "วันนี้"
+      },
+      {
+       "id": "2_3_days",
+       "text_en": "2–3 days",
+       "text_th": "2–3 วัน"
+      },
+      {
+       "id": "about_a_week",
+       "text_en": "About a week",
+       "text_th": "ประมาณหนึ่งสัปดาห์"
+      },
+      {
+       "id": "longer",
+       "text_en": "Longer than a week",
+       "text_th": "นานกว่าหนึ่งสัปดาห์"
+      }
+     ]
+    },
+    {
+     "id": "palp_duration",
+     "kind": "slot",
+     "slot": "duration",
+     "text_en": "How long has this been happening?",
+     "text_th": "เป็นมานานแค่ไหนแล้วคะ",
+     "priority": 20,
+     "options": [
+      {
+       "id": "today",
+       "text_en": "Today",
+       "text_th": "วันนี้"
+      },
+      {
+       "id": "2_3_days",
+       "text_en": "2–3 days",
+       "text_th": "2–3 วัน"
+      },
+      {
+       "id": "about_a_week",
+       "text_en": "About a week",
+       "text_th": "ประมาณหนึ่งสัปดาห์"
+      },
+      {
+       "id": "longer",
+       "text_en": "Longer than a week",
+       "text_th": "นานกว่าหนึ่งสัปดาห์"
+      }
+     ]
+    },
+    {
+     "id": "palp_character",
+     "kind": "slot",
+     "slot": "character",
+     "text_en": "What does it feel like — racing, pounding, or skipping beats?",
+     "text_th": "ลักษณะเป็นแบบไหนคะ ใจเต้นเร็ว เต้นแรง หรือเต้นสะดุด",
+     "priority": 30,
+     "options": [
+      {
+       "id": "racing",
+       "text_en": "Racing",
+       "text_th": "ใจเต้นเร็ว"
+      },
+      {
+       "id": "pounding",
+       "text_en": "Pounding",
+       "text_th": "ใจเต้นแรง"
+      },
+      {
+       "id": "skipping",
+       "text_en": "Skipping beats",
+       "text_th": "ใจเต้นสะดุด"
+      },
+      {
+       "id": "other",
+       "text_en": "Something else",
+       "text_th": "อย่างอื่น"
+      }
+     ]
+    },
+    {
+     "id": "palp_associated",
+     "kind": "associated",
+     "finding_ids": [
+      "irregular_pulse",
+      "dyspnea",
+      "hypertension_history",
+      "diabetes_history"
+     ],
+     "text_en": "Do you also notice an irregular pulse, breathlessness, high blood pressure, or diabetes?",
+     "text_th": "มีชีพจรเต้นไม่สม่ำเสมอ เหนื่อยง่าย ความดันสูง หรือเบาหวานร่วมด้วยไหมคะ",
+     "priority": 50
+    },
+    {
+     "id": "palp_bp",
+     "kind": "measurement",
+     "vital": "sbp",
+     "text_en": "Please measure your blood pressure now — you can use the machine beside you or type the numbers.",
+     "text_th": "กรุณาวัดความดันโลหิตตอนนี้ — ใช้เครื่องข้างตัวคุณหรือพิมพ์ตัวเลขก็ได้",
      "priority": 7
+    },
+    {
+     "id": "palp_temp",
+     "kind": "measurement",
+     "vital": "temp",
+     "text_en": "Please measure your temperature at the booth and enter it in °C.",
+     "text_th": "กรุณาวัดอุณหภูมิที่จุดคัดกรองแล้วกรอกค่าเป็นองศาเซลเซียสค่ะ",
+     "priority": 6,
+     "citation": "MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย) — ขอบเขต: ผู้ป่วยนอกทุกราย; วัตถุประสงค์ ข้อ 2 เพื่อแยกผู้ป่วยโรคติดต่อ โรคอุบัติใหม่ อุบัติซ้ำ; MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (temperature red flags)"
+    }
+   ]
+  },
+  {
+   "category": "limb_vascular",
+   "label_en": "Limb or vascular problem",
+   "label_th": "ปัญหาแขนขาและหลอดเลือด",
+   "keywords_en": [
+    "leg swelling",
+    "varicose veins",
+    "cold pale leg",
+    "dialysis access"
+   ],
+   "keywords_th": [
+    "ขาบวม",
+    "เส้นเลือดขอด",
+    "ขาเย็นซีด",
+    "เส้นฟอกไต"
+   ],
+   "min_slots_by_level": {
+    "3": 3,
+    "4": 3,
+    "5": 2
+   },
+   "associated_finding_ids": [
+    "varicose_veins",
+    "edema",
+    "dialysis_access_needed"
+   ],
+   "questions": [
+    {
+     "id": "lv_ischemia",
+     "kind": "red_flag",
+     "finding_ids": [
+      "limb_ischemia"
+     ],
+     "text_en": "Did an arm or leg suddenly become very painful, pale, and cold?",
+     "text_th": "แขนหรือขาปวดรุนแรงเฉียบพลัน ร่วมกับซีดและเย็นไหมคะ",
+     "priority": 1,
+     "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 4 (decision point B — high-risk presentation)"
+    },
+    {
+     "id": "lv_dvt",
+     "kind": "red_flag",
+     "finding_ids": [
+      "unilateral_leg_swelling"
+     ],
+     "text_en": "Is one leg swollen and painful, but not the other?",
+     "text_th": "ขาบวมและปวดเพียงข้างเดียวไหมคะ",
+     "priority": 2,
+     "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 4 (decision point B — high-risk presentation)"
+    },
+    {
+     "id": "lv_onset",
+     "kind": "slot",
+     "slot": "onset",
+     "text_en": "When did it start?",
+     "text_th": "อาการเริ่มเป็นเมื่อไหร่คะ",
+     "priority": 10,
+     "options": [
+      {
+       "id": "today",
+       "text_en": "Today",
+       "text_th": "วันนี้"
+      },
+      {
+       "id": "2_3_days",
+       "text_en": "2–3 days",
+       "text_th": "2–3 วัน"
+      },
+      {
+       "id": "about_a_week",
+       "text_en": "About a week",
+       "text_th": "ประมาณหนึ่งสัปดาห์"
+      },
+      {
+       "id": "longer",
+       "text_en": "Longer than a week",
+       "text_th": "นานกว่าหนึ่งสัปดาห์"
+      }
+     ]
+    },
+    {
+     "id": "lv_duration",
+     "kind": "slot",
+     "slot": "duration",
+     "text_en": "How long has it been going on?",
+     "text_th": "เป็นมานานแค่ไหนแล้วคะ",
+     "priority": 20,
+     "options": [
+      {
+       "id": "today",
+       "text_en": "Today",
+       "text_th": "วันนี้"
+      },
+      {
+       "id": "2_3_days",
+       "text_en": "2–3 days",
+       "text_th": "2–3 วัน"
+      },
+      {
+       "id": "about_a_week",
+       "text_en": "About a week",
+       "text_th": "ประมาณหนึ่งสัปดาห์"
+      },
+      {
+       "id": "longer",
+       "text_en": "Longer than a week",
+       "text_th": "นานกว่าหนึ่งสัปดาห์"
+      }
+     ]
+    },
+    {
+     "id": "lv_character",
+     "kind": "slot",
+     "slot": "character",
+     "text_en": "What is the main problem — swelling, varicose veins, pain, or a dialysis access issue?",
+     "text_th": "อาการหลักคืออะไรคะ บวม เส้นเลือดขอด ปวด หรือปัญหาเส้นฟอกไต",
+     "priority": 30,
+     "options": [
+      {
+       "id": "swelling",
+       "text_en": "Swelling",
+       "text_th": "บวม"
+      },
+      {
+       "id": "varicose",
+       "text_en": "Varicose veins",
+       "text_th": "เส้นเลือดขอด"
+      },
+      {
+       "id": "pain",
+       "text_en": "Pain",
+       "text_th": "ปวด"
+      },
+      {
+       "id": "dialysis_access",
+       "text_en": "Dialysis access",
+       "text_th": "เส้นฟอกไต"
+      }
+     ]
+    },
+    {
+     "id": "lv_associated",
+     "kind": "associated",
+     "finding_ids": [
+      "varicose_veins",
+      "edema",
+      "dialysis_access_needed"
+     ],
+     "text_en": "Do you have varicose veins, swelling, or do you need dialysis access care?",
+     "text_th": "มีเส้นเลือดขอด อาการบวม หรือต้องดูแลเส้นฟอกไตไหมคะ",
+     "priority": 50
+    },
+    {
+     "id": "lv_bp",
+     "kind": "measurement",
+     "vital": "sbp",
+     "text_en": "Please measure your blood pressure now — you can use the machine beside you or type the numbers.",
+     "text_th": "กรุณาวัดความดันโลหิตตอนนี้ — ใช้เครื่องข้างตัวคุณหรือพิมพ์ตัวเลขก็ได้",
+     "priority": 7,
+     "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (decision point D — full vital signs at triage); MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย)"
+    },
+    {
+     "id": "lv_temp",
+     "kind": "measurement",
+     "vital": "temp",
+     "text_en": "Please measure your temperature at the booth and enter it in °C.",
+     "text_th": "กรุณาวัดอุณหภูมิที่จุดคัดกรองแล้วกรอกค่าเป็นองศาเซลเซียสค่ะ",
+     "priority": 6,
+     "citation": "MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย) — ขอบเขต: ผู้ป่วยนอกทุกราย; วัตถุประสงค์ ข้อ 2 เพื่อแยกผู้ป่วยโรคติดต่อ โรคอุบัติใหม่ อุบัติซ้ำ; MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (temperature red flags)"
+    }
+   ]
+  },
+  {
+   "category": "forensic",
+   "label_en": "Assault / forensic case",
+   "label_th": "ถูกทำร้าย / คดีนิติเวช",
+   "keywords_en": [
+    "assault",
+    "attacked",
+    "abuse",
+    "rape"
+   ],
+   "keywords_th": [
+    "ถูกทำร้าย",
+    "ถูกตี",
+    "ถูกล่วงละเมิด",
+    "ถูกข่มขืน"
+   ],
+   "min_slots_by_level": {
+    "3": 1,
+    "4": 1,
+    "5": 1
+   },
+   "associated_finding_ids": [
+    "active_bleeding",
+    "fracture_suspected",
+    "injury_within_24h",
+    "police_case"
+   ],
+   "questions": [
+    {
+     "id": "fo_safety",
+     "kind": "red_flag",
+     "finding_ids": [
+      "immediate_danger"
+     ],
+     "text_en": "Are you safe right now, or is the person who hurt you still nearby?",
+     "text_th": "ตอนนี้คุณปลอดภัยไหมคะ หรือผู้ที่ทำร้ายยังอยู่ใกล้ ๆ",
+     "priority": 1,
+     "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 4 (decision point B — high-risk presentation)"
+    },
+    {
+     "id": "fo_assault",
+     "kind": "red_flag",
+     "finding_ids": [
+      "assault_24h",
+      "sexual_assault_72h"
+     ],
+     "text_en": "Were you physically assaulted within the last 24 hours, or sexually assaulted within the last 3 days?",
+     "text_th": "ถูกทำร้ายร่างกายภายใน 24 ชั่วโมง หรือถูกล่วงละเมิดทางเพศภายใน 3 วันที่ผ่านมาไหมคะ",
+     "priority": 2,
+     "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 4 (decision point B — high-risk presentation)"
+    },
+    {
+     "id": "fo_unconscious",
+     "kind": "red_flag",
+     "finding_ids": [
+      "head_injury",
+      "syncope_24h"
+     ],
+     "text_en": "Did you hit your head or lose consciousness at any point?",
+     "text_th": "มีศีรษะถูกกระแทกหรือหมดสติช่วงใดช่วงหนึ่งไหมคะ",
+     "priority": 3,
+     "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 4 (decision point B — high-risk presentation)"
+    },
+    {
+     "id": "fo_onset",
+     "kind": "slot",
+     "slot": "onset",
+     "text_en": "When did it happen?",
+     "text_th": "เหตุการณ์เกิดขึ้นเมื่อไหร่คะ",
+     "priority": 10,
+     "options": [
+      {
+       "id": "today",
+       "text_en": "Today",
+       "text_th": "วันนี้"
+      },
+      {
+       "id": "2_3_days",
+       "text_en": "2–3 days",
+       "text_th": "2–3 วัน"
+      },
+      {
+       "id": "about_a_week",
+       "text_en": "About a week",
+       "text_th": "ประมาณหนึ่งสัปดาห์"
+      },
+      {
+       "id": "longer",
+       "text_en": "Longer than a week",
+       "text_th": "นานกว่าหนึ่งสัปดาห์"
+      }
+     ]
+    },
+    {
+     "id": "fo_injuries",
+     "kind": "associated",
+     "finding_ids": [
+      "active_bleeding",
+      "fracture_suspected",
+      "injury_within_24h"
+     ],
+     "text_en": "Do you have bleeding, a possible broken bone, or other injuries?",
+     "text_th": "มีเลือดออก สงสัยกระดูกหัก หรือบาดเจ็บส่วนอื่นไหมคะ",
+     "priority": 20
+    },
+    {
+     "id": "fo_police",
+     "kind": "associated",
+     "finding_ids": [
+      "police_case"
+     ],
+     "text_en": "Has this been reported to the police, or would you like it to be?",
+     "text_th": "ได้แจ้งความกับตำรวจแล้ว หรือต้องการแจ้งความไหมคะ",
+     "priority": 30
+    },
+    {
+     "id": "fo_bp",
+     "kind": "measurement",
+     "vital": "sbp",
+     "text_en": "Please measure your blood pressure now — you can use the machine beside you or type the numbers.",
+     "text_th": "กรุณาวัดความดันโลหิตตอนนี้ — ใช้เครื่องข้างตัวคุณหรือพิมพ์ตัวเลขก็ได้",
+     "priority": 7,
+     "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (decision point D — full vital signs at triage); MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย)"
+    },
+    {
+     "id": "fo_temp",
+     "kind": "measurement",
+     "vital": "temp",
+     "text_en": "Please measure your temperature at the booth and enter it in °C.",
+     "text_th": "กรุณาวัดอุณหภูมิที่จุดคัดกรองแล้วกรอกค่าเป็นองศาเซลเซียสค่ะ",
+     "priority": 6,
+     "citation": "MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย) — ขอบเขต: ผู้ป่วยนอกทุกราย; วัตถุประสงค์ ข้อ 2 เพื่อแยกผู้ป่วยโรคติดต่อ โรคอุบัติใหม่ อุบัติซ้ำ; MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (temperature red flags)"
+    }
+   ]
+  },
+  {
+   "category": "gi",
+   "label_en": "Diarrhea / vomiting",
+   "label_th": "ท้องเสียหรืออาเจียน",
+   "keywords_en": [
+    "diarrhea",
+    "vomiting",
+    "food poisoning",
+    "stomach flu"
+   ],
+   "keywords_th": [
+    "ท้องเสีย",
+    "ถ่ายเหลว",
+    "อาเจียน",
+    "อาหารเป็นพิษ"
+   ],
+   "min_slots_by_level": {
+    "3": 3,
+    "4": 3,
+    "5": 2
+   },
+   "associated_finding_ids": [
+    "fever",
+    "vomiting",
+    "diarrhea",
+    "abdominal_pain"
+   ],
+   "questions": [
+    {
+     "id": "gi_blood",
+     "kind": "red_flag",
+     "finding_ids": [
+      "hematemesis",
+      "bloody_stool",
+      "melena"
+     ],
+     "text_en": "Have you vomited blood, or had red or black stools?",
+     "text_th": "อาเจียนเป็นเลือด ถ่ายเป็นเลือด หรือถ่ายดำไหมคะ",
+     "priority": 1,
+     "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 4 (decision point B — high-risk presentation)"
+    },
+    {
+     "id": "gi_dehydration",
+     "kind": "red_flag",
+     "finding_ids": [
+      "dehydration_signs"
+     ],
+     "text_en": "Can you keep fluids down — or are you urinating very little or feeling faint when standing?",
+     "text_th": "ดื่มน้ำแล้วอาเจียนออกหมด ปัสสาวะน้อยลงมาก หรือลุกแล้วหน้ามืดไหมคะ",
+     "priority": 2,
+     "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 4 (decision point B — high-risk presentation)"
+    },
+    {
+     "id": "gi_severe_pain",
+     "kind": "red_flag",
+     "finding_ids": [
+      "severe_uncontrolled_pain"
+     ],
+     "text_en": "Do you have very severe abdominal pain that you cannot bear?",
+     "text_th": "ปวดท้องรุนแรงมากจนทนไม่ไหวไหมคะ",
+     "priority": 3,
+     "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 4 (decision point B — severe pain/distress, pain ≥ 7/10)"
+    },
+    {
+     "id": "gi_onset",
+     "kind": "slot",
+     "slot": "onset",
+     "text_en": "When did the diarrhea or vomiting start?",
+     "text_th": "เริ่มท้องเสียหรืออาเจียนเมื่อไหร่คะ",
+     "priority": 10,
+     "options": [
+      {
+       "id": "today",
+       "text_en": "Today",
+       "text_th": "วันนี้"
+      },
+      {
+       "id": "2_3_days",
+       "text_en": "2–3 days",
+       "text_th": "2–3 วัน"
+      },
+      {
+       "id": "about_a_week",
+       "text_en": "About a week",
+       "text_th": "ประมาณหนึ่งสัปดาห์"
+      },
+      {
+       "id": "longer",
+       "text_en": "Longer than a week",
+       "text_th": "นานกว่าหนึ่งสัปดาห์"
+      }
+     ]
+    },
+    {
+     "id": "gi_duration",
+     "kind": "slot",
+     "slot": "duration",
+     "text_en": "How long has it been going on?",
+     "text_th": "เป็นมานานแค่ไหนแล้วคะ",
+     "priority": 20,
+     "options": [
+      {
+       "id": "today",
+       "text_en": "Today",
+       "text_th": "วันนี้"
+      },
+      {
+       "id": "2_3_days",
+       "text_en": "2–3 days",
+       "text_th": "2–3 วัน"
+      },
+      {
+       "id": "about_a_week",
+       "text_en": "About a week",
+       "text_th": "ประมาณหนึ่งสัปดาห์"
+      },
+      {
+       "id": "longer",
+       "text_en": "Longer than a week",
+       "text_th": "นานกว่าหนึ่งสัปดาห์"
+      }
+     ]
+    },
+    {
+     "id": "gi_character",
+     "kind": "slot",
+     "slot": "character",
+     "text_en": "How many times today have you had diarrhea or vomited?",
+     "text_th": "วันนี้ถ่ายเหลวหรืออาเจียนไปกี่ครั้งแล้วคะ",
+     "priority": 30,
+     "options": [
+      {
+       "id": "1_2",
+       "text_en": "1–2 times",
+       "text_th": "1–2 ครั้ง"
+      },
+      {
+       "id": "3_5",
+       "text_en": "3–5 times",
+       "text_th": "3–5 ครั้ง"
+      },
+      {
+       "id": "over_5",
+       "text_en": "More than 5 times",
+       "text_th": "มากกว่า 5 ครั้ง"
+      }
+     ]
+    },
+    {
+     "id": "gi_associated",
+     "kind": "associated",
+     "finding_ids": [
+      "fever",
+      "abdominal_pain"
+     ],
+     "text_en": "Do you also have fever or stomach pain?",
+     "text_th": "มีไข้หรือปวดท้องร่วมด้วยไหมคะ",
+     "priority": 50
+    },
+    {
+     "id": "gi_temp",
+     "kind": "measurement",
+     "vital": "temp",
+     "text_en": "Please measure your temperature at the booth and enter it in °C.",
+     "text_th": "กรุณาวัดอุณหภูมิที่จุดคัดกรองแล้วกรอกค่าเป็นองศาเซลเซียสค่ะ",
+     "priority": 6,
+     "citation": "MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย) — ขอบเขต: ผู้ป่วยนอกทุกราย; วัตถุประสงค์ ข้อ 2 เพื่อแยกผู้ป่วยโรคติดต่อ โรคอุบัติใหม่ อุบัติซ้ำ; MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (temperature red flags)"
+    },
+    {
+     "id": "gi_bp",
+     "kind": "measurement",
+     "vital": "sbp",
+     "text_en": "Please measure your blood pressure now — you can use the machine beside you or type the numbers.",
+     "text_th": "กรุณาวัดความดันโลหิตตอนนี้ — ใช้เครื่องข้างตัวคุณหรือพิมพ์ตัวเลขก็ได้",
+     "priority": 7,
+     "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (decision point D — full vital signs at triage); MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย)"
+    }
+   ]
+  },
+  {
+   "category": "skin_rash",
+   "label_en": "Rash / allergic reaction",
+   "label_th": "ผื่นหรืออาการแพ้",
+   "keywords_en": [
+    "rash",
+    "hives",
+    "itchy skin",
+    "allergic reaction",
+    "lip swelling",
+    "swollen lips",
+    "face swelling"
+   ],
+   "keywords_th": [
+    "ผื่น",
+    "ลมพิษ",
+    "คัน",
+    "แพ้",
+    "ปากบวม",
+    "หน้าบวม"
+   ],
+   "min_slots_by_level": {
+    "3": 3,
+    "4": 3,
+    "5": 2
+   },
+   "associated_finding_ids": [
+    "rash_itching",
+    "rash_vesicles",
+    "allergy_history",
+    "fever"
+   ],
+   "questions": [
+    {
+     "id": "sr_anaphylaxis",
+     "kind": "red_flag",
+     "finding_ids": [
+      "lip_swelling",
+      "dyspnea"
+     ],
+     "text_en": "Are your lips or face swelling, or is it hard to breathe?",
+     "text_th": "มีปากหรือหน้าบวม หรือหายใจลำบากไหมคะ",
+     "priority": 1,
+     "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 4 (decision point B — high-risk presentation)"
+    },
+    {
+     "id": "sr_spreading",
+     "kind": "red_flag",
+     "finding_ids": [
+      "rash_rapidly_spreading",
+      "fever"
+     ],
+     "text_en": "Is the rash spreading quickly — within hours — together with a fever?",
+     "text_th": "ผื่นลามเร็วภายในไม่กี่ชั่วโมง ร่วมกับมีไข้ไหมคะ",
+     "priority": 2,
+     "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 4 (decision point B — high-risk presentation)"
+    },
+    {
+     "id": "sr_onset",
+     "kind": "slot",
+     "slot": "onset",
+     "text_en": "When did the rash start?",
+     "text_th": "ผื่นเริ่มขึ้นเมื่อไหร่คะ",
+     "priority": 10,
+     "options": [
+      {
+       "id": "today",
+       "text_en": "Today",
+       "text_th": "วันนี้"
+      },
+      {
+       "id": "2_3_days",
+       "text_en": "2–3 days",
+       "text_th": "2–3 วัน"
+      },
+      {
+       "id": "about_a_week",
+       "text_en": "About a week",
+       "text_th": "ประมาณหนึ่งสัปดาห์"
+      },
+      {
+       "id": "longer",
+       "text_en": "Longer than a week",
+       "text_th": "นานกว่าหนึ่งสัปดาห์"
+      }
+     ]
+    },
+    {
+     "id": "sr_duration",
+     "kind": "slot",
+     "slot": "duration",
+     "text_en": "How long has it been there?",
+     "text_th": "เป็นมานานแค่ไหนแล้วคะ",
+     "priority": 20,
+     "options": [
+      {
+       "id": "today",
+       "text_en": "Today",
+       "text_th": "วันนี้"
+      },
+      {
+       "id": "2_3_days",
+       "text_en": "2–3 days",
+       "text_th": "2–3 วัน"
+      },
+      {
+       "id": "about_a_week",
+       "text_en": "About a week",
+       "text_th": "ประมาณหนึ่งสัปดาห์"
+      },
+      {
+       "id": "longer",
+       "text_en": "Longer than a week",
+       "text_th": "นานกว่าหนึ่งสัปดาห์"
+      }
+     ]
+    },
+    {
+     "id": "sr_character",
+     "kind": "slot",
+     "slot": "character",
+     "text_en": "What does the rash look like — itchy bumps, hives, or blisters?",
+     "text_th": "ผื่นมีลักษณะแบบไหนคะ ตุ่มคัน ลมพิษ หรือตุ่มน้ำ",
+     "priority": 30,
+     "options": [
+      {
+       "id": "itchy_bumps",
+       "text_en": "Itchy bumps",
+       "text_th": "ตุ่มคัน"
+      },
+      {
+       "id": "hives",
+       "text_en": "Hives",
+       "text_th": "ลมพิษ"
+      },
+      {
+       "id": "blisters",
+       "text_en": "Blisters",
+       "text_th": "ตุ่มน้ำ"
+      },
+      {
+       "id": "other",
+       "text_en": "Something else",
+       "text_th": "อย่างอื่น"
+      }
+     ]
+    },
+    {
+     "id": "sr_associated",
+     "kind": "associated",
+     "finding_ids": [
+      "rash_itching",
+      "rash_vesicles",
+      "allergy_history"
+     ],
+     "text_en": "Is it itchy, are there blisters, or do you have known allergies?",
+     "text_th": "มีอาการคัน มีตุ่มน้ำ หรือมีประวัติแพ้อะไรไหมคะ",
+     "priority": 50
+    },
+    {
+     "id": "sr_temp",
+     "kind": "measurement",
+     "vital": "temp",
+     "text_en": "Please measure your temperature at the booth and enter it in °C.",
+     "text_th": "กรุณาวัดอุณหภูมิที่จุดคัดกรองแล้วกรอกค่าเป็นองศาเซลเซียสค่ะ",
+     "priority": 6,
+     "citation": "MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย) — ขอบเขต: ผู้ป่วยนอกทุกราย; วัตถุประสงค์ ข้อ 2 เพื่อแยกผู้ป่วยโรคติดต่อ โรคอุบัติใหม่ อุบัติซ้ำ; MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (temperature red flags)"
+    },
+    {
+     "id": "sr_bp",
+     "kind": "measurement",
+     "vital": "sbp",
+     "text_en": "Please measure your blood pressure now — you can use the machine beside you or type the numbers.",
+     "text_th": "กรุณาวัดความดันโลหิตตอนนี้ — ใช้เครื่องข้างตัวคุณหรือพิมพ์ตัวเลขก็ได้",
+     "priority": 7,
+     "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (decision point D — full vital signs at triage); MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย)"
+    }
+   ]
+  },
+  {
+   "category": "chronic_followup",
+   "label_en": "Chronic disease follow-up / medication refill",
+   "label_th": "ติดตามโรคเรื้อรัง / รับยาต่อเนื่อง",
+   "keywords_en": [
+    "follow up",
+    "refill",
+    "out of medication",
+    "blood pressure medicine",
+    "diabetes check"
+   ],
+   "keywords_th": [
+    "มาตามนัด",
+    "รับยา",
+    "ยาหมด",
+    "ความดัน",
+    "เบาหวาน"
+   ],
+   "min_slots_by_level": {
+    "3": 2,
+    "4": 2,
+    "5": 2
+   },
+   "associated_finding_ids": [
+    "hypertension_history",
+    "diabetes_history",
+    "medication_run_out"
+   ],
+   "questions": [
+    {
+     "id": "cf_symptoms",
+     "kind": "red_flag",
+     "finding_ids": [
+      "chest_pain",
+      "dyspnea",
+      "hypoglycemia_symptoms"
+     ],
+     "text_en": "Right now, do you have chest pain, breathlessness, or low-blood-sugar symptoms like shakiness and cold sweats?",
+     "text_th": "ตอนนี้มีเจ็บหน้าอก เหนื่อยง่าย หรืออาการน้ำตาลต่ำ เช่น มือสั่น เหงื่อแตก ไหมคะ",
+     "priority": 1,
+     "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 4 (decision point B — high-risk presentation)"
+    },
+    {
+     "id": "cf_condition",
+     "kind": "slot",
+     "slot": "character",
+     "text_en": "Which condition are you following up today?",
+     "text_th": "วันนี้มาติดตามโรคอะไรคะ",
+     "priority": 10,
+     "options": [
+      {
+       "id": "hypertension",
+       "text_en": "High blood pressure",
+       "text_th": "ความดันโลหิตสูง"
+      },
+      {
+       "id": "diabetes",
+       "text_en": "Diabetes",
+       "text_th": "เบาหวาน"
+      },
+      {
+       "id": "lipid",
+       "text_en": "Cholesterol",
+       "text_th": "ไขมันในเลือด"
+      },
+      {
+       "id": "other",
+       "text_en": "Another condition",
+       "text_th": "โรคอื่น"
+      }
+     ]
+    },
+    {
+     "id": "cf_meds",
+     "kind": "associated",
+     "finding_ids": [
+      "medication_run_out"
+     ],
+     "text_en": "Have your regular medications run out, or are they about to?",
+     "text_th": "ยาประจำหมดแล้วหรือใกล้หมดไหมคะ",
+     "priority": 20
+    },
+    {
+     "id": "cf_duration",
+     "kind": "slot",
+     "slot": "duration",
+     "text_en": "How long has it been since your last visit?",
+     "text_th": "ครั้งล่าสุดที่มาตรวจนานแค่ไหนแล้วคะ",
+     "priority": 30,
+     "options": [
+      {
+       "id": "under_1m",
+       "text_en": "Less than a month",
+       "text_th": "ไม่ถึงหนึ่งเดือน"
+      },
+      {
+       "id": "1_3m",
+       "text_en": "1–3 months",
+       "text_th": "1–3 เดือน"
+      },
+      {
+       "id": "3_6m",
+       "text_en": "3–6 months",
+       "text_th": "3–6 เดือน"
+      },
+      {
+       "id": "over_6m",
+       "text_en": "More than 6 months",
+       "text_th": "มากกว่า 6 เดือน"
+      }
+     ]
+    },
+    {
+     "id": "cf_history",
+     "kind": "associated",
+     "finding_ids": [
+      "hypertension_history",
+      "diabetes_history",
+      "heart_disease_history"
+     ],
+     "text_en": "Do you have high blood pressure, diabetes, or heart disease on record?",
+     "text_th": "มีโรคประจำตัวความดันสูง เบาหวาน หรือโรคหัวใจไหมคะ",
+     "priority": 40
+    },
+    {
+     "id": "cf_bp",
+     "kind": "measurement",
+     "vital": "sbp",
+     "text_en": "Please measure your blood pressure now — you can use the machine beside you or type the numbers.",
+     "text_th": "กรุณาวัดความดันโลหิตตอนนี้ — ใช้เครื่องข้างตัวคุณหรือพิมพ์ตัวเลขก็ได้",
+     "priority": 7
+    },
+    {
+     "id": "cf_temp",
+     "kind": "measurement",
+     "vital": "temp",
+     "text_en": "Please measure your temperature at the booth and enter it in °C.",
+     "text_th": "กรุณาวัดอุณหภูมิที่จุดคัดกรองแล้วกรอกค่าเป็นองศาเซลเซียสค่ะ",
+     "priority": 6,
+     "citation": "MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย) — ขอบเขต: ผู้ป่วยนอกทุกราย; วัตถุประสงค์ ข้อ 2 เพื่อแยกผู้ป่วยโรคติดต่อ โรคอุบัติใหม่ อุบัติซ้ำ; MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (temperature red flags)"
+    }
+   ]
+  },
+  {
+   "category": "administrative",
+   "label_en": "Documents / health services",
+   "label_th": "เอกสารหรือบริการสุขภาพ",
+   "keywords_en": [
+    "medical certificate",
+    "health checkup",
+    "vaccination",
+    "document"
+   ],
+   "keywords_th": [
+    "ใบรับรองแพทย์",
+    "ตรวจสุขภาพ",
+    "ฉีดวัคซีน",
+    "เอกสาร"
+   ],
+   "min_slots_by_level": {
+    "3": 1,
+    "4": 1,
+    "5": 1
+   },
+   "associated_finding_ids": [],
+   "questions": [
+    {
+     "id": "ad_service",
+     "kind": "slot",
+     "slot": "character",
+     "text_en": "What document or service do you need today?",
+     "text_th": "วันนี้ต้องการเอกสารหรือบริการอะไรคะ",
+     "priority": 10,
+     "options": [
+      {
+       "id": "certificate",
+       "text_en": "Medical certificate",
+       "text_th": "ใบรับรองแพทย์"
+      },
+      {
+       "id": "checkup",
+       "text_en": "Health checkup",
+       "text_th": "ตรวจสุขภาพ"
+      },
+      {
+       "id": "vaccination",
+       "text_en": "Vaccination",
+       "text_th": "ฉีดวัคซีน"
+      },
+      {
+       "id": "other",
+       "text_en": "Something else",
+       "text_th": "อย่างอื่น"
+      }
+     ]
+    },
+    {
+     "id": "ad_bp",
+     "kind": "measurement",
+     "vital": "sbp",
+     "text_en": "Please measure your blood pressure now — you can use the machine beside you or type the numbers.",
+     "text_th": "กรุณาวัดความดันโลหิตตอนนี้ — ใช้เครื่องข้างตัวคุณหรือพิมพ์ตัวเลขก็ได้",
+     "priority": 7,
+     "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (decision point D — full vital signs at triage); MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย)"
+    },
+    {
+     "id": "ad_temp",
+     "kind": "measurement",
+     "vital": "temp",
+     "text_en": "Please measure your temperature at the booth and enter it in °C.",
+     "text_th": "กรุณาวัดอุณหภูมิที่จุดคัดกรองแล้วกรอกค่าเป็นองศาเซลเซียสค่ะ",
+     "priority": 6,
+     "citation": "MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย) — ขอบเขต: ผู้ป่วยนอกทุกราย; วัตถุประสงค์ ข้อ 2 เพื่อแยกผู้ป่วยโรคติดต่อ โรคอุบัติใหม่ อุบัติซ้ำ; MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (temperature red flags)"
     }
    ]
   }
@@ -5564,5 +7763,111 @@
    "text_th": "กรุณากรอกน้ำหนักและส่วนสูงเพื่อให้ข้อมูลในบัตรครบถ้วน",
    "priority": 90
   }
- ]
+ ],
+ "source_standards": [
+  {
+   "name": "MOPH ED Triage — แนวทางการคัดแยกผู้ป่วยฉุกเฉิน (Thailand National Triage Guideline)",
+   "edition": "กรมการแพทย์ กระทรวงสาธารณสุข, 1st ed. 2561 (2018)",
+   "url": "https://www.dms.go.th/backend/Content/Content_File/Population_Health/Attach/25621021104459AM_44.pdf?contentId=18326"
+  },
+  {
+   "name": "MFU Medical Center OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย)",
+   "edition": "",
+   "url": ""
+  },
+  {
+   "name": "Emergency Severity Index (ESI) Handbook — decision-point structure reference",
+   "edition": "5th ed. (2023), Emergency Nurses Association — cited for specific referenced content only; this system does not implement or claim to implement ESI",
+   "url": "https://media.emscimprovement.center/documents/Emergency_Severity_Index_Handbook.pdf"
+  }
+ ],
+ "vital_bounds": {
+  "sbp": {
+   "min": 50.0,
+   "max": 300.0,
+   "unit": "mmHg",
+   "retry_text_en": "That blood pressure reading doesn't look right. A systolic reading is normally between 50 and 300 mmHg — could you check and enter it again?",
+   "retry_text_th": "ค่าความดันตัวบนดูไม่ถูกต้องนะคะ ปกติจะอยู่ระหว่าง 50 ถึง 300 mmHg รบกวนตรวจสอบและกรอกใหม่อีกครั้งนะคะ"
+  },
+  "dbp": {
+   "min": 20.0,
+   "max": 200.0,
+   "unit": "mmHg",
+   "retry_text_en": "That blood pressure reading doesn't look right. A diastolic reading is normally between 20 and 200 mmHg — could you check and enter it again?",
+   "retry_text_th": "ค่าความดันตัวล่างดูไม่ถูกต้องนะคะ ปกติจะอยู่ระหว่าง 20 ถึง 200 mmHg รบกวนตรวจสอบและกรอกใหม่อีกครั้งนะคะ"
+  },
+  "hr": {
+   "min": 20.0,
+   "max": 250.0,
+   "unit": "bpm",
+   "retry_text_en": "That pulse doesn't look right. A pulse is normally between 20 and 250 beats per minute — could you check and enter it again?",
+   "retry_text_th": "ค่าชีพจรดูไม่ถูกต้องนะคะ ปกติจะอยู่ระหว่าง 20 ถึง 250 ครั้งต่อนาที รบกวนตรวจสอบและกรอกใหม่อีกครั้งนะคะ"
+  },
+  "rr": {
+   "min": 4.0,
+   "max": 80.0,
+   "unit": "/min",
+   "retry_text_en": "That breathing rate doesn't look right. It is normally between 4 and 80 breaths per minute — could you check and enter it again?",
+   "retry_text_th": "ค่าอัตราการหายใจดูไม่ถูกต้องนะคะ ปกติจะอยู่ระหว่าง 4 ถึง 80 ครั้งต่อนาที รบกวนตรวจสอบและกรอกใหม่อีกครั้งนะคะ"
+  },
+  "spo2": {
+   "min": 50.0,
+   "max": 100.0,
+   "unit": "%",
+   "retry_text_en": "That oxygen reading doesn't look right. It is normally between 50 and 100 percent — could you check and enter it again?",
+   "retry_text_th": "ค่าออกซิเจนดูไม่ถูกต้องนะคะ ปกติจะอยู่ระหว่าง 50 ถึง 100 เปอร์เซ็นต์ รบกวนตรวจสอบและกรอกใหม่อีกครั้งนะคะ"
+  },
+  "temp": {
+   "min": 30.0,
+   "max": 45.0,
+   "unit": "°C",
+   "retry_text_en": "That temperature doesn't look right. A body temperature is normally between 30 and 45 °C — could you measure again and tell me the number?",
+   "retry_text_th": "ค่าอุณหภูมิดูไม่ถูกต้องนะคะ อุณหภูมิร่างกายปกติจะอยู่ระหว่าง 30 ถึง 45 องศาเซลเซียส รบกวนวัดใหม่แล้วบอกตัวเลขอีกครั้งนะคะ"
+  },
+  "weight": {
+   "min": 1.0,
+   "max": 400.0,
+   "unit": "kg",
+   "retry_text_en": "That weight doesn't look right. Please enter your weight in kilograms (between 1 and 400).",
+   "retry_text_th": "ค่าน้ำหนักดูไม่ถูกต้องนะคะ รบกวนกรอกน้ำหนักเป็นกิโลกรัม (ระหว่าง 1 ถึง 400) นะคะ"
+  },
+  "height": {
+   "min": 30.0,
+   "max": 272.0,
+   "unit": "cm",
+   "retry_text_en": "That height doesn't look right. Please enter your height in centimetres (between 30 and 272).",
+   "retry_text_th": "ค่าส่วนสูงดูไม่ถูกต้องนะคะ รบกวนกรอกส่วนสูงเป็นเซนติเมตร (ระหว่าง 30 ถึง 272) นะคะ"
+  },
+  "age_years": {
+   "min": 0.0,
+   "max": 120.0,
+   "unit": "years",
+   "retry_text_en": "I didn't catch your age correctly. Could you tell me your age in years again?",
+   "retry_text_th": "ขอโทษค่ะ ไม่แน่ใจเรื่องอายุ รบกวนบอกอายุเป็นปีอีกครั้งนะคะ"
+  },
+  "pain_score": {
+   "min": 0.0,
+   "max": 10.0,
+   "unit": "",
+   "retry_text_en": "Please give your pain a number from 0 to 10.",
+   "retry_text_th": "รบกวนให้คะแนนความเจ็บปวดเป็นตัวเลข 0 ถึง 10 นะคะ"
+  },
+  "distress_score": {
+   "min": 0.0,
+   "max": 10.0,
+   "unit": "",
+   "retry_text_en": "Please give your breathing difficulty a number from 0 to 10.",
+   "retry_text_th": "รบกวนให้คะแนนความเหนื่อยหอบเป็นตัวเลข 0 ถึง 10 นะคะ"
+  }
+ },
+ "cross_checks": {
+  "sbp_le_dbp": {
+   "text_en": "The blood pressure numbers look swapped — the top number should be higher than the bottom one. Could you check and enter them again?",
+   "text_th": "ค่าความดันดูเหมือนสลับกันนะคะ ตัวบนควรมากกว่าตัวล่าง รบกวนตรวจสอบและกรอกใหม่อีกครั้งนะคะ"
+  },
+  "bmi_implausible": {
+   "text_en": "The weight and height don't seem to match up. Could you check both numbers and enter them again?",
+   "text_th": "ค่าน้ำหนักและส่วนสูงดูไม่สอดคล้องกันนะคะ รบกวนตรวจสอบทั้งสองค่าและกรอกใหม่อีกครั้งนะคะ"
+  }
+ }
 }
