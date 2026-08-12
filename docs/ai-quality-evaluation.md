@@ -368,3 +368,37 @@ Nothing survived on either of these, and no claims were even proposed:
 Both are unresearched, not settled. For a Thailand-first deployment on on-prem
 hardware, that means **our own extraction eval is the only evidence that will
 ever exist for this system** — there is no external benchmark to defer to.
+
+### Measured: should the finding ids be a schema enum? No. (2026-08-12)
+
+`FindingUpdate.id` is a free-form `str`, so the vocabulary lives only in prompt
+prose and an invented id is caught after the fact at `ingest.py:245`. The
+obvious improvement is to put the offered ids in the JSON Schema as an enum so
+constrained decoding makes an invalid id impossible. Measured first:
+
+| channel | invalid rate |
+|---|---|
+| finding ids, turn 1 (131 offered, 3 runs) | **0 / 356 — 0.00%** |
+| finding ids, multi-turn (515 calls) | **2 / 593 — 0.34%** (Wilson 95% CI 0.09–1.2%) |
+| `complaint_category` | ~5% invented, **100% recovered** by `_closest_category` |
+
+**Recommendation: do not add it**, and the reason is more interesting than the
+rate. Both invalid ids were the same thing — the model emitting `urinary`, a
+*category* id, into the finding slot, because it was reaching for "urinary
+symptoms" and **no such finding was offered that turn**.
+
+A constrained decoder cannot emit nothing. Faced with a concept it has no id
+for, it must pick some offered id — turning a dropped extraction into a
+*wrong present finding*. That is strictly worse here: a dropped finding leaves
+the question unknown so the interview asks it, while a wrong one fires a rule.
+It is also the exact failure `_catalog_lines` already documents from the Aug-5
+eval (a cold pale leg extracted as the level-1 shock-skin finding).
+
+Verified along the way, so nobody re-derives it: Gemini *does* pass a 131-value
+enum through `convert_to_genai_function_declarations`, and `convert_to_openai_tool`
+keeps it for the vLLM/XGrammar path — so it would work, at ~600 tokens per call
+duplicating the prompt catalog, plus a per-call dynamic model needing an
+`lru_cache`. It works; it is not worth it.
+
+`ingest.py:245` stays. It is currently the only enforcement, and it is doing
+its job at zero measured cost.
