@@ -64,6 +64,7 @@ function QuestionList({ questions, lang }: { questions: CriteriaViewQuestion[]; 
                 <span className="cm-pill">
                   {t('criteriaBookMeasures')}: {q.vital}
                   {q.min_age_years != null ? ` (${t('criteriaBookAgeAtLeast', { n: q.min_age_years })})` : ''}
+                  {q.skip_for_gender ? ` (${t('criteriaBookGenderSkip', { g: q.skip_for_gender })})` : ''}
                 </span>
               )}
               {q.finding_ids.map((f) => (

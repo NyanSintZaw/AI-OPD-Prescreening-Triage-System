@@ -836,6 +836,7 @@ export interface CriteriaViewQuestion {
   slot: string | null;
   vital: string | null;
   min_age_years: number | null;
+  skip_for_gender: string | null;
   finding_ids: string[];
   text_en: string;
   text_th: string;

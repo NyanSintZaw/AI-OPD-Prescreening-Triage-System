@@ -74,6 +74,12 @@ def render_condition(
         text = labels.get(fid) or fid
         if condition.get("state") == "absent":
             text = f"{words['not']}{text}"
+    elif condition.get("gender"):
+        # Supported by the AST since the gender work; render it now so the
+        # first rule that uses it displays its predicate instead of silently
+        # dropping it — the exact failure the routing dash had.
+        text = (f"เพศ{'ชาย' if condition['gender'] == 'male' else 'หญิง'}"
+                if language == "th" else f"recorded {condition['gender']}")
     elif condition.get("vital"):
         vital = condition["vital"]
         op = _OPS.get(condition.get("op") or "", condition.get("op") or "?")
@@ -109,6 +115,10 @@ def _question(raw: dict) -> dict:
         "slot": raw.get("slot"),
         "vital": raw.get("vital"),
         "min_age_years": raw.get("min_age_years"),
+        # A question a recorded gender skips — live data (ap_pregnancy) that
+        # was rendered nowhere until 2026-08-12; an invisible skip looks like
+        # the booth forgot to ask.
+        "skip_for_gender": raw.get("skip_for_gender"),
         "finding_ids": raw.get("finding_ids") or [],
         "text_en": raw.get("text_en", ""),
         "text_th": raw.get("text_th", ""),

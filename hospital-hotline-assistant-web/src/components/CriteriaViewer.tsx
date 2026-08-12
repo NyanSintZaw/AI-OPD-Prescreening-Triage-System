@@ -9,6 +9,7 @@ interface Cond {
   op?: string;
   value?: number;
   age_band?: string;
+  gender?: string;
   all_of?: Cond[];
   any_of?: Cond[];
 }
@@ -114,6 +115,7 @@ function condText(
     core = c.any_of.map((x) => condText(x, findings, lang, depth + 1)).join(or);
   }
   if (depth > 0 && composite > 1) core = `(${core})`;
+  if (c.gender) core = core ? `[${c.gender}] ${core}` : `recorded ${c.gender}`;
   if (c.age_band) core = `[${c.age_band}] ${core}`;
   return core || '—';
 }
