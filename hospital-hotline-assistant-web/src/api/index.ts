@@ -13,6 +13,7 @@ import type {
   BpPairResponse,
   BpScanResponse,
   ConversationSummaryOut,
+  CriteriaActiveView,
   DepartmentOut,
   DepartmentRecommendationCreate,
   DoctorCreate,
@@ -447,6 +448,9 @@ export const api = {
   getTriageManualStatus: () =>
     request<TriageManualUploadOut | null>('/admin/triage-manual/status'),
 
+  /** Read-only, nurse-shaped view of the criteria the booth decides with. */
+  getActiveCriteria: () => request<CriteriaActiveView>('/admin/criteria/active'),
+
   // ── Screening criteria governance (engine v2) ─────────────────────────────
   listCriteriaVersions: () =>
     request<CriteriaVersionSummary[]>('/admin/criteria/versions'),
@@ -492,4 +496,4 @@ export const api = {
   },
 };
 
-export type { MessageOut, SessionOut, ConversationSummaryOut, DepartmentOut, DoctorOut, DoctorWithSchedulesOut, DoctorScheduleOut, SurveillanceSummaryOut, TriageManualUploadOut, AiMetricsOut, CriteriaDiffOut, CriteriaVersionDetail, CriteriaVersionSummary, LinkVisitResponse, HisVisitSummary, HisVisitDetail, KioskStats };
+export type { CriteriaActiveView, MessageOut, SessionOut, ConversationSummaryOut, DepartmentOut, DoctorOut, DoctorWithSchedulesOut, DoctorScheduleOut, SurveillanceSummaryOut, TriageManualUploadOut, AiMetricsOut, CriteriaDiffOut, CriteriaVersionDetail, CriteriaVersionSummary, LinkVisitResponse, HisVisitSummary, HisVisitDetail, KioskStats };

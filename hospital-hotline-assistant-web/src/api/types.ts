@@ -827,6 +827,80 @@ export interface CriteriaVersionDetail extends CriteriaVersionSummary {
   validation_errors: string[];
 }
 
+// ── Read-only nurse view of the ACTIVE criteria (GET /admin/criteria/active) ──
+// The server renders every condition AST to text, so nothing here is an AST.
+
+export interface CriteriaViewQuestion {
+  id: string | null;
+  kind: string | null;
+  slot: string | null;
+  vital: string | null;
+  min_age_years: number | null;
+  finding_ids: string[];
+  text_en: string;
+  text_th: string;
+  options: Array<{ id: string | null; text_en: string; text_th: string }>;
+  citation: string;
+  placeholder: boolean;
+}
+
+export interface CriteriaViewRule {
+  id: string | null;
+  group: 'level1' | 'danger_vital' | 'fast_track' | 'department_rule' | 'triage_tuple';
+  label_en: string;
+  label_th: string;
+  condition_en: string;
+  condition_th: string;
+  level: number | null;
+  min_level: number | null;
+  department_code: string | null;
+  citation: string;
+  placeholder: boolean;
+}
+
+export interface CriteriaViewFinding {
+  id: string;
+  label_en: string;
+  label_th: string;
+  synonyms_en: string[];
+  synonyms_th: string[];
+  is_risk_factor: boolean;
+}
+
+export interface CriteriaViewTemplate {
+  category: string;
+  label_en: string;
+  label_th: string;
+  keywords_en: string[];
+  keywords_th: string[];
+  questions: CriteriaViewQuestion[];
+}
+
+export interface CriteriaViewRouting {
+  complaint_category: string;
+  department_code: string;
+  fallback_department_code: string | null;
+  condition_en: string;
+  condition_th: string;
+  citation: string;
+  placeholder: boolean;
+}
+
+export interface CriteriaActiveView {
+  id: string | null;
+  version_no: number | null;
+  status: CriteriaVersionStatus | 'seed';
+  change_summary: string;
+  activated_at: string | null;
+  source_standards: Array<{ name?: string; edition?: string; url?: string }>;
+  complaint_templates: CriteriaViewTemplate[];
+  universal_questions: CriteriaViewQuestion[];
+  pre_disposition_questions: CriteriaViewQuestion[];
+  findings: CriteriaViewFinding[];
+  rules: CriteriaViewRule[];
+  routing: CriteriaViewRouting[];
+}
+
 export interface CriteriaSectionDiff {
   added: string[];
   removed: string[];

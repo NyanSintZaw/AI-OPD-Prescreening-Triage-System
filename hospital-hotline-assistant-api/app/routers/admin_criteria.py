@@ -53,6 +53,44 @@ async def _active_criteria_payload(conn: asyncpg.Connection) -> dict:
     return json.loads(SEED_CRITERIA_PATH.read_text(encoding="utf-8"))
 
 
+@router.get("/admin/criteria/active")
+async def get_active_criteria_view(
+    _admin_user: dict = Depends(require_roles("super_admin", "nurse", "viewer")),
+    connection: asyncpg.Connection = Depends(get_connection),
+):
+    """Nurse-readable read model of the criteria the booth is deciding with.
+
+    Same document as ``/versions/{id}``, minus the AST: conditions come back
+    rendered as text in both languages, rules carry their manual citation, and
+    clauses awaiting hospital sign-off are flagged ``placeholder``.
+    """
+    from app.services.criteria_view import build_criteria_view
+
+    row = await connection.fetchrow(
+        """
+        SELECT id, version_no, status, change_summary, activated_at, criteria
+        FROM screening_criteria_versions WHERE status = 'active'
+        """
+    )
+    if row is None:
+        # Fresh DB: the engine falls back to the bundled seed, so show that.
+        meta = {
+            "id": None, "version_no": None, "status": "seed",
+            "change_summary": "", "activated_at": None,
+        }
+        payload = await _active_criteria_payload(connection)
+    else:
+        meta = {
+            "id": str(row["id"]),
+            "version_no": row["version_no"],
+            "status": row["status"],
+            "change_summary": row["change_summary"] or "",
+            "activated_at": row["activated_at"].isoformat() if row["activated_at"] else None,
+        }
+        payload = _jsonb(row["criteria"])
+    return build_criteria_view(payload, meta)
+
+
 @router.get("/admin/criteria/versions")
 async def list_criteria_versions(
     _admin_user: dict = Depends(require_roles("super_admin", "nurse", "viewer")),

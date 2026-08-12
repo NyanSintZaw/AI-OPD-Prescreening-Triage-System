@@ -83,7 +83,9 @@ function bl(item: { label_en?: string; label_th?: string } | undefined, lang: st
   return (lang === 'th' ? item.label_th || item.label_en : item.label_en || item.label_th) || '—';
 }
 
-const OPS: Record<string, string> = { gt: '>', gte: '≥', lt: '<', lte: '≤', eq: '=', ne: '≠' };
+// The schema's operator names are lt/le/gt/ge/eq — `le`/`ge` were missing here
+// and rendered raw ("SBP le 90") in the draft viewer.
+const OPS: Record<string, string> = { gt: '>', ge: '≥', gte: '≥', lt: '<', le: '≤', lte: '≤', eq: '=' };
 
 /** Compact human-readable rendering of the condition AST (all_of/any_of/finding/vital). */
 function condText(

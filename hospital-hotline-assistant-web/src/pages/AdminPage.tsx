@@ -13,6 +13,7 @@ import { BpDeviceManager } from '../components/BpDeviceManager';
 import { OutbreakSurveillance } from '../components/OutbreakSurveillance';
 import { TriageManualUpload } from '../components/TriageManualUpload';
 import { CriteriaManager } from '../components/CriteriaManager';
+import { CriteriaBook } from '../components/CriteriaBook';
 import { HospitalDbPanel } from '../components/HospitalDbPanel';
 import { UserManagementPanel } from '../components/UserManagementPanel';
 import { useLanguage } from '../hooks/useSession';
@@ -23,6 +24,7 @@ type AdminTab =
   | 'surveillance'
   | 'triage-manual'
   | 'criteria'
+  | 'criteria-book'
   | 'bp-device'
   | 'hospital-db'
   | 'users';
@@ -338,6 +340,15 @@ export function AdminPage() {
           <button
             type="button"
             role="tab"
+            aria-selected={activeTab === 'criteria-book'}
+            className={`admin-tab-btn ${activeTab === 'criteria-book' ? 'active' : ''}`}
+            onClick={() => setActiveTab('criteria-book')}
+          >
+            📖 {t('criteriaBookTab')}
+          </button>
+          <button
+            type="button"
+            role="tab"
             aria-selected={activeTab === 'bp-device'}
             className={`admin-tab-btn ${activeTab === 'bp-device' ? 'active' : ''}`}
             onClick={() => setActiveTab('bp-device')}
@@ -381,6 +392,7 @@ export function AdminPage() {
         )}
         {activeTab === 'triage-manual' && <TriageManualUpload />}
         {activeTab === 'criteria' && <CriteriaManager />}
+        {activeTab === 'criteria-book' && <CriteriaBook />}
         {activeTab === 'bp-device' && <BpDeviceManager />}
         {activeTab === 'hospital-db' && <HospitalDbPanel />}
         {activeTab === 'users' && <UserManagementPanel />}
