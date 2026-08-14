@@ -1,0 +1,215 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Avatar Booth - Test Client</title>
+<style>
+  body { font-family: system-ui, sans-serif; max-width: 640px; margin: 40px auto; padding: 0 16px; }
+  #log { border: 1px solid #ccc; border-radius: 8px; padding: 12px; height: 320px; overflow-y: auto; margin: 12px 0; }
+  .u { color: #1a5; } .a { color: #333; } .sys { color: #999; font-style: italic; }
+  input, button { font-size: 16px; padding: 8px; }
+  #msg { width: 70%; }
+  .row { display: flex; gap: 8px; margin: 8px 0; }
+</style>
+
+<h2>Hospital Avatar Booth — test client</h2>
+
+<div class="row">
+  <input id="pid" placeholder="Patient ID (try 1001 or 1002)" value="1001">
+  <button onclick="startSession()">Start</button>
+  <button onclick="endSession()">End</button>
+</div>
+
+<div id="log"></div>
+
+<div class="row">
+  <input id="msg" placeholder="Type a message..." onkeydown="if(event.key==='Enter')sendText()">
+  <button onclick="sendText()">Send</button>
+  <button id="micBtn">🎤 Tap to talk</button>
+</div>
+
+<script>
+let sessionId = null;
+let mediaRecorder, chunks = [];
+
+function log(who, text) {
+  const d = document.getElementById('log');
+  const cls = who === 'You' ? 'u' : who === 'AI' ? 'a' : 'sys';
+  d.innerHTML += `<div class="${cls}"><b>${who}:</b> ${text}</div>`;
+  d.scrollTop = d.scrollHeight;
+}
+
+// --- Browser TTS (zero setup). Swap for server /tts if piper is configured. ---
+// Voices come from the OS. An utterance with no `lang` uses the browser's
+// default locale, and an English voice reads the Latin characters while
+// silently skipping Thai ones - so tag each run of text with its own language.
+const THAI_RE = /[฀-๿]/;
+let warnedMissing = new Set();
+
+// Chrome populates getVoices() asynchronously; touching it early primes the list.
+speechSynthesis.getVoices();
+speechSynthesis.addEventListener('voiceschanged', () => {
+  const langs = [...new Set(speechSynthesis.getVoices().map(v => v.lang))].sort();
+  console.log('TTS voices available:', langs.join(', ') || '(none)');
+});
+
+function pickVoice(prefix) {
+  return speechSynthesis.getVoices()
+    .find(v => v.lang.replace('_', '-').toLowerCase().startsWith(prefix)) || null;
+}
+
+// Split into consecutive Thai / non-Thai runs so mixed replies are read in full.
+function splitByScript(text) {
+  const runs = [];
+  for (const ch of text) {
+    const thai = THAI_RE.test(ch);
+    const last = runs[runs.length - 1];
+    if (last && last.thai === thai) last.text += ch;
+    else runs.push({thai, text: ch});
+  }
+  return runs.filter(r => r.text.trim());
+}
+
+function speak(text) {
+  if (!window.speechSynthesis) return;
+  speechSynthesis.cancel();          // drop anything still queued from a prior reply
+  for (const run of splitByScript(text)) {
+    const [prefix, lang] = run.thai ? ['th', 'th-TH'] : ['en', 'en-US'];
+    const voice = pickVoice(prefix);
+    if (!voice && run.thai) {
+      if (!warnedMissing.has(prefix)) {
+        warnedMissing.add(prefix);
+        log('system', 'No Thai voice is installed for this browser, so Thai text ' +
+                      'cannot be spoken. Console lists the voices you do have.');
+      }
+      continue;                      // an English voice would just skip it anyway
+    }
+    const u = new SpeechSynthesisUtterance(run.text);
+    u.lang = lang;
+    if (voice) u.voice = voice;
+    speechSynthesis.speak(u);
+  }
+}
+
+async function startSession() {
+  const pid = document.getElementById('pid').value.trim();
+  const r = await fetch('/session/start', {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({patient_id: pid})
+  });
+  if (!r.ok) { log('system', 'Could not start: ' + (await r.json()).detail); return; }
+  const data = await r.json();
+  sessionId = data.session_id;
+  log('system', `Session started for ${data.patient_name}.`);
+}
+
+async function endSession() {
+  if (!sessionId) return;
+  const fd = new FormData(); fd.append('session_id', sessionId);
+  await fetch('/session/end', {method: 'POST', body: fd});
+  log('system', 'Session ended and data wiped.');
+  sessionId = null;
+}
+
+async function sendText() {
+  const input = document.getElementById('msg');
+  const text = input.value.trim();
+  if (!text || !sessionId) { if(!sessionId) log('system','Start a session first.'); return; }
+  input.value = '';
+  log('You', text);
+  const r = await fetch('/chat', {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({session_id: sessionId, text})
+  });
+  if (!r.ok) { log('system', (await r.json()).detail); return; }
+  const reply = (await r.json()).reply;
+  log('AI', reply); speak(reply);
+}
+
+// --- Mic: tap to start recording, tap again to stop and send ---
+const micBtn = document.getElementById('micBtn');
+const IDLE_LABEL = '🎤 Tap to talk';
+const REC_LABEL = '⏹ Tap to stop';
+let micBusy = false;   // guards the await in startRec against a fast double-tap
+
+// Read an error body whether the server sent JSON or plain text/HTML.
+async function errorText(r) {
+  const body = await r.text();
+  try { return JSON.parse(body).detail ?? body; } catch { return body || `HTTP ${r.status}`; }
+}
+
+async function startRec() {
+  if (!sessionId) { log('system','Start a session first.'); return; }
+  if (micBusy || mediaRecorder?.state === 'recording') return;   // already starting or running
+  micBusy = true;
+  try {
+    // getUserMedia only exists in a secure context: https:// or localhost.
+    // Over plain http:// from another machine, navigator.mediaDevices is undefined.
+    if (!navigator.mediaDevices?.getUserMedia) {
+      log('system', `Microphone blocked: this page is on an insecure origin (${location.origin}). ` +
+                    'Browsers only allow mic access over https:// or http://localhost.');
+      return;
+    }
+    const stream = await navigator.mediaDevices.getUserMedia({audio: true});
+    mediaRecorder = new MediaRecorder(stream);
+    chunks = [];
+    mediaRecorder.ondataavailable = e => chunks.push(e.data);
+    mediaRecorder.onstop = () => {
+      stream.getTracks().forEach(t => t.stop());   // release the mic indicator
+      sendAudio();
+    };
+    mediaRecorder.onerror = e => log('system', 'Recorder error: ' + (e.error?.message || e.error));
+    mediaRecorder.start();
+    micBtn.textContent = REC_LABEL;
+  } catch (err) {
+    // NotAllowedError = permission denied, NotFoundError = no mic attached.
+    log('system', `Microphone unavailable: ${err.name} - ${err.message}`);
+    micBtn.textContent = IDLE_LABEL;
+  } finally {
+    micBusy = false;
+  }
+}
+
+function stopRec() {
+  if (mediaRecorder?.state === 'recording') {
+    mediaRecorder.stop();
+    micBtn.textContent = IDLE_LABEL;
+  }
+}
+
+function toggleMic() {
+  if (mediaRecorder?.state === 'recording') stopRec();
+  else startRec();
+}
+
+async function sendAudio() {
+  if (!chunks.length) { log('system', 'No audio captured - hold the button a bit longer.'); return; }
+  // MediaRecorder gives webm/opus (or mp4 on Safari), not wav. Label it honestly;
+  // the server decodes by content, so the extension just needs to match.
+  const type = (mediaRecorder?.mimeType || 'audio/webm').split(';')[0];
+  const ext = type.includes('mp4') ? 'mp4' : type.includes('ogg') ? 'ogg' : 'webm';
+  const blob = new Blob(chunks, {type});
+  const fd = new FormData();
+  fd.append('session_id', sessionId);
+  fd.append('audio', blob, `input.${ext}`);
+  log('system', 'transcribing...');
+  micBtn.disabled = true;    // no new recording until this one comes back
+  try {
+    const r = await fetch('/chat/audio', {method: 'POST', body: fd});
+    if (!r.ok) { log('system', await errorText(r)); return; }
+    const data = await r.json();
+    if (!data.user_text?.trim()) {
+      log('system', 'Nothing was heard in that recording - try again, closer to the mic.');
+      return;
+    }
+    log('You', data.user_text);
+    log('AI', data.reply); speak(data.reply);
+  } catch (err) {
+    log('system', 'Could not reach the server: ' + err.message);
+  } finally {
+    micBtn.disabled = false;
+  }
+}
+
+// One click handler covers mouse and touch - browsers synthesise click on tap,
+// so separate touch handlers would just fire the toggle twice.
+micBtn.onclick = toggleMic;
+</script>
