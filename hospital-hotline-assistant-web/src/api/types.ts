@@ -207,6 +207,7 @@ export interface AssessmentReviewOut {
     weight_kg?: number | null;
     height_cm?: number | null;
     temperature?: number | null;
+    spo2?: number | null;
     source?: string | null;
   } | null;
   /** Core vitals (hr/rr/spo2/temp/sbp) never instrument-measured this
@@ -750,6 +751,55 @@ export interface TempPairRequest {
 }
 
 export interface TempPairResponse {
+  status:
+    | 'ok'
+    | 'busy'
+    | 'invalid'
+    | 'device_not_found'
+    | 'wrong_device'
+    | 'timeout'
+    | 'error';
+  device_name: string | null;
+  device_mac: string | null;
+  message: string | null;
+}
+
+export interface Spo2FetchResponse {
+  status: TemperatureFetchStatus;
+  spo2: number | null;
+  pulse_bpm: number | null;
+  measured_at: string | null;
+  message: string | null;
+  reading_id?: string | null;
+}
+
+export interface Spo2DeviceStatusOut {
+  device_name: string;
+  device_mac: string | null;
+  configured: boolean;
+  busy: boolean;
+}
+
+export interface Spo2ScanDeviceOut {
+  mac: string;
+  name: string | null;
+  rssi: number | null;
+  is_oximeter: boolean;
+}
+
+export interface Spo2ScanResponse {
+  status: 'ok' | 'busy' | 'error';
+  devices: Spo2ScanDeviceOut[];
+  message: string | null;
+}
+
+export interface Spo2PairRequest {
+  mac: string;
+  /** Advertised name from the scan list — shown in the portal after pairing. */
+  name?: string | null;
+}
+
+export interface Spo2PairResponse {
   status:
     | 'ok'
     | 'busy'

@@ -46,6 +46,10 @@ class Settings(BaseSettings):
     temp_device_name: str = "TAIDOC TD1242"
     temp_device_mac: str | None = None
     temp_fetch_timeout_seconds: int = 90
+    # BLE fingertip pulse oximeter (Rossmax SB210, advertises as RM_SPO2).
+    spo2_device_name: str = "Rossmax SB210"
+    spo2_device_mac: str | None = None
+    spo2_fetch_timeout_seconds: int = 60
     embed_model: str = "intfloat/multilingual-e5-small"
     triage_manual_path: str = "app/data/triage_manual.pdf"
     pgvector_table: str = "triage_knowledge"

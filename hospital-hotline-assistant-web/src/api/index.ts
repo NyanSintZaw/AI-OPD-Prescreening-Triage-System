@@ -17,6 +17,11 @@ import type {
   TempPairResponse,
   TempScanResponse,
   TemperatureFetchResponse,
+  Spo2DeviceStatusOut,
+  Spo2FetchResponse,
+  Spo2PairRequest,
+  Spo2PairResponse,
+  Spo2ScanResponse,
   ConversationSummaryOut,
   CriteriaActiveView,
   DepartmentOut,
@@ -370,7 +375,7 @@ export const api = {
    *  interview). Merges into the session's stored vitals. */
   updateSessionMeasurement: (
     sessionId: string,
-    payload: { vital: 'temp' | 'weight' | 'height'; value: number },
+    payload: { vital: 'temp' | 'weight' | 'height' | 'spo2'; value: number },
   ) =>
     request<{ session_id: string; vitals: Record<string, unknown> }>(
       `/sessions/${sessionId}/measurement`,
@@ -403,6 +408,26 @@ export const api = {
 
   pairTempDevice: (payload: TempPairRequest) =>
     request<TempPairResponse>('/admin/temp-device/pair', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+
+  /** Take one settled SpO2/pulse reading from the fingertip oximeter:
+   *  resolves once the finger is in and the value stabilizes, or with
+   *  status 'timeout' after timeoutSeconds. */
+  fetchSpo2: (sessionId?: string | null, timeoutSeconds = 45) =>
+    request<Spo2FetchResponse>('/vitals/spo2/fetch', {
+      method: 'POST',
+      body: JSON.stringify({ session_id: sessionId ?? null, timeout_seconds: timeoutSeconds }),
+    }),
+
+  getSpo2DeviceStatus: () => request<Spo2DeviceStatusOut>('/admin/spo2-device'),
+
+  scanSpo2Devices: () =>
+    request<Spo2ScanResponse>('/admin/spo2-device/scan', { method: 'POST' }),
+
+  pairSpo2Device: (payload: Spo2PairRequest) =>
+    request<Spo2PairResponse>('/admin/spo2-device/pair', {
       method: 'POST',
       body: JSON.stringify(payload),
     }),

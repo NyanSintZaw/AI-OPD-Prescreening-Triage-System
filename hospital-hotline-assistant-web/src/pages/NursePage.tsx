@@ -749,6 +749,14 @@ export function NursePage() {
                         />
                       </div>
                       <div className="nurse-vital-item">
+                        <span className="nurse-card-dept-label">{t('nurseVitalSpo2')}</span>
+                        <RejectedVitalValue
+                          rejected={selectedReview.rejected_vitals}
+                          vitals={['spo2']}
+                          fallback={formatNumber(selectedReview.vitals?.spo2)}
+                        />
+                      </div>
+                      <div className="nurse-vital-item">
                         <span className="nurse-card-dept-label">{t('nursePatientName')}</span>
                         <strong>{selectedReview.patient_name || '—'}</strong>
                       </div>

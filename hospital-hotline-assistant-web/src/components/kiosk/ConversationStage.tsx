@@ -1,10 +1,11 @@
-import { useEffect, useRef, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
   ArrowClockwise,
   ArrowCounterClockwise,
   Check,
+  Heartbeat,
   PhoneSlash,
   Sparkle,
   WarningCircle,
@@ -13,7 +14,7 @@ import type { AppLanguage } from '../../i18n/resources';
 import { VOICE_STALL_ERROR, type VoiceCallState } from '../../hooks/useVoiceCall';
 import { useLiveCaption } from '../../hooks/useLiveCaption';
 import { AiOrb } from './AiOrb';
-import { MeasurementCard } from '../MeasurementCard';
+import { MeasurementCard } from '../measurement/MeasurementCard';
 
 interface ReplyOption {
   id: string;
@@ -83,10 +84,15 @@ export function ConversationStage({
 }: ConversationStageProps) {
   const { t } = useTranslation();
 
+  // Patient-initiated SpO2 check ("measure my oxygen") — optional, offered
+  // while listening. An engine-requested measurement always wins the slot.
+  const [selfMeasureSpo2, setSelfMeasureSpo2] = useState(false);
+  const activeVital = measurementVital ?? (selfMeasureSpo2 ? 'spo2' : null);
+
   const isListening = state === 'listening';
   // Live "we're hearing you" preview of the patient's speech (Web Speech
   // API, Chrome). The server's end-of-turn STT stays authoritative.
-  const liveCaption = useLiveCaption(language, isListening && !measurementVital && !hasError);
+  const liveCaption = useLiveCaption(language, isListening && !activeVital && !hasError);
 
   // Self-echo guard: the caption recognizer captures raw speaker audio (no
   // echo cancellation on its path), so a mid-sentence playback gap can put
@@ -179,9 +185,9 @@ export function ConversationStage({
     }
   })();
 
-  const showAnswers = !measurementVital && replyOptions.length > 0;
+  const showAnswers = !activeVital && replyOptions.length > 0;
 
-  const guidance = measurementVital
+  const guidance = activeVital
     ? ''
     : showAnswers
       ? t('kioskConvTapAnswer')
@@ -250,13 +256,23 @@ export function ConversationStage({
         {guidance && <p className="k-guidance">{guidance}</p>}
 
         {/* Measurement request takes over the middle when present. */}
-        {measurementVital ? (
+        {activeVital ? (
           <div style={{ width: '100%', maxWidth: 560 }}>
             <MeasurementCard
-              vital={measurementVital}
+              vital={activeVital}
               language={language}
-              onSubmit={onMeasurementSubmit}
+              onSubmit={(text) => {
+                setSelfMeasureSpo2(false);
+                return onMeasurementSubmit(text);
+              }}
               onRest={onMeasurementRest}
+              // Only a patient-initiated check can be backed out of — an
+              // engine-requested measurement is required and has no cancel.
+              onCancel={
+                !measurementVital && selfMeasureSpo2
+                  ? () => setSelfMeasureSpo2(false)
+                  : undefined
+              }
             />
           </div>
         ) : (
@@ -291,7 +307,7 @@ export function ConversationStage({
         )}
 
         {/* Bottom bar: XL turn-end + labeled end-conversation */}
-        {!measurementVital && (
+        {!activeVital && (
           <div className="k-conv-bar">
             <motion.button
               type="button"
@@ -322,6 +338,19 @@ export function ConversationStage({
               <button type="button" className="k-btn secondary" onClick={onInterrupt}>
                 <ArrowCounterClockwise size={22} weight="bold" aria-hidden="true" />
                 {t('kioskConvInterrupt')}
+              </button>
+            )}
+
+            {/* Optional fingertip SpO2 check — the patient can measure their
+                oxygen whenever it's their turn to answer. */}
+            {isListening && (
+              <button
+                type="button"
+                className="k-btn secondary"
+                onClick={() => setSelfMeasureSpo2(true)}
+              >
+                <Heartbeat size={22} weight="bold" aria-hidden="true" />
+                {t('kioskMeasureSpo2')}
               </button>
             )}
 

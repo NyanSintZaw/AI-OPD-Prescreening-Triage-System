@@ -67,6 +67,10 @@ async def lifespan(app: FastAPI):
     from app.services.thermometer import ThermometerService
 
     app.state.temp_service = ThermometerService()
+    # Kiosk-side BLE fingertip pulse oximeter (Rossmax SB210).
+    from app.services.pulse_oximeter import PulseOximeterService
+
+    app.state.spo2_service = PulseOximeterService()
     try:
         yield
     finally:
@@ -112,11 +116,14 @@ from app.routers import (  # noqa: E402
     admin_his,
     admin_reviews,
     admin_users,
+    blood_pressure,
     meta,
+    pulse_oximeter,
     reference,
     session_clinical,
     sessions,
     speech,
+    thermometer,
     vitals,
     voice_ws,
 )
@@ -125,6 +132,9 @@ app.include_router(meta.router)
 app.include_router(admin_users.router)
 app.include_router(sessions.router)
 app.include_router(vitals.router)
+app.include_router(blood_pressure.router)
+app.include_router(thermometer.router)
+app.include_router(pulse_oximeter.router)
 app.include_router(session_clinical.router)
 app.include_router(reference.router)
 app.include_router(speech.router)
