@@ -29,6 +29,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
+import os
 import pathlib
 import sys
 from datetime import datetime, timezone
@@ -46,7 +47,11 @@ from app.services.screening.rules.red_flags import critical_finding_ids  # noqa:
 from app.services.screening.state import ScreeningState  # noqa: E402
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
-CONCURRENCY = 8
+# 8 suits a hosted model that fans out. A local single-GPU server (Ollama on
+# one card) serialises requests instead, so the extra callers just queue and
+# blow the per-call timeout — every case after the first reports as an error
+# and the run looks like a quality collapse. Set EVAL_CONCURRENCY=1 for local.
+CONCURRENCY = int(os.environ.get("EVAL_CONCURRENCY", "8"))
 
 
 

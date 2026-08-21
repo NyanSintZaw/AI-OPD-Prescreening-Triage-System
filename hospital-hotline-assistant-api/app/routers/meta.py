@@ -21,7 +21,13 @@ async def root() -> dict[str, str]:
     }
 
 @router.get("/health")
-async def health(connection: asyncpg.Connection = Depends(get_connection)) -> dict[str, str]:
+async def health(connection: asyncpg.Connection = Depends(get_connection)) -> dict:
     await connection.fetchval("SELECT 1")
-    return {"status": "ok", "environment": settings.environment}
+    return {
+        "status": "ok",
+        "environment": settings.environment,
+        # Which brain is actually serving this booth — the question you ask
+        # first when a deployment behaves unexpectedly.
+        "ai": settings.ai_mode_summary,
+    }
 
