@@ -385,6 +385,8 @@ export const resources = {
       spo2devTesting: 'Waiting for a reading…',
       spo2devTestNotFound: 'Could not connect. Turn the oximeter on and try again.',
       spo2devTestTimeout: 'No reading received. Insert a finger while the test is running.',
+      spo2devTestUnstable:
+        'The reading did not stabilize. Keep the finger still and warm, then test again.',
       spo2devTestFailed: 'Test failed. Check that the oximeter is nearby and connected.',
       spo2devPairTitle: 'Connect a new pulse oximeter',
       spo2devPairStep1: 'Turn the oximeter on so it is visible over Bluetooth.',
@@ -413,11 +415,14 @@ export const resources = {
       measureSpo2Hint: 'Clip the pulse oximeter on your fingertip, then press start.',
       measureSpo2Start: 'Start measuring',
       measureSpo2Waiting: 'Measuring your oxygen…',
-      measureSpo2WaitingHint: 'Keep your finger inside the device and hold still.',
+      measureSpo2WaitingHint:
+        'Keep your finger inside the device, hand relaxed and still — the reading is accepted once the numbers hold steady (about 30 seconds).',
       measureSpo2ResultTitle: 'Your reading',
       measureSpo2ManualTitle: 'Enter your oxygen level (%)',
       measureSpo2DeviceTimeout:
         'No reading arrived. Insert your finger into the oximeter and try again.',
+      measureSpo2DeviceUnstable:
+        'The reading never steadied. Keep your hand still, relaxed and warm, then try again.',
       measureSpo2DeviceError:
         'Could not read from the oximeter. Try again or enter the value manually.',
       send: 'Send',
@@ -1221,6 +1226,7 @@ export const resources = {
       spo2devTesting: 'กำลังรอการวัด…',
       spo2devTestNotFound: 'เชื่อมต่อไม่ได้ เปิดเครื่องวัดแล้วลองใหม่',
       spo2devTestTimeout: 'ไม่ได้รับค่าการวัด กรุณาใส่นิ้วในเครื่องระหว่างที่ทดสอบ',
+      spo2devTestUnstable: 'ค่าที่วัดยังไม่คงที่ ให้นิ้วนิ่งและมืออุ่น แล้วทดสอบใหม่',
       spo2devTestFailed: 'การทดสอบล้มเหลว ตรวจสอบว่าเครื่องวัดอยู่ใกล้และเชื่อมต่อแล้ว',
       spo2devPairTitle: 'เชื่อมต่อเครื่องวัดออกซิเจนใหม่',
       spo2devPairStep1: 'เปิดเครื่องวัดให้มองเห็นผ่าน Bluetooth',
@@ -1244,10 +1250,13 @@ export const resources = {
       measureSpo2Hint: 'หนีบเครื่องวัดที่ปลายนิ้ว แล้วกดเริ่มวัด',
       measureSpo2Start: 'เริ่มวัด',
       measureSpo2Waiting: 'กำลังวัดออกซิเจน…',
-      measureSpo2WaitingHint: 'ให้นิ้วอยู่ในเครื่องและอยู่นิ่ง ๆ',
+      measureSpo2WaitingHint:
+        'ให้นิ้วอยู่ในเครื่อง วางมือให้ผ่อนคลายและนิ่ง ๆ — ระบบจะบันทึกเมื่อตัวเลขคงที่ (ประมาณ 30 วินาที)',
       measureSpo2ResultTitle: 'ผลการวัดของคุณ',
       measureSpo2ManualTitle: 'กรอกค่าออกซิเจน (%)',
       measureSpo2DeviceTimeout: 'ไม่ได้รับค่า ใส่นิ้วในเครื่องวัดแล้วลองใหม่',
+      measureSpo2DeviceUnstable:
+        'ค่าที่วัดยังไม่นิ่ง วางมือให้นิ่ง ผ่อนคลาย และให้มืออุ่น แล้วลองใหม่อีกครั้ง',
       measureSpo2DeviceError: 'อ่านค่าจากเครื่องวัดไม่ได้ ลองใหม่หรือกรอกค่าด้วยตนเอง',
       send: 'ส่ง',
       reset: 'เริ่มการสนทนาใหม่',
