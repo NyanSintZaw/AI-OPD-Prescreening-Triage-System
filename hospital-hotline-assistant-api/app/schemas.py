@@ -81,7 +81,7 @@ class SessionMeasurementUpdate(BaseModel):
     interview). Merges into the session's stored vitals without disturbing
     the blood-pressure reading (BP has its own PUT with provenance)."""
 
-    vital: Literal["temp", "weight", "height"]
+    vital: Literal["temp", "weight", "height", "spo2"]
     value: float
 
     @model_validator(mode="after")
@@ -279,6 +279,76 @@ class TempPairRequest(BaseModel):
 
 
 class TempPairResponse(BaseModel):
+    status: Literal[
+        "ok",
+        "busy",
+        "invalid",
+        "device_not_found",
+        "wrong_device",
+        "timeout",
+        "error",
+    ]
+    device_name: str | None = None
+    device_mac: str | None = None
+
+
+class Spo2FetchRequest(BaseModel):
+    """Body for the pulse-oximeter fetch: waits for a settled fingertip
+    reading, links the stored reading to the kiosk session when given."""
+
+    session_id: UUID | None = None
+    timeout_seconds: float | None = Field(default=None, ge=5, le=180)
+
+
+class Spo2FetchResponse(BaseModel):
+    """Result of a kiosk-side pulse-oximeter fetch. ``status`` is always
+    set; the reading fields are only present when ``status == "ok"``."""
+
+    status: Literal[
+        "ok",
+        "busy",
+        "not_configured",
+        "device_not_found",
+        "wrong_device",
+        "timeout",
+        "error",
+    ]
+    spo2: int | None = None
+    pulse_bpm: int | None = None
+    measured_at: datetime | None = None
+    message: str | None = None
+    reading_id: UUID | None = None
+
+
+class Spo2DeviceStatusOut(BaseModel):
+    """Current pulse-oximeter configuration shown in the admin portal."""
+
+    device_name: str
+    device_mac: str | None
+    configured: bool
+    busy: bool
+
+
+class Spo2ScanDeviceOut(BaseModel):
+    mac: str
+    name: str | None = None
+    rssi: int | None = None
+    is_oximeter: bool = False
+
+
+class Spo2ScanResponse(BaseModel):
+    status: Literal["ok", "busy", "error"]
+    devices: list[Spo2ScanDeviceOut] = Field(default_factory=list)
+    message: str | None = None
+
+
+class Spo2PairRequest(BaseModel):
+    mac: str = Field(..., min_length=1, max_length=64)
+    # Advertised name from the scan list; shown in the portal after pairing.
+    name: str | None = Field(default=None, max_length=64)
+
+
+class Spo2PairResponse(BaseModel):
     status: Literal[
         "ok",
         "busy",

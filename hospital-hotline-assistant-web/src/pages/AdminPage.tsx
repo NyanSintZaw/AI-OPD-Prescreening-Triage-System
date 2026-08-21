@@ -11,6 +11,7 @@ import { Layout } from '../components/Layout';
 import { MessageBubble } from '../components/MessageBubble';
 import { BpDeviceManager } from '../components/BpDeviceManager';
 import { TempDeviceManager } from '../components/TempDeviceManager';
+import { Spo2DeviceManager } from '../components/Spo2DeviceManager';
 import { OutbreakSurveillance } from '../components/OutbreakSurveillance';
 import { TriageManualUpload } from '../components/TriageManualUpload';
 import { CriteriaManager } from '../components/CriteriaManager';
@@ -398,6 +399,7 @@ export function AdminPage() {
           <>
             <BpDeviceManager />
             <TempDeviceManager />
+            <Spo2DeviceManager />
           </>
         )}
         {activeTab === 'hospital-db' && <HospitalDbPanel />}

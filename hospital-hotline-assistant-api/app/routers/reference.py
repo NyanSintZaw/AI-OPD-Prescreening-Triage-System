@@ -424,3 +424,27 @@ async def get_available_doctors(
 
 
 # ── Disease Surveillance ──────────────────────────────────────────────────────
+
+
+# ── Screening reference data ──────────────────────────────────────────────────
+
+@router.get("/screening/vital-bounds")
+async def get_vital_bounds(connection: asyncpg.Connection = Depends(get_connection)):
+    """Physiologically possible ranges from the active criteria version.
+
+    The kiosk reads these so the patient gets instant, correctly-worded
+    feedback instead of a bare 422 — and so the numbers live in exactly one
+    place (the criteria document) rather than being retyped in the client.
+    """
+    from app.services.screening.rules.criteria_store import get_active_criteria
+
+    _, criteria = await get_active_criteria(connection)
+    return {
+        "bounds": {
+            name: bound.model_dump() for name, bound in criteria.vital_bounds.items()
+        },
+        "cross_checks": {
+            check_id: check.model_dump()
+            for check_id, check in criteria.cross_checks.items()
+        },
+    }
