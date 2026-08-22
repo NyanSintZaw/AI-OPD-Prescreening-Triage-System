@@ -49,3 +49,6 @@ Read `styles.css` and its import `_ds_bundle.css` for every token and class; eac
   </Card>
 </div>
 ```
+
+## Before composing a screen
+Read `guidelines/docs/guides/motion.md` (what moves, how fast, what never moves) and `guidelines/docs/guides/craft.md` (the reject list: one accent, no gradients/glass/icon grids, Thai-first type). They are short and non-negotiable.
