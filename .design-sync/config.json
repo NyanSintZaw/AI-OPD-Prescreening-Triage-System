@@ -1,0 +1,51 @@
+{
+  "projectId": "642c7d33-c1bc-48e3-a4b0-83d80f54441a",
+  "pkg": "@notuning/mali-ds",
+  "globalName": "MaliDS",
+  "shape": "package",
+  "buildCmd": "npm run build",
+  "cssEntry": "dist/styles.css",
+  "componentSrcMap": {},
+  "docsDir": "docs",
+  "overrides": {
+    "Button": {
+      "cardMode": "column"
+    },
+    "Wordmark": {
+      "cardMode": "column"
+    },
+    "Card": {
+      "cardMode": "column"
+    },
+    "DataTable": {
+      "cardMode": "column"
+    },
+    "Stepper": {
+      "cardMode": "column"
+    },
+    "Field": {
+      "cardMode": "column"
+    },
+    "Input": {
+      "cardMode": "column"
+    },
+    "Select": {
+      "cardMode": "column"
+    },
+    "Textarea": {
+      "cardMode": "column"
+    },
+    "Orb": {
+      "cardMode": "column"
+    },
+    "KioskQuestion": {
+      "cardMode": "column"
+    },
+    "Modal": {
+      "cardMode": "single",
+      "primaryStory": "Confirm",
+      "viewport": "680x440"
+    }
+  },
+  "readmeHeader": ".design-sync/conventions.md"
+}

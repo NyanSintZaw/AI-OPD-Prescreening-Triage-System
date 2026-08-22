@@ -1,0 +1,56 @@
+/* MALI colors — raw ramps first, semantic aliases second. Product code uses only the semantic layer. */
+:root {
+  /* Ink — warm neutral, the whole UI is drawn in it */
+  --ink-50: #faf9f6; --ink-100: #f3f1ec; --ink-200: #e6e2da; --ink-300: #d1cbc0;
+  --ink-400: #a8a094; --ink-500: #7d766c; --ink-600: #5b554d; --ink-700: #3f3a34;
+  --ink-800: #28241f; --ink-900: #15130f;
+  --paper: #fbfaf7;
+  --white: #ffffff;
+
+  /* Gold — from the no tuning mark. Signature only: focus, active step, wordmark dot, orb halo. Never a button fill. */
+  --gold-50: #fff8e1; --gold-100: #ffefb8; --gold-200: #ffe07a; --gold-400: #fcc018;
+  --gold-500: #f0ac00; --gold-600: #c98d00; --gold-700: #9a6b00;
+
+  /* Status — muted, clinical */
+  --green-500: #2f8f5b; --green-50: #eef7f1;
+  --red-500: #c8102e; --red-50: #fdeef0;
+  --orange-500: #e8591c; --orange-50: #fdf0ea;
+  --blue-500: #2e6fb7; --blue-50: #edf3fa;
+
+  /* Semantic */
+  --color-primary: var(--ink-900);
+  --color-primary-hover: var(--ink-700);
+  --color-primary-soft: var(--ink-100);
+  --color-on-primary: var(--paper);
+  --color-accent: var(--gold-500);
+  --color-accent-soft: var(--gold-50);
+
+  --text-heading: var(--ink-900);
+  --text-body: var(--ink-800);
+  --text-muted: var(--ink-500);
+  --text-subtle: var(--ink-400);
+  --text-link: var(--ink-900);
+
+  --surface-page: var(--paper);
+  --surface-card: var(--white);
+  --surface-muted: var(--ink-50);
+  --surface-sunken: var(--ink-100);
+
+  --border-subtle: var(--ink-100);
+  --border-default: var(--ink-200);
+  --border-strong: var(--ink-300);
+
+  --focus-ring: 0 0 0 3px rgba(240, 172, 0, 0.45);
+
+  --status-success: var(--green-500); --status-success-soft: var(--green-50);
+  --status-info: var(--blue-500);     --status-info-soft: var(--blue-50);
+  --status-warning: var(--gold-600);  --status-warning-soft: var(--gold-50);
+  --status-danger: var(--red-500);    --status-danger-soft: var(--red-50);
+
+  /* MOPH 5-level triage — nurse/admin surfaces only. Level 3 is deliberately darker than brand gold. */
+  --triage-1: #c8102e; --triage-1-soft: #fdeef0;
+  --triage-2: #e8591c; --triage-2-soft: #fdf0ea;
+  --triage-3: #d9a400; --triage-3-soft: #fff8e1;
+  --triage-4: #2f8f5b; --triage-4-soft: #eef7f1;
+  --triage-5: #6b7280; --triage-5-soft: #f1f2f4;
+}
