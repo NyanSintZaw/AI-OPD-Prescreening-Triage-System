@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { memo, useEffect, useRef } from 'react';
 import type { SVGProps } from 'react';
 import { NongMali } from './NongMali';
 import { playMark, type MarkMotion } from '../motion';
@@ -20,12 +20,21 @@ export interface MarkProps extends Omit<SVGProps<SVGSVGElement>, 'children'> {
  * The bud — MALI's secondary mark. Progress, loading, favicons, anywhere smaller than 40px.
  * Fixed brand palette (teal body, cream petal, gold stamens) — never recolour.
  */
-export function Mark({ size = 24, stage = 3, tone = 'teal', motion, ...rest }: MarkProps) {
+function MarkImpl({ size = 24, stage = 3, tone = 'teal', motion, ...rest }: MarkProps) {
   const ref = useRef<SVGSVGElement>(null);
   useEffect(() => {
     if (!motion) return;
-    const h = playMark(ref.current, motion);
-    return () => h.cancel();
+    /* Next frame, not this one: the mark's paths are written with
+       dangerouslySetInnerHTML, and on some hosts they are not queryable yet
+       when the effect fires — the motion would then animate nothing. */
+    let h: { cancel: () => void } | undefined;
+    const raf = requestAnimationFrame(() => {
+      h = playMark(ref.current, motion);
+    });
+    return () => {
+      cancelAnimationFrame(raf);
+      h?.cancel();
+    };
   }, [motion, stage, tone]);
   return (
     <svg ref={ref} width={size} height={size} viewBox="-40 -39 304 296" aria-hidden="true" {...rest}>
@@ -97,3 +106,7 @@ export function Wordmark({ height = 24, lang = 'en', friendly = false, product, 
     </span>
   );
 }
+
+/* Memoised for the same reason as NongMali: a parent re-render would replace
+   the animated path nodes and orphan any running motion. */
+export const Mark = memo(MarkImpl);

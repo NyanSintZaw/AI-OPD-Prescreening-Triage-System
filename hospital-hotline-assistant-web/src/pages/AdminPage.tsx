@@ -16,7 +16,7 @@ import {
   type ConversationSummaryOut,
   type MessageOut,
 } from '../api';
-import { getAdminEmail, getAdminRole, getAdminToken } from '../api/client';
+import { getAdminEmail, getAdminName, getAdminRole, getAdminToken } from '../api/client';
 import { Layout } from '../components/Layout';
 import { MessageBubble } from '../components/MessageBubble';
 import { BpDeviceManager } from '../components/BpDeviceManager';
@@ -111,6 +111,7 @@ export function AdminPage() {
   const [activeTab, setActiveTab] = useState<AdminTab>('sessions');
 
   const staffEmail = getAdminEmail() ?? t('loginAdminTab');
+  const staffName = getAdminName();
 
   const loadSummary = async (options: { initial?: boolean } = {}) => {
     if (options.initial) {
@@ -283,16 +284,16 @@ export function AdminPage() {
     <Layout
       language={language}
       onLanguageChange={setLanguage}
-      showAdminLink={false}
-      navTitle={t('adminPortalTitle')}
       staffEmail={staffEmail}
-      onStaffLogout={handleLogout}
       sidebar={
         <StaffNav
           items={navItems}
           active={activeTab}
           onSelect={setActiveTab}
           title={t('adminPortalTitle')}
+          accountName={staffName}
+          accountEmail={staffEmail}
+          onLogout={handleLogout}
         />
       }
     >

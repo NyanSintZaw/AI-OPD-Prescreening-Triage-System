@@ -126,6 +126,7 @@ export const api = {
     setAdminSession(response.access_token, {
       email: response.user.email,
       role: response.user.role,
+      fullName: response.user.full_name,
     });
     return response;
   },

@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { BookOpen, ChartBar, ClipboardText, WarningCircle, X } from '@phosphor-icons/react';
 import { api, type MessageOut } from '../api';
-import { getAdminEmail, getAdminRole, getAdminToken } from '../api/client';
+import { getAdminEmail, getAdminName, getAdminRole, getAdminToken } from '../api/client';
 import { Layout } from '../components/Layout';
 import { MessageBubble } from '../components/MessageBubble';
 import { CriteriaBook } from '../components/CriteriaBook';
@@ -188,7 +188,7 @@ function AssignResult({ review, onDone }: { review: AssessmentReviewOut; onDone:
     <div className="assign-result">
       <p className="assign-result-kicker">{t('nurseAssignNotQueued')}</p>
       <p className="alert-note alert-note-danger">
-        <WarningCircle size={18} weight="fill" aria-hidden="true" />
+        <WarningCircle size={18} weight="duotone" aria-hidden="true" />
         {messages[status] ?? t('nurseHisPushFailed')}
       </p>
       {detail ? <p className="muted">{detail}</p> : null}
@@ -254,6 +254,7 @@ export function NursePage() {
   const [assignResult, setAssignResult] = useState<AssessmentReviewOut | null>(null);
 
   const staffEmail = getAdminEmail() ?? t('loginNurseTab');
+  const staffName = getAdminName();
   const loginPathForRole = () => (getAdminRole() === 'nurse' ? '/login/nurse' : '/login/admin');
 
   const loadReviewData = async (status: ReviewFilter) => {
@@ -516,16 +517,16 @@ export function NursePage() {
     <Layout
       language={language}
       onLanguageChange={setLanguage}
-      showAdminLink={false}
-      navTitle={t('nursePortalTitle')}
       staffEmail={staffEmail}
-      onStaffLogout={handleLogout}
       sidebar={
         <StaffNav
           items={navItems}
           active={activeSection}
           onSelect={setActiveSection}
           title={t('nursePortalTitle')}
+          accountName={staffName}
+          accountEmail={staffEmail}
+          onLogout={handleLogout}
         />
       }
     >
@@ -549,7 +550,7 @@ export function NursePage() {
 
         {authError ? (
           <p className="alert-note alert-note-danger" role="alert">
-            <WarningCircle size={18} weight="fill" aria-hidden="true" />
+            <WarningCircle size={18} weight="duotone" aria-hidden="true" />
             {authError}
           </p>
         ) : null}
@@ -757,7 +758,7 @@ export function NursePage() {
               ) : step === 'confirm' ? (
                 <>
                   <p className="alert-note alert-note-warning">
-                    <WarningCircle size={18} weight="fill" aria-hidden="true" />
+                    <WarningCircle size={18} weight="duotone" aria-hidden="true" />
                     {t('nurseAssignWarning')}
                   </p>
                   <div className="confirm-destination">
@@ -821,7 +822,7 @@ export function NursePage() {
                 <>
                   {(selectedReview.missing_vitals?.length ?? 0) > 0 && (
                     <p className="alert-note alert-note-warning" role="alert">
-                      <WarningCircle size={18} weight="fill" aria-hidden="true" />
+                      <WarningCircle size={18} weight="duotone" aria-hidden="true" />
                       {t('nurseMissingVitals')}
                       {': '}
                       {selectedReview.missing_vitals!
@@ -831,7 +832,7 @@ export function NursePage() {
                   )}
                   {Object.keys(selectedReview.rejected_vitals ?? {}).length > 0 && (
                     <p className="alert-note alert-note-danger" role="alert">
-                      <WarningCircle size={18} weight="fill" aria-hidden="true" />
+                      <WarningCircle size={18} weight="duotone" aria-hidden="true" />
                       {t('nurseRejectedVitals')}
                       {': '}
                       {Object.entries(selectedReview.rejected_vitals!)
@@ -1156,7 +1157,7 @@ export function NursePage() {
 
               {dialogError ? (
                 <p className="alert-note alert-note-danger" role="alert">
-                  <WarningCircle size={18} weight="fill" aria-hidden="true" />
+                  <WarningCircle size={18} weight="duotone" aria-hidden="true" />
                   {dialogError}
                 </p>
               ) : null}

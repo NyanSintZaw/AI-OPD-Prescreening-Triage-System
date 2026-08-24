@@ -4,6 +4,7 @@ const baseUrl = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000';
 const ADMIN_TOKEN_KEY = 'hotline_admin_token';
 const ADMIN_EMAIL_KEY = 'hotline_admin_email';
 const ADMIN_ROLE_KEY = 'hotline_admin_role';
+const ADMIN_NAME_KEY = 'hotline_admin_name';
 
 export type StaffRole = 'super_admin' | 'nurse' | 'viewer';
 
@@ -24,6 +25,13 @@ function getAdminRole(): StaffRole | null {
 function getAdminEmail(): string | null {
   if (typeof window === 'undefined') return null;
   return window.localStorage.getItem(ADMIN_EMAIL_KEY);
+}
+
+/** Display name for the sidebar account block. The login response carries it;
+ *  it was simply never stored. Null for sessions signed in before this. */
+function getAdminName(): string | null {
+  if (typeof window === 'undefined') return null;
+  return window.localStorage.getItem(ADMIN_NAME_KEY);
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
@@ -84,25 +92,33 @@ function setAdminToken(token: string | null): void {
 
 function setAdminSession(
   token: string | null,
-  user?: { email: string; role: StaffRole } | null,
+  user?: { email: string; role: StaffRole; fullName?: string | null } | null,
 ): void {
   setAdminToken(token);
   if (typeof window === 'undefined') return;
   if (user && token) {
     window.localStorage.setItem(ADMIN_EMAIL_KEY, user.email);
     window.localStorage.setItem(ADMIN_ROLE_KEY, user.role);
+    if (user.fullName) {
+      window.localStorage.setItem(ADMIN_NAME_KEY, user.fullName);
+    } else {
+      window.localStorage.removeItem(ADMIN_NAME_KEY);
+    }
   } else {
     window.localStorage.removeItem(ADMIN_EMAIL_KEY);
     window.localStorage.removeItem(ADMIN_ROLE_KEY);
+    window.localStorage.removeItem(ADMIN_NAME_KEY);
   }
 }
 
 export {
   ADMIN_EMAIL_KEY,
+  ADMIN_NAME_KEY,
   ADMIN_ROLE_KEY,
   ADMIN_TOKEN_KEY,
   baseUrl,
   getAdminEmail,
+  getAdminName,
   getAdminRole,
   getAdminToken,
   request,

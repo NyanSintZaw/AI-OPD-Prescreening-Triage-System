@@ -43,7 +43,7 @@ function PlaceholderBadge() {
   const { t } = useTranslation();
   return (
     <span className="cm-flag" title={t('criteriaBookPlaceholderHint')}>
-      <WarningCircle size={13} weight="fill" aria-hidden="true" /> {t('criteriaBookPlaceholder')}
+      <WarningCircle size={13} weight="duotone" aria-hidden="true" /> {t('criteriaBookPlaceholder')}
     </span>
   );
 }
@@ -168,7 +168,7 @@ export function CriteriaBook() {
   if (error || !view)
     return (
       <p className="alert-note alert-note-danger" role="alert">
-        <WarningCircle size={18} weight="fill" aria-hidden="true" />
+        <WarningCircle size={18} weight="duotone" aria-hidden="true" />
         {error ?? t('error')}
       </p>
     );
@@ -204,7 +204,7 @@ export function CriteriaBook() {
 
       {placeholderCount > 0 && (
         <p className="alert-note alert-note-warning">
-          <WarningCircle size={18} weight="fill" aria-hidden="true" />
+          <WarningCircle size={18} weight="duotone" aria-hidden="true" />
           {t('criteriaBookPlaceholderCount', { n: placeholderCount })}
         </p>
       )}

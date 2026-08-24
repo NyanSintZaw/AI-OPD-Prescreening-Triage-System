@@ -15,12 +15,6 @@
      - Hover behind `@media (hover: hover)`; motion has a reduced-motion pair.
    ========================================================================= */
 
-/* The two stacked header bars, plus the hairline under the first one. The rail
-   pins directly beneath them so page scroll never moves it. */
-:root {
-  --staff-header-h: calc(var(--header-top-min-height) + var(--header-nav-height) + 1px);
-}
-
 /* ── Shell ───────────────────────────────────────────────────────────────────
    The staff portals run edge to edge. `.app-main` caps every page at
    --content-max-width (1140px), which on a 1920 monitor parked a data table
@@ -57,8 +51,7 @@ body:has(.app-main-sidebar) .app-shell {
 /* The header centres itself at --header-inner-max-width, which left the brand
    floating mid-screen while the nav rail sat at x=0. On a portal with a rail,
    the header runs edge to edge and its padding lines up with the rail. */
-body:has(.app-main-sidebar) .header-inner,
-body:has(.app-main-sidebar) .header-nav-inner {
+body:has(.app-main-sidebar) .header-inner {
   max-width: none;
   padding-inline: var(--space-5);
 }
@@ -79,8 +72,15 @@ body:has(.app-main-sidebar) .header-nav-inner {
   padding: var(--space-4) var(--space-3);
   background: var(--surface-card);
   border-inline-end: 1px solid var(--border-subtle);
-  overflow-y: auto;
   transition: inline-size var(--dur-enter) var(--ease-move);
+}
+
+/* Only the nav list scrolls, so the account block stays pinned at the foot
+   however many sections a portal has. */
+.staff-nav > nav {
+  flex: 1;
+  min-block-size: 0;
+  overflow-y: auto;
 }
 
 .staff-nav.is-collapsed {
@@ -94,7 +94,9 @@ body:has(.app-main-sidebar) .header-nav-inner {
   justify-content: space-between;
   gap: var(--space-2);
   min-block-size: var(--hit-target);
-  padding-inline-start: var(--space-3);
+  margin-block-end: var(--space-2);
+  padding: 0 var(--space-2) var(--space-3) var(--space-3);
+  border-block-end: 1px solid var(--border-subtle);
 }
 
 .staff-nav.is-collapsed .staff-nav-head {
@@ -102,16 +104,18 @@ body:has(.app-main-sidebar) .header-nav-inner {
   justify-content: center;
 }
 
+/* This names the portal you are in — it was set as a --text-xs subtle
+   micro-label, which read as a caption rather than a heading. */
 .staff-nav-title {
   margin: 0;
-  font-size: var(--text-xs);
-  font-weight: var(--fw-semibold);
+  font-size: var(--text-sm);
+  font-weight: var(--fw-bold);
   letter-spacing: var(--tracking-label);
   text-transform: uppercase;
-  color: var(--text-subtle);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  color: var(--teal-700);
+  /* Wraps rather than truncates: "Operations Admin Portal" clipped to
+     "OPERATIONS ADMIN PO…", and a portal's name is not an ellipsis candidate. */
+  line-height: var(--leading-snug);
 }
 
 .staff-nav-collapse {
@@ -1446,4 +1450,72 @@ body:has(.app-main-sidebar) .header-nav-inner {
 .criteria-book .cm-cond,
 .criteria-book .cm-effect {
   max-inline-size: var(--measure);
+}
+
+/* ── Account block ───────────────────────────────────────────────────────────
+   Who is signed in, and the way out. Replaces the teal band that ran across
+   the top of every staff page restating the portal title the rail already
+   carries. No avatar — a name and an email identify a person here. */
+
+.staff-nav-account {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-block-start: auto;
+  padding: var(--space-2);
+  border-radius: var(--radius-md);
+  background: var(--color-primary-soft);
+}
+
+.staff-nav.is-collapsed .staff-nav-account {
+  justify-content: center;
+  padding: var(--space-1);
+}
+
+.staff-nav-account-id {
+  flex: 1;
+  min-inline-size: 0;
+  padding-inline-start: var(--space-2);
+}
+
+.staff-nav-account-name {
+  margin: 0;
+  font-size: var(--text-sm);
+  font-weight: var(--fw-semibold);
+  color: var(--teal-800);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.staff-nav-account-email {
+  margin: 0;
+  font-size: var(--text-xs);
+  color: var(--teal-700);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.staff-nav-logout {
+  display: grid;
+  place-items: center;
+  inline-size: 2.25rem;
+  block-size: 2.25rem;
+  flex: none;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: var(--surface-card);
+  color: var(--teal-700);
+  cursor: pointer;
+  transition:
+    background-color var(--dur-color) var(--ease-move),
+    color var(--dur-color) var(--ease-move);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .staff-nav-logout:hover {
+    background: var(--color-primary);
+    color: var(--color-on-primary);
+  }
 }

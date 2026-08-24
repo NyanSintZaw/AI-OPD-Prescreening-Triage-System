@@ -97,36 +97,6 @@ a:hover {
   line-height: var(--leading-normal);
 }
 
-.header-nav {
-  background: var(--teal-700);
-}
-
-.header-nav-inner {
-  max-width: var(--header-inner-max-width);
-  margin: 0 auto;
-  padding: 0 1.5rem;
-  min-height: var(--header-nav-height);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  flex-wrap: wrap;
-}
-
-.nav-label {
-  color: #ffffff;
-  font-family: var(--font-sans);
-  font-weight: 500;
-  font-size: 0.95rem;
-  letter-spacing: 0.02em;
-}
-
-.header-actions {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  flex-wrap: wrap;
-}
 
 .language-switcher {
   display: flex;
@@ -251,19 +221,6 @@ a:hover {
   border-radius: var(--radius-sm);
 }
 
-.header-nav .text-link {
-  text-decoration: none;
-  color: #ffffff;
-  font-weight: 500;
-  padding: 0.5rem 0.75rem;
-  border-radius: var(--radius-sm);
-  transition: background 0.2s ease;
-}
-
-.header-nav .text-link:hover {
-  background: var(--gold-700);
-  color: #ffffff;
-}
 
 .back-link {
   text-decoration: none;
@@ -1830,10 +1787,7 @@ a:hover {
     font-size: 0.72rem;
   }
 
-  .nav-label {
-    font-size: 0.85rem;
-  }
-
+  
   .chat-page {
     gap: 0.75rem;
     min-height: auto;
@@ -2248,29 +2202,6 @@ a:hover {
   font-size: 0.85rem;
 }
 
-.staff-session {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-}
-
-.staff-session-email {
-  font-size: 0.85rem;
-  color: #ffffff;
-  opacity: 0.95;
-}
-
-.header-actions .text-link {
-  color: #ffffff;
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  font: inherit;
-  text-decoration: underline;
-  padding: 0;
-}
 
 @media (max-width: 768px) {
   .nurse-card-summary-grid,

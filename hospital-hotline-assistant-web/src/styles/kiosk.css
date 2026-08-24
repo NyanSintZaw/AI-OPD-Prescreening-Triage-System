@@ -2397,24 +2397,25 @@
    Number fills and grows, a ring ripples out of it, the icon and label
    brighten. No background block anywhere. 2s per step, 6s cycle, back to the
    start — a demonstration, never a progress bar: nothing is marked done. */
+/* No scale on the number: the rail attaches at a fixed offset, so a growing
+   dot eats into the gap and the two rail segments read as different lengths
+   whenever one is mid-highlight. The fill and the ripple carry the emphasis;
+   the ripple is absolutely positioned, so it never disturbs the rail. */
 @keyframes k-how-dot-on {
   0%, 6% {
     background-color: var(--k-surface);
     border-color: var(--k-primary-tint-border);
     color: var(--k-ink-3);
-    transform: scale(1);
   }
   13%, 25% {
     background-color: var(--k-primary);
     border-color: var(--k-primary);
     color: #fff;
-    transform: scale(1.12);
   }
   33%, 100% {
     background-color: var(--k-surface);
     border-color: var(--k-primary-tint-border);
     color: var(--k-ink-3);
-    transform: scale(1);
   }
 }
 

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { CaretLeft, type Icon } from '@phosphor-icons/react';
+import { CaretLeft, SignOut, type Icon } from '@phosphor-icons/react';
 
 export interface StaffNavItem<T extends string> {
   id: T;
@@ -17,6 +17,10 @@ interface StaffNavProps<T extends string> {
   onSelect: (id: T) => void;
   /** Portal name, so the sidebar says which of the two portals you are in. */
   title: string;
+  /** Signed-in staff, shown at the foot of the rail. */
+  accountName?: string | null;
+  accountEmail?: string | null;
+  onLogout?: () => void;
 }
 
 const COLLAPSE_KEY = 'staff-nav-collapsed';
@@ -33,7 +37,15 @@ const COLLAPSE_KEY = 'staff-nav-collapsed';
  * nurse who wants the widest possible queue table wants it on every shift,
  * not once.
  */
-export function StaffNav<T extends string>({ items, active, onSelect, title }: StaffNavProps<T>) {
+export function StaffNav<T extends string>({
+  items,
+  active,
+  onSelect,
+  title,
+  accountName,
+  accountEmail,
+  onLogout,
+}: StaffNavProps<T>) {
   const { t } = useTranslation();
   const [collapsed, setCollapsed] = useState(() => {
     try {
@@ -82,7 +94,7 @@ export function StaffNav<T extends string>({ items, active, onSelect, title }: S
                   // nav is collapsed, so it has to survive as a tooltip.
                   title={collapsed ? item.label : undefined}
                 >
-                  <Glyph size={20} weight={isActive ? 'fill' : 'regular'} aria-hidden="true" />
+                  <Glyph size={20} weight="duotone" aria-hidden="true" />
                   <span className="staff-nav-label">{item.label}</span>
                   {item.badge ? <span className="staff-nav-badge">{item.badge}</span> : null}
                 </button>
@@ -91,6 +103,33 @@ export function StaffNav<T extends string>({ items, active, onSelect, title }: S
           })}
         </ul>
       </nav>
+
+      {/* Who is signed in, and the way out. This replaces the teal band that
+          used to run across the top of every staff page repeating the portal
+          title the rail already states. */}
+      {accountEmail ? (
+        <div className="staff-nav-account">
+          {!collapsed && (
+            <div className="staff-nav-account-id">
+              {accountName ? <p className="staff-nav-account-name">{accountName}</p> : null}
+              <p className="staff-nav-account-email" title={accountEmail}>
+                {accountEmail}
+              </p>
+            </div>
+          )}
+          {onLogout ? (
+            <button
+              type="button"
+              className="staff-nav-logout"
+              onClick={onLogout}
+              aria-label={t('adminLogout')}
+              title={t('adminLogout')}
+            >
+              <SignOut size={18} weight="bold" aria-hidden="true" />
+            </button>
+          ) : null}
+        </div>
+      ) : null}
     </aside>
   );
 }

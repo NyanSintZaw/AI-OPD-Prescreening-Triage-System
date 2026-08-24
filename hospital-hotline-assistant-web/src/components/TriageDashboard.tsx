@@ -350,7 +350,7 @@ export function TriageDashboard({ scope }: { scope: Scope }) {
   if (error) {
     return (
       <p className="dash-error" role="alert">
-        <WarningCircle size={18} weight="fill" aria-hidden="true" />
+        <WarningCircle size={18} weight="duotone" aria-hidden="true" />
         {error}
       </p>
     );

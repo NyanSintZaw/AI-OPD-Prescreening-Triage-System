@@ -155,7 +155,7 @@ export function KioskAttract() {
           find a target. Keyboard is irrelevant on this hardware, but the
           button element keeps it reachable for bench testing. */}
       <button type="button" className="k-attract" onClick={wake}>
-        <NongMali size={200} />
+        <NongMali size={200} motion="nongRiseSway" />
 
         <div className="k-attract-head">
           <AnimatePresence mode="wait">
@@ -202,3 +202,4 @@ export function KioskAttract() {
     </KioskFrame>
   );
 }
+
