@@ -90,7 +90,14 @@
   touch-action: manipulation;
 }
 
-/* Two very subtle color blobs — the only decoration on the canvas. */
+.k-petals {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+
+/* Two very subtle color blobs behind the petal drift. */
 .kiosk-aurora {
   position: absolute;
   inset: 0;
@@ -807,20 +814,7 @@
 }
 
 /* Ambient floating icons on the canvas edges. */
-.k-floats {
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  pointer-events: none;
-  overflow: hidden;
-}
 
-.k-float-ico {
-  position: absolute;
-  color: var(--k-primary);
-  opacity: 0.13;
-  animation: k-bob 7s ease-in-out infinite;
-}
 
 @keyframes k-bob {
   0%,
@@ -2275,10 +2269,6 @@
     min-height: 10px;
   }
 
-  .k-float-ico {
-    opacity: 0.08;
-  }
-
   .k-home-footer {
     font-size: 13px;
   }
@@ -2290,7 +2280,6 @@
   .k-status-dot,
   .k-spinner,
   .k-mic-btn.recording,
-  .k-float-ico,
   .k-user-echo.live,
   .kiosk-aurora {
     animation: none !important;

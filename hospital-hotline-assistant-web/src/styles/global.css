@@ -98,7 +98,7 @@ a:hover {
 }
 
 .header-nav {
-  background: var(--mch-gold);
+  background: var(--teal-800);
 }
 
 .header-nav-inner {
@@ -230,8 +230,8 @@ a:hover {
 }
 
 .secondary-btn:hover:not(:disabled) {
-  background: var(--mch-gold);
-  border-color: var(--mch-gold);
+  background: var(--color-primary-hover);
+  border-color: var(--color-primary-hover);
   color: #ffffff;
 }
 
@@ -581,8 +581,8 @@ a:hover {
 
 .recommendation-card h3 {
   margin: 0 0 0.5rem;
-  color: var(--mch-gold-dark);
-  border-bottom: 2px solid var(--mch-gold);
+  color: var(--text-heading);
+  border-bottom: 2px solid var(--color-accent);
   padding-bottom: 0.35rem;
   display: inline-block;
 }
@@ -593,8 +593,8 @@ a:hover {
 
 .patient-id-btn.primary-btn,
 .chat-input-row.assessment-complete .patient-id-btn {
-  background: var(--mch-gold);
-  border-color: var(--gold-700);
+  background: var(--color-primary);
+  border-color: var(--color-primary-hover);
   color: #ffffff;
   box-shadow: 0 18px 34px -18px rgba(158, 120, 36, 0.95);
 }
@@ -672,7 +672,7 @@ a:hover {
 }
 
 .follow-up-card {
-  border: 2px solid var(--mch-gold);
+  border: 1px solid var(--gold-200);
   background: var(--gold-50);
   border-radius: var(--radius);
   padding: 0.85rem 1rem;
@@ -1168,7 +1168,7 @@ a:hover {
   gap: 1rem;
   flex-wrap: wrap;
   padding-bottom: 0.85rem;
-  border-bottom: 3px solid var(--mch-gold);
+  border-bottom: 2px solid var(--color-accent);
 }
 
 .admin-heading h1 {
@@ -5427,9 +5427,9 @@ a.cm-source-link:hover {
   min-height: 56px;
   min-width: 56px;
   padding: 0 1.15rem;
-  border: 1px solid var(--mch-gold-dark);
+  border: 1px solid var(--teal-800);
   border-radius: 999px;
-  background: var(--mch-gold);
+  background: var(--teal-700);
   color: #ffffff;
   font: inherit;
   font-weight: 600;
@@ -5441,7 +5441,7 @@ a.cm-source-link:hover {
 }
 
 .reviews-fab:hover {
-  background: var(--mch-gold-dark);
+  background: var(--teal-800);
   transform: translateY(-2px);
   box-shadow: rgba(0, 0, 0, 0.18) -4px 12px 28px -6px;
 }
@@ -5451,7 +5451,7 @@ a.cm-source-link:hover {
 }
 
 .reviews-fab:focus-visible {
-  outline: 3px solid var(--mch-navy);
+  outline: 3px solid var(--color-accent);
   outline-offset: 3px;
 }
 

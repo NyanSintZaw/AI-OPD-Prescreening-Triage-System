@@ -6,25 +6,20 @@ import {
   ArrowRight,
   Brain,
   ChatsCircle,
-  ClipboardText,
-  FirstAidKit,
   HandTap,
   Heartbeat,
   Hospital,
   MapTrifold,
   Microphone,
   NavigationArrow,
-  Pill,
   Printer,
-  Stethoscope,
-  Thermometer,
   Timer,
   Translate,
   UsersThree,
   X,
 } from '@phosphor-icons/react';
 import { KioskFrame } from '../components/kiosk/KioskFrame';
-import { AiOrb } from '../components/kiosk/AiOrb';
+import { NongMali } from '../design-system/components/NongMali';
 import { useLanguage } from '../hooks/useSession';
 import { useKioskStats } from '../hooks/useKioskStats';
 import { prewarmVoiceCall } from '../hooks/voicePrewarm';
@@ -109,40 +104,8 @@ export function KioskHome() {
 
   return (
     <KioskFrame language={language} onLanguageChange={setLanguage}>
-      {/* Ambient floating icons on the canvas edges (decorative only). */}
-      <div className="k-floats" aria-hidden="true">
-        <Stethoscope className="k-float-ico" size={64} weight="duotone" style={{ top: '12%', left: '4%' }} />
-        <Heartbeat
-          className="k-float-ico"
-          size={56}
-          weight="duotone"
-          style={{ top: '64%', left: '9%', animationDelay: '1.6s' }}
-        />
-        <Thermometer
-          className="k-float-ico"
-          size={52}
-          weight="duotone"
-          style={{ top: '18%', right: '6%', animationDelay: '0.9s' }}
-        />
-        <ClipboardText
-          className="k-float-ico"
-          size={60}
-          weight="duotone"
-          style={{ top: '70%', right: '4%', animationDelay: '2.4s' }}
-        />
-        <Pill
-          className="k-float-ico"
-          size={48}
-          weight="duotone"
-          style={{ top: '42%', right: '3%', animationDelay: '3.2s' }}
-        />
-        <FirstAidKit
-          className="k-float-ico"
-          size={54}
-          weight="duotone"
-          style={{ top: '38%', left: '6%', animationDelay: '4s' }}
-        />
-      </div>
+      {/* Brand background — petal drift, whisper opacity (welcome screens only). */}
+      <div className="k-petals mali-texture-petals" aria-hidden="true" />
 
       <div className="k-home">
         {/* Two zones in landscape: the PITCH column (rotating headline +
@@ -203,7 +166,7 @@ export function KioskHome() {
 
           <div className="k-home-action">
             <div className="k-hero-hello">
-              <AiOrb state="idle" size={64} />
+              <NongMali size={104} className="mali-nong--bloom" />
               <span className="k-hero-hello-text">{t('kioskHeroHello')}</span>
             </div>
 

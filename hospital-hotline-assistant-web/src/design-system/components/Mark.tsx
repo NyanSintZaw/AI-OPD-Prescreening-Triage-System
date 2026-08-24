@@ -1,4 +1,5 @@
 import type { SVGProps } from 'react';
+import { NongMali } from './NongMali';
 
 export interface MarkProps extends Omit<SVGProps<SVGSVGElement>, 'children'> {
   /** Pixel size of the square mark. */
@@ -50,14 +51,23 @@ export interface WordmarkProps {
   product?: string;
   /** `dark` reverses the lockup for deep-teal surfaces: paper letters, gold accent, signature bud. */
   tone?: 'light' | 'dark';
+  /** Which mark sits in the lockup. `nong` (default) — Nong Mali is the product's main logo.
+   *  `bud` for compact contexts (dense headers, favicons-adjacent). Dark tone always uses the signature bud. */
+  mark?: 'nong' | 'bud';
 }
 
 /** MALI wordmark — Anuphan bold, the L (or ล) in teal; friendly cut golds the i-dot (Thai: the vowel). */
-export function Wordmark({ height = 24, lang = 'en', friendly = false, product, tone = 'light' }: WordmarkProps) {
+export function Wordmark({ height = 24, lang = 'en', friendly = false, product, tone = 'light', mark = 'nong' }: WordmarkProps) {
   const VOWEL_I = '\u0E34';
   return (
     <span className={tone === 'dark' ? 'mali-wordmark mali-wordmark--dark' : 'mali-wordmark'} style={{ fontSize: height }}>
-      <Mark size={height * 1.15} tone={tone === 'dark' ? 'gold' : 'teal'} />
+      {tone === 'dark' ? (
+        <Mark size={height * 1.15} tone="gold" />
+      ) : mark === 'nong' ? (
+        <NongMali size={height * 1.6} />
+      ) : (
+        <Mark size={height * 1.15} />
+      )}
       <span className="mali-wordmark__name">
         {lang === 'th' ? (
           friendly ? (
