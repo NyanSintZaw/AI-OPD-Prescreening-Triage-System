@@ -53,6 +53,9 @@ Radii `--radius-sm/md/lg/xl/full`. Shadows `--shadow-xs/sm/md/lg`, tinted with D
 
 Full guidance ships with the package: `docs/guides/motion.md`, `docs/guides/craft.md`, and a per-component doc for each of the 19 components.
 
-## Legacy token aliases
+## One vocabulary
 
-`src/design-system/aliases.css` re-points the retired `--mch-*` / `--color-*` names at MALI tokens so pre-Brand-v1.0 CSS keeps rendering. It is a **migration shim, not API** — new code uses MALI tokens directly, and the shim shrinks to nothing as the remaining rules are swept.
+There is no alias layer. The retired `--mch-*` / `--color-*` names were swept out of the
+codebase (commit following `f253cbb`) and `aliases.css` deleted — every rule now names a
+MALI token directly. App layout constants (`--header-nav-height`, `--content-max-width`,
+…) live in `src/styles/tokens.css`; they are app state, not design tokens.

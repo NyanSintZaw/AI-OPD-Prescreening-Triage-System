@@ -73,11 +73,11 @@ export function RecommendationCard({ assessment, autoOpenMap = false }: Recommen
         
         {mapDestination && (
           <div 
-            style={{ marginTop: '16px', borderRadius: '8px', overflow: 'hidden', border: '1px solid var(--border)', aspectRatio: '637/454', cursor: 'pointer', position: 'relative' }}
+            style={{ marginTop: '16px', borderRadius: '8px', overflow: 'hidden', border: '1px solid var(--border-default)', aspectRatio: '637/454', cursor: 'pointer', position: 'relative' }}
             onClick={() => setShowMapPopup(true)}
           >
             <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.1)' }}>
-               <div style={{ backgroundColor: 'var(--bg)', padding: '8px 16px', borderRadius: '20px', fontWeight: 600, boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}>
+               <div style={{ backgroundColor: 'var(--surface-card)', padding: '8px 16px', borderRadius: '20px', fontWeight: 600, boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}>
                   {t('tapToViewMap', 'Tap to view interactive map')}
                </div>
             </div>

@@ -1,3 +1,11 @@
-/* MALI Brand v1.0 tokens — the old MFU/MCH token sheet is replaced by the
-   design system + a legacy alias layer (see src/design-system/aliases.css). */
+/* MALI Brand v1.0 — the design system is the only token vocabulary.
+   Vendored from @notuning/mali-ds; edit the package and re-copy. */
 @import '../design-system/index.css';
+
+/* App layout constants — not design tokens, owned by this app. */
+:root {
+  --header-nav-height: 48px;
+  --header-top-min-height: 110px;
+  --header-inner-max-width: min(1400px, 96vw);
+  --content-max-width: 1140px;
+}

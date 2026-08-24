@@ -96,7 +96,7 @@ function AvatarLoading() {
           style={{
             fontSize: 15,
             fontWeight: 600,
-            color: 'var(--k-ink-soft, #5a6584)',
+            color: 'var(--k-ink-3)',
             textAlign: 'center',
           }}
         >

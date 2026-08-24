@@ -57,8 +57,11 @@
   --status-warning: var(--gold-600);  --status-warning-soft: var(--gold-50);
   --status-danger: var(--red-500);    --status-danger-soft: var(--red-50);
 
-  /* MOPH 5-level triage — nurse/admin surfaces only, unchanged by branding. */
+  /* MOPH 5-level triage — nurse/admin surfaces only, unchanged by branding.
+     Level 1 also carries the emergency UI: -strong for hover/pressed on a
+     red action, -border for the hairline on an emergency banner. */
   --triage-1: #c8102e; --triage-1-soft: #fdeef0;
+  --triage-1-strong: #a80d26; --triage-1-border: #f5c2cb;
   --triage-2: #e8591c; --triage-2-soft: #fdf0ea;
   --triage-3: #d9a400; --triage-3-soft: #fff8e1;
   --triage-4: #2f8f5b; --triage-4-soft: #eef7f1;
