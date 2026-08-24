@@ -26,7 +26,7 @@
   /* Ink — deep leaf family */
   --k-ink: #1f3b38;
   --k-ink-2: #333d3a;
-  --k-ink-3: #8a9290;
+  --k-ink-3: #5f6b68;   /* 4.9:1 on paper — was #8a9290 at 3.02:1 */
   /* Primary — Mali Teal (the logo colour): navigation & primary actions ONLY.
      State colors below stay deliberately distinct so
      normal/success/warning/danger/disabled never look uniform. */
@@ -35,6 +35,9 @@
   --k-primary-deep: #386b66;
   --k-primary-tint: #ddecea;
   --k-primary-tint-border: #bbdad7;
+  /* Mali Teal is exactly 3.00:1 on white, so it can never carry small text.
+     Use this for teal text on a light surface (4.6:1). */
+  --k-primary-on-light: #3f7873;
   /* Success — confirmations, completed steps, "mic live" */
   --k-success: #3f8f6b;
   --k-success-strong: #35795a;
@@ -63,12 +66,12 @@
   --k-shadow-lg: 0 4px 10px rgba(31, 59, 56, 0.05), 0 22px 48px -14px rgba(31, 59, 56, 0.18);
   /* Type scale */
   --k-font: 'Anuphan Variable', 'Anuphan', 'Noto Sans Thai', system-ui, sans-serif;
-  --k-fs-display: clamp(42px, 4.6vw, 66px);
-  --k-fs-title: clamp(28px, 3vw, 42px);
-  --k-fs-lead: clamp(19px, 1.8vw, 24px);
-  --k-fs-body-lg: clamp(18px, 1.7vw, 22px);
-  --k-fs-body: clamp(16px, 1.4vw, 19px);
-  --k-fs-caption: clamp(14px, 1.15vw, 16px);
+  --k-fs-display: clamp(46px, 6vmin, 66px);
+  --k-fs-title: clamp(30px, 3.6vmin, 42px);
+  --k-fs-lead: clamp(22px, 2.4vmin, 26px);
+  --k-fs-body-lg: clamp(22px, 2.2vmin, 26px);
+  --k-fs-body: clamp(22px, 2.2vmin, 25px);
+  --k-fs-caption: clamp(20px, 1.9vmin, 22px);
   /* Motion */
   --k-ease: cubic-bezier(0.2, 0.8, 0.3, 1);
   --k-t-fast: 160ms;
@@ -189,25 +192,24 @@
 }
 
 .k-brand-name {
-  font-size: clamp(14px, 1.25vw, 19px);
+  font-size: clamp(17px, 1.7vmin, 20px);
   font-weight: 800;
-  color: #223145;
+  color: var(--k-ink);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 36vw;
+  max-width: 46vw;
 }
 
 .k-brand-sub {
-  font-size: clamp(10px, 0.85vw, 13px);
+  font-size: clamp(15px, 1.4vmin, 17px);
   font-weight: 600;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: #5a6570;
+  letter-spacing: 0.04em;
+  color: var(--k-ink-3);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 36vw;
+  max-width: 46vw;
 }
 
 .k-clock {
@@ -229,31 +231,36 @@
 }
 
 .k-lang button {
-  min-width: 66px;
-  min-height: 48px;
-  padding: 0 18px;
+  min-width: 84px;
+  min-height: var(--k-touch);
+  padding: 0 22px;
   border: none;
   border-radius: 999px;
   background: transparent;
-  color: var(--k-ink-3);
-  font-size: 17px;
+  color: var(--k-ink-2);
+  font-size: var(--k-fs-caption);
   font-weight: 700;
   cursor: pointer;
   transition: background var(--k-t-fast) var(--k-ease), color var(--k-t-fast) var(--k-ease);
 }
 
 .k-lang button.active {
-  background: var(--k-primary);
+  background: var(--k-primary-deep);
   color: #fff;
 }
 
 /* Labeled exit pill */
 .k-exit {
+  position: absolute;
+  left: 50%;
+  bottom: 40px;
+  transform: translateX(-50%);
+  z-index: 2;
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  min-height: 52px;
-  padding: 0 20px;
+  gap: 10px;
+  min-height: var(--k-touch);
+  padding: 0 34px;
   border-radius: 999px;
   border: 1px solid var(--k-border);
   background: var(--k-surface);
@@ -265,10 +272,6 @@
   transition: background var(--k-t-fast) var(--k-ease), border-color var(--k-t-fast) var(--k-ease);
 }
 
-.k-exit:hover {
-  background: var(--k-bg);
-  border-color: var(--k-border-strong);
-}
 
 /* ── Shell ──────────────────────────────────────────────────────────────── */
 /* NOTE: no z-index here — a z-index would trap fixed overlays/modals
@@ -345,9 +348,6 @@
   box-shadow: 0 10px 24px -10px rgba(88, 161, 157, 0.55), var(--k-shadow-sm);
 }
 
-.k-btn.primary:hover {
-  background: var(--k-primary-strong);
-}
 
 /* Success — confirm/complete actions ("I'm finished speaking"). */
 .k-btn.success {
@@ -356,9 +356,6 @@
   box-shadow: 0 10px 24px -10px rgba(63, 143, 107, 0.5), var(--k-shadow-sm);
 }
 
-.k-btn.success:hover {
-  background: var(--k-success-strong);
-}
 
 .k-btn.secondary {
   background: var(--k-surface);
@@ -367,10 +364,6 @@
   box-shadow: var(--k-shadow-sm);
 }
 
-.k-btn.secondary:hover {
-  background: var(--k-bg);
-  border-color: var(--k-border-strong);
-}
 
 /* Outline — a secondary action that must still read unmistakably tappable
    (vs the flat informational badges): white fill, visible primary border. */
@@ -382,20 +375,12 @@
   box-shadow: var(--k-shadow-sm);
 }
 
-.k-btn.outline:hover {
-  border-color: var(--k-primary);
-  background: var(--k-primary-tint);
-}
 
 .k-btn.ghost {
   background: transparent;
   color: var(--k-ink-3);
 }
 
-.k-btn.ghost:hover {
-  background: rgba(31, 59, 56, 0.05);
-  color: var(--k-ink-2);
-}
 
 .k-btn.danger-ghost {
   background: var(--k-surface);
@@ -404,9 +389,6 @@
   box-shadow: var(--k-shadow-sm);
 }
 
-.k-btn.danger-ghost:hover {
-  background: var(--k-danger-tint);
-}
 
 /* ── Cards ──────────────────────────────────────────────────────────────── */
 .k-card {
@@ -514,7 +496,14 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: clamp(16px, 2.8vh, 30px);
+  /* Fill the shell and distribute, rather than centring one short block.
+     On a 1920px-tall portrait panel, centring stranded ~370px of dead space
+     at the bottom — the most reachable part of the screen — while lifting the
+     primary action to eye height. Distributing drops the CTA into the
+     comfortable standing reach band and gives the reading blocks the top. */
+  justify-content: space-evenly;
+  min-height: 100%;
+  gap: clamp(16px, 2.4vh, 28px);
   width: min(1500px, 94vw);
   text-align: center;
 }
@@ -536,27 +525,6 @@
   display: contents;
 }
 
-.k-hero-hello {
-  order: 1;
-}
-.k-ad-head {
-  order: 2;
-}
-.k-hero-sub {
-  order: 3;
-}
-.k-ad-dots {
-  order: 4;
-}
-.k-feat-chips {
-  order: 5;
-}
-.k-cta-row {
-  order: 6;
-}
-.k-how {
-  order: 7;
-}
 
 /* Assistant presence: breathing orb + welcome line above the headline.
    The orb's box is slightly overcropped (its ring never reaches the edge)
@@ -574,7 +542,7 @@
 .k-hero-hello-text {
   font-size: var(--k-fs-lead);
   font-weight: 700;
-  color: var(--k-primary);
+  color: var(--k-primary-on-light);
 }
 
 /* Rotating pitch headline — fixed-height slot so crossfades don't reflow. */
@@ -601,7 +569,10 @@
   font-weight: 600;
   color: var(--k-ink-2);
   line-height: 1.5;
-  max-width: 30em;
+  /* ch, not em: Thai runs ~20% longer than English and orphaned its last
+     word at 30em. text-wrap balance keeps both languages evenly ragged. */
+  max-width: 52ch;
+  text-wrap: balance;
   margin: 0;
 }
 
@@ -673,9 +644,6 @@
   box-shadow: var(--k-shadow-lg);
 }
 
-.k-cta-row .k-cta-start:hover {
-  background: var(--k-primary-strong);
-}
 
 .k-cta-hint {
   font-size: var(--k-fs-caption);
@@ -698,7 +666,7 @@
 }
 
 .k-how-title {
-  font-size: var(--k-fs-caption);
+  font-size: var(--k-fs-body);
   font-weight: 800;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -1028,11 +996,6 @@
     transform var(--k-t-fast) var(--k-ease);
 }
 
-.k-lang-card:hover {
-  border-color: var(--k-primary);
-  box-shadow: var(--k-shadow-lg);
-  transform: translateY(-2px);
-}
 
 .k-lang-card:active {
   transform: scale(0.98);
@@ -1300,9 +1263,6 @@
   cursor: pointer;
 }
 
-.k-textlink:hover {
-  color: var(--k-ink-2);
-}
 
 .k-error {
   color: var(--k-danger);
@@ -1584,10 +1544,6 @@
     transform var(--k-t-fast) var(--k-ease);
 }
 
-.k-chip:hover {
-  border-color: var(--k-primary);
-  background: var(--k-primary-tint);
-}
 
 .k-chip:active {
   transform: scale(0.97);
@@ -1740,8 +1696,7 @@
   z-index: 20;
   display: flex;
   flex-direction: column;
-  background: rgba(244, 247, 249, 0.97);
-  backdrop-filter: blur(6px);
+  background: var(--k-bg);
 }
 
 .k-overlay-head {
@@ -1767,10 +1722,14 @@
   overflow: auto;
 }
 
-/* The CareNav wayfinder is a full-viewport app — give the iframe the
-   whole overlay body, no padding or scrolling. */
+/* The CareNav wayfinder is a full-viewport app — give the iframe the overlay
+   body, but stop short of the bottom so the exit pill sits on the surface
+   rather than floating over the map, and so there is a real backdrop to tap. */
 .k-overlay-body-map {
   padding: 0;
+  /* margin, not padding: padding stays inside the box and would still
+     swallow the backdrop tap below the map. */
+  margin-bottom: calc(var(--k-touch) + 72px);
   overflow: hidden;
   display: flex;
 }
@@ -1842,9 +1801,6 @@
   cursor: pointer;
 }
 
-.kiosk-root .primary-btn:hover {
-  background: var(--k-primary-strong);
-}
 
 .kiosk-root .secondary-btn {
   font-family: var(--k-font);
@@ -2036,7 +1992,7 @@
 
   .k-btn.xl {
     min-height: 64px;
-    font-size: clamp(18px, 1.9vw, 22px);
+    font-size: var(--k-fs-body);
     padding: 0 34px;
   }
 
@@ -2091,7 +2047,7 @@
   }
 
   .k-stat-line-text {
-    font-size: clamp(17px, 1.7vw, 21px);
+    font-size: var(--k-fs-caption);
   }
 
   .k-home-footer {
@@ -2140,7 +2096,7 @@
   }
 
   .k-stat-line-text {
-    font-size: clamp(17px, 1.7vw, 21px);
+    font-size: var(--k-fs-caption);
   }
 
   .k-stat-line-sub {
@@ -2220,8 +2176,8 @@
   }
 
   .k-hero-sub {
-    font-size: clamp(15px, 2.4vw, 20px);
-    max-width: 26em;
+    font-size: var(--k-fs-body-lg);
+    max-width: 52ch;
   }
 
   .k-how {
@@ -2288,4 +2244,180 @@
   .kiosk-root * {
     transition-duration: 1ms !important;
   }
+}
+
+/* ── Hover, gated ─────────────────────────────────────────────────────────
+   This is a touch panel: an ungated :hover sticks after a tap, leaving the
+   CTA in its pressed fill until the next patient touches something else.
+   Mouse-only, matching the design system's own rule. */
+@media (hover: hover) and (pointer: fine) {
+  .k-exit:hover {
+    background: var(--k-bg);
+    border-color: var(--k-border-strong);
+  }
+
+  .k-btn.primary:hover {
+    background: var(--k-primary-strong);
+  }
+
+  .k-btn.success:hover {
+    background: var(--k-success-strong);
+  }
+
+  .k-btn.secondary:hover {
+    background: var(--k-bg);
+    border-color: var(--k-border-strong);
+  }
+
+  .k-btn.outline:hover {
+    border-color: var(--k-primary);
+    background: var(--k-primary-tint);
+  }
+
+  .k-btn.ghost:hover {
+    background: rgba(31, 59, 56, 0.05);
+    color: var(--k-ink-2);
+  }
+
+  .k-btn.danger-ghost:hover {
+    background: var(--k-danger-tint);
+  }
+
+  .k-cta-row .k-cta-start:hover {
+    background: var(--k-primary-strong);
+  }
+
+  .k-lang-card:hover {
+    border-color: var(--k-primary);
+    box-shadow: var(--k-shadow-lg);
+    transform: translateY(-2px);
+  }
+
+  .k-textlink:hover {
+    color: var(--k-ink-2);
+  }
+
+  .k-chip:hover {
+    border-color: var(--k-primary);
+    background: var(--k-primary-tint);
+  }
+
+  .kiosk-root .primary-btn:hover {
+    background: var(--k-primary-strong);
+  }
+}
+
+/* ── Welcome screen ─────────────────────────────────────────────────────────
+   One question, one button. The advertising moved to /kiosk/attract, which
+   takes over when nobody is standing here. */
+.k-home-title {
+  margin: 0;
+  font-size: var(--k-fs-display);
+  font-weight: 800;
+  line-height: 1.15;
+  color: var(--k-ink);
+  max-width: 22ch;
+}
+
+/* What is about to happen, said before the patient commits. */
+.k-home-expect {
+  margin: 0;
+  max-width: 52ch;
+  text-wrap: balance;
+  font-size: var(--k-fs-body);
+  line-height: 1.5;
+  color: var(--k-ink-2);
+}
+
+/* Facts, not controls: no fill, no border, no radius — nothing that reads as
+   selectable. Same reasoning as the how-it-works rows below. */
+.k-facts {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px clamp(20px, 3vw, 40px);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.k-fact {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  font-size: var(--k-fs-caption);
+  font-weight: 600;
+  color: var(--k-ink-2);
+}
+
+.k-fact-ico {
+  display: inline-flex;
+  color: var(--k-primary-on-light);
+}
+
+/* ── Attract loop ──────────────────────────────────────────────────────────
+   The whole canvas is the target — a passer-by should not have to find one. */
+.k-attract {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  justify-content: space-evenly;
+  gap: clamp(20px, 3vh, 40px);
+  width: min(1500px, 94vw);
+  min-height: 100%;
+  padding: 0;
+  border: none;
+  background: none;
+  font: inherit;
+  color: inherit;
+  text-align: center;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.k-attract-head {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: clamp(120px, 15vh, 190px);
+  width: 100%;
+}
+
+.k-attract-title {
+  margin: 0;
+  font-size: var(--k-fs-display);
+  font-weight: 800;
+  line-height: 1.15;
+  color: var(--k-ink);
+  max-width: 20ch;
+}
+
+.k-attract-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  min-height: var(--k-touch);
+  padding: 0 38px;
+  border-radius: var(--k-r-lg);
+  background: var(--k-primary);
+  color: #fff;
+  font-size: var(--k-fs-body-lg);
+  font-weight: 700;
+  box-shadow: var(--k-shadow-md);
+}
+
+.k-attract-board {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: min(920px, 92%);
+  min-height: clamp(96px, 12vh, 140px);
+  padding: 20px 28px;
+  border: 1px solid var(--k-border);
+  border-radius: var(--k-r-md);
+  background: var(--k-surface);
+  box-shadow: var(--k-shadow-sm);
 }
