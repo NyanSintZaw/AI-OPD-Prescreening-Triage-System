@@ -76,7 +76,7 @@ The admin dashboard has **no authentication** in this MVP. Add auth before produ
 
 ## Design
 
-UI follows the **MALI design system** (Brand v1.0), vendored from `@notuning/mali-ds` into `src/design-system/`. See [DESIGN.md](./DESIGN.md) for the marks, colour, typography, and motion tokens.
+UI follows the **MALI design system** (Brand v1.0), vendored from the repo-root `mali-design-system/` package into `src/design-system/` (`npm run sync:ds`). See [DESIGN.md](./DESIGN.md) for the marks, colour, typography, and motion tokens.
 
 ## Project structure
 

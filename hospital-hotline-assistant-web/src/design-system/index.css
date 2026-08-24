@@ -1,5 +1,6 @@
-/* MALI design system — vendored from @notuning/mali-ds (~/Projects/mali-design-system).
-   Keep that package the source of truth: edit there, re-copy here. */
+/* MALI design system — vendored from the repo-root mali-design-system/ package.
+   That package is the source of truth: edit there, then `npm run sync:ds`.
+   Everything here except this file is a byte copy; this file is app glue. */
 @import './tokens/colors.css';
 @import './tokens/typography.css';
 @import './tokens/spacing.css';

@@ -1,6 +1,8 @@
 # MALI Design System
 
-**Single source of truth: the `@notuning/mali-ds` package at `~/Projects/mali-design-system`**, authored in Claude Design (project `642c7d33-c1bc-48e3-a4b0-83d80f54441a`). This app *vendors* that package into `src/design-system/` — tokens, component CSS, and the brand marks. **Edit the package, then re-copy here.** Never hand-edit `src/design-system/` in this repo; those edits are lost on the next sync.
+**Single source of truth: the `mali-design-system/` package at the repo root**, authored in Claude Design (project `642c7d33-c1bc-48e3-a4b0-83d80f54441a`). It lives in this repo so the design system is versioned with the code that consumes it. The app *vendors* a subset — tokens, component CSS, the two brand marks, `motion.ts` — into `src/design-system/`, because it only uses a fraction of the package and must build without reaching outside its own directory.
+
+**Edit the package, then `npm run sync:ds`.** Never hand-edit `src/design-system/`; those edits are lost on the next sync. `npm run sync:ds -- --check` fails if the copy has drifted — the app running motion code the package no longer has is exactly the bug it catches.
 
 The earlier MFU/MCH website theme (gold `#BA9643`, cyan `#3EA3CB`, Pridi/Athiti webfonts, CDN logo) is **retired**. It is not a fallback and not a variant.
 
@@ -12,7 +14,7 @@ The earlier MFU/MCH website theme (gold `#BA9643`, cyan `#3EA3CB`, Pridi/Athiti 
 | **The bud** | `Mark` | Loading and progress **only**: the conversation orb, step completion (`stage={0\|1\|3}` stamens), spinners, favicon, anything under 40px. |
 | **Wordmark** | `Wordmark` | Anuphan Bold, teal `L` (Thai: teal `ล`). Carries Nong Mali by default; `mark="bud"` for dense headers; `tone="dark"` on deep-teal surfaces (paper letters, gold accent, gold signature bud); `friendly` for the lowercase gold i-dot cut. |
 
-Masters: `~/Projects/mali-design-system/brand/` (`nong-mali.svg`, `bud.svg`). Never recolour, stretch, rotate, or outline the marks. Keep clear space of half the mark's width.
+Masters: `mali-design-system/brand/` at the repo root (`nong-mali.svg`, `bud.svg`). Never recolour, stretch, rotate, or outline the marks. Keep clear space of half the mark's width.
 
 ## Colour
 
