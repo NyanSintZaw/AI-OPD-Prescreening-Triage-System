@@ -75,3 +75,6 @@ his_mock.db
 
 # Postman local-workspace metadata (contains an account-specific workspace id)
 .postman/
+
+# Impeccable critique snapshots (local working notes)
+.impeccable/
