@@ -2316,9 +2316,11 @@
 }
 
 .k-how-steps {
+  --k-how-gap: clamp(18px, 2.2vh, 30px);
+  --k-how-inset: 31px; /* dot radius 23 + 8px breathing room */
   display: flex;
   flex-direction: column;
-  gap: clamp(18px, 2.2vh, 30px);
+  gap: var(--k-how-gap);
   width: 100%;
   margin: 0;
   padding: 0;
@@ -2338,9 +2340,11 @@
 .k-how-step:not(:last-child)::before {
   content: '';
   position: absolute;
-  left: 23px;
-  top: 46px;
-  bottom: calc(-1 * clamp(18px, 2.2vh, 30px));
+  /* Same symmetric formula as landscape, on the y axis: start one inset below
+     this dot's centre, stop one inset above the next dot's centre. */
+  left: 22px;
+  top: calc(50% + var(--k-how-inset));
+  bottom: calc(-50% - var(--k-how-gap) + var(--k-how-inset));
   width: 2px;
   background: var(--k-primary-tint-border);
 }
@@ -2459,9 +2463,10 @@
 
 @media (orientation: landscape) and (min-width: 900px) {
   .k-how-steps {
+    --k-how-gap: clamp(16px, 2vw, 36px);
     flex-direction: row;
     align-items: flex-start;
-    gap: clamp(16px, 2vw, 36px);
+    gap: var(--k-how-gap);
   }
 
   .k-how-step {
@@ -2473,9 +2478,12 @@
   }
 
   /* Rail runs sideways between the numbers, at their centre line. */
+  /* The flex gap sits between this step and the next, so the right offset has
+     to subtract it — without that the line ended 8px after its own dot but
+     44px before the following one. */
   .k-how-step:not(:last-child)::before {
-    left: calc(50% + 31px);
-    right: calc(-50% + 31px);
+    left: calc(50% + var(--k-how-inset));
+    right: calc(-50% - var(--k-how-gap) + var(--k-how-inset));
     top: 22px;
     bottom: auto;
     width: auto;
