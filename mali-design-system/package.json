@@ -1,0 +1,26 @@
+{
+  "name": "@notuning/mali-ds",
+  "version": "0.1.0",
+  "description": "MALI design system — no tuning. Tokens + React primitives for MALI Prescreening (kiosk, nurse, admin).",
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": { ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" }, "./styles.css": "./dist/styles.css" },
+  "files": ["dist"],
+  "sideEffects": ["*.css"],
+  "scripts": {
+    "build": "tsup && esbuild src/styles.css --bundle --outfile=dist/styles.css --loader:.woff2=copy --asset-names=fonts/[name]",
+    "build:js": "tsup"
+  },
+  "peerDependencies": { "react": ">=18", "react-dom": ">=18" },
+  "devDependencies": {
+    "@types/react": "^19.1.0",
+    "@types/react-dom": "^19.1.0",
+    "esbuild": "^0.25.0",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "tsup": "^8.5.0",
+    "typescript": "^5.9.0"
+  }
+}

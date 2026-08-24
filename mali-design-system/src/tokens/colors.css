@@ -1,0 +1,69 @@
+/* MALI colors — Brand Guidelines v1.0. Every colour derives from the Nong Mali mark:
+   her teal body, gold stamens, cream petals. Raw ramps first, semantic aliases second.
+   Product code uses only the semantic layer. */
+:root {
+  /* Mali Teal — primary family, from her body. 500 is the logo colour. */
+  --teal-50: #f0f7f6; --teal-100: #ddecea; --teal-200: #bbdad7; --teal-300: #93c4c0;
+  --teal-400: #73b1ac; --teal-500: #58a19d; --teal-600: #46867f; --teal-700: #386b66;
+  --teal-800: #2c534f; --teal-900: #1f3b38;
+
+  /* Warm neutrals — paper surfaces and greyed greens for secondary text.
+     900 is Deep Leaf Ink (headings / dark UI), 800 the neutral body colour. */
+  --ink-50: #faf9f5; --ink-100: #f0eee6; --ink-200: #e4e2da; --ink-300: #c6c9c2;
+  --ink-400: #8a9290; --ink-500: #5b6664; --ink-600: #49534f; --ink-700: #333d3a;
+  --ink-800: #21272a; --ink-900: #1f3b38;
+  --paper: #faf9f5;
+  --white: #ffffff;
+  --petal: #dde8df; /* Petal Cream — soft surface / facet, from the mark */
+
+  /* Stamen Gold — from her heart. Signature only: active step, listening dot,
+     wordmark dot, small signals. Never a button fill, never a surface. */
+  --gold-50: #f9f2e3; --gold-100: #f3e6c8; --gold-200: #ebd49d; --gold-400: #e4c77f;
+  --gold-500: #dbb566; --gold-600: #b98f3e; --gold-700: #93702c;
+
+  /* Status — tuned to the teal family */
+  --green-500: #3f8f6b; --green-50: #eaf5ef;
+  --red-500: #c05b4d; --red-50: #faedeb;
+  --orange-500: #b98f3e; --orange-50: #f9f2e3;
+  --blue-500: #4a7fb5; --blue-50: #edf3f9;
+
+  /* Semantic */
+  --color-primary: var(--teal-500);
+  --color-primary-hover: var(--teal-600);
+  --color-primary-soft: var(--teal-50);
+  --color-on-primary: var(--white);
+  --color-accent: var(--gold-500);
+  --color-accent-soft: var(--gold-50);
+
+  --text-heading: var(--teal-900);
+  --text-body: var(--ink-800);
+  --text-muted: var(--ink-500);
+  --text-subtle: var(--ink-400);
+  --text-link: var(--teal-700);
+
+  --surface-page: var(--paper);
+  --surface-card: var(--white);
+  --surface-muted: var(--teal-50);
+  --surface-sunken: var(--ink-100);
+
+  --border-subtle: var(--ink-100);
+  --border-default: var(--ink-200);
+  --border-strong: var(--ink-300);
+
+  --focus-ring: 0 0 0 3px rgba(88, 161, 157, 0.5);
+
+  --status-success: var(--green-500); --status-success-soft: var(--green-50);
+  --status-info: var(--blue-500);     --status-info-soft: var(--blue-50);
+  --status-warning: var(--gold-600);  --status-warning-soft: var(--gold-50);
+  --status-danger: var(--red-500);    --status-danger-soft: var(--red-50);
+
+  /* MOPH 5-level triage — nurse/admin surfaces only, unchanged by branding.
+     Level 1 also carries the emergency UI: -strong for hover/pressed on a
+     red action, -border for the hairline on an emergency banner. */
+  --triage-1: #c8102e; --triage-1-soft: #fdeef0;
+  --triage-1-strong: #a80d26; --triage-1-border: #f5c2cb;
+  --triage-2: #e8591c; --triage-2-soft: #fdf0ea;
+  --triage-3: #d9a400; --triage-3-soft: #fff8e1;
+  --triage-4: #2f8f5b; --triage-4-soft: #eef7f1;
+  --triage-5: #6b7280; --triage-5-soft: #f1f2f4;
+}
