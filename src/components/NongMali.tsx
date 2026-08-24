@@ -12,7 +12,13 @@ export interface NongMaliProps extends Omit<SVGProps<SVGSVGElement>, 'children'>
    *  under prefers-reduced-motion. */
   motion?: Extract<
     MarkMotion,
-    'nongBloom' | 'nongRise' | 'nongWave' | 'nongRiseSway' | 'nongExplode' | 'nongHeartbeat'
+    | 'nongBloom'
+    | 'nongRise'
+    | 'nongWave'
+    | 'nongRiseSway'
+    | 'nongExplode'
+    | 'nongHeartbeat'
+    | 'nongShowreel'
   >;
 }
 
