@@ -644,13 +644,6 @@
   box-shadow: var(--k-shadow-lg);
 }
 
-
-.k-cta-hint {
-  font-size: var(--k-fs-caption);
-  font-weight: 600;
-  color: var(--k-ink-3);
-}
-
 /* How-it-works panel — a numbered TIMELINE, deliberately flat. These rows
    are information, not menu options: no per-step card fill, border, or
    scale (which read as "selectable"). Only the number circle, inline icon
@@ -734,12 +727,6 @@
   display: inline-flex;
   color: var(--k-ink-3);
   transition: color 450ms var(--k-ease);
-}
-
-.k-how-sub {
-  font-size: var(--k-fs-caption);
-  color: var(--k-ink-3);
-  line-height: 1.4;
 }
 
 .k-how-step.active .k-how-name {
@@ -1861,10 +1848,6 @@
     align-items: flex-start;
   }
 
-  .k-cta-hint {
-    align-self: center;
-  }
-
   .k-how {
     width: 100%;
     max-width: none;
@@ -2031,10 +2014,6 @@
   .k-hero-sub {
     font-size: 16px;
     max-width: 26em;
-  }
-
-  .k-cta-hint {
-    font-size: 13px;
   }
 
   .k-today-label {
@@ -2320,14 +2299,6 @@
 }
 
 /* What is about to happen, said before the patient commits. */
-.k-home-expect {
-  margin: 0;
-  max-width: 52ch;
-  text-wrap: balance;
-  font-size: var(--k-fs-body);
-  line-height: 1.5;
-  color: var(--k-ink-2);
-}
 
 /* Facts, not controls: no fill, no border, no radius — nothing that reads as
    selectable. Same reasoning as the how-it-works rows below. */

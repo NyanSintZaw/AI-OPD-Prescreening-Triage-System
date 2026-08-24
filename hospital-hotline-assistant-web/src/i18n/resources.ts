@@ -3,16 +3,20 @@ export const resources = {
     translation: {
       // ── Kiosk booth ──────────────────────────────────────────────────────
       kioskWelcome: 'Welcome',
-      kioskWelcomeSub: 'Tell MALI your symptoms — MALI will guide you to the right department.',
+      // The welcome screen's own headline. The attract loop keeps the hook
+      // ('Not sure which department...?'); repeating it here made tapping
+      // through show the same sentence twice.
+      kioskHomeTitle: 'Let’s find the right department for you',
+      // One line carries what happens AND the reassurance. Previously this was
+      // two paragraphs plus a 'Just speak' chip, all saying the same thing.
+      kioskWelcomeSub: 'Just say your symptoms out loud — a nurse checks every result before you are seen.',
       kioskBrandSub: 'Care navigation assistant',
-      kioskDurationHint: 'Takes about 3–5 minutes',
       // Attract screen (rotating pitch + how-it-works)
       kioskAd1: 'Not sure which department you need?',
       kioskAd2: 'Just say your symptoms — MALI will guide you',
       kioskAd3: 'Only 3–5 minutes, no typing needed',
       kioskTouchStart: 'Touch to start',
       kioskAttractTap: 'Tap anywhere to start',
-      kioskSpeakAloud: 'You’ll say your symptoms out loud, and a nurse checks the result before you are seen.',
       kioskHeroHello: 'Hello, I’m MALI. I’m here to help.',
       kioskStatEmptyText: 'Be the first today — tap Start to begin!',
       kioskStatEmptySub: 'MALI is ready and waiting to guide you',
@@ -24,17 +28,13 @@ export const resources = {
       kioskAdBoard2Sub: 'Show it at the counter — the staff will know exactly where you are headed.',
       kioskAdBoard3Text: 'Your answers help nurses prepare before you even arrive',
       kioskAdBoard3Sub: 'The care team sees your symptoms summary the moment you are routed.',
-      kioskFeatVoice: 'Just speak',
       kioskFeatLang: 'ไทย / English',
       kioskFeatTime: '3–5 minutes',
       kioskFeatSlip: 'Printed guidance slip',
       kioskHowTitle: 'How it works',
       kioskHow1: 'Tell your symptoms',
-      kioskHow1Sub: 'Speak naturally — MALI is listening',
       kioskHow2: 'MALI asks a few questions',
-      kioskHow2Sub: 'A few quick questions — tap or speak to answer',
       kioskHow3: 'Get your department',
-      kioskHow3Sub: 'With a hospital map and a printed slip',
       kioskTodayTitle: 'Today at the hospital',
       kioskStepIdentify: 'Identify',
       kioskStepTalk: 'Symptoms',
@@ -879,16 +879,15 @@ export const resources = {
     translation: {
       // ── Kiosk booth ──────────────────────────────────────────────────────
       kioskWelcome: 'ยินดีต้อนรับ',
-      kioskWelcomeSub: 'บอกอาการของคุณกับมะลิ แล้วมะลิจะแนะนำแผนกที่เหมาะสมให้คุณ',
+      kioskHomeTitle: 'มาหาแผนกที่เหมาะกับคุณกันค่ะ',
+      kioskWelcomeSub: 'บอกอาการของคุณออกเสียงได้เลยค่ะ พยาบาลจะตรวจสอบผลทุกครั้งก่อนพบแพทย์',
       kioskBrandSub: 'ผู้ช่วยนำทางการรักษา',
-      kioskDurationHint: 'ใช้เวลาประมาณ 3–5 นาที',
       // Attract screen (rotating pitch + how-it-works)
       kioskAd1: 'ไม่แน่ใจว่าต้องไปแผนกไหน?',
       kioskAd2: 'แค่บอกอาการ มะลิจะแนะนำแผนกให้คุณ',
       kioskAd3: 'ใช้เวลาเพียง 3–5 นาที ไม่ต้องพิมพ์',
       kioskTouchStart: 'แตะเพื่อเริ่ม',
       kioskAttractTap: 'แตะที่ใดก็ได้เพื่อเริ่ม',
-      kioskSpeakAloud: 'คุณจะพูดอาการออกเสียง และพยาบาลจะตรวจสอบผลก่อนพบแพทย์',
       kioskHeroHello: 'สวัสดีค่ะ มะลิพร้อมดูแลคุณ',
       kioskStatEmptyText: 'จะเป็นคนแรกของวันนี้ไหม? แตะปุ่มเพื่อเริ่มเลย',
       kioskStatEmptySub: 'มะลิพร้อมให้บริการและรอแนะนำคุณอยู่',
@@ -900,17 +899,13 @@ export const resources = {
       kioskAdBoard2Sub: 'ยื่นที่เคาน์เตอร์ได้เลย เจ้าหน้าที่จะทราบทันทีว่าคุณกำลังไปแผนกไหน',
       kioskAdBoard3Text: 'คำตอบของคุณช่วยให้พยาบาลเตรียมพร้อมก่อนคุณไปถึง',
       kioskAdBoard3Sub: 'ทีมดูแลจะเห็นสรุปอาการของคุณทันทีที่ระบบส่งต่อแผนก',
-      kioskFeatVoice: 'พูดได้เลย',
       kioskFeatLang: 'ไทย / English',
       kioskFeatTime: '3–5 นาที',
       kioskFeatSlip: 'รับใบแนะนำแผนก',
       kioskHowTitle: 'ใช้งานอย่างไร',
       kioskHow1: 'บอกอาการของคุณ',
-      kioskHow1Sub: 'พูดได้ตามธรรมชาติ มะลิกำลังฟังอยู่',
       kioskHow2: 'มะลิถามอาการเพิ่มเติม',
-      kioskHow2Sub: 'ตอบคำถามสั้น ๆ แตะหรือพูดก็ได้',
       kioskHow3: 'รับแผนกที่เหมาะสม',
-      kioskHow3Sub: 'พร้อมแผนที่และใบแนะนำแผนก',
       kioskTodayTitle: 'วันนี้ที่โรงพยาบาล',
       kioskStepIdentify: 'ระบุตัวตน',
       kioskStepTalk: 'อาการ',

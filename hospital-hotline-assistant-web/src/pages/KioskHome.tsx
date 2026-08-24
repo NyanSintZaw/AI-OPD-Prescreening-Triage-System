@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { motion, useReducedMotion } from 'framer-motion';
@@ -37,8 +37,6 @@ export function KioskHome() {
 
   // Booth hygiene: an abandoned screen must not greet the next patient
   // mid-flow, in the previous visitor's language, or stuck behind the map.
-  const showMapRef = useRef(showMap);
-  showMapRef.current = showMap;
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout>;
     const arm = () => {
@@ -77,14 +75,16 @@ export function KioskHome() {
     navigate('/kiosk/session');
   };
 
+  // Names only. Each step previously carried a sub-line that restated the
+  // name directly above it ("MALI asks a few questions" / "A few quick
+  // questions — tap or speak to answer").
   const howSteps = [
-    { icon: <Microphone size={26} weight="duotone" />, name: t('kioskHow1'), sub: t('kioskHow1Sub') },
-    { icon: <Brain size={26} weight="duotone" />, name: t('kioskHow2'), sub: t('kioskHow2Sub') },
-    { icon: <Hospital size={26} weight="duotone" />, name: t('kioskHow3'), sub: t('kioskHow3Sub') },
+    { icon: <Microphone size={26} weight="duotone" />, name: t('kioskHow1') },
+    { icon: <Brain size={26} weight="duotone" />, name: t('kioskHow2') },
+    { icon: <Hospital size={26} weight="duotone" />, name: t('kioskHow3') },
   ];
 
   const facts = [
-    { icon: <Microphone size={22} weight="duotone" />, label: t('kioskFeatVoice') },
     { icon: <Translate size={22} weight="duotone" />, label: t('kioskFeatLang') },
     { icon: <Timer size={22} weight="duotone" />, label: t('kioskFeatTime') },
     { icon: <Printer size={22} weight="duotone" />, label: t('kioskFeatSlip') },
@@ -101,12 +101,10 @@ export function KioskHome() {
           <span className="k-hero-hello-text">{t('kioskHeroHello')}</span>
         </div>
 
-        {/* The patient's actual problem, stated once, at the top of the page. */}
-        <h1 className="k-home-title">{t('kioskAd1')}</h1>
-        <p className="k-hero-sub">{t('kioskWelcomeSub')}</p>
+        <h1 className="k-home-title">{t('kioskHomeTitle')}</h1>
 
-        {/* What is about to happen to them. Said before they commit, not after. */}
-        <p className="k-home-expect">{t('kioskSpeakAloud')}</p>
+        {/* One line: what happens, and who checks it. */}
+        <p className="k-hero-sub">{t('kioskWelcomeSub')}</p>
 
         {/* Plain facts, deliberately not styled as controls. */}
         <ul className="k-facts">
@@ -138,8 +136,6 @@ export function KioskHome() {
               <ArrowRight size={34} weight="bold" />
             </motion.span>
           </motion.button>
-          <span className="k-cta-hint">{t('kioskDurationHint')}</span>
-
           <button type="button" className="k-btn outline" onClick={() => setShowMap(true)}>
             <MapTrifold size={26} weight="duotone" aria-hidden="true" />
             {t('kioskViewMap')}
@@ -163,7 +159,6 @@ export function KioskHome() {
                   </span>
                   {step.name}
                 </span>
-                <span className="k-how-sub">{step.sub}</span>
               </span>
             </div>
           ))}
