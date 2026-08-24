@@ -2436,9 +2436,13 @@
   33%, 100% { color: var(--k-ink-3); }
 }
 
+/* The label takes the brand teal as it grows — --k-primary-on-light, not
+   --k-primary: Mali Teal is exactly 3.00:1 on white, which is the bare
+   large-text minimum with no margin, and this label is only large by virtue of
+   being bold. The darker cut clears 4.6:1. */
 @keyframes k-how-text-on {
   0%, 6%    { color: var(--k-ink-2); transform: scale(1); }
-  13%, 25%  { color: var(--k-ink); transform: scale(1.09); }
+  13%, 25%  { color: var(--k-primary-on-light); transform: scale(1.09); }
   33%, 100% { color: var(--k-ink-2); transform: scale(1); }
 }
 
