@@ -730,37 +730,6 @@ export function playMark(
       return SWAY_DUR * turns;
     };
 
-    /** A rise, then `turns` of sway. */
-    const riseSwayRun = (turns: number): number => {
-      const live = [...root.querySelectorAll<SVGGeometryElement>('path, circle, ellipse')];
-      if (live.length === 0) return 400;
-      const ln = live.length;
-      live.forEach((p, i) => {
-        const st = p.style as CSSStyleDeclaration & { transformBox?: string };
-        st.transformBox = 'fill-box';
-        st.transformOrigin = 'center';
-        track(
-          p.animate(
-            [
-              { transform: 'translateY(14px)', opacity: 0 },
-              { transform: 'translateY(0)', opacity: 1 },
-            ],
-            { duration: RISE_DUR, delay: i * (RISE_STAGGER / ln), fill: 'backwards', easing: GLIDE },
-          ),
-        );
-      });
-      root.style.transformOrigin = '50% 85%';
-      track(
-        root.animate(SWAY_KEYFRAMES, {
-          duration: SWAY_DUR,
-          delay: RISE_TOTAL,
-          iterations: turns,
-          easing: 'ease-in-out',
-        }),
-      );
-      return RISE_TOTAL + SWAY_DUR * turns;
-    };
-
     /** She leans in, waves, hops, and sways. Returns how long it occupies. */
     const waveHelloRun = (): number => {
       root.style.transformOrigin = '50% 92%';

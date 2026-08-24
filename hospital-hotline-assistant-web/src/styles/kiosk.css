@@ -249,30 +249,42 @@
   color: #fff;
 }
 
-/* Labeled exit pill */
+/* Labeled exit pill.
+   Two very different homes, so the base is the topbar one: an inline
+   control at the end of the right cluster, sized to the bar. It used to
+   carry the overlay's absolute centring, which floated it over the middle
+   of the topbar and straight on top of the stepper. */
 .k-exit {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: clamp(44px, calc(var(--k-topbar-h) - 30px), 56px);
+  padding: 0 22px;
+  border-radius: 999px;
+  border: none;
+  background: var(--k-primary);
+  color: #fff;
+  font-size: var(--k-fs-caption);
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+  box-shadow: var(--k-shadow-sm);
+  transition: background-color var(--k-t-fast) var(--k-ease);
+}
+
+/* Inside a full-screen overlay it is the only way out, so it leaves the bar
+   entirely: anchored at the bottom where a standing patient can reach it,
+   and weighted like the primary action it is. */
+.k-overlay .k-exit {
   position: absolute;
   left: 50%;
   bottom: 40px;
   transform: translateX(-50%);
   z-index: 2;
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  /* The only way out of a full-screen overlay on a kiosk, so it is weighted
-     like one: a filled teal action, not a white pill on a near-white ground
-     where it read as an afterthought. */
   min-height: var(--k-touch);
   padding: 0 48px;
-  border-radius: 999px;
-  border: none;
-  background: var(--k-primary);
-  color: #fff;
   font-size: var(--k-fs-body-lg);
-  font-weight: 700;
-  cursor: pointer;
   box-shadow: var(--k-shadow-md);
-  transition: background-color var(--k-t-fast) var(--k-ease);
 }
 
 
@@ -1926,6 +1938,18 @@
    resource: every vertical dimension tracks vh so the whole attract screen
    fits the viewport without scrolling. */
 @media (orientation: portrait) {
+  /* The booth panel is 1080px wide and the bar has to hold four things: the
+     wordmark, the progress, the clock and the way out. The stepper's content
+     is wider than the centre column gets, and a flex item will not shrink
+     below its content — so it bled across both neighbours and sat on top of
+     the Exit pill. The hospital name is the one item a patient standing
+     inside the hospital does not need, so it yields, and only on the screens
+     that carry a stepper — the welcome and attract screens keep it. */
+  .kiosk-topbar:has(.k-stepper) .k-brand-text,
+  .kiosk-topbar:has(.k-stepper) .k-brand-rule {
+    display: none;
+  }
+
   .k-home {
     gap: clamp(14px, 2vh, 24px);
   }
@@ -1962,6 +1986,12 @@
    at its tightest — drop the decorative orb (the greeting text stays) and
    compress the timeline so everything still fits without scrolling. */
 @media (orientation: portrait) and (max-height: 1150px) {
+  /* Narrower still: the passed and upcoming step names go, the current one
+     stays. Where you are is the part that has to survive. */
+  .k-step:not(.current) .k-step-label {
+    display: none;
+  }
+
   .k-hero-hello > [role='img'] {
     display: none;
   }
