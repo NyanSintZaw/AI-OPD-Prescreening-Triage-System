@@ -27,7 +27,8 @@ export type MarkMotion =
   | 'nongBloom'
   | 'nongRiseSway'
   | 'nongExplode'
-  | 'nongHeartbeat';
+  | 'nongHeartbeat'
+  | 'nongShowreel';
 
 /** Which mark each motion belongs to — `Mark` (bud) or `NongMali`. */
 export const MARK_MOTIONS: Record<MarkMotion, { mark: 'bud' | 'nong'; role: string }> = {
@@ -41,10 +42,11 @@ export const MARK_MOTIONS: Record<MarkMotion, { mark: 'bud' | 'nong'; role: stri
   nongRiseSway: { mark: 'nong', role: 'idle loop' },
   nongExplode: { mark: 'nong', role: 'attract loop — fly apart & snap' },
   nongHeartbeat: { mark: 'nong', role: 'attract loop — heartbeat burst' },
+  nongShowreel: { mark: 'nong', role: 'attract loop — random mix' },
 };
 
 /** Motions that spawn ring/petal effects around the mark and loop forever. */
-export const ATTRACT_MOTIONS: MarkMotion[] = ['nongExplode', 'nongHeartbeat'];
+export const ATTRACT_MOTIONS: MarkMotion[] = ['nongExplode', 'nongHeartbeat', 'nongShowreel'];
 
 /** Centre of the Nong Mali viewBox (0 0 1254 1254). */
 const NONG_CENTRE = 627;
@@ -578,80 +580,38 @@ export function playMark(
     return handle;
   }
 
-  if (motion === 'nongExplode' || motion === 'nongHeartbeat') {
+  if (motion === 'nongExplode' || motion === 'nongHeartbeat' || motion === 'nongShowreel') {
     /* Attract loops: built to pull eyes from across a lobby, so they are
        bigger and more theatrical than the in-app set, they throw off rings and
-       petals around the mark, and they run forever without a tap. */
+       petals around the mark, and they run forever without a tap.
+
+       Each is written as a finite segment returning its own duration, so the
+       showreel can chain them at random. A motion that looped internally could
+       not be sequenced. */
     const stage = getStage();
     root.style.overflow = 'visible';
-    root.style.transformOrigin = '50% 50%';
 
-    if (motion === 'nongHeartbeat') {
-      // Lub-dub: two beats per cycle, each shedding rings and a petal scatter.
-      track(
-        root.animate(
-          [
-            { transform: 'scale(0)', opacity: 0 },
-            { transform: 'scale(1.07)', opacity: 1, offset: 0.7 },
-            { transform: 'scale(1)', opacity: 1 },
-          ],
-          { duration: 550, fill: 'backwards', easing: SPRING },
-        ),
-      );
-      const beat = () => {
-        track(
-          root.animate(
-            [
-              { transform: 'scale(1)' },
-              { transform: 'scale(1.09)', offset: 0.16 },
-              { transform: 'scale(0.985)', offset: 0.34 },
-              { transform: 'scale(1.16)', offset: 0.54 },
-              { transform: 'scale(1)' },
-            ],
-            { duration: 680, easing: 'ease-in-out' },
-          ),
-        );
-        if (stage) {
-          burstRing(stage, 160);
-          burstRing(stage, 360, 300);
-          petalBurst(stage, 240, '50%', '50%', 8, 165);
-        }
-        later(beat, 1600);
-      };
-      later(beat, 700);
-      return handle;
-    }
-
-    // nongExplode — she breaks into her parts, they drift out and hover,
-    // then snap back together with a ring burst and a petal splash.
-    track(
-      root.animate(
-        [
-          { transform: 'scale(0.7)', opacity: 0 },
-          { transform: 'scale(1)', opacity: 1 },
-        ],
-        { duration: 600, fill: 'backwards', easing: GLIDE },
-      ),
-    );
-    let cyc: Animation[] = [];
-    const tr = (a: Animation) => {
-      cyc.push(a);
-      return track(a);
-    };
-    const cycle = () => {
-      cyc.forEach((a) => {
+    /** Clear anything mid-flight and put every part back at rest. */
+    const softReset = () => {
+      running.splice(0).forEach((a) => {
         try {
           a.cancel();
         } catch {
           /* already gone */
         }
       });
-      cyc = [];
+      root.style.transform = '';
+      root.querySelectorAll<SVGGeometryElement>('path,circle,ellipse').forEach((p) => {
+        p.style.transform = '';
+        p.style.opacity = '';
+      });
+    };
+
+    /** One fly-apart-and-snap. Returns how long it occupies. */
+    const explodeOnce = (): number => {
+      root.style.transformOrigin = '50% 50%';
       const geo = partGeo();
-      if (geo.length === 0) {
-        requestAnimationFrame(cycle);
-        return;
-      }
+      if (geo.length === 0) return 400;
       const out = 800;
       const hold = 1600;
       const back = 650;
@@ -664,7 +624,7 @@ export function playMark(
         // the part sitting lowest is her base — it stays upright
         const spin = bot === maxBot ? 0 : (i % 2 ? 1 : -1) * (24 + ((i * 13) % 40));
         const delay = i * 16;
-        tr(
+        track(
           p.animate(
             [
               { transform: 'translate(0,0) rotate(0deg) scale(1)' },
@@ -673,7 +633,7 @@ export function playMark(
             { duration: out, delay, fill: 'forwards', easing: 'cubic-bezier(.3,1.35,.5,1)' },
           ),
         );
-        tr(
+        track(
           p.animate(
             [
               { transform: 'translate(0,0)' },
@@ -683,7 +643,7 @@ export function playMark(
             { duration: hold, delay: out + delay, composite: 'add', easing: 'ease-in-out' },
           ),
         );
-        tr(
+        track(
           p.animate(
             [
               { transform: `translate(${tx}px,${ty}px) rotate(${spin}deg) scale(1.05)` },
@@ -713,9 +673,123 @@ export function playMark(
         burstRing(stage, snap + 60);
         petalBurst(stage, snap + 60, '50%', '50%', 9, 170);
       }
-      later(cycle, snap + 1500);
+      return snap + 1400;
     };
-    later(cycle, 900);
+
+    /** `beats` lub-dubs, each shedding rings and petals. */
+    const heartbeatRun = (beats: number): number => {
+      root.style.transformOrigin = '50% 50%';
+      let t = 0;
+      for (let k = 0; k < beats; k += 1) {
+        track(
+          root.animate(
+            [
+              { transform: 'scale(1)' },
+              { transform: 'scale(1.09)', offset: 0.16 },
+              { transform: 'scale(0.985)', offset: 0.34 },
+              { transform: 'scale(1.16)', offset: 0.54 },
+              { transform: 'scale(1)' },
+            ],
+            { duration: 680, delay: t, easing: 'ease-in-out' },
+          ),
+        );
+        if (stage) {
+          burstRing(stage, t + 160);
+          burstRing(stage, t + 360, 300);
+          petalBurst(stage, t + 240, '50%', '50%', 8, 165);
+        }
+        t += 1600;
+      }
+      return t;
+    };
+
+    /** A rise, then `turns` of sway. */
+    const riseSwayRun = (turns: number): number => {
+      const live = [...root.querySelectorAll<SVGGeometryElement>('path, circle, ellipse')];
+      if (live.length === 0) return 400;
+      const ln = live.length;
+      live.forEach((p, i) => {
+        const st = p.style as CSSStyleDeclaration & { transformBox?: string };
+        st.transformBox = 'fill-box';
+        st.transformOrigin = 'center';
+        track(
+          p.animate(
+            [
+              { transform: 'translateY(14px)', opacity: 0 },
+              { transform: 'translateY(0)', opacity: 1 },
+            ],
+            { duration: RISE_DUR, delay: i * (RISE_STAGGER / ln), fill: 'backwards', easing: GLIDE },
+          ),
+        );
+      });
+      root.style.transformOrigin = '50% 85%';
+      track(
+        root.animate(SWAY_KEYFRAMES, {
+          duration: SWAY_DUR,
+          delay: RISE_TOTAL,
+          iterations: turns,
+          easing: 'ease-in-out',
+        }),
+      );
+      return RISE_TOTAL + SWAY_DUR * turns;
+    };
+
+    if (motion === 'nongHeartbeat') {
+      root.style.transformOrigin = '50% 50%';
+      track(
+        root.animate(
+          [
+            { transform: 'scale(0)', opacity: 0 },
+            { transform: 'scale(1.07)', opacity: 1, offset: 0.7 },
+            { transform: 'scale(1)', opacity: 1 },
+          ],
+          { duration: 550, fill: 'backwards', easing: SPRING },
+        ),
+      );
+      const beat = () => {
+        softReset();
+        heartbeatRun(1);
+        later(beat, 1600);
+      };
+      later(beat, 700);
+      return handle;
+    }
+
+    if (motion === 'nongExplode') {
+      track(
+        root.animate(
+          [
+            { transform: 'scale(0.7)', opacity: 0 },
+            { transform: 'scale(1)', opacity: 1 },
+          ],
+          { duration: 600, fill: 'backwards', easing: GLIDE },
+        ),
+      );
+      const cycle = () => {
+        softReset();
+        later(cycle, explodeOnce() + 100);
+      };
+      later(cycle, 900);
+      return handle;
+    }
+
+    /* nongShowreel — explode, heartbeat and sway in a random order, with the
+       repeat counts varied too, so a passer-by does not see a fixed loop. The
+       same act never runs twice in a row. */
+    const randInt = (lo: number, hi: number) => lo + Math.floor(Math.random() * (hi - lo + 1));
+    let last = '';
+    const step = () => {
+      softReset();
+      const acts = ['explode', 'heartbeat', 'sway'].filter((a) => a !== last);
+      const pick = acts[Math.floor(Math.random() * acts.length)];
+      last = pick;
+      let dur: number;
+      if (pick === 'explode') dur = explodeOnce();
+      else if (pick === 'heartbeat') dur = heartbeatRun(randInt(2, 3));
+      else dur = riseSwayRun(randInt(2, 3));
+      later(step, dur + 250);
+    };
+    later(step, 300);
     return handle;
   }
 

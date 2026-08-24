@@ -158,7 +158,7 @@ export function KioskAttract() {
         {/* Own wrapper, sized to the mark: the attract loops draw their rings
             and petals into the parent, and .k-attract is the whole canvas. */}
         <span className="k-attract-mark">
-          <NongMali size={200} motion="nongExplode" />
+          <NongMali size={200} motion="nongShowreel" />
         </span>
 
         <div className="k-attract-head">
