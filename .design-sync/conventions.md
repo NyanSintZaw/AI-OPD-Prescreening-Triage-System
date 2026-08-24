@@ -1,6 +1,6 @@
 # MALI design system — how to build with it
 
-MALI (Multilingual Assistant powered by Local Intelligence) is the no tuning team's clinical assistant; this system styles MALI Prescreening — a patient kiosk, a nurse review portal and an admin portal for MFU Medical Center. Thai is the default language; every string must also work in English. The look is quiet and warm: ink text on paper, hairlines, one gold signature. It must never look "AI-generated" — no gradients, no glass/blur, no glow except the Orb, no icon-card grids, no emoji.
+MALI (Multilingual Assistant powered by Local Intelligence) is the no tuning team's clinical assistant; this system styles MALI Prescreening — a patient kiosk, a nurse review portal and an admin portal for MFU Medical Center. Thai is the default language; every string must also work in English. Brand v1.0: Nong Mali (jasmine mascot) is the primary mark, the bud the secondary/progress mark. The look is quiet and warm: Mali Teal actions on paper, deep-leaf headings, hairlines, Stamen Gold as the one signature. It must never look "AI-generated" — no gradients, no glass/blur, no glow except the Orb, no icon-card grids, no emoji.
 
 ## Setup
 
@@ -15,13 +15,13 @@ Components are styled; your own layout glue uses the tokens via `var(--*)`. Neve
 | Surfaces | `--surface-page` (paper), `--surface-card`, `--surface-muted`, `--surface-sunken` |
 | Text | `--text-heading`, `--text-body`, `--text-muted`, `--text-subtle` |
 | Borders | `--border-subtle`, `--border-default`, `--border-strong` |
-| Action colour | `--color-primary` (ink-900; buttons are near-black), `--color-primary-hover`, `--color-primary-soft` |
-| Gold signature | `--color-accent`, `--color-accent-soft`, `--focus-ring` — small accents only: active step, focus, a dot. Never a fill for buttons or large areas |
+| Action colour | `--color-primary` (Mali Teal #58A19D — the logo colour), `--color-primary-hover` (teal-600), `--color-primary-soft` (teal-50 wash) |
+| Gold signature | `--color-accent` (Stamen Gold #DBB566), `--color-accent-soft` — small signals only: active step, listening dot, wordmark i-dot. Never a fill for buttons or large areas. Focus ring is teal |
 | Status | `--status-success/-info/-warning/-danger` (+ `-soft`) |
 | Triage (nurse/admin ONLY) | `--triage-1 … --triage-5` (+ `-soft`). Never on kiosk surfaces; patients never see a level |
 | Type | `--font-sans` (Anuphan), sizes `--text-xs … --text-6xl`, kiosk `--text-kiosk-body` 22px / `--text-kiosk-question` 40px, weights `--fw-regular/medium/semibold/bold`, `--tracking-label` for 11px uppercase labels (class `.mali-label`) |
 | Space | 4px rhythm `--space-1 … --space-15`; `--pad-card` 20px, `--pad-page` 32px, `--gap-stack` 16px; hit targets `--hit-target` 44px, `--hit-target-kiosk` 64px |
-| Shape & depth | `--radius-sm/md/lg/xl/full`; `--shadow-xs/sm/md/lg` (ink-tinted, never black), `--shadow-gold-halo` (Orb only) |
+| Shape & depth | `--radius-sm/md/lg/xl/full`; `--shadow-xs/sm/md/lg` (ink-tinted, never black), `--shadow-gold-halo` (Orb speaking only) |
 | Motion | `--ease-enter`, `--ease-exit`, `--ease-press`; `--dur-press` 140ms, `--dur-color` 160ms, `--dur-exit` 200ms, `--dur-enter` 300ms. Press = `scale(var(--press-scale))`. Never `transition: all`. Gate hover behind `@media (hover:hover) and (pointer:fine)`. Only the Orb animates on the kiosk |
 
 ## Surface rules

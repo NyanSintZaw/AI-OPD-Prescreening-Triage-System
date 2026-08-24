@@ -1,7 +1,13 @@
 /* ───────── Wordmark ───────── */
 .mali-wordmark { display: inline-flex; align-items: center; gap: 0.35em; font-family: var(--font-sans); color: var(--text-heading); line-height: 1; }
 .mali-wordmark__name { font-weight: var(--fw-semibold); letter-spacing: 0.02em; }
-.mali-wordmark__dot { color: var(--color-accent); }
+.mali-wordmark__accent { color: var(--color-primary); }
+.mali-wordmark__gold { color: var(--color-accent); }
+.mali-wordmark__i { position: relative; }
+.mali-wordmark__idot { position: absolute; left: 50%; top: 0.21em; transform: translateX(-50%); width: 0.16em; height: 0.16em; border-radius: 50%; background: var(--color-accent); }
+.mali-wordmark--dark { color: var(--paper); }
+.mali-wordmark--dark .mali-wordmark__accent { color: var(--color-accent); }
+.mali-wordmark--dark .mali-wordmark__product { color: var(--teal-200); border-left-color: var(--teal-600); }
 .mali-wordmark__product { font-weight: var(--fw-regular); color: var(--text-muted); font-size: 0.78em; padding-left: 0.45em; border-left: 1px solid var(--border-default); margin-left: 0.1em; }
 
 /* ───────── Button ───────── */
@@ -23,7 +29,7 @@
   .mali-btn--primary:hover:not(:disabled) { --btn-bg: var(--color-primary-hover); }
   .mali-btn--secondary:hover:not(:disabled) { --btn-bg: var(--surface-muted); }
   .mali-btn--ghost:hover:not(:disabled) { --btn-bg: var(--surface-muted); }
-  .mali-btn--danger:hover:not(:disabled) { --btn-bg: #a80d26; }
+  .mali-btn--danger:hover:not(:disabled) { --btn-bg: #a34335; }
 }
 .mali-btn--sm { min-height: 34px; padding: 6px 12px; font-size: var(--text-xs); border-radius: var(--radius-sm); }
 .mali-btn--lg { min-height: 52px; padding: 14px 24px; font-size: var(--text-base); }
@@ -40,7 +46,7 @@
 }
 .mali-input::placeholder { color: var(--text-subtle); }
 .mali-input:hover { border-color: var(--border-strong); }
-.mali-input:focus-visible { border-color: var(--ink-700); box-shadow: var(--focus-ring); outline: none; }
+.mali-input:focus-visible { border-color: var(--color-primary); box-shadow: var(--focus-ring); outline: none; }
 .mali-input[aria-invalid="true"] { border-color: var(--status-danger); }
 .mali-input:disabled { background: var(--surface-muted); color: var(--text-muted); cursor: not-allowed; }
 .mali-input--kiosk { min-height: var(--hit-target-kiosk); font-size: var(--text-kiosk-body); padding: 14px 20px; border-radius: var(--radius-lg); letter-spacing: 0.04em; }
@@ -94,7 +100,8 @@
 }
 .mali-chip:active { transform: scale(var(--press-scale)); }
 .mali-chip--selected { background: var(--color-primary); color: var(--color-on-primary); border-color: var(--color-primary); }
-.mali-chip--kiosk { min-height: 56px; padding: 12px 26px; font-size: var(--text-kiosk-body); }
+.mali-chip--kiosk { min-height: 56px; padding: 12px 26px; font-size: var(--text-kiosk-body); border-color: var(--teal-200); color: var(--teal-700); }
+.mali-chip--kiosk.mali-chip--selected { color: var(--color-on-primary); border-color: var(--color-primary); }
 .mali-chip__x { opacity: 0.55; font-size: 1.1em; line-height: 1; }
 @media (hover: hover) and (pointer: fine) {
   .mali-chip:not(.mali-chip--selected):hover { border-color: var(--border-strong); background: var(--surface-muted); }
@@ -117,7 +124,7 @@
 .mali-step { display: flex; align-items: center; gap: 8px; color: var(--text-subtle); font-size: var(--text-sm); }
 .mali-step__dot { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; font-size: 11px; font-weight: var(--fw-semibold); border: 1px solid var(--border-strong); color: var(--text-muted); transition: background-color var(--dur-color) ease, color var(--dur-color) ease, border-color var(--dur-color) ease; }
 .mali-step--done { color: var(--text-muted); }
-.mali-step--done .mali-step__dot { background: var(--ink-900); border-color: var(--ink-900); color: var(--paper); }
+.mali-step--done .mali-step__dot { background: var(--color-primary); border-color: var(--color-primary); color: var(--color-on-primary); }
 .mali-step--current { color: var(--text-heading); font-weight: var(--fw-medium); }
 .mali-step--current .mali-step__dot { background: var(--color-accent); border-color: var(--color-accent); color: var(--ink-900); }
 .mali-stepper--kiosk { gap: var(--space-10); justify-content: center; }
@@ -125,7 +132,7 @@
 .mali-stepper--kiosk .mali-step__dot { width: 32px; height: 32px; font-size: 14px; }
 
 /* ───────── Modal ───────── */
-.mali-modal__backdrop { position: fixed; inset: 0; display: grid; place-items: center; padding: var(--space-9); background: rgba(21, 19, 15, 0.42); z-index: 50; animation: mali-fade var(--dur-enter) var(--ease-enter); }
+.mali-modal__backdrop { position: fixed; inset: 0; display: grid; place-items: center; padding: var(--space-9); background: rgba(31, 59, 56, 0.42); z-index: 50; animation: mali-fade var(--dur-enter) var(--ease-enter); }
 .mali-modal { max-width: 100%; background: var(--surface-card); border-radius: var(--radius-xl); box-shadow: var(--shadow-lg); animation: mali-modal-in var(--dur-enter) var(--ease-enter); transform-origin: center; }
 .mali-modal__head { display: flex; align-items: center; justify-content: space-between; padding: var(--space-8) var(--space-9) 0; }
 .mali-modal__head h2 { font-size: var(--text-lg); margin: 0; }
@@ -159,21 +166,37 @@
 
 /* ───────── Orb ───────── */
 .mali-orb { position: relative; display: grid; place-items: center; flex: none; aspect-ratio: 1; --orb-level: 0; }
-.mali-orb__core { position: absolute; width: 52%; height: 52%; border-radius: 50%; background: var(--gold-400); box-shadow: var(--shadow-gold-halo); transition: transform var(--dur-enter) var(--ease-enter), box-shadow var(--dur-enter) ease; }
-.mali-orb__ring { position: absolute; width: 72%; height: 72%; border-radius: 50%; border: 1.5px solid var(--gold-500); opacity: 0; transform: scale(0.9); transition: transform 120ms var(--ease-enter), opacity 120ms ease; }
-.mali-orb__orbit { position: absolute; inset: 0; width: 100%; height: 100%; }
-.mali-orb--idle .mali-orb__core { animation: mali-breathe var(--dur-breathe) ease-in-out infinite; }
-.mali-orb--listening .mali-orb__ring { opacity: 0.45; transform: scale(calc(1 + var(--orb-level) * 0.35)); }
-.mali-orb--listening .mali-orb__core { transform: scale(calc(1 + var(--orb-level) * 0.08)); }
-.mali-orb--thinking .mali-orb__orbit { animation: mali-spin 1400ms linear infinite; }
-.mali-orb--thinking .mali-orb__core { transform: scale(0.92); }
-.mali-orb--speaking .mali-orb__core { transform: scale(calc(1 + var(--orb-level) * 0.12)); box-shadow: 0 12px 56px rgba(240,172,0, calc(0.3 + var(--orb-level) * 0.3)); transition-duration: 80ms; }
-@keyframes mali-breathe { 50% { transform: scale(1.06); } }
+.mali-orb__bud { position: relative; z-index: 1; transition: transform var(--dur-enter) var(--ease-enter); }
+.mali-orb__halo { position: absolute; width: 58%; height: 58%; border-radius: 50%; box-shadow: var(--shadow-gold-halo); opacity: 0; transition: opacity var(--dur-color) ease; }
+.mali-orb__ring { position: absolute; width: 80%; height: 80%; border-radius: 50%; border: 1.5px solid var(--teal-400); opacity: 0; transform: scale(0.9); transition: transform 120ms var(--ease-enter), opacity 120ms ease; }
+.mali-orb__spin { position: absolute; width: 90%; height: 90%; border-radius: 50%; border: 2px dashed var(--teal-200); opacity: 0; transition: opacity var(--dur-color) ease; }
+.mali-orb--idle .mali-orb__bud { animation: mali-breathe var(--dur-breathe) ease-in-out infinite; }
+.mali-orb--listening .mali-orb__ring { opacity: 0.5; transform: scale(calc(1 + var(--orb-level) * 0.3)); }
+.mali-orb--listening .mali-orb__bud { transform: scale(calc(1 + var(--orb-level) * 0.06)); }
+.mali-orb--thinking .mali-orb__spin { opacity: 1; animation: mali-spin 1400ms linear infinite; }
+.mali-orb--thinking .mali-orb__bud { transform: scale(0.94); }
+.mali-orb--speaking .mali-orb__halo { opacity: calc(0.5 + var(--orb-level) * 0.5); }
+.mali-orb--speaking .mali-orb__bud { transform: scale(calc(1 + var(--orb-level) * 0.1)); transition-duration: 80ms; }
+@keyframes mali-breathe { 50% { transform: scale(1.05); } }
 @media (prefers-reduced-motion: reduce) {
-  .mali-orb__core, .mali-orb__orbit { animation: none !important; transform: none !important; }
+  .mali-orb__bud, .mali-orb__spin { animation: none !important; transform: none !important; }
 }
 
 /* ───────── Kiosk question ───────── */
 .mali-kq { text-align: center; display: flex; flex-direction: column; align-items: center; gap: var(--space-7); }
 .mali-kq__q { font-size: var(--text-kiosk-question); font-weight: var(--fw-medium); line-height: var(--leading-snug); color: var(--text-heading); letter-spacing: var(--tracking-tight); text-wrap: balance; max-width: 22ch; margin: 0; }
 .mali-kq__caption { font-size: var(--text-kiosk-body); color: var(--text-muted); max-width: 40ch; margin: 0; }
+
+/* ───────── Brand motion (approved logo motions) ───────── */
+.mali-mark--grow { animation: mali-bud-grow var(--dur-enter) var(--ease-enter); } /* Bud · step complete */
+.mali-nong--bloom { animation: mali-nong-bloom 600ms var(--ease-enter); }        /* Nong Mali · welcome, once per session */
+@keyframes mali-bud-grow { from { opacity: 0; transform: scale(0.6); } }
+@keyframes mali-nong-bloom { from { opacity: 0; transform: scale(0.82); } }
+@media (prefers-reduced-motion: reduce) {
+  .mali-mark--grow, .mali-nong--bloom { animation: none; }
+}
+
+/* ───────── Background texture — sparse screens only (welcome, waiting, loading, empty).
+   Never behind a question, a form or a table body. If you notice it, it is too strong. ───────── */
+.mali-texture-petals { background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22360%22%20height%3D%22360%22%20viewBox%3D%220%200%20360%20360%22%3E%3Cg%20fill%3D%22%2358A19D%22%20fill-opacity%3D%220.14%22%3E%3Cpath%20transform%3D%22translate%286%2C10%29%20scale%280.42%29%20rotate%2818%20111%2095%29%22%20d%3D%22M130%2C50.5Q131.5%2C51%20136.5%2C58.5Q141.5%2C66%20145.5%2C77.5Q149.5%2C89%20149%2C95Q148.5%2C101%20144.5%2C107Q140.5%2C113%20131.8%2C120.3Q123%2C127.5%20118%2C133Q113%2C138.5%20111.5%2C138.5Q110%2C138.5%2093.8%2C122.8Q77.5%2C107%2076.5%2C105Q75.5%2C103%2076.3%2C100.8Q77%2C98.5%2086%2C94.5Q95%2C90.5%20102%2C85.5Q109%2C80.5%20115.3%2C72.8Q121.5%2C65%20125%2C58Q128.5%2C51%20128.5%2C50.5Q128.5%2C50%20130%2C50.5Z%22%2F%3E%3Cpath%20transform%3D%22translate%28215%2C180%29%20scale%280.34%29%20rotate%28-24%20111%2095%29%22%20d%3D%22M130%2C50.5Q131.5%2C51%20136.5%2C58.5Q141.5%2C66%20145.5%2C77.5Q149.5%2C89%20149%2C95Q148.5%2C101%20144.5%2C107Q140.5%2C113%20131.8%2C120.3Q123%2C127.5%20118%2C133Q113%2C138.5%20111.5%2C138.5Q110%2C138.5%2093.8%2C122.8Q77.5%2C107%2076.5%2C105Q75.5%2C103%2076.3%2C100.8Q77%2C98.5%2086%2C94.5Q95%2C90.5%20102%2C85.5Q109%2C80.5%20115.3%2C72.8Q121.5%2C65%20125%2C58Q128.5%2C51%20128.5%2C50.5Q128.5%2C50%20130%2C50.5Z%22%2F%3E%3Cpath%20transform%3D%22translate%2880%2C235%29%20scale%280.26%29%20rotate%2864%20111%2095%29%22%20d%3D%22M130%2C50.5Q131.5%2C51%20136.5%2C58.5Q141.5%2C66%20145.5%2C77.5Q149.5%2C89%20149%2C95Q148.5%2C101%20144.5%2C107Q140.5%2C113%20131.8%2C120.3Q123%2C127.5%20118%2C133Q113%2C138.5%20111.5%2C138.5Q110%2C138.5%2093.8%2C122.8Q77.5%2C107%2076.5%2C105Q75.5%2C103%2076.3%2C100.8Q77%2C98.5%2086%2C94.5Q95%2C90.5%20102%2C85.5Q109%2C80.5%20115.3%2C72.8Q121.5%2C65%20125%2C58Q128.5%2C51%20128.5%2C50.5Q128.5%2C50%20130%2C50.5Z%22%2F%3E%3C%2Fg%3E%3Cg%20fill%3D%22%23DBB566%22%20fill-opacity%3D%220.3%22%3E%3Ccircle%20cx%3D%22300%22%20cy%3D%2270%22%20r%3D%223%22%2F%3E%3Ccircle%20cx%3D%22150%22%20cy%3D%22150%22%20r%3D%222.4%22%2F%3E%3Ccircle%20cx%3D%2240%22%20cy%3D%22300%22%20r%3D%222.6%22%2F%3E%3Ccircle%20cx%3D%22320%22%20cy%3D%22300%22%20r%3D%222.2%22%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E"); background-size: 360px 360px; }
+.mali-texture-dots { background-image: radial-gradient(rgba(219, 181, 102, 0.3) 1.2px, transparent 1.3px); background-size: 26px 26px; }

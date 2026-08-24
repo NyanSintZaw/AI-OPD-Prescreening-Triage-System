@@ -1,4 +1,4 @@
 ---
 category: Brand
 ---
-The MALI mark — one orbit ring and one gold sparkle, reduced from the no tuning team logo. Use `variant="line"` (currentColor stroke) in headers, nav and favicons at 20–32px. `variant="glow"` (gold fill + ink ring) is reserved for the kiosk idle screen and hero moments. Never recolour the sparkle; never scale below 16px.
+The bud — MALI's secondary mark, a jasmine bud in the fixed brand palette (teal body, cream petal, gold stamens). Use it for progress, loading, favicons and anywhere the mark is smaller than 40px. `stage` doubles it as a progress signal: `0` stamens = start, `1` = in progress, `3` (default) = complete; when a step completes, add `className="mali-mark--grow"` for the approved grow-up motion. `tone="gold"` is the approved signature cut for dark teal surfaces. Beyond that, never recolour, stretch, rotate or outline it; keep clear space of half its width.

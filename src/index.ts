@@ -1,3 +1,5 @@
+export { NongMali } from './components/NongMali';
+export type { NongMaliProps } from './components/NongMali';
 export { Mark, Wordmark } from './components/Mark';
 export type { MarkProps, WordmarkProps } from './components/Mark';
 export { Button } from './components/Button';

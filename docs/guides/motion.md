@@ -25,9 +25,9 @@ Rules for anything that moves. Borrowed from Emil Kowalski's design-engineering 
 
 ## What does NOT animate
 
-- Kiosk: only the `Orb` moves (listening / thinking / speaking). Questions, captions, steppers and buttons appear in place. No slide-ins, no staggered reveals, no typewriter text.
+- Kiosk: only the `Orb` moves in conversation (listening / thinking / speaking). Two approved brand entrances exist — `.mali-nong--bloom` (Nong Mali greets, once per session) and `.mali-mark--grow` (bud on step complete). Questions, captions, steppers and buttons appear in place. No slide-ins, no staggered reveals, no typewriter text.
 - Nurse / admin portals: tables, cards, badges are static. Feedback (Toast, Modal) gets the one enter/exit; rows and filters do not.
-- Nothing loops forever except `Orb`, `Thinking`, `Spinner`, and those only while real work is happening.
+- Nothing loops forever except `Orb`, `Thinking`, `Spinner`, and those only while real work is happening. Background textures never animate.
 - No parallax, no scroll-driven effects, no hover-lift on cards, no shimmer skeletons. A `Spinner` or `Thinking` is the loading state.
 
 ## Feel
