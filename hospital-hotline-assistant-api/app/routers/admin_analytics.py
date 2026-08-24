@@ -18,6 +18,7 @@ logger = logging.getLogger(__name__)
 from app.schemas import (
     ConversationSummaryOut,
     SurveillanceSummaryOut,
+    TriageStatsOut,
 )
 
 from fastapi import APIRouter
@@ -46,7 +47,7 @@ async def conversation_summary(
 
 @router.get("/admin/surveillance", response_model=SurveillanceSummaryOut)
 async def get_surveillance_summary(
-    days: int = 7,
+    days: int = Query(7, ge=1, le=90),
     _admin_user: dict = Depends(require_roles("super_admin", "nurse", "viewer")),
     connection: asyncpg.Connection = Depends(get_connection),
 ):
@@ -141,7 +142,7 @@ async def get_surveillance_summary(
         LIMIT 10
         """,
         days,
-        days,
+        days * 2,
     )
 
     return SurveillanceSummaryOut(
@@ -314,6 +315,163 @@ async def get_triage_manual_status(
 # in-flight conversation.
 
 # Legacy drafts created by the removed upload path may still carry this
+@router.get("/admin/triage-stats", response_model=TriageStatsOut)
+async def get_triage_stats(
+    days: int = Query(7, ge=1, le=90),
+    _admin_user: dict = Depends(require_roles("super_admin", "nurse", "viewer")),
+    connection: asyncpg.Connection = Depends(get_connection),
+):
+    """Operational numbers behind the nurse and admin dashboards.
+
+    Every series is returned DENSE (generate_series left-joined to the counts)
+    so a day or hour with no patients arrives as an explicit zero. The old
+    surveillance trend grouped by date and let the client space points by
+    index, which drew five empty days as a straight line between two bars.
+    """
+
+    queue = await connection.fetchrow(
+        """
+        SELECT
+            COUNT(*) AS pending,
+            ROUND(EXTRACT(EPOCH FROM (NOW() - MIN(created_at))) / 60) AS oldest_minutes
+        FROM assessment_reviews
+        WHERE status = 'pending'
+        """
+    )
+
+    # Acuity is the engine's own MOPH level, taken from the session it decided
+    # on — not from disease_surveillance, whose severity_level is NULL for
+    # every row the extractor wrote.
+    acuity_rows = await connection.fetch(
+        """
+        SELECT (metadata->'triage_classification'->>'level')::int AS level,
+               COUNT(*) AS count
+        FROM sessions
+        WHERE started_at >= NOW() - INTERVAL '1 day' * $1
+          AND metadata->'triage_classification'->>'level' IS NOT NULL
+        GROUP BY 1
+        ORDER BY 1
+        """,
+        days,
+    )
+
+    hourly_rows = await connection.fetch(
+        """
+        SELECT h.hour, COALESCE(c.count, 0) AS count
+        FROM generate_series(0, 23) AS h(hour)
+        LEFT JOIN (
+            SELECT EXTRACT(HOUR FROM started_at)::int AS hour, COUNT(*) AS count
+            FROM sessions
+            WHERE started_at::date = CURRENT_DATE
+            GROUP BY 1
+        ) c ON c.hour = h.hour
+        ORDER BY h.hour
+        """
+    )
+
+    department_rows = await connection.fetch(
+        """
+        SELECT d.code, d.name_en, d.name_th, COUNT(*) AS count
+        FROM assessment_reviews ar
+        JOIN departments d
+          ON d.id = COALESCE(ar.confirmed_department_id, ar.proposed_department_id)
+        WHERE ar.created_at >= NOW() - INTERVAL '1 day' * $1
+        GROUP BY d.code, d.name_en, d.name_th
+        ORDER BY count DESC
+        """,
+        days,
+    )
+
+    # How often the nurse kept the engine's department. `corrected` is the
+    # disagreement signal — the one number that says whether routing is
+    # trustworthy — and nothing computed it before.
+    agreement = await connection.fetchrow(
+        """
+        SELECT
+            COUNT(*) FILTER (WHERE status IN ('approved', 'corrected')) AS reviewed,
+            COUNT(*) FILTER (WHERE status = 'approved') AS confirmed,
+            COUNT(*) FILTER (WHERE status = 'corrected') AS rerouted,
+            ROUND(
+                AVG(EXTRACT(EPOCH FROM (reviewed_at - created_at)) / 60)
+                FILTER (WHERE reviewed_at IS NOT NULL)
+            ) AS avg_review_minutes
+        FROM assessment_reviews
+        WHERE created_at >= NOW() - INTERVAL '1 day' * $1
+        """,
+        days,
+    )
+
+    daily_rows = await connection.fetch(
+        """
+        SELECT d.day::date AS date,
+               COALESCE(c.sessions, 0) AS sessions,
+               COALESCE(c.screened, 0) AS screened
+        FROM generate_series(
+            (NOW() - INTERVAL '1 day' * ($1 - 1))::date,
+            NOW()::date,
+            INTERVAL '1 day'
+        ) AS d(day)
+        LEFT JOIN (
+            SELECT started_at::date AS day,
+                   COUNT(*) AS sessions,
+                   COUNT(*) FILTER (
+                       WHERE metadata->'triage_classification'->>'level' IS NOT NULL
+                   ) AS screened
+            FROM sessions
+            WHERE started_at >= NOW() - INTERVAL '1 day' * $1
+            GROUP BY 1
+        ) c ON c.day = d.day
+        ORDER BY d.day
+        """,
+        days,
+    )
+
+    reviewed = (agreement["reviewed"] if agreement else 0) or 0
+    confirmed = (agreement["confirmed"] if agreement else 0) or 0
+
+    return TriageStatsOut(
+        days=days,
+        pending_reviews=(queue["pending"] if queue else 0) or 0,
+        oldest_pending_minutes=(
+            int(queue["oldest_minutes"])
+            if queue and queue["oldest_minutes"] is not None
+            else None
+        ),
+        acuity=[{"level": r["level"], "count": r["count"]} for r in acuity_rows],
+        hourly_today=[{"hour": r["hour"], "count": r["count"]} for r in hourly_rows],
+        departments=[
+            {
+                "code": r["code"],
+                "name_en": r["name_en"],
+                "name_th": r["name_th"],
+                "count": r["count"],
+            }
+            for r in department_rows
+        ],
+        agreement={
+            "reviewed": reviewed,
+            "confirmed": confirmed,
+            "rerouted": (agreement["rerouted"] if agreement else 0) or 0,
+            # None, not 0, when nothing was reviewed — an empty queue must not
+            # render as "0% agreement".
+            "agreement_rate": round(confirmed / reviewed, 4) if reviewed else None,
+            "avg_review_minutes": (
+                int(agreement["avg_review_minutes"])
+                if agreement and agreement["avg_review_minutes"] is not None
+                else None
+            ),
+        },
+        daily=[
+            {
+                "date": str(r["date"]),
+                "sessions": r["sessions"],
+                "screened": r["screened"],
+            }
+            for r in daily_rows
+        ],
+    )
+
+
 @router.get("/admin/ai-metrics")
 async def get_ai_metrics(
     date_from: str | None = Query(None, alias="from", description="ISO date/datetime lower bound"),

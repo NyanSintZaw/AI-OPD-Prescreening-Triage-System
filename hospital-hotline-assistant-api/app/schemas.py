@@ -677,6 +677,32 @@ class AssessmentReviewCorrectRequest(BaseModel):
     sbar: SbarPayload | None = None
 
 
+class TriageStatsOut(BaseModel):
+    """Operational triage numbers for the nurse and admin dashboards.
+
+    One round trip for every panel: queue pressure, acuity mix, arrival
+    rhythm, department load, and how often a nurse rerouted what the engine
+    proposed. Staff-only — nothing here is ever shown to a patient.
+    """
+
+    days: int
+    pending_reviews: int
+    # Wait of the longest-pending confirmation. None when the queue is empty.
+    oldest_pending_minutes: int | None = None
+    # [{level: 1..5 | None, count}] over the window.
+    acuity: list[dict[str, Any]] = []
+    # [{hour: 0..23, count}] for today, dense — a gap must read as zero, not
+    # as "no bar drawn here".
+    hourly_today: list[dict[str, Any]] = []
+    # [{code, name_en, name_th, count}] by the department the patient actually
+    # went to (nurse-confirmed when present, else engine-proposed).
+    departments: list[dict[str, Any]] = []
+    # {reviewed, confirmed, rerouted, agreement_rate, avg_review_minutes}
+    agreement: dict[str, Any] = {}
+    # [{date, sessions, screened}] dense across the whole window.
+    daily: list[dict[str, Any]] = []
+
+
 class AssessmentReviewOut(BaseModel):
     id: UUID
     session_id: UUID
@@ -698,6 +724,12 @@ class AssessmentReviewOut(BaseModel):
     patient_contact_relation: str | None = None
     # AI reasoning trace: fired rule ids + manual citations (screening engine v2)
     disposition_reasons: list[dict[str, Any]] | None = None
+    # The engine's MOPH 5-level decision, so the nurse queue can be sorted and
+    # coloured by acuity. Nurse/admin surfaces only — never sent to a patient.
+    # Null until the engine disposed (interview turns stay unclassified).
+    triage_level: int | None = None
+    triage_label: str | None = None
+    triage_response_time: str | None = None
     notes: str | None = None
     # Booth context for the review screen: measurements taken at the kiosk,
     # the linked patient (HN-first; visit_id is the VN passthrough when the
