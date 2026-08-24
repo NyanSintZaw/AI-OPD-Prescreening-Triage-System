@@ -28,7 +28,8 @@ export type MarkMotion =
   | 'nongRiseSway'
   | 'nongExplode'
   | 'nongHeartbeat'
-  | 'nongShowreel';
+  | 'nongShowreel'
+  | 'nongWaveHello';
 
 /** Which mark each motion belongs to — `Mark` (bud) or `NongMali`. */
 export const MARK_MOTIONS: Record<MarkMotion, { mark: 'bud' | 'nong'; role: string }> = {
@@ -43,10 +44,16 @@ export const MARK_MOTIONS: Record<MarkMotion, { mark: 'bud' | 'nong'; role: stri
   nongExplode: { mark: 'nong', role: 'attract loop — fly apart & snap' },
   nongHeartbeat: { mark: 'nong', role: 'attract loop — heartbeat burst' },
   nongShowreel: { mark: 'nong', role: 'attract loop — random mix' },
+  nongWaveHello: { mark: 'nong', role: 'attract loop — wave hello' },
 };
 
 /** Motions that spawn ring/petal effects around the mark and loop forever. */
-export const ATTRACT_MOTIONS: MarkMotion[] = ['nongExplode', 'nongHeartbeat', 'nongShowreel'];
+export const ATTRACT_MOTIONS: MarkMotion[] = [
+  'nongExplode',
+  'nongHeartbeat',
+  'nongWaveHello',
+  'nongShowreel',
+];
 
 /** Centre of the Nong Mali viewBox (0 0 1254 1254). */
 const NONG_CENTRE = 627;
@@ -580,7 +587,12 @@ export function playMark(
     return handle;
   }
 
-  if (motion === 'nongExplode' || motion === 'nongHeartbeat' || motion === 'nongShowreel') {
+  if (
+    motion === 'nongExplode' ||
+    motion === 'nongHeartbeat' ||
+    motion === 'nongWaveHello' ||
+    motion === 'nongShowreel'
+  ) {
     /* Attract loops: built to pull eyes from across a lobby, so they are
        bigger and more theatrical than the in-app set, they throw off rings and
        petals around the mark, and they run forever without a tap.
@@ -703,6 +715,21 @@ export function playMark(
       return t;
     };
 
+    /** `turns` of sway on its own — no entrance. Used inside the showreel,
+     *  where she is already on screen and a rise would read as her arriving
+     *  again mid-loop. */
+    const swayRun = (turns: number): number => {
+      root.style.transformOrigin = '50% 85%';
+      track(
+        root.animate(SWAY_KEYFRAMES, {
+          duration: SWAY_DUR,
+          iterations: turns,
+          easing: 'ease-in-out',
+        }),
+      );
+      return SWAY_DUR * turns;
+    };
+
     /** A rise, then `turns` of sway. */
     const riseSwayRun = (turns: number): number => {
       const live = [...root.querySelectorAll<SVGGeometryElement>('path, circle, ellipse')];
@@ -733,6 +760,143 @@ export function playMark(
       );
       return RISE_TOTAL + SWAY_DUR * turns;
     };
+
+    /** She leans in, waves, hops, and sways. Returns how long it occupies. */
+    const waveHelloRun = (): number => {
+      root.style.transformOrigin = '50% 92%';
+      const geo = partGeo();
+      if (geo.length === 0) return 400;
+
+      // The "arm": the part furthest to the right, favouring the upper body.
+      const best = geo.reduce<{ g: (typeof geo)[number]; score: number } | null>((acc, g) => {
+        const score = Math.cos(g.ang) * g.dist - Math.max(0, Math.sin(g.ang)) * g.dist * 0.6;
+        return !acc || score > acc.score ? { g, score } : acc;
+      }, null);
+      if (!best) return 400;
+      const arm = best.g.p;
+      arm.style.transformOrigin = 'left bottom';
+
+      // Her gold hands wave along, mirrored on each side.
+      const isGold = (f: string | null) => /#(DBB566|EBC888)/i.test(f ?? '');
+      const golds = geo.filter((g) => isGold(g.p.getAttribute('fill')) && g.p !== arm);
+      golds.forEach((g) => {
+        g.p.style.transformOrigin = Math.cos(g.ang) < 0 ? 'right bottom' : 'left bottom';
+      });
+      const waveGolds = (delay: number, dur: number) =>
+        golds.forEach((g, j) => {
+          const m = Math.cos(g.ang) < 0 ? -1 : 1;
+          track(
+            g.p.animate(
+              [
+                { transform: 'rotate(0deg)' },
+                { transform: `rotate(${20 * m}deg) translateY(-5px)`, offset: 0.12 },
+                { transform: `rotate(${-11 * m}deg)`, offset: 0.28 },
+                { transform: `rotate(${20 * m}deg) translateY(-5px)`, offset: 0.44 },
+                { transform: `rotate(${-11 * m}deg)`, offset: 0.6 },
+                { transform: `rotate(${18 * m}deg) translateY(-4px)`, offset: 0.76 },
+                { transform: 'rotate(0deg)' },
+              ],
+              { duration: dur, delay: delay + j * 60, easing: 'ease-in-out' },
+            ),
+          );
+        });
+
+      let tt = 0;
+      // lean toward the patient
+      track(
+        root.animate(
+          [{ transform: 'rotate(0deg)' }, { transform: 'rotate(-7deg) translateX(-8px)' }],
+          { duration: 420, easing: 'ease-in-out', fill: 'forwards' },
+        ),
+      );
+      tt += 420;
+      // the wave itself — four swings, body bobbing along
+      track(
+        arm.animate(
+          [
+            { transform: 'rotate(0deg)' },
+            { transform: 'rotate(26deg) translateY(-6px)', offset: 0.12 },
+            { transform: 'rotate(-14deg)', offset: 0.28 },
+            { transform: 'rotate(26deg) translateY(-6px)', offset: 0.44 },
+            { transform: 'rotate(-14deg)', offset: 0.6 },
+            { transform: 'rotate(24deg) translateY(-5px)', offset: 0.76 },
+            { transform: 'rotate(0deg)' },
+          ],
+          { duration: 1700, delay: tt, easing: 'ease-in-out' },
+        ),
+      );
+      waveGolds(tt, 1700);
+      track(
+        root.animate(
+          [
+            { transform: 'translateY(0)' },
+            { transform: 'translateY(-6px)' },
+            { transform: 'translateY(0)' },
+            { transform: 'translateY(-6px)' },
+            { transform: 'translateY(0)' },
+          ],
+          { duration: 1700, delay: tt, composite: 'add', easing: 'ease-in-out' },
+        ),
+      );
+      if (stage) petalBurst(stage, tt + 500, 'calc(50% + 130px)', 'calc(50% - 60px)', 5, 110);
+      tt += 1800;
+      // straighten up
+      track(
+        root.animate(
+          [{ transform: 'rotate(-7deg) translateX(-8px)' }, { transform: 'rotate(0deg) translateX(0)' }],
+          { duration: 380, delay: tt - 100, easing: 'ease-in-out', fill: 'forwards' },
+        ),
+      );
+      tt += 380;
+      // a happy hop, landing with a squash
+      track(
+        root.animate(
+          [
+            { transform: 'translateY(0) scale(1,1)' },
+            { transform: 'translateY(0) scale(1.1,0.86)', offset: 0.18 },
+            { transform: 'translateY(-110px) scale(0.96,1.05)', offset: 0.55 },
+            { transform: 'translateY(0) scale(1.12,0.88)', offset: 0.88 },
+            { transform: 'translateY(0) scale(1,1)' },
+          ],
+          { duration: 900, delay: tt, easing: 'cubic-bezier(.4,0,.45,1)' },
+        ),
+      );
+      if (stage) petalBurst(stage, tt + 900 * 0.88, '50%', 'calc(50% + 140px)', 7, 130);
+      tt += 1000;
+      // and a sway while she waits to wave again
+      track(
+        root.animate(
+          [
+            { transform: 'rotate(0deg)' },
+            { transform: 'rotate(2.5deg)' },
+            { transform: 'rotate(0deg)' },
+            { transform: 'rotate(-2.5deg)' },
+            { transform: 'rotate(0deg)' },
+          ],
+          { duration: 1900, delay: tt, easing: 'ease-in-out' },
+        ),
+      );
+      return tt + 2000;
+    };
+
+    if (motion === 'nongWaveHello') {
+      track(
+        root.animate(
+          [
+            { transform: 'translateY(60px) scale(0.7)', opacity: 0 },
+            { transform: 'translateY(-14px) scale(1.04)', opacity: 1, offset: 0.7 },
+            { transform: 'translateY(0) scale(1)', opacity: 1 },
+          ],
+          { duration: 800, fill: 'backwards', easing: GLIDE },
+        ),
+      );
+      const loop = () => {
+        softReset();
+        later(loop, waveHelloRun() + 100);
+      };
+      later(loop, 900);
+      return handle;
+    }
 
     if (motion === 'nongHeartbeat') {
       root.style.transformOrigin = '50% 50%';
@@ -780,13 +944,13 @@ export function playMark(
     let last = '';
     const step = () => {
       softReset();
-      const acts = ['explode', 'heartbeat', 'sway'].filter((a) => a !== last);
+      const acts = ['wave', 'heartbeat', 'sway'].filter((a) => a !== last);
       const pick = acts[Math.floor(Math.random() * acts.length)];
       last = pick;
       let dur: number;
-      if (pick === 'explode') dur = explodeOnce();
+      if (pick === 'wave') dur = waveHelloRun();
       else if (pick === 'heartbeat') dur = heartbeatRun(randInt(2, 3));
-      else dur = riseSwayRun(randInt(2, 3));
+      else dur = swayRun(randInt(2, 3));
       later(step, dur + 250);
     };
     later(step, 300);
