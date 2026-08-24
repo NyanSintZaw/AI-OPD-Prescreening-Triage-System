@@ -2151,18 +2151,31 @@
   max-width: 20ch;
 }
 
+/* A hint, not a button. It used to be a solid teal pill identical to the
+   welcome screen's Start button — two consecutive primary buttons both saying
+   "start", which reads as the first tap not registering. The whole canvas is
+   already the target, so this only needs to say the panel is awake. */
 .k-attract-cta {
   display: inline-flex;
   align-items: center;
   gap: 12px;
-  min-height: var(--k-touch);
-  padding: 0 38px;
-  border-radius: var(--k-r-lg);
-  background: var(--k-primary);
-  color: #fff;
+  padding: 0;
+  background: none;
+  color: var(--k-primary-on-light);
   font-size: var(--k-fs-body-lg);
   font-weight: 700;
-  box-shadow: var(--k-shadow-md);
+  letter-spacing: 0.01em;
+  animation: k-attract-breathe 2600ms ease-in-out infinite;
+}
+
+@keyframes k-attract-breathe {
+  /* Floor at .8: #3f7873 on paper is 4.6:1, and dimming to .55 blended it to
+     ~2.3:1 — below the 3:1 large-text floor for part of every cycle. */
+  50% { opacity: 0.8; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .k-attract-cta { animation: none; }
 }
 
 .k-attract-board {
