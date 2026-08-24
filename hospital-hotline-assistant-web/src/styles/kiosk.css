@@ -514,22 +514,6 @@
   text-align: center;
 }
 
-.k-home-main {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: clamp(18px, 3vh, 34px);
-  width: 100%;
-}
-
-/* The two home zones. Portrait/base: display:contents dissolves the
-   wrappers so all blocks stack in ONE column of .k-home-main, re-ordered
-   via `order` below. Landscape turns them into real side-by-side columns:
-   pitch (headline + how-it-works) left, action (greeting + buttons) right. */
-.k-home-pitch,
-.k-home-action {
-  display: contents;
-}
 
 
 /* Assistant presence: breathing orb + welcome line above the headline.
@@ -552,22 +536,7 @@
 }
 
 /* Rotating pitch headline — fixed-height slot so crossfades don't reflow. */
-.k-ad-head {
-  display: flex;
-  align-items: center;
-  min-height: clamp(96px, 14vh, 170px);
-}
 
-.k-ad-title {
-  font-size: var(--k-fs-display);
-  font-weight: 800;
-  line-height: 1.14;
-  letter-spacing: -0.01em;
-  color: var(--k-ink);
-  margin: 0;
-  max-width: 14em;
-  text-wrap: balance;
-}
 
 /* Permanent promise line under the greeting. */
 .k-hero-sub {
@@ -582,53 +551,15 @@
   margin: 0;
 }
 
-.k-ad-dots {
-  display: flex;
-  gap: 8px;
-}
 
-.k-ad-dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 999px;
-  background: var(--k-border-strong);
-  transition: all 400ms var(--k-ease);
-}
 
-.k-ad-dot.active {
-  width: 28px;
-  background: var(--k-primary);
-}
 
 /* Feature badges (trust / ease signals) — a tidy 2×2 grid of soft tint
    capsules. Deliberately distinct BOTH from the body text above (they sit
    on a tint, not bare canvas) and from the buttons below (flat, no border,
    no shadow, square-ish corners instead of the button pill). */
-.k-feat-chips {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px 12px;
-  width: min(560px, 100%);
-}
 
-.k-feat-chip {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 10px 14px;
-  border-radius: 12px;
-  background: rgba(88, 161, 157, 0.06);
-  font-size: var(--k-fs-caption);
-  font-weight: 700;
-  color: var(--k-ink-2);
-  white-space: nowrap;
-}
 
-.k-feat-chip svg {
-  color: var(--k-primary);
-  flex-shrink: 0;
-}
 
 .k-cta-row {
   display: flex;
@@ -680,12 +611,6 @@
 }
 
 /* Left rail: numbered circle + connector line down to the next step. */
-.k-how-rail {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  flex-shrink: 0;
-}
 
 .k-how-dot {
   display: grid;
@@ -702,22 +627,7 @@
   transition: all 450ms var(--k-ease);
 }
 
-.k-how-line {
-  flex: 1;
-  width: 2.5px;
-  min-height: 18px;
-  margin: 4px 0;
-  border-radius: 2px;
-  background: var(--k-border);
-}
 
-.k-how-text {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  min-width: 0;
-  padding-bottom: clamp(10px, 1.6vh, 18px);
-}
 
 .k-how-name {
   display: flex;
@@ -766,13 +676,6 @@
 }
 
 /* Bottom band: stats + disclaimer */
-.k-home-band {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 10px;
-  width: min(1200px, 100%);
-}
 
 /* Ambient floating icons on the canvas edges. */
 
@@ -788,78 +691,22 @@
 }
 
 /* Today stats / advertising strip */
-.k-today {
-  display: flex;
-  flex-direction: column;
-  gap: 0;
-  width: 100%;
-}
 
 /* The board's title is a solid TAB attached to the strip's top-left corner,
    colored to match the current slide's accent — unmissable, and visually
    one piece with the card below it. */
-.k-today-label {
-  align-self: flex-start;
-  display: inline-flex;
-  align-items: center;
-  margin-left: 22px;
-  padding: 9px 22px;
-  border-radius: 14px 14px 0 0;
-  background: var(--k-primary);
-  color: #fff;
-  font-size: clamp(15px, 1.3vw, 18px);
-  font-weight: 800;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  text-align: left;
-  transition: background 450ms var(--k-ease);
-}
 
-.k-today-label--blue {
-  background: var(--k-primary);
-}
 
-.k-today-label--green {
-  background: var(--k-success);
-}
 
-.k-today-label--amber {
-  background: var(--k-warning);
-}
 
 /* Rotating stat banner — a white card so it stands off the periwinkle
    canvas (the old flat tints were nearly the same value as --k-bg and
    blended in): one stat at a time as a full sentence with the number
    highlighted, plus a friendly supporting sub-line. The active stat's
    accent survives as a tint fading in from the left edge. */
-.k-stat-banner {
-  position: relative;
-  width: 100%;
-  min-height: clamp(88px, 10vh, 118px);
-  padding: clamp(12px, 1.8vh, 18px) clamp(20px, 2.4vw, 36px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: var(--k-r-md);
-  box-sizing: border-box;
-  overflow: hidden;
-  background: var(--k-surface);
-  border: 1px solid var(--k-border);
-  box-shadow: var(--k-shadow-md);
-  transition: background 450ms var(--k-ease);
-}
 
-.k-stat-banner--blue {
-  background: linear-gradient(90deg, var(--k-primary-tint) 0%, var(--k-surface) 55%);
-}
 
-.k-stat-banner--green {
-  background: linear-gradient(90deg, var(--k-success-tint) 0%, var(--k-surface) 55%);
-}
 
-.k-stat-banner--amber {
-  background: linear-gradient(90deg, var(--k-warning-tint) 0%, var(--k-surface) 55%);
-}
 
 .k-stat-line {
   display: flex;
@@ -910,27 +757,6 @@
 
 /* Accent per stat: blue / green / amber — solid chip matching the banner
    border, white icon, colored number. */
-.k-stat-line--blue .k-stat-line-ico {
-  background: var(--k-primary);
-  color: #fff;
-}
-.k-stat-line--blue .k-stat-line-num {
-  color: var(--k-primary);
-}
-.k-stat-line--green .k-stat-line-ico {
-  background: var(--k-success);
-  color: #fff;
-}
-.k-stat-line--green .k-stat-line-num {
-  color: var(--k-success);
-}
-.k-stat-line--amber .k-stat-line-ico {
-  background: var(--k-warning);
-  color: #fff;
-}
-.k-stat-line--amber .k-stat-line-num {
-  color: var(--k-warning);
-}
 
 .k-home-footer {
   font-size: var(--k-fs-caption);
@@ -1810,58 +1636,53 @@
 
 /* ── Landscape (wide demo screens) ──────────────────────────────────────── */
 @media (orientation: landscape) and (min-width: 900px) {
-  /* Home attract → how-it-works left, hero pitch right, stats band below.
-     row-reverse (not a DOM swap) so the hero stays first in the markup:
-     portrait still stacks the pitch + CTA above the explainer, and the
-     primary content still comes first for screen readers. Putting the
-     Start/Map buttons on the right suits the booth's right-hand reach. */
+  /* Landscape is a demo/desktop shape — the booth panel is 1080x1920 portrait.
+     The welcome screen becomes two columns: reading on the left, the decision
+     on the right, reference spanning underneath. Placement is explicit grid
+     rather than wrappers, so the DOM stays one flat list and portrait keeps
+     its single-column reading order (and screen-reader order) unchanged. */
   .k-home {
-    gap: clamp(14px, 2.2vh, 24px);
+    display: grid;
+    grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
+    column-gap: clamp(32px, 4vw, 76px);
+    row-gap: clamp(10px, 1.6vh, 20px);
+    align-content: center;
+    justify-items: start;
+    text-align: left;
+    width: min(1600px, 94vw);
   }
 
-  .k-home-main {
-    flex-direction: row;
-    align-items: center;
-    justify-content: center;
-    gap: clamp(32px, 4vw, 72px);
+  .k-home > .k-hero-hello  { grid-column: 1; grid-row: 1; margin: 0; }
+  .k-home > .k-home-title  { grid-column: 1; grid-row: 2; margin: 0; }
+  .k-home > .k-hero-sub    { grid-column: 1; grid-row: 3; margin: 0; }
+  .k-home > .k-facts       { grid-column: 1; grid-row: 4; margin: 0; justify-content: flex-start; }
+  /* The action sits beside the reading it follows from, centred against it. */
+  .k-home > .k-cta-row {
+    grid-column: 2;
+    grid-row: 1 / 5;
+    align-self: center;
+    justify-self: center;
+    width: min(560px, 100%);
+    margin: 0;
   }
+  .k-home > .k-how {
+    grid-column: 1 / -1;
+    grid-row: 5;
+    justify-self: center;
+    margin-top: clamp(18px, 3vh, 40px);
+  }
+  .k-home > .k-home-footer {
+    grid-column: 1 / -1;
+    grid-row: 6;
+    justify-self: center;
+    text-align: center;
+    margin-top: clamp(10px, 1.6vh, 20px);
+  }
+
 
   /* Wrappers become real columns: pitch left, action (buttons) right. */
-  .k-home-pitch {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: clamp(14px, 2.2vh, 24px);
-    flex: 1 1 48%;
-    max-width: 700px;
-    min-width: 0;
-    text-align: left;
-  }
 
-  .k-home-action {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: clamp(14px, 2.2vh, 24px);
-    flex: 1 1 52%;
-    max-width: 640px;
-    min-width: 0;
-    text-align: left;
-  }
 
-  .k-cta-row {
-    width: 100%;
-    align-items: flex-start;
-  }
-
-  .k-how {
-    width: 100%;
-    max-width: none;
-  }
-
-  .k-ad-head {
-    min-height: clamp(96px, 13vh, 150px);
-  }
 
   /* Visit → two columns inside the card: display+context left, method right */
   .k-visit {
@@ -1993,18 +1814,8 @@
     gap: 12px;
   }
 
-  .k-home-main {
-    gap: 16px;
-  }
 
-  .k-home-pitch,
-  .k-home-action {
-    gap: 10px;
-  }
 
-  .k-ad-head {
-    min-height: clamp(60px, 10vh, 96px);
-  }
 
   /* Shave the hello row: smaller orb footprint via negative margins (the
      orb's box is fixed by its size prop; the ring never reaches this far). */
@@ -2022,10 +1833,6 @@
     max-width: 26em;
   }
 
-  .k-today-label {
-    font-size: 13px;
-    padding: 7px 18px;
-  }
 
   .k-stat-line-num {
     font-size: clamp(30px, 3vw, 40px);
@@ -2054,22 +1861,12 @@
     font-size: 16px;
   }
 
-  .k-how-line {
-    min-height: 10px;
-  }
 
-  .k-how-text {
-    padding-bottom: 8px;
-  }
 
   .k-hero-hello .k-hero-hello-text {
     font-size: 17px;
   }
 
-  .k-stat-banner {
-    min-height: 84px;
-    padding: 10px 20px;
-  }
 
   .k-stat-line-ico {
     width: 46px;
@@ -2146,19 +1943,7 @@
     gap: clamp(14px, 2vh, 24px);
   }
 
-  /* All blocks stack directly in k-home-main (the column wrappers are
-     display:contents here) — one gap governs the whole column. */
-  .k-home-main {
-    gap: clamp(10px, 1.6vh, 20px);
-  }
 
-  .k-ad-head {
-    min-height: clamp(72px, 9vh, 150px);
-  }
-
-  .k-ad-title {
-    font-size: clamp(30px, 6vw, 56px);
-  }
 
   .k-hero-sub {
     font-size: var(--k-fs-body-lg);
@@ -2171,17 +1956,11 @@
     gap: clamp(8px, 1.2vh, 14px);
   }
 
-  .k-how-text {
-    padding-bottom: clamp(6px, 1.2vh, 14px);
-  }
 
   .k-cta-row .k-cta-start {
     min-height: clamp(72px, 8.5vh, 96px);
   }
 
-  .k-stat-banner {
-    min-height: clamp(80px, 9vh, 120px);
-  }
 
   .k-stat-line-num {
     font-size: clamp(32px, 4.5vh, 52px);
@@ -2206,9 +1985,6 @@
     font-size: 16px;
   }
 
-  .k-how-line {
-    min-height: 10px;
-  }
 
   .k-home-footer {
     font-size: 13px;
@@ -2482,4 +2258,25 @@
   .k-home > .k-cta-row     { margin-top: clamp(18px, 2.8vh, 40px); }
   .k-home > .k-how         { margin-top: clamp(16px, 2.4vh, 34px); }
   .k-home > .k-home-footer { margin-top: clamp(10px, 1.4vh, 18px); }
+}
+
+/* Tall panels — the 1080x1920 booth. Centring the whole composition left a
+   ~430px void above and ~340px below while the reading group floated in a
+   middle band. Two auto margins put the free space where it does work:
+   reading starts near the top, the CTA lands in the standing reach band, and
+   the disclaimer sits on the bottom edge. The group rhythm above is untouched. */
+@media (min-height: 1181px) and (orientation: portrait) {
+  /* The booth panel is 1920px tall but the type was sized for a desktop
+     reading distance, leaving only ~790px of ink. Stretching the gaps to fill
+     it just isolated each block; the fix is to give the content the presence a
+     screen read standing at 60-80cm deserves, then centre it — the voids
+     shrink on their own and the grouping stays intact. */
+  .k-hero-hello > svg { width: 248px; height: 248px; }
+  .k-home-title { font-size: clamp(58px, 8.6vmin, 96px); }
+  .k-hero-sub   { font-size: clamp(26px, 3vmin, 34px); }
+  .k-fact       { font-size: clamp(21px, 2.2vmin, 25px); }
+  .k-cta-start  { min-height: clamp(104px, 6.6vh, 128px); font-size: clamp(28px, 2.9vmin, 34px); }
+  .k-btn.outline{ min-height: clamp(84px, 5vh, 96px); font-size: clamp(23px, 2.4vmin, 27px); }
+  .k-home > .k-cta-row { margin-top: clamp(56px, 7.4vh, 120px); }
+  .k-home > .k-how     { margin-top: clamp(52px, 6.8vh, 108px); }
 }
