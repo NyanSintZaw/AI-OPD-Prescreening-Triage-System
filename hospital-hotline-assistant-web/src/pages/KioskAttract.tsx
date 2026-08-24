@@ -18,7 +18,12 @@ import { useKioskStats } from '../hooks/useKioskStats';
 
 /** Rotating pitch headlines. */
 const AD_KEYS = ['kioskAd1', 'kioskAd2', 'kioskAd3'] as const;
-const ROTATE_MS = 7000;
+/* Two tickers, co-prime periods. On one shared tick the headline and the board
+   swapped in lockstep, so the whole poster changed at once — two concurrent
+   motion sources reading as one lurch. At 7s and 11s they coincide once every
+   77s instead of on every swap. */
+const AD_MS = 7000;
+const BOARD_MS = 11000;
 
 /** Count-up number for the rotating board (snaps under reduced motion). */
 function AnimatedNumber({ value }: { value: number }) {
@@ -56,12 +61,17 @@ export function KioskAttract() {
   const stats = useKioskStats();
   const reduce = useReducedMotion();
 
-  const [tick, setTick] = useState(0);
+  const [adTick, setAdTick] = useState(0);
+  const [boardTick, setBoardTick] = useState(0);
   useEffect(() => {
-    const timer = setInterval(() => setTick((n) => n + 1), ROTATE_MS);
-    return () => clearInterval(timer);
+    const a = setInterval(() => setAdTick((n) => n + 1), AD_MS);
+    const b = setInterval(() => setBoardTick((n) => n + 1), BOARD_MS);
+    return () => {
+      clearInterval(a);
+      clearInterval(b);
+    };
   }, []);
-  const adIdx = tick % AD_KEYS.length;
+  const adIdx = adTick % AD_KEYS.length;
 
   const wake = () => navigate('/kiosk');
 
@@ -134,7 +144,8 @@ export function KioskAttract() {
   const allZero =
     !stats.booth_patients_today && !stats.navigated_today && !stats.sessions_today;
   const lines = allZero ? boardLines.filter((l) => l.kind === 'ad') : boardLines;
-  const line = lines[tick % lines.length];
+  const boardIdx = boardTick % lines.length;
+  const line = lines[boardIdx];
 
   return (
     <KioskFrame language={language} onLanguageChange={setLanguage}>
@@ -156,7 +167,7 @@ export function KioskAttract() {
 
         <div className="k-attract-board">
           <AnimatePresence mode="wait">
-            <motion.div key={tick % lines.length} className="k-stat-line" {...swap}>
+            <motion.div key={boardIdx} className="k-stat-line" {...swap}>
               <span className="k-stat-line-ico" aria-hidden="true">
                 {line.icon}
               </span>
