@@ -19,6 +19,7 @@ export interface NongMaliProps extends Omit<SVGProps<SVGSVGElement>, 'children'>
     | 'nongExplode'
     | 'nongHeartbeat'
     | 'nongShowreel'
+    | 'nongWaveHello'
   >;
 }
 
