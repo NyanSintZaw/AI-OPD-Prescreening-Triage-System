@@ -2182,13 +2182,14 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: min(920px, 92%);
+  width: min(980px, 94%);
   min-height: clamp(96px, 12vh, 140px);
   padding: 20px 28px;
-  border: 1px solid var(--k-border);
-  border-radius: var(--k-r-md);
-  background: var(--k-surface);
-  box-shadow: var(--k-shadow-sm);
+  /* Flat. As a card with a shadow it was the heaviest object on a poster that
+     is otherwise all air, so the supporting line outweighed the headline. */
+  border: none;
+  background: none;
+  box-shadow: none;
 }
 
 /* ── Welcome screen rhythm ──────────────────────────────────────────────────
@@ -2292,4 +2293,12 @@
   .k-btn.outline{ min-height: clamp(84px, 5vh, 96px); font-size: clamp(23px, 2.4vmin, 27px); }
   .k-home > .k-cta-row { margin-top: clamp(56px, 7.4vh, 120px); }
   .k-home > .k-how     { margin-top: clamp(52px, 6.8vh, 108px); }
+
+  /* The poster was crushed into the middle third with ~570px dead at each end;
+     it never got the fill treatment the welcome screen did. */
+  .k-attract > svg    { width: 300px; height: 300px; }
+  .k-attract-title    { font-size: clamp(62px, 9vmin, 104px); }
+  .k-attract-cta      { font-size: clamp(28px, 3vmin, 36px); }
+  .k-stat-line-text   { font-size: clamp(28px, 3vmin, 36px); }
+  .k-stat-line-sub    { font-size: clamp(21px, 2.2vmin, 26px); }
 }

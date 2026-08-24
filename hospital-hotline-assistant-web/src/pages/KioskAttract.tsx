@@ -154,11 +154,6 @@ export function KioskAttract() {
           </AnimatePresence>
         </div>
 
-        <span className="k-attract-cta">
-          <HandTap size={34} weight="duotone" aria-hidden="true" />
-          {t('kioskAttractTap')}
-        </span>
-
         <div className="k-attract-board">
           <AnimatePresence mode="wait">
             <motion.div key={tick % lines.length} className="k-stat-line" {...swap}>
@@ -185,6 +180,13 @@ export function KioskAttract() {
             </motion.div>
           </AnimatePresence>
         </div>
+
+        {/* The ask comes last — it used to sit above the board, so the
+            invitation was followed by more content, which undercut it. */}
+        <span className="k-attract-cta">
+          <HandTap size={34} weight="duotone" aria-hidden="true" />
+          {t('kioskAttractTap')}
+        </span>
       </button>
     </KioskFrame>
   );
