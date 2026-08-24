@@ -15,6 +15,12 @@
      - Hover behind `@media (hover: hover)`; motion has a reduced-motion pair.
    ========================================================================= */
 
+/* The two stacked header bars, plus the hairline under the first one. The rail
+   pins directly beneath them so page scroll never moves it. */
+:root {
+  --staff-header-h: calc(var(--header-top-min-height) + var(--header-nav-height) + 1px);
+}
+
 /* ── Shell ───────────────────────────────────────────────────────────────────
    The staff portals run edge to edge. `.app-main` caps every page at
    --content-max-width (1140px), which on a 1920 monitor parked a data table
@@ -36,15 +42,28 @@
   padding: var(--space-7) var(--space-8);
 }
 
+/* The header centres itself at --header-inner-max-width, which left the brand
+   floating mid-screen while the nav rail sat at x=0. On a portal with a rail,
+   the header runs edge to edge and its padding lines up with the rail. */
+body:has(.app-main-sidebar) .header-inner,
+body:has(.app-main-sidebar) .header-nav-inner {
+  max-width: none;
+  padding-inline: var(--space-5);
+}
+
 /* ── Side nav ────────────────────────────────────────────────────────────────
    A real app rail: flush to the left edge, full height, hairline separator —
    not a floating card sitting in the content flow. */
 
 .staff-nav {
   position: sticky;
-  top: var(--header-nav-height);
+  /* The sticky header is BOTH bars — the brand row and the teal nav row — so
+     the offset is their combined height, not just the nav row. At 48px the
+     rail slid 111px up underneath the header on every scroll, and its height
+     overflowed the viewport by the same amount. */
+  top: var(--staff-header-h);
   align-self: start;
-  block-size: calc(100vh - var(--header-nav-height));
+  block-size: calc(100vh - var(--staff-header-h));
   inline-size: var(--sidebar-w, 260px);
   display: flex;
   flex-direction: column;
@@ -179,20 +198,26 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* Collapsed, the badge rides the icon — the count is the one thing that still
-   has to be visible when the labels are gone. */
+/* Collapsed, the badge rides the icon's corner — the count is the one thing
+   that still has to be visible once the labels are gone. It needs a ring in
+   the surface colour, or it just sits on top of the glyph. */
 .staff-nav.is-collapsed .staff-nav-item {
   position: relative;
+  inline-size: 2.75rem;
+  block-size: 2.75rem;
+  min-block-size: 0;
+  margin-inline: auto;
 }
 
 .staff-nav.is-collapsed .staff-nav-badge {
   position: absolute;
-  inset-block-start: 4px;
-  inset-inline-end: 6px;
-  min-inline-size: 1.1rem;
-  padding: 0 4px;
+  inset-block-start: -3px;
+  inset-inline-end: -3px;
+  min-inline-size: 1.05rem;
+  padding: 0 3px;
   font-size: 10px;
-  line-height: 1.1rem;
+  line-height: 1.05rem;
+  box-shadow: 0 0 0 2px var(--surface-card);
 }
 
 .staff-nav-item.active .staff-nav-badge {
@@ -277,6 +302,14 @@
 .staff-search {
   flex: 1 1 18rem;
   max-inline-size: 26rem;
+}
+
+/* Controls size to their content, not to the viewport — a select stretched
+   across an ultrawide screen is a target, not a filter. */
+.staff-toolbar select.field-input {
+  inline-size: auto;
+  min-inline-size: 14rem;
+  max-inline-size: 22rem;
 }
 
 .staff-empty {
@@ -499,11 +532,11 @@
   padding-inline-end: var(--space-2);
 }
 
-/* The complaint is the one free-text column, so it absorbs the slack and is
-   the only one allowed to wrap. Everything else stays one line — a department
-   name breaking over four lines made every row four rows tall. */
+/* The complaint is the one free-text column and the only one allowed to wrap;
+   everything else stays on one line, because a department name breaking over
+   four lines made every row four rows tall. */
 .staff-table .col-complaint {
-  inline-size: 100%;
+  min-inline-size: 20rem;
 }
 
 .queue-table .status-pill {
@@ -632,14 +665,20 @@
   color: var(--text-body);
 }
 
-.dialog-tabs {
+/* The one tab primitive. The portals shipped six: two indicator widths, an
+   `-active` suffix that matched nothing else, and two segmented-pill variants. */
+.tabs {
   display: flex;
+  flex-wrap: wrap;
   gap: var(--space-1);
-  padding: 0 var(--space-6);
   border-block-end: 1px solid var(--border-subtle);
 }
 
-.dialog-tab {
+.dialog .tabs {
+  padding: 0 var(--space-6);
+}
+
+.tab {
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
@@ -657,13 +696,13 @@
     border-color var(--dur-color) var(--ease-move);
 }
 
-.dialog-tab.active {
+.tab.active {
   color: var(--color-primary-hover);
   border-block-end-color: var(--color-primary);
   font-weight: var(--fw-semibold);
 }
 
-.dialog-tab-count {
+.tab-count {
   padding: 0 var(--space-2);
   border-radius: var(--radius-full);
   background: var(--surface-sunken);
@@ -672,7 +711,7 @@
 }
 
 @media (hover: hover) and (pointer: fine) {
-  .dialog-tab:hover:not(.active) {
+  .tab:hover:not(.active) {
     color: var(--text-body);
   }
 }
@@ -820,8 +859,8 @@
 .quoted-note {
   margin: 0;
   padding: var(--space-3) var(--space-4);
-  border-inline-start: 3px solid var(--border-default);
-  background: var(--surface-page);
+  background: var(--surface-sunken);
+  border-radius: var(--radius-sm);
   font-size: var(--text-sm);
   color: var(--text-body);
 }
@@ -1110,10 +1149,16 @@
   color: var(--text-body);
 }
 
+/* One hue, like every other chart here. The bar encodes how many, not which
+   level — the chip and the name already say which, and they have to, because
+   the clinical palette cannot carry that job (levels 1 and 2 are ΔE 13.1
+   apart for normal vision). Painting the bar with the triage colour let a
+   single populated level flood the dashboard with a non-brand green. */
 .acuity-fill {
   display: block;
   block-size: 100%;
   border-radius: var(--radius-full);
+  background: var(--color-primary);
 }
 
 /* Hourly columns — dense 0-23, so an empty hour is a visible gap. */
@@ -1142,6 +1187,8 @@
 
 .hour-bar {
   inline-size: 100%;
+  max-inline-size: 2.5rem;
+  margin-inline: auto;
   min-block-size: 2px;
   border-radius: var(--radius-sm) var(--radius-sm) 0 0;
   background: var(--color-primary);
@@ -1195,6 +1242,9 @@
 
 .daily-track {
   inline-size: 100%;
+  /* Seven flexed columns across an ultrawide screen give 230px-wide bars,
+     which read as blocks rather than as a series. */
+  max-inline-size: 3.5rem;
   min-block-size: 2px;
   display: flex;
   flex-direction: column;
@@ -1334,4 +1384,49 @@
   .dialog-card {
     animation: none;
   }
+}
+
+/* ── Criteria rule book ──────────────────────────────────────────────────────
+   It borrowed `.tm-section` from the triage-manual uploader, which caps at
+   680px and centres — so the rule book rendered as a narrow column beside a
+   full-width queue on the same portal. */
+
+.criteria-book {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.criteria-book-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+}
+
+.criteria-book .cm-tpl-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+/* `.cm-cite` caps at 240px, which is right inside the rule table's citation
+   column and wrong in the question list — it broke every citation into a
+   four-line ribbon while 1600px of row sat empty beside it. */
+.criteria-book .cm-q .cm-cite {
+  max-inline-size: var(--measure);
+}
+
+/* Full-width cards, readable line lengths. A question set to the width of an
+   ultrawide monitor is a card nobody can track a line across. */
+.criteria-book .cm-q-text {
+  max-inline-size: var(--measure);
+}
+
+.criteria-book .cm-tpl-keywords,
+.criteria-book .cm-cond,
+.criteria-book .cm-effect {
+  max-inline-size: var(--measure);
 }

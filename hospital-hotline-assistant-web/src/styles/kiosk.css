@@ -2060,36 +2060,36 @@
    chips they read as tappable. A single strip with hairline-divided cells
    contains them, spans the column so both edges align with the CTA, and never
    looks pressable. */
+/* Three separate cards, equal width, spanning the button beneath them. */
 .k-facts {
   display: flex;
   width: 100%;
-  align-items: center;
-  justify-content: space-around;
-  gap: clamp(8px, 1.4vw, 20px);
+  align-items: stretch;
+  gap: clamp(8px, 1vw, 14px);
   margin: 0;
-  padding: clamp(9px, 1.1vh, 14px) clamp(12px, 1.6vw, 22px);
+  padding: 0;
   list-style: none;
-  /* A tinted band, not a bordered table. Three equal bordered cells read as a
-     segmented control (i.e. tappable tabs), forced "Printed guidance slip" to
-     wrap, and gave metadata more weight than the buttons under it. */
-  background: var(--k-surface-tint);
+  background: none;
   border: none;
-  border-radius: var(--k-r-md);
 }
 
 .k-fact {
-  /* content-sized, so nothing wraps and the cells are not equal thirds */
-  flex: 0 1 auto;
+  flex: 1 1 0;
   min-width: 0;
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 8px;
-  padding: 0;
-  border: none;
+  padding: clamp(10px, 1.2vh, 15px) clamp(6px, 0.8vw, 12px);
+  background: var(--k-surface);
+  border: 1px solid var(--k-border);
+  /* small radius, never a pill — a pill plus an icon reads as a button */
+  border-radius: var(--k-r-sm);
   font-size: var(--k-fs-caption);
   font-weight: 600;
   color: var(--k-ink-2);
   white-space: nowrap;
+  text-align: center;
 }
 
 .k-fact-ico {
@@ -2383,6 +2383,10 @@
 }
 
 .k-how-text {
+  /* inline-block so the label can scale; origin follows the layout so it grows
+     away from the rail rather than drifting across it */
+  display: inline-block;
+  transform-origin: left center;
   font-size: var(--k-fs-caption);
   font-weight: 700;
   color: var(--k-ink-2);
@@ -2428,9 +2432,9 @@
 }
 
 @keyframes k-how-text-on {
-  0%, 6%    { color: var(--k-ink-2); }
-  13%, 25%  { color: var(--k-ink); }
-  33%, 100% { color: var(--k-ink-2); }
+  0%, 6%    { color: var(--k-ink-2); transform: scale(1); }
+  13%, 25%  { color: var(--k-ink); transform: scale(1.09); }
+  33%, 100% { color: var(--k-ink-2); transform: scale(1); }
 }
 
 .k-how-step { animation: k-how-in 260ms cubic-bezier(0.16, 1, 0.3, 1) both; }
@@ -2481,4 +2485,6 @@
     flex-direction: column;
     gap: 6px;
   }
+
+  .k-how-text { transform-origin: center; }
 }

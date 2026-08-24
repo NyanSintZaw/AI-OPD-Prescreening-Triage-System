@@ -8,6 +8,7 @@
  */
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { WarningCircle } from '@phosphor-icons/react';
 import { api, type CriteriaActiveView } from '../api';
 import type {
   CriteriaViewFinding,
@@ -42,7 +43,7 @@ function PlaceholderBadge() {
   const { t } = useTranslation();
   return (
     <span className="cm-flag" title={t('criteriaBookPlaceholderHint')}>
-      ⚠️ {t('criteriaBookPlaceholder')}
+      <WarningCircle size={13} weight="fill" aria-hidden="true" /> {t('criteriaBookPlaceholder')}
     </span>
   );
 }
@@ -166,8 +167,9 @@ export function CriteriaBook() {
   if (loading) return <p className="muted">{t('loading')}</p>;
   if (error || !view)
     return (
-      <p className="tm-upload-error" role="alert">
-        ⚠ {error ?? t('error')}
+      <p className="alert-note alert-note-danger" role="alert">
+        <WarningCircle size={18} weight="fill" aria-hidden="true" />
+        {error ?? t('error')}
       </p>
     );
 
@@ -188,13 +190,8 @@ export function CriteriaBook() {
   ];
 
   return (
-    <section className="tm-section">
-      <header className="tm-header">
-        <h2>{t('criteriaBookTitle')}</h2>
-        <p className="muted">{t('criteriaBookSubtitle')}</p>
-      </header>
-
-      <div className="cm-book-head">
+    <section className="criteria-book">
+      <div className="criteria-book-meta">
         <span className="cm-status-pill cm-status-active">
           {view.version_no != null ? `v${view.version_no}` : t('criteriaBookSeed')}
         </span>
@@ -206,20 +203,23 @@ export function CriteriaBook() {
       <CriteriaSources doc={view as unknown as Record<string, unknown>} />
 
       {placeholderCount > 0 && (
-        <p className="cm-book-warn">⚠️ {t('criteriaBookPlaceholderCount', { n: placeholderCount })}</p>
+        <p className="alert-note alert-note-warning">
+          <WarningCircle size={18} weight="fill" aria-hidden="true" />
+          {t('criteriaBookPlaceholderCount', { n: placeholderCount })}
+        </p>
       )}
 
-      <div className="cm-sec-tabs" role="tablist">
+      <div className="tabs" role="tablist">
         {sections.map((s) => (
           <button
             key={s.id}
             type="button"
             role="tab"
             aria-selected={section === s.id}
-            className={`cm-sec-tab ${section === s.id ? 'cm-sec-tab-active' : ''}`}
+            className={`tab ${section === s.id ? 'active' : ''}`}
             onClick={() => setSection(s.id)}
           >
-            {s.label} <span className="muted">({s.count})</span>
+            {s.label} <span className="tab-count">{s.count}</span>
           </button>
         ))}
       </div>
@@ -227,7 +227,7 @@ export function CriteriaBook() {
       {(section === 'findings' || section === 'rules') && (
         <input
           type="search"
-          className="cm-book-search"
+          className="field-input cm-book-search"
           value={query}
           placeholder={section === 'findings' ? t('criteriaBookSearchFindings') : t('criteriaBookSearchRules')}
           onChange={(e) => setQuery(e.target.value)}

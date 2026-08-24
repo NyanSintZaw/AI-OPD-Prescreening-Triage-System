@@ -6,6 +6,7 @@ import {
   BookOpen,
   ChartBar,
   Buildings,
+  ChatsCircle,
   ListChecks,
   Stethoscope,
   UsersThree,
@@ -251,7 +252,7 @@ export function AdminPage() {
   };
 
   const navItems: Array<StaffNavItem<AdminTab>> = [
-    { id: 'sessions', label: t('adminTitle'), icon: ListChecks },
+    { id: 'sessions', label: t('adminTitle'), icon: ChatsCircle },
     { id: 'dashboard', label: t('dashTab'), icon: ChartBar },
     { id: 'triage-manual', label: t('triageManualTab'), icon: Book },
     { id: 'criteria', label: t('criteriaTab'), icon: ListChecks },

@@ -166,10 +166,7 @@ function AcuityRows({
             </span>
             <span className="acuity-name">{t(`triageLevelName_${level}`)}</span>
             <span className="acuity-track">
-              <span
-                className="acuity-fill"
-                style={{ inlineSize: `${pct}%`, background: LEVEL_TOKEN[level] }}
-              />
+              <span className="acuity-fill" style={{ inlineSize: `${pct}%` }} />
             </span>
             <span className="acuity-count">{nf.format(count)}</span>
           </li>
@@ -385,7 +382,7 @@ export function TriageDashboard({ scope }: { scope: Scope }) {
               ? t('dashOldestWait', { d: formatDuration(stats.oldest_pending_minutes) })
               : t('dashQueueClear')
           }
-          tone={stats?.pending_reviews ? 'attention' : 'good'}
+          tone={stats?.pending_reviews ? 'attention' : 'default'}
         />
         <StatTile
           label={t('dashScreenedWindow')}

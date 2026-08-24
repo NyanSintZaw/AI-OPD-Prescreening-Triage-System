@@ -142,10 +142,9 @@ export function KioskHome() {
           </button>
         </div>
 
-        {/* How it works — a connected process, not a list. The numbers sit on
-            a rail; a ripple travels down it. Information, never menu options. */}
+        {/* The three steps, no section label — the numbers already say what
+            this is. Information, never menu options. */}
         <div className="k-how">
-          <span className="k-how-title">{t('kioskHowTitle')}</span>
           <ol className="k-how-steps">
             {howSteps.map((step, i) => (
               <li key={step.name} className={`k-how-step k-how-step--${i + 1}`}>

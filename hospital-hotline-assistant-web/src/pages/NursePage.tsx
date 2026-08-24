@@ -726,14 +726,14 @@ export function NursePage() {
             </header>
 
             {step === 'review' && (
-              <div className="dialog-tabs" role="tablist">
+              <div className="tabs" role="tablist">
                 {(['assessment', 'conversation', 'history'] as const).map((tab) => (
                   <button
                     key={tab}
                     type="button"
                     role="tab"
                     aria-selected={reviewTab === tab}
-                    className={`dialog-tab ${reviewTab === tab ? 'active' : ''}`}
+                    className={`tab ${reviewTab === tab ? 'active' : ''}`}
                     onClick={() => setReviewTab(tab)}
                   >
                     {tab === 'assessment'
@@ -742,7 +742,7 @@ export function NursePage() {
                         ? t('nurseConversationTitle')
                         : t('nurseHistoryTab')}
                     {tab === 'conversation' ? (
-                      <span className="dialog-tab-count">
+                      <span className="tab-count">
                         {sessionMessagesLoading ? '…' : sessionMessages.length}
                       </span>
                     ) : null}
