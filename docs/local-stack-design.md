@@ -7,9 +7,16 @@ the clinic.
 | | |
 |---|---|
 | Cloud dependency | none |
-| GPU | RTX 4060 Ti, 8 GB |
+| GPU | RTX 4000 SFF Ada, 20 GB (was: RTX 4060 Ti, 8 GB) |
+| AI node OS | Windows (was: Linux) |
 | AI node port | 8090 |
 | Backend code changes | zero — config only |
+
+> **The hardware moved after this was written.** Section 3's VRAM budget was
+> the binding constraint on an 8 GB card; on 20 GB it no longer binds, and the
+> conclusions that follow from it — TTS pinned to CPU, STT competing with the
+> model — have been reversed in the code. The reasoning is kept because the
+> *method* still applies; the numbers are superseded where marked.
 
 ---
 
@@ -90,6 +97,15 @@ backend needs no code change.
 
 ## 3. The GPU is the real constraint
 
+> **Superseded by the 20 GB card.** All three stages now stay resident at once
+> — ~6–6.5 GB for the 8B model, ~2.5 GB for whisper `large-v3-turbo` in fp16,
+> ~0.3 GB for the two VITS voices — with real headroom left. TTS moved to the
+> GPU and STT no longer has to yield to the model. What follows is the original
+> 8 GB analysis, kept because the budgeting method still holds and because the
+> new constraint is the same shape: on a 70 W card, **memory bandwidth**
+> (~280 GB/s), not capacity, is what limits generation. Don't spend the new
+> headroom on a heavier quantization without measuring tok/s first.
+
 Both the triage model and STT want the same 8 GB card. Measured on this
 machine, with the 8B model resident and whisper `medium` loaded alongside it:
 
@@ -120,18 +136,38 @@ Per patient turn, assuming a 5 s utterance and a 4 s spoken reply.
 |---|---:|---|---|
 | End-of-turn detection | 2.50 s | config | `voice_silence_hang_ms`, tunable on site |
 | Speech to text · CPU | ~5.00 s | **measured** | 1.0× realtime — 3.57 s for 3.6 s audio |
-| Speech to text · GPU | unknown | **pending** | blocked on a CUDA library path, not yet timed |
+| Speech to text · GPU | **~0.26 s** | **measured** | **20.3× realtime** — 0.257 s for 5.21 s audio, `large-v3-turbo` fp16 on the RTX 4000 SFF Ada |
 | Extraction call | ~2.00 s | estimate | from measured 0.24 s TTFT + 50.3 tok/s |
 | Question or explain call | ~2.00 s | estimate | second LLM call in the same turn |
-| Text to speech | ~1.90 s | **measured** | 2.1× realtime on CPU |
-| **Turn total, STT on CPU** | **~13.4 s** | — | silence to first audio out |
+| Text to speech · CPU | ~1.90 s | **measured** | 2.1× realtime |
+| Text to speech · GPU | **~0.08 s** | **measured** | **48–57× realtime** — 0.059 s for 3.34 s of Thai audio, MMS/VITS fp32 |
+| **Turn total, both on CPU** | **~13.4 s** | — | the original figure, superseded |
+| **Turn total, both on GPU** | **~6.8 s** | — | silence to first audio out, same assumptions |
 
-> **The number that decides the build.** Thirteen seconds between a patient
-> finishing a sentence and the booth answering is not a conversation. Getting
-> STT onto the GPU is the single highest-value change, and it is why the VRAM
-> budget above is drawn the way it is. Two further levers, in order: stream the
-> reply into TTS so audio starts on the first sentence instead of the last, and
-> drop the silence window once real patients have been observed.
+> **The number that decided the build — now banked.** Thirteen seconds between
+> a patient finishing a sentence and the booth answering is not a conversation.
+> Both speech stages are now on the GPU and the turn is roughly **halved**:
+>
+> | | before | after |
+> |---|---:|---:|
+> | Speech to text | 5.00 s | **0.26 s** |
+> | Text to speech | 1.90 s | **0.08 s** |
+> | Turn total | 13.4 s | **~6.8 s** |
+>
+> **The speech stages are no longer the problem.** Together they now cost about
+> a third of a second, and the remaining budget is dominated by things the GPU
+> cannot fix:
+> 1. **The two LLM calls, ~4 s combined** — now over half the turn. Estimates
+>    built on 50.3 tok/s, re-confirmed at 50.1 tok/s on the new card, so they
+>    stand. Bandwidth-bound: they will not improve without a smaller model or
+>    fewer tokens. Cutting prompt size is the lever here.
+> 2. **End-of-turn detection, 2.50 s** — the largest *single* item. Pure config
+>    (`voice_silence_hang_ms`) and therefore the cheapest to cut; drop it once
+>    real patients have been observed.
+>
+> Streaming the reply into TTS, previously lever #2, is now barely worth doing
+> for latency — 0.08 s is nothing to hide. It may still be worth it so audio
+> starts before the LLM has finished generating, which is a different win.
 
 ---
 
@@ -252,6 +288,20 @@ VRAM budget stops holding. That is a real second-phase question, not a detail.
 
 ---
 
-*Measurements taken on the booth workstation — RTX 4060 Ti 8 GB, 20 cores,
-62 GB RAM — against Typhoon 8B via Ollama, faster-whisper medium and MMS-TTS.
-Figures marked estimate or pending are not yet verified on hardware.*
+*Measurements taken on the original booth workstation — RTX 4060 Ti 8 GB, 20
+cores, 62 GB RAM, Linux — against Typhoon 8B via Ollama, faster-whisper medium
+and MMS-TTS. Figures marked estimate or pending were not verified on hardware.*
+
+*The AI node has since moved to Windows on an RTX 4000 SFF Ada 20 GB, and the
+CUDA library path that blocked GPU STT (§4) is fixed — `_preload_cuda_libs()`
+registers the wheel directories per platform and `requirements.txt` pulls the
+CUDA torch build. **Every latency figure above predates that move and needs
+re-measuring**; `GET /metrics` on the gateway reports p50/p95 per stage.*
+
+*First re-measurement on the new card: typhoon2 8B generates Thai at **50.1
+tok/s**, against 50.3 tok/s on the 4060 Ti — no change, because the two cards
+have near-identical memory bandwidth (288 vs ~280 GB/s) and generation is
+bandwidth-bound. The LLM rows above therefore still stand. What changed is
+capacity, so it is the STT row that should move, not the LLM ones. Also
+measured: the model occupies **9.2 GB** resident at ctx 8192, well above the
+5.9 GB assumed above, because of the KV cache.*

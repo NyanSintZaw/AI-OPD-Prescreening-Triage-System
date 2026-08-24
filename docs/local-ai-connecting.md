@@ -31,7 +31,16 @@ node, and 24 kHz PCM comes back down the same socket.
 
 ### local-speech
 
-Already binds `0.0.0.0`, so nothing to change:
+Already binds `0.0.0.0`, so nothing to change.
+
+Windows (the current AI node):
+
+```powershell
+cd local-speech
+.\venv\Scripts\uvicorn server:app --host 0.0.0.0 --port 8090
+```
+
+Linux:
 
 ```bash
 cd local-speech
@@ -54,6 +63,10 @@ drop-in (`sudo systemctl edit ollama` + `OLLAMA_HOST=0.0.0.0:11434`). Running
 `OLLAMA_HOST=… ollama serve` by hand does not stick — systemd undoes it on the
 next restart. Proxying avoids needing root at all.
 
+On Windows the mechanism differs (Ollama runs as a per-user background app and
+reads `OLLAMA_HOST` from the user environment, so `setx` would make it stick)
+but the conclusion is the same: leave it on loopback and proxy.
+
 Confirm the sidecar can see it:
 
 ```bash
@@ -63,19 +76,30 @@ curl -s http://localhost:8090/health | grep -o '"reachable":[a-z]*'
 
 ### Start both at once
 
-```bash
-./run-local.sh ai
+```powershell
+.\run-local.ps1 ai        # Windows
 ```
 
-Brings up only the AI node, verifies the Ollama bind, and prints the exact
+```bash
+./run-local.sh ai         # Linux
+```
+
+Brings up only the AI node, verifies the Ollama bind, warns if
+`SCREENING_MODEL_NAME` is not actually in `ollama list`, and prints the exact
 `.env` lines to paste on the app node.
 
 ### Firewall
 
-If the host has one active, open the two ports:
+If the host has one active, open the one port:
+
+```powershell
+# Windows — run elevated
+New-NetFirewallRule -DisplayName "local-ai gateway" -Direction Inbound `
+  -Protocol TCP -LocalPort 8090 -Action Allow
+```
 
 ```bash
-sudo ufw allow 8090/tcp      # the only port that needs to be open
+sudo ufw allow 8090/tcp      # Linux — the only port that needs to be open
 ```
 
 ---
@@ -84,8 +108,15 @@ sudo ufw allow 8090/tcp      # the only port that needs to be open
 
 A GPU box usually has several. Use whichever network the app node shares:
 
+```powershell
+# Windows
+Get-NetIPAddress -AddressFamily IPv4 |
+  Where-Object { $_.IPAddress -notlike '127.*' } |
+  Select-Object IPAddress, InterfaceAlias
+```
+
 ```bash
-hostname -I
+hostname -I      # Linux
 ```
 
 | Kind | Example | Use when |
@@ -175,8 +206,15 @@ only `:8090` is reachable, and it serves nothing but the five routes above.
 The gateway itself is still unauthenticated. On a shared network, restrict it
 to the app node rather than the whole subnet:
 
+```powershell
+# Windows — run elevated. RemoteAddress is what scopes it to the app node.
+New-NetFirewallRule -DisplayName "local-ai gateway (app node only)" `
+  -Direction Inbound -Protocol TCP -LocalPort 8090 `
+  -RemoteAddress 10.1.82.90 -Action Allow
+```
+
 ```bash
-sudo ufw allow from 10.1.82.90 to any port 8090 proto tcp
+sudo ufw allow from 10.1.82.90 to any port 8090 proto tcp   # Linux
 ```
 
 Before this goes near real patients, `:8090` should also carry a bearer token —

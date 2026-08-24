@@ -14,6 +14,9 @@ Thumbs.db
 service-account*.json
 google-credentials*.json
 
+# Local stack logs (run-local.sh / run-local.ps1)
+.run-logs/
+
 # Python
 __pycache__/
 *.py[cod]

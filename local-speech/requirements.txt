@@ -1,15 +1,37 @@
-# On-prem STT + TTS sidecar for the triage backend.
+# On-prem STT + TTS + LLM gateway for the triage backend.
 fastapi
 uvicorn[standard]
 python-multipart
+httpx
 
-# STT
+# STT — faster-whisper runs on ctranslate2, NOT torch, so it needs its own
+# CUDA libraries even when torch is present. Without these two wheels
+# get_stt() falls back to CPU int8 and only says so in one log line.
+# ctranslate2 4.x wants cuDNN 9 against CUDA 12.
 faster-whisper
+nvidia-cublas-cu12
+nvidia-cudnn-cu12>=9
 
-# TTS - MMS-TTS (VITS). Thai is the reason: piper has no Thai voice.
-# CPU-only torch keeps the 8 GB GPU free for the triage LLM.
---extra-index-url https://download.pytorch.org/whl/cpu
-torch
+# Instrumentation for /metrics. Both were imported but never declared, so the
+# Probe's sampling thread died with ModuleNotFoundError on every single request
+# — visible only as a traceback in the log and null gpu/cpu/vram fields.
+# nvidia-ml-py also replaces shelling out to nvidia-smi, which takes longer to
+# start than a GPU stage now takes to finish.
+nvidia-ml-py
+psutil
+
+# TTS — MMS-TTS (VITS). Thai is the reason: piper has no Thai voice.
+# CUDA build, not the CPU wheel: the 20 GB card holds the 8B triage model,
+# whisper and VITS at once, so there is nothing left to protect by keeping
+# TTS off the GPU.
+#
+# The +cu124 local-version tag is what makes it a GPU build, and pinning it
+# EXACTLY is load-bearing: left unpinned, pip sees candidates on both PyPI and
+# the torch index and backtracks through multi-GB wheels for a very long time
+# before settling. One candidate means one download.
+# 2.6.0 is the only cu124 build for cp313/win_amd64; bump both together.
+--extra-index-url https://download.pytorch.org/whl/cu124
+torch==2.6.0+cu124
 transformers
 
 # 16 kHz (MMS) -> 24 kHz (voice bridge) resampling

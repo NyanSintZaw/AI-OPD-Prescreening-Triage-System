@@ -25,6 +25,15 @@ mkdir -p "$LOGS"
 sync_env() {
   local api_env="$ROOT/hospital-hotline-assistant-api/.env"
   local web_env="$ROOT/hospital-hotline-assistant-web/.env"
+  # AI_MODE is what actually moves the providers on-prem. Setting only the URLs
+  # leaves SCREENING_MODEL_PROVIDER/STT_PROVIDER/TTS_PROVIDER on vertexai and
+  # google, so the stack comes up local-looking while still sending patient
+  # audio to the cloud — the one thing this deployment exists to prevent.
+  if grep -q '^AI_MODE=' "$api_env"; then
+    sed -i -E "s#^AI_MODE=.*#AI_MODE=local#" "$api_env"
+  else
+    echo "AI_MODE=local" >> "$api_env"
+  fi
   sed -i -E "s#^(STT_BASE_URL|TTS_BASE_URL)=.*#\1=http://localhost:$SPEECH_PORT/v1#" "$api_env"
   sed -i -E "s#^SCREENING_OPENAI_BASE_URL=.*#SCREENING_OPENAI_BASE_URL=http://localhost:${SPEECH_PORT}/v1#" "$api_env"
   sed -i -E "s#^VITE_API_BASE_URL=.*#VITE_API_BASE_URL=http://localhost:$API_PORT#" "$web_env"

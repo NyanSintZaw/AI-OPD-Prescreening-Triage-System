@@ -1,11 +1,20 @@
-"""On-prem speech sidecar: OpenAI-compatible STT + TTS for the triage backend.
+"""On-prem gateway: OpenAI-compatible STT + TTS + LLM for the triage backend.
 
-Speaks exactly the two endpoints ``app/services/speech_adapter.py`` calls when
-``STT_PROVIDER``/``TTS_PROVIDER`` are ``openai_compatible``, so patient audio
-never leaves the hospital:
+Serves every endpoint the backend calls when ``AI_MODE=local``, so no patient
+text or audio leaves the hospital:
 
     POST /v1/audio/transcriptions   faster-whisper  (th + en)
     POST /v1/audio/speech           MMS-TTS (VITS)  (th + en)
+    POST /v1/chat/completions       pass-through proxy to Ollama
+
+The module name predates the LLM proxy. Ollama stays bound to 127.0.0.1 and is
+reached only through here, so one port leaves the machine and there is no
+unauthenticated LLM endpoint on the hospital LAN.
+
+STT and TTS take *different* CUDA paths and fail independently: STT runs on
+ctranslate2 (needs the nvidia-cu12 wheels), TTS on torch (needs a CUDA build).
+Both fall back to CPU rather than taking the booth down — ``GET /health``
+reports what actually loaded next to what was requested.
 
 Why MMS and not piper: piper ships no Thai voice at all (rhasspy/piper-voices
 has no ``th`` directory), and Thai is the kiosk's default language.
@@ -47,27 +56,49 @@ logger = logging.getLogger("local-speech")
 # ---------------------------------------------------------------------------
 # Config
 # ---------------------------------------------------------------------------
-# medium/int8 on CPU is the balance point for a kiosk: large-v3 is clearly
-# better at Thai but pushes a 5 s utterance past the point where the pause
-# feels broken. Both stay off the GPU on purpose — the 8B triage model already
-# holds ~5.9 GB of the 8 GB card and must not contend during a live call.
-STT_MODEL_SIZE = os.environ.get("STT_MODEL_SIZE", "medium")
+# large-v3-turbo on the GPU: a distilled 4-layer decoder (against 32 in
+# large-v3) makes it several times faster for near-identical transcription,
+# and it is clearly better at Thai than medium. The 20 GB card holds it
+# alongside the 8B triage model and TTS with room to spare, so nothing has to
+# stay on the CPU any more. get_stt() falls back to CPU int8 on its own when
+# CUDA is missing, so these defaults are safe on a machine without a GPU.
+STT_MODEL_SIZE = os.environ.get("STT_MODEL_SIZE", "large-v3-turbo")
 STT_DEVICE = os.environ.get("STT_DEVICE", "cuda")
-STT_COMPUTE_TYPE = os.environ.get("STT_COMPUTE_TYPE", "int8_float16")
+STT_COMPUTE_TYPE = os.environ.get("STT_COMPUTE_TYPE", "float16")
+# 1 keeps the post-utterance pause short. There is GPU headroom to raise it,
+# but measure the accuracy/latency trade on real Thai utterances first.
 STT_BEAM_SIZE = int(os.environ.get("STT_BEAM_SIZE", "1"))
+
+
+# os.add_dll_directory() returns a handle that un-registers the directory when
+# it is closed — and it closes on garbage collection. Hold them for the life of
+# the process or the search path silently empties again.
+_dll_dirs = []
 
 
 def _preload_cuda_libs():
     """Make the pip-installed CUDA libraries loadable by ctranslate2.
 
-    nvidia-cublas-cu12 / nvidia-cudnn-cu12 drop their .so files inside
-    site-packages, which is not on the dynamic loader's search path — so
-    faster-whisper on GPU dies with "Library libcublas.so.12 is not found".
-    Setting LD_LIBRARY_PATH from inside the process is too late (the loader
-    reads it at exec), so open them explicitly instead: once a library is in
+    nvidia-cublas-cu12 / nvidia-cudnn-cu12 drop their shared libraries inside
+    site-packages, which is not on the loader's search path — so faster-whisper
+    on GPU dies with "Library libcublas.so.12 is not found" on Linux, or a bare
+    "DLL load failed" on Windows. The two platforms need opposite fixes.
+
+    Linux: setting LD_LIBRARY_PATH from inside the process is too late (the
+    loader read it at exec), so open the libraries explicitly — once one is in
     the process, later dlopen calls resolve to it.
+
+    Windows: ctranslate2 asks for its CUDA libraries by bare name
+    (``LoadLibrary("cublas64_12.dll")``), and that resolves through the
+    standard search order — which consults **PATH** but NOT the list built by
+    os.add_dll_directory. add_dll_directory alone therefore fails with
+    "Library cublas64_12.dll is not found or cannot be loaded" even though the
+    directory is registered. Prepending to os.environ["PATH"] is what actually
+    works, and unlike Linux it takes effect immediately: Windows reads PATH per
+    LoadLibrary call, not once at exec. add_dll_directory is kept as well —
+    it covers dependent-DLL resolution for extension modules, which PATH does
+    not on Python 3.8+.
     """
-    import ctypes
     import glob
     import site
 
@@ -76,6 +107,28 @@ def _preload_cuda_libs():
         roots.append(site.getusersitepackages())
     except Exception:
         pass
+
+    if os.name == "nt":
+        found = []
+        for pattern in (os.path.join("nvidia", "*", "bin"),
+                        os.path.join("torch", "lib")):
+            for root in roots:
+                for path in sorted(glob.glob(os.path.join(root, pattern))):
+                    if os.path.isdir(path) and path not in found:
+                        found.append(path)
+        for path in found:
+            try:
+                _dll_dirs.append(os.add_dll_directory(path))
+            except OSError:
+                pass
+        if found:
+            os.environ["PATH"] = os.pathsep.join(
+                found + [os.environ.get("PATH", "")]
+            )
+        return len(found)
+
+    import ctypes
+
     loaded = 0
     # cublasLt must precede cublas — cublas depends on it.
     for pattern in ("cudnn/lib/libcudnn*.so*", "cublas/lib/libcublasLt.so*",
@@ -93,6 +146,11 @@ TTS_MODELS = {
     "th": os.environ.get("TTS_MODEL_TH", "facebook/mms-tts-tha"),
     "en": os.environ.get("TTS_MODEL_EN", "facebook/mms-tts-eng"),
 }
+# VITS is small enough to run on the CPU, but on the GPU it is comfortably
+# under the delay a patient reads as a pause. Needs a CUDA torch build — a
+# CPU-only wheel silently ignores this, so get_tts() says so rather than
+# leaving a "why is TTS still slow" mystery.
+TTS_DEVICE = os.environ.get("TTS_DEVICE", "cuda")
 MMS_SAMPLE_RATE = 16_000          # what VITS/MMS emits
 DEFAULT_OUTPUT_RATE = 24_000      # what the voice bridge plays
 
@@ -280,6 +338,9 @@ def get_stt():
 # ---------------------------------------------------------------------------
 _tts_cache = {}
 _tts_lock = threading.Lock()
+# What TTS actually ended up on, which may differ from TTS_DEVICE when torch
+# turned out to be a CPU-only build.
+_tts_runtime = {"device": TTS_DEVICE}
 
 
 def get_tts(language):
@@ -294,6 +355,24 @@ def get_tts(language):
             tokenizer = AutoTokenizer.from_pretrained(name)
             model = VitsModel.from_pretrained(name)
             model.eval()
+
+            device = TTS_DEVICE
+            if device == "cuda" and not torch.cuda.is_available():
+                # The usual cause is the CPU-only torch wheel, which is easy to
+                # install by accident and impossible to spot from the outside.
+                logger.warning(
+                    "TTS_DEVICE=cuda but this torch build reports no CUDA "
+                    "(%s) — running TTS on CPU", torch.__version__,
+                )
+                device = "cpu"
+            try:
+                model = model.to(device)
+            except Exception as exc:      # noqa: BLE001 — a slow booth beats a dead one
+                logger.warning("TTS could not move to %s (%s) — using CPU", device, exc)
+                device = "cpu"
+                model = model.to("cpu")
+            _tts_runtime["device"] = device
+            logger.info("TTS %s on %s", language, device)
             if getattr(tokenizer, "is_uroman", False):
                 # MMS checkpoints for some scripts need romanized input; if a
                 # future voice needs it, feeding raw script silently produces
@@ -302,16 +381,18 @@ def get_tts(language):
                     "%s expects uroman-romanized input; raw %s text will be mispronounced",
                     name, language,
                 )
-            _tts_cache[language] = (tokenizer, model, torch)
+            _tts_cache[language] = (tokenizer, model, torch, device)
             logger.info("TTS %s ready in %.1f s", language, time.perf_counter() - t0)
     return _tts_cache[language]
 
 
 def synthesize(text, language, output_rate):
-    tokenizer, model, torch = get_tts(language)
+    tokenizer, model, torch, device = get_tts(language)
     inputs = tokenizer(text, return_tensors="pt")
+    # Inputs must sit on the same device as the weights, or torch raises.
+    inputs = {k: v.to(device) for k, v in inputs.items()}
     with torch.no_grad():
-        waveform = model(**inputs).waveform[0].cpu().numpy()
+        waveform = model(**inputs).waveform[0].float().cpu().numpy()
     return to_wav(waveform, MMS_SAMPLE_RATE, output_rate)
 
 
@@ -339,7 +420,7 @@ def to_wav(samples, source_rate, target_rate):
 # ---------------------------------------------------------------------------
 # API
 # ---------------------------------------------------------------------------
-app = FastAPI(title="Local Speech Sidecar")
+app = FastAPI(title="Local AI Gateway (STT / TTS / LLM)")
 
 
 @app.get("/")
@@ -366,11 +447,19 @@ def health():
         "status": "ok",
         "stt": {
             "model": STT_MODEL_SIZE,
-            "device": STT_DEVICE,
-            "compute_type": STT_COMPUTE_TYPE,
+            # Requested vs actual: a GPU that failed to load falls back to CPU
+            # silently, and "why is every turn slow" is answered right here.
+            "device": _stt_runtime["device"],
+            "device_requested": STT_DEVICE,
+            "compute_type": _stt_runtime["compute_type"],
             "loaded": _stt_model is not None,
         },
-        "tts": {"models": TTS_MODELS, "loaded": sorted(_tts_cache)},
+        "tts": {
+            "models": TTS_MODELS,
+            "device": _tts_runtime["device"],
+            "device_requested": TTS_DEVICE,
+            "loaded": sorted(_tts_cache),
+        },
         "llm": {"upstream": OLLAMA_URL, "reachable": _llm_reachable()},
         "output_sample_rate": DEFAULT_OUTPUT_RATE,
     }
