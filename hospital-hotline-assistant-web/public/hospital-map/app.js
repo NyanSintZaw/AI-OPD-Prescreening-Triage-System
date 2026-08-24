@@ -847,6 +847,15 @@ function init() {
     els.backBtn.setAttribute("aria-label", "กลับ");
   }
 
+  // A host that draws its own exit passes ?back=0, so the map does not offer a
+  // second one in a different visual language. Standalone and older embeds are
+  // unaffected — the chip shows unless it is explicitly switched off.
+  if (URL_PARAMS.get("back") === "0") {
+    // display, not [hidden]: .back-chip sets an explicit display, which wins
+    // over the user-agent [hidden] rule, so the chip would still render.
+    els.backBtn.style.display = "none";
+  }
+
   // Inside the triage app the viewer lives in an iframe — tell the host
   // page to close the map. Standalone, plain history back.
   els.backBtn.addEventListener("click", () => {

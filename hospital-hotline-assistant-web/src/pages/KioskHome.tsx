@@ -186,7 +186,7 @@ export function KioskHome() {
             onClick={(e) => e.stopPropagation()}
           >
             <iframe
-              src={`/hospital-map/index.html?lang=${language}`}
+              src={`/hospital-map/index.html?lang=${language}&back=0`}
               className="k-map-frame"
               title={t('kioskViewMap')}
             />

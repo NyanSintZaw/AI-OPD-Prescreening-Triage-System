@@ -259,17 +259,20 @@
   display: inline-flex;
   align-items: center;
   gap: 10px;
+  /* The only way out of a full-screen overlay on a kiosk, so it is weighted
+     like one: a filled teal action, not a white pill on a near-white ground
+     where it read as an afterthought. */
   min-height: var(--k-touch);
-  padding: 0 34px;
+  padding: 0 48px;
   border-radius: 999px;
-  border: 1px solid var(--k-border);
-  background: var(--k-surface);
-  color: var(--k-ink-2);
-  font-size: 17px;
+  border: none;
+  background: var(--k-primary);
+  color: #fff;
+  font-size: var(--k-fs-body-lg);
   font-weight: 700;
   cursor: pointer;
-  box-shadow: var(--k-shadow-sm);
-  transition: background var(--k-t-fast) var(--k-ease), border-color var(--k-t-fast) var(--k-ease);
+  box-shadow: var(--k-shadow-md);
+  transition: background-color var(--k-t-fast) var(--k-ease);
 }
 
 
@@ -1992,8 +1995,7 @@
    Mouse-only, matching the design system's own rule. */
 @media (hover: hover) and (pointer: fine) {
   .k-exit:hover {
-    background: var(--k-bg);
-    border-color: var(--k-border-strong);
+    background: var(--k-primary-strong);
   }
 
   .k-btn.primary:hover {
