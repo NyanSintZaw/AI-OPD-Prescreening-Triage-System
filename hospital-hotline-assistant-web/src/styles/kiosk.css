@@ -496,14 +496,20 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  /* Fill the shell and distribute, rather than centring one short block.
-     On a 1920px-tall portrait panel, centring stranded ~370px of dead space
-     at the bottom — the most reachable part of the screen — while lifting the
-     primary action to eye height. Distributing drops the CTA into the
-     comfortable standing reach band and gives the reading blocks the top. */
-  justify-content: space-evenly;
+  /* Spacing carries grouping. space-evenly put an identical gap between every
+     child, so a headline and its own subtitle sat as far apart as the headline
+     and the disclaimer — nothing read as belonging together. Groups are tight
+     inside and separated between; `justify-content: center` then floats the
+     whole composition, and the group gaps below do the rest. */
+  /* `safe`, not plain `center`: with min-height:100% a centred flex column
+     whose children are taller than its box overflows in BOTH directions, so
+     the top slides under the absolutely-positioned topbar and overflow-y
+     cannot scroll it back (that overflow is above the scroll origin). `safe`
+     falls back to flex-start the moment content exceeds the box. Only the
+     1080x1920 kiosk panel escaped this; every browser window clipped. */
+  justify-content: safe center;
   min-height: 100%;
-  gap: clamp(16px, 2.4vh, 28px);
+  gap: clamp(14px, 1.8vh, 22px);
   width: min(1500px, 94vw);
   text-align: center;
 }
@@ -2295,7 +2301,10 @@
   font-weight: 800;
   line-height: 1.15;
   color: var(--k-ink);
-  max-width: 22ch;
+  /* balance, and room for Thai: at 22ch the Thai headline orphaned its final
+     particle (ค่ะ) onto a line of its own. */
+  max-width: 26ch;
+  text-wrap: balance;
 }
 
 /* What is about to happen, said before the patient commits. */
@@ -2335,7 +2344,7 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  justify-content: space-evenly;
+  justify-content: safe space-evenly;
   gap: clamp(20px, 3vh, 40px);
   width: min(1500px, 94vw);
   min-height: 100%;
@@ -2391,4 +2400,86 @@
   border-radius: var(--k-r-md);
   background: var(--k-surface);
   box-shadow: var(--k-shadow-sm);
+}
+
+/* ── Welcome screen rhythm ──────────────────────────────────────────────────
+   Three groups: who + what (greeting → facts), the decision (CTA), and
+   reference (how-it-works, disclaimer). Within a group, elements sit close;
+   between groups the gap roughly triples. */
+.k-home > .k-home-title { margin-top: clamp(10px, 1.4vh, 18px); }   /* greeting owns the headline */
+.k-home > .k-hero-sub   { margin-top: clamp(-2px, 0.4vh, 8px); }    /* headline + its own subtitle are one statement */
+.k-home > .k-facts      { margin-top: clamp(16px, 2.2vh, 30px); }
+.k-home > .k-cta-row    { margin-top: clamp(40px, 5.4vh, 76px); }   /* group break: the decision */
+.k-home > .k-how        { margin-top: clamp(36px, 4.8vh, 68px); }   /* group break: reference */
+.k-home > .k-home-footer{ margin-top: clamp(18px, 2.4vh, 34px); }
+
+/* Reference content, not a headline act: the card was the second-heaviest
+   object on the screen. Three steps read left-to-right as a process and cost
+   ~90px instead of ~325px stacked. */
+.k-how {
+  width: min(1000px, 96%);
+  background: none;
+  border: none;
+  box-shadow: none;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: clamp(10px, 1.4vh, 18px);
+}
+
+.k-how-steps {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  /* content-width steps with a real gap, not thirds of the container —
+     stretching them to 1000px pushed step 1 and step 3 to opposite edges and
+     broke them into three unrelated items. */
+  gap: clamp(20px, 3.4vw, 52px);
+  width: auto;
+  max-width: 100%;
+}
+
+.k-how-step {
+  flex: 0 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  text-align: center;
+}
+
+/* Number and icon share one row: two stacked glyphs above every label made
+   each step three rows tall for no added meaning. */
+.k-how-step .k-how-dot { order: -1; }
+
+.k-how-name {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--k-fs-caption);
+  font-weight: 700;
+  color: var(--k-ink-2);
+  line-height: 1.35;
+  white-space: nowrap;
+}
+
+.k-how-name-ico { color: var(--k-primary-on-light); }
+
+/* Short viewports (any browser window; the 1080x1920 kiosk panel is unaffected).
+   The rhythm above is tuned for 1920px of height — at ~1000px it overflowed by
+   ~130px and forced a scroll. Compress the group breaks and the brand mark
+   rather than dropping content. */
+@media (max-height: 1180px) {
+  .k-hero-hello > svg {
+    width: clamp(76px, 11vh, 132px);
+    height: auto;
+  }
+  .k-home > .k-home-title  { margin-top: clamp(2px, 0.6vh, 10px); }
+  .k-home > .k-facts       { margin-top: clamp(10px, 1.6vh, 20px); }
+  .k-home > .k-cta-row     { margin-top: clamp(18px, 2.8vh, 40px); }
+  .k-home > .k-how         { margin-top: clamp(16px, 2.4vh, 34px); }
+  .k-home > .k-home-footer { margin-top: clamp(10px, 1.4vh, 18px); }
 }

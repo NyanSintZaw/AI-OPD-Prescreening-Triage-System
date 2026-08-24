@@ -97,7 +97,7 @@ export function KioskHome() {
 
       <div className="k-home">
         <div className="k-hero-hello">
-          <NongMali size={132} className="mali-nong--bloom" />
+          <NongMali size={168} className="mali-nong--bloom" />
           <span className="k-hero-hello-text">{t('kioskHeroHello')}</span>
         </div>
 
@@ -142,26 +142,23 @@ export function KioskHome() {
           </button>
         </div>
 
-        {/* How it works — a numbered timeline (deliberately flat: these rows
-            are information, not menu options). */}
-        <div className="k-card k-how">
+        {/* How it works — reassurance, read left to right. Deliberately flat:
+            these are information, not menu options. */}
+        <div className="k-how">
           <span className="k-how-title">{t('kioskHowTitle')}</span>
-          {howSteps.map((step, i) => (
-            <div key={step.name} className={`k-how-step k-how-step--${i + 1}`}>
-              <span className="k-how-rail">
-                <span className="k-how-dot">{i + 1}</span>
-                {i < howSteps.length - 1 && <span className="k-how-line" aria-hidden="true" />}
-              </span>
-              <span className="k-how-text">
+          <div className="k-how-steps">
+            {howSteps.map((step, i) => (
+              <div key={step.name} className={`k-how-step k-how-step--${i + 1}`}>
                 <span className="k-how-name">
+                  <span className="k-how-dot">{i + 1}</span>
                   <span className="k-how-name-ico" aria-hidden="true">
                     {step.icon}
                   </span>
                   {step.name}
                 </span>
-              </span>
-            </div>
-          ))}
+              </div>
+            ))}
+          </div>
         </div>
 
         <p className="k-home-footer">{t('disclaimer')}</p>
