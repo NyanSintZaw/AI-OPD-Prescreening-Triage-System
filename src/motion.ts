@@ -24,7 +24,8 @@ export type MarkMotion =
   | 'budGrow'
   | 'nongRise'
   | 'nongWave'
-  | 'nongBloom';
+  | 'nongBloom'
+  | 'nongRiseSway';
 
 /** Which mark each motion belongs to — `Mark` (bud) or `NongMali`. */
 export const MARK_MOTIONS: Record<MarkMotion, { mark: 'bud' | 'nong'; role: string }> = {
@@ -35,7 +36,18 @@ export const MARK_MOTIONS: Record<MarkMotion, { mark: 'bud' | 'nong'; role: stri
   nongRise: { mark: 'nong', role: 'quiet entrance' },
   nongWave: { mark: 'nong', role: 'greeting' },
   nongBloom: { mark: 'nong', role: 'welcome' },
+  nongRiseSway: { mark: 'nong', role: 'idle loop' },
 };
+
+/* nongRiseSway timing. The rise finishes once its last-staggered part lands;
+   the sway then runs whole cycles before she rises again. */
+const RISE_DUR = 600;
+const RISE_STAGGER = 500;
+const RISE_TOTAL = RISE_DUR + RISE_STAGGER;
+const SWAY_DUR = 3600;
+/* Turns of sway before she rises again. */
+const SWAY_CYCLES = 3;
+const RISE_SWAY_PERIOD = RISE_TOTAL + SWAY_DUR * SWAY_CYCLES;
 
 export interface PlayOptions {
   /** Run even when the viewer prefers reduced motion. Default false. */
@@ -45,6 +57,27 @@ export interface PlayOptions {
 export interface MotionHandle {
   cancel: () => void;
 }
+
+/** nongBloom's settle — a whisper, because it runs under a welcome headline. */
+const SETTLE_KEYFRAMES: Keyframe[] = [
+  { transform: 'rotate(0deg) translateY(0)' },
+  { transform: 'rotate(1.6deg) translateY(-3px)' },
+  { transform: 'rotate(0deg) translateY(0)' },
+  { transform: 'rotate(-1.6deg) translateY(-3px)' },
+  { transform: 'rotate(0deg) translateY(0)' },
+];
+
+/* nongRiseSway's sway. Read from across a lobby rather than at arm's length,
+   so it carries roughly 2.5x the rotation, 3x the lift, and a slight breath in
+   scale — the settle amplitude above is invisible at that distance. The tilt
+   pivots low, the way a flower moves on its stem. */
+const SWAY_KEYFRAMES: Keyframe[] = [
+  { transform: 'rotate(0deg) translateY(0) scale(1)' },
+  { transform: 'rotate(4deg) translateY(-9px) scale(1.02)', offset: 0.25 },
+  { transform: 'rotate(0deg) translateY(-2px) scale(1)', offset: 0.5 },
+  { transform: 'rotate(-4deg) translateY(-9px) scale(1.02)', offset: 0.75 },
+  { transform: 'rotate(0deg) translateY(0) scale(1)' },
+];
 
 const SPRING = 'cubic-bezier(.34,1.56,.64,1)';
 const GLIDE = 'cubic-bezier(.22,1,.36,1)';
@@ -115,11 +148,17 @@ export function playMark(
   if (prefersReduced() && !options.force) return noop;
 
   const running: Animation[] = [];
+  let repeat: ReturnType<typeof setTimeout> | undefined;
   const track = (a: Animation) => {
     running.push(a);
     return a;
   };
-  const handle: MotionHandle = { cancel: () => running.forEach((a) => a.cancel()) };
+  const handle: MotionHandle = {
+    cancel: () => {
+      if (repeat !== undefined) clearTimeout(repeat);
+      running.forEach((a) => a.cancel());
+    },
+  };
 
   const allParts = [...root.querySelectorAll<SVGGeometryElement>('path, circle')];
   let t = 0;
@@ -395,6 +434,54 @@ export function playMark(
     return handle;
   }
 
+  if (motion === 'nongRiseSway') {
+    // Idle loop: she glides up, sways for a few seconds, then rises again.
+    // Scheduled rather than one infinite keyframe set, because the rise has to
+    // re-run each cycle — an `iterations: Infinity` sway alone only ever sways.
+    const cycle = () => {
+      running.splice(0).forEach((a) => a.cancel());
+      /* Re-query every cycle rather than reusing the list captured on the first
+         pass. A host that re-renders can replace the SVG's children (React
+         re-applies dangerouslySetInnerHTML), leaving the captured nodes
+         detached — the sway survives because it targets the <svg> itself, but
+         the rise would animate nodes no longer in the document. */
+      const live = [...root.querySelectorAll<SVGGeometryElement>('path, circle, ellipse')];
+      if (live.length === 0) {
+        /* Nothing to rise yet — the host has not written the mark's paths.
+           Try again next frame instead of burning the cycle on an empty set. */
+        requestAnimationFrame(cycle);
+        return;
+      }
+      const ln = live.length;
+      live.forEach((p, i) => {
+        const s2 = p.style as CSSStyleDeclaration & { transformBox?: string };
+        s2.transformBox = 'fill-box';
+        s2.transformOrigin = 'center';
+        track(
+          p.animate(
+            [
+              { transform: 'translateY(14px)', opacity: 0 },
+              { transform: 'translateY(0)', opacity: 1 },
+            ],
+            { duration: RISE_DUR, delay: i * (RISE_STAGGER / ln), fill: 'backwards', easing: GLIDE },
+          ),
+        );
+      });
+      root.style.transformOrigin = '50% 85%';
+      track(
+        root.animate(SWAY_KEYFRAMES, {
+          duration: SWAY_DUR,
+          delay: RISE_TOTAL,
+          iterations: SWAY_CYCLES,
+          easing: 'ease-in-out',
+        }),
+      );
+      repeat = setTimeout(cycle, RISE_SWAY_PERIOD);
+    };
+    cycle();
+    return handle;
+  }
+
   // nongBloom — every part springs open in turn, then she settles into a slow
   // sway. The sway loops, so it is the one motion that keeps running.
   parts.forEach((p, i) => {
@@ -413,16 +500,12 @@ export function playMark(
     );
   });
   track(
-    root.animate(
-      [
-        { transform: 'rotate(0deg) translateY(0)' },
-        { transform: 'rotate(1.6deg) translateY(-3px)' },
-        { transform: 'rotate(0deg) translateY(0)' },
-        { transform: 'rotate(-1.6deg) translateY(-3px)' },
-        { transform: 'rotate(0deg) translateY(0)' },
-      ],
-      { duration: 4200, delay: 1220, iterations: Infinity, easing: 'ease-in-out' },
-    ),
+    root.animate(SETTLE_KEYFRAMES, {
+      duration: 4200,
+      delay: 1220,
+      iterations: Infinity,
+      easing: 'ease-in-out',
+    }),
   );
   return handle;
 }
