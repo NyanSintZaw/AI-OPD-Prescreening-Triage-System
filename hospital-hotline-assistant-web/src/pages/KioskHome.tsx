@@ -142,23 +142,24 @@ export function KioskHome() {
           </button>
         </div>
 
-        {/* How it works — reassurance, read left to right. Deliberately flat:
-            these are information, not menu options. */}
+        {/* How it works — a connected process, not a list. The numbers sit on
+            a rail; a ripple travels down it. Information, never menu options. */}
         <div className="k-how">
           <span className="k-how-title">{t('kioskHowTitle')}</span>
-          <div className="k-how-steps">
+          <ol className="k-how-steps">
             {howSteps.map((step, i) => (
-              <div key={step.name} className={`k-how-step k-how-step--${i + 1}`}>
-                <span className="k-how-name">
-                  <span className="k-how-dot">{i + 1}</span>
-                  <span className="k-how-name-ico" aria-hidden="true">
-                    {step.icon}
-                  </span>
-                  {step.name}
+              <li key={step.name} className={`k-how-step k-how-step--${i + 1}`}>
+                <span className="k-how-dot">
+                  {i + 1}
+                  <span className="k-how-ping" aria-hidden="true" />
                 </span>
-              </div>
+                <span className="k-how-label">
+                  <span className="k-how-ico" aria-hidden="true">{step.icon}</span>
+                  <span className="k-how-text">{step.name}</span>
+                </span>
+              </li>
             ))}
-          </div>
+          </ol>
         </div>
 
         <p className="k-home-footer">{t('disclaimer')}</p>

@@ -10,6 +10,7 @@ import { CriteriaBook } from '../components/CriteriaBook';
 import { TriageDashboard } from '../components/TriageDashboard';
 import { StaffNav, type StaffNavItem } from '../components/staff/StaffNav';
 import { useLanguage } from '../hooks/useSession';
+import { useDuration } from '../hooks/useDuration';
 import { slipCode, slipSearchKey } from '../utils/slipCode';
 import type {
   AssessmentReviewOut,
@@ -202,6 +203,7 @@ export function NursePage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { language, setLanguage } = useLanguage();
+  const formatDuration = useDuration();
   // Ops staff can reach this portal too; viewers get the read-only view and
   // must be sent back to their own login, not the nurse one.
   const isReadOnly = getAdminRole() === 'viewer';
@@ -625,6 +627,10 @@ export function NursePage() {
                     {filteredReviews.map((review) => {
                       const confirmed = confirmedDeptLabel(review);
                       const waited = minutesSince(review.created_at);
+                      const deptText =
+                        review.status === 'corrected' && confirmed
+                          ? confirmed
+                          : reviewDeptLabel(review);
                       return (
                         <tr
                           key={review.id}
@@ -646,17 +652,13 @@ export function NursePage() {
                           <td>
                             <code className="slip-code">{slipCode(review.session_id)}</code>
                           </td>
-                          <td>{review.patient_name || '—'}</td>
-                          <td className="col-complaint">{complaintPreview(review)}</td>
-                          <td>
-                            {review.status === 'corrected' && confirmed
-                              ? confirmed
-                              : reviewDeptLabel(review)}
+                          <td title={review.patient_name ?? undefined}>
+                            {review.patient_name || '—'}
                           </td>
+                          <td className="col-complaint">{complaintPreview(review)}</td>
+                          <td title={deptText}>{deptText}</td>
                           <td className="col-num">
-                            {review.status === 'pending'
-                              ? t('nurseWaitedMinutes', { n: waited })
-                              : '—'}
+                            {review.status === 'pending' ? formatDuration(waited) : '—'}
                           </td>
                           <td>
                             <span className={`status-pill status-${review.status}`}>

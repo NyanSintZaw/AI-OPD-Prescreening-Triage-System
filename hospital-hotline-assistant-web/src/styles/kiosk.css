@@ -597,58 +597,15 @@
   text-align: left;
 }
 
-.k-how-title {
-  font-size: var(--k-fs-caption);
-  font-weight: 700;
-  letter-spacing: normal;
-  color: var(--k-ink-3);
-}
 
-.k-how-step {
-  display: flex;
-  align-items: stretch;
-  gap: 18px;
-}
 
 /* Left rail: numbered circle + connector line down to the next step. */
 
-.k-how-dot {
-  display: grid;
-  place-items: center;
-  width: 46px;
-  height: 46px;
-  border-radius: 50%;
-  border: 2.5px solid var(--k-border-strong);
-  background: var(--k-surface-tint);
-  color: var(--k-ink-3);
-  font-size: 19px;
-  font-weight: 800;
-  flex-shrink: 0;
-  transition: background-color 200ms var(--k-ease), border-color 200ms var(--k-ease),
-    color 200ms var(--k-ease);
-}
 
 
 
-.k-how-name {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-size: var(--k-fs-body-lg);
-  font-weight: 800;
-  color: var(--k-ink-2);
-  transition: color 450ms var(--k-ease);
-}
 
-.k-how-name-ico {
-  display: inline-flex;
-  color: var(--k-ink-3);
-  transition: color 450ms var(--k-ease);
-}
 
-.k-how-step.active .k-how-name {
-  color: var(--k-ink);
-}
 
 /* Per-step accents when active: blue → amber → green (journey colors). */
 .k-how-step--1.active .k-how-dot {
@@ -1875,15 +1832,7 @@
     padding: 14px 18px;
   }
 
-  .k-how-step {
-    gap: 14px;
-  }
 
-  .k-how-dot {
-    width: 38px;
-    height: 38px;
-    font-size: 16px;
-  }
 
 
 
@@ -2003,11 +1952,6 @@
     display: none;
   }
 
-  .k-how-dot {
-    width: 38px;
-    height: 38px;
-    font-size: 16px;
-  }
 
 
   .k-home-footer {
@@ -2267,41 +2211,12 @@
   gap: clamp(10px, 1.4vh, 18px);
 }
 
-.k-how-steps {
-  display: flex;
-  /* Stacked. Side by side, three Thai labels overflowed the 780px content
-     measure and collided with the next step's number badge. */
-  flex-direction: column;
-  align-items: stretch;
-  gap: clamp(10px, 1.4vh, 16px);
-  width: 100%;
-}
 
-.k-how-step {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  min-width: 0;
-  text-align: left;
-}
 
 /* Number and icon share one row: two stacked glyphs above every label made
    each step three rows tall for no added meaning. */
-.k-how-step .k-how-dot { order: -1; }
 
-.k-how-name {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  gap: 10px;
-  min-width: 0;
-  font-size: var(--k-fs-caption);
-  font-weight: 700;
-  color: var(--k-ink-2);
-  line-height: 1.35;
-}
 
-.k-how-name-ico { color: var(--k-primary-on-light); }
 
 /* Short viewports (any browser window; the 1080x1920 kiosk panel is unaffected).
    The rhythm above is tuned for 1920px of height — at ~1000px it overflowed by
@@ -2355,7 +2270,6 @@
 /* Welcome: facts are tertiary — they shared an ink and a weight with the
    sub-line directly above them, so the two blocks blended. */
 .k-fact { color: var(--k-ink-3); font-weight: 500; }
-.k-how-name { color: var(--k-ink-2); }
 
 /* How-it-works entrance. Seen once per patient, and its job is to convey a
    sequence — so the steps arrive in order rather than all at once. Short
@@ -2373,9 +2287,6 @@
   from { opacity: 0; }
 }
 
-.k-how-step {
-  animation: k-how-in 260ms cubic-bezier(0.16, 1, 0.3, 1) both;
-}
 
 .k-how-step--1 { animation-delay: 240ms; }
 .k-how-step--2 { animation-delay: 310ms; }
@@ -2383,7 +2294,6 @@
 
 @media (prefers-reduced-motion: reduce) {
   /* Gentler, not none: the sequence still reads, the movement goes. */
-  .k-how-step { animation-name: k-how-in-still; }
 }
 
 /* Landscape card is ~1600px wide, so the steps read left to right as a
@@ -2391,98 +2301,184 @@
    side, so they stack there. Declared after the base rule — inside the
    landscape block above it lost on source order at equal specificity. */
 @media (orientation: landscape) and (min-width: 900px) {
-  .k-how-steps {
-    flex-direction: row;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: clamp(20px, 2.6vw, 48px);
-  }
-  .k-how-step { flex: 1 1 0; }
 }
 
-/* How-it-works walkthrough. The whole row is the spotlight, not a badge tint:
-   it slides forward on a tinted ground, the number fills and grows, the icon
-   brightens and grows with it, and the label darkens. Four properties moving
-   together on one timeline is what makes it read as a step rather than a
-   colour change. 2s per step, 6s cycle, then back to the start.
-
-   It stays a demonstration, never a progress bar: nothing is marked done, no
-   checkmarks, no completed state — so it cannot be read as the patient's own
-   progress. */
-@keyframes k-how-walk-row {
-  0%, 4% {
-    background-color: transparent;
-    transform: translateX(0);
-  }
-  11%, 25% {
-    background-color: var(--k-primary-tint);
-    transform: translateX(10px);
-  }
-  33%, 100% {
-    background-color: transparent;
-    transform: translateX(0);
-  }
+/* ── How it works ──────────────────────────────────────────────────────────
+   A connected process, not three list rows: the numbers sit on a rail and a
+   ripple travels down it. The previous version slid a tinted rectangle behind
+   the active row, which reads as a hover or selection state — and nested a box
+   inside the card's box. Nothing here has a filled ground. */
+.k-how-title {
+  font-size: var(--k-fs-caption);
+  font-weight: 700;
+  letter-spacing: normal;
+  color: var(--k-ink-3);
 }
 
-@keyframes k-how-walk-dot {
-  0%, 4% {
-    background-color: var(--k-surface-tint);
-    border-color: var(--k-border-strong);
-    color: var(--k-ink-3);
-    transform: scale(1);
-  }
-  11%, 25% {
-    background-color: var(--k-primary);
-    border-color: var(--k-primary);
-    color: #fff;
-    transform: scale(1.14);
-  }
-  33%, 100% {
-    background-color: var(--k-surface-tint);
-    border-color: var(--k-border-strong);
-    color: var(--k-ink-3);
-    transform: scale(1);
-  }
-}
-
-@keyframes k-how-walk-ico {
-  0%, 4%    { color: var(--k-ink-3); transform: scale(1); }
-  11%, 25%  { color: var(--k-primary-on-light); transform: scale(1.18); }
-  33%, 100% { color: var(--k-ink-3); transform: scale(1); }
-}
-
-@keyframes k-how-walk-label {
-  0%, 4%    { color: var(--k-ink-2); }
-  11%, 25%  { color: var(--k-ink); }
-  33%, 100% { color: var(--k-ink-2); }
+.k-how-steps {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(18px, 2.2vh, 30px);
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: none;
 }
 
 .k-how-step {
-  /* room for the tinted ground the row slides onto */
-  padding: clamp(6px, 0.8vh, 10px) clamp(10px, 1.2vw, 16px);
-  border-radius: var(--k-r-sm);
-  animation:
-    k-how-in 260ms cubic-bezier(0.16, 1, 0.3, 1) both,
-    k-how-walk-row 6s var(--k-ease) infinite;
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-width: 0;
 }
 
-.k-how-step .k-how-dot      { animation: k-how-walk-dot 6s var(--k-ease) infinite; }
-.k-how-step .k-how-name-ico { animation: k-how-walk-ico 6s var(--k-ease) infinite; }
-.k-how-step .k-how-name     { animation: k-how-walk-label 6s var(--k-ease) infinite; }
+/* The rail: a hairline from this number to the next. */
+.k-how-step:not(:last-child)::before {
+  content: '';
+  position: absolute;
+  left: 23px;
+  top: 46px;
+  bottom: calc(-1 * clamp(18px, 2.2vh, 30px));
+  width: 2px;
+  background: var(--k-primary-tint-border);
+}
 
-.k-how-step--1 { animation-delay: 240ms, 0.9s; }
-.k-how-step--2 { animation-delay: 310ms, 2.9s; }
-.k-how-step--3 { animation-delay: 380ms, 4.9s; }
+.k-how-dot {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  border: 2px solid var(--k-primary-tint-border);
+  background: var(--k-surface);
+  color: var(--k-ink-3);
+  font-size: 19px;
+  font-weight: 800;
+}
 
-.k-how-step--1 .k-how-dot, .k-how-step--1 .k-how-name-ico, .k-how-step--1 .k-how-name { animation-delay: 0.9s; }
-.k-how-step--2 .k-how-dot, .k-how-step--2 .k-how-name-ico, .k-how-step--2 .k-how-name { animation-delay: 2.9s; }
-.k-how-step--3 .k-how-dot, .k-how-step--3 .k-how-name-ico, .k-how-step--3 .k-how-name { animation-delay: 4.9s; }
+/* The ripple — a ring that expands out of the active number and fades. */
+.k-how-ping {
+  position: absolute;
+  inset: -5px;
+  border-radius: 50%;
+  border: 2px solid var(--k-primary);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.k-how-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.k-how-ico {
+  display: inline-flex;
+  color: var(--k-ink-3);
+}
+
+.k-how-text {
+  font-size: var(--k-fs-caption);
+  font-weight: 700;
+  color: var(--k-ink-2);
+  line-height: 1.35;
+}
+
+/* ── The walkthrough ───────────────────────────────────────────────────────
+   Number fills and grows, a ring ripples out of it, the icon and label
+   brighten. No background block anywhere. 2s per step, 6s cycle, back to the
+   start — a demonstration, never a progress bar: nothing is marked done. */
+@keyframes k-how-dot-on {
+  0%, 6% {
+    background-color: var(--k-surface);
+    border-color: var(--k-primary-tint-border);
+    color: var(--k-ink-3);
+    transform: scale(1);
+  }
+  13%, 25% {
+    background-color: var(--k-primary);
+    border-color: var(--k-primary);
+    color: #fff;
+    transform: scale(1.12);
+  }
+  33%, 100% {
+    background-color: var(--k-surface);
+    border-color: var(--k-primary-tint-border);
+    color: var(--k-ink-3);
+    transform: scale(1);
+  }
+}
+
+@keyframes k-how-ping-out {
+  0%, 8%    { opacity: 0; transform: scale(0.85); }
+  14%       { opacity: 0.55; transform: scale(1); }
+  28%       { opacity: 0; transform: scale(1.55); }
+  33%, 100% { opacity: 0; transform: scale(0.85); }
+}
+
+@keyframes k-how-ico-on {
+  0%, 6%    { color: var(--k-ink-3); }
+  13%, 25%  { color: var(--k-primary-on-light); }
+  33%, 100% { color: var(--k-ink-3); }
+}
+
+@keyframes k-how-text-on {
+  0%, 6%    { color: var(--k-ink-2); }
+  13%, 25%  { color: var(--k-ink); }
+  33%, 100% { color: var(--k-ink-2); }
+}
+
+.k-how-step { animation: k-how-in 260ms cubic-bezier(0.16, 1, 0.3, 1) both; }
+.k-how-dot  { animation: k-how-dot-on 6s var(--k-ease) infinite; }
+.k-how-ping { animation: k-how-ping-out 6s var(--k-ease) infinite; }
+.k-how-ico  { animation: k-how-ico-on 6s var(--k-ease) infinite; }
+.k-how-text { animation: k-how-text-on 6s var(--k-ease) infinite; }
+
+.k-how-step--1 { animation-delay: 240ms; }
+.k-how-step--2 { animation-delay: 310ms; }
+.k-how-step--3 { animation-delay: 380ms; }
+
+.k-how-step--1 :is(.k-how-dot, .k-how-ping, .k-how-ico, .k-how-text) { animation-delay: 0.9s; }
+.k-how-step--2 :is(.k-how-dot, .k-how-ping, .k-how-ico, .k-how-text) { animation-delay: 2.9s; }
+.k-how-step--3 :is(.k-how-dot, .k-how-ping, .k-how-ico, .k-how-text) { animation-delay: 4.9s; }
 
 @media (prefers-reduced-motion: reduce) {
-  /* Every step is legible at rest, so the spotlight simply stops; the entrance
-     keeps its fade so the sequence still reads. */
   .k-how-step { animation: k-how-in-still 260ms both; }
-  .k-how-step .k-how-dot,
-  .k-how-step .k-how-name-ico,
-  .k-how-step .k-how-name { animation: none; }
+  .k-how-dot, .k-how-ping, .k-how-ico, .k-how-text { animation: none; }
+}
+
+@media (orientation: landscape) and (min-width: 900px) {
+  .k-how-steps {
+    flex-direction: row;
+    align-items: flex-start;
+    gap: clamp(16px, 2vw, 36px);
+  }
+
+  .k-how-step {
+    flex: 1 1 0;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    text-align: center;
+  }
+
+  /* Rail runs sideways between the numbers, at their centre line. */
+  .k-how-step:not(:last-child)::before {
+    left: calc(50% + 31px);
+    right: calc(-50% + 31px);
+    top: 22px;
+    bottom: auto;
+    width: auto;
+    height: 2px;
+  }
+
+  .k-how-label {
+    flex-direction: column;
+    gap: 6px;
+  }
 }

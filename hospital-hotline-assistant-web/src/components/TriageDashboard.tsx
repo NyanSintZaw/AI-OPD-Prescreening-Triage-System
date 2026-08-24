@@ -21,6 +21,7 @@ import { ArrowUp, Minus, WarningCircle } from '@phosphor-icons/react';
 import { api } from '../api';
 import type { RoutingFeedbackOut, SurveillanceSummaryOut, TriageStatsOut } from '../api/types';
 import { useLanguage } from '../hooks/useSession';
+import { useDuration } from '../hooks/useDuration';
 
 type Scope = 'nurse' | 'admin';
 
@@ -37,16 +38,18 @@ const LEVEL_TOKEN: Record<number, string> = {
 
 const nf = new Intl.NumberFormat();
 
-/** "4 min" / "2 h 5 min" — a raw minute count past an hour stops being read. */
-function useDuration() {
-  const { t } = useTranslation();
-  return (minutes: number | null | undefined): string => {
-    if (minutes === null || minutes === undefined) return '—';
-    if (minutes < 60) return t('dashMinutesShort', { n: minutes });
-    const h = Math.floor(minutes / 60);
-    const m = minutes % 60;
-    return m ? t('dashHoursMinutesShort', { h, m }) : t('dashHoursShort', { h });
-  };
+/**
+ * Is this keyword a symptom term, or a whole utterance?
+ *
+ * Two writers feed `symptom_keywords`: the extractor writes short terms, and
+ * the turn pipeline writes the free-text `symptoms_summary`. The second kind
+ * arrived as a sibling "symptom" — a full Thai sentence ranked next to
+ * "fever". Thai does not put spaces between words, so a word count cannot
+ * tell the two apart; character length can.
+ */
+function isSymptomTerm({ keyword }: { keyword: string }): boolean {
+  const term = keyword.trim();
+  return term.length > 0 && term.length <= 24 && term.split(/\s+/).length <= 3;
 }
 
 function StatTile({
@@ -323,7 +326,7 @@ export function TriageDashboard({ scope }: { scope: Scope }) {
       (trends?.outbreak_alerts ?? []).map((a) => [a.keyword, a]),
     );
     return (trends?.top_symptoms ?? [])
-      .filter((s) => s.keyword.trim().split(/\s+/).length <= 4 && s.keyword.length <= 40)
+      .filter(isSymptomTerm)
       .slice(0, 8)
       .map((s) => ({
         key: s.keyword,
@@ -335,9 +338,7 @@ export function TriageDashboard({ scope }: { scope: Scope }) {
 
   const risingRows = useMemo(
     () =>
-      (trends?.outbreak_alerts ?? []).filter(
-        (a) => a.keyword.trim().split(/\s+/).length <= 4,
-      ),
+      (trends?.outbreak_alerts ?? []).filter((a) => isSymptomTerm(a)),
     [trends],
   );
 
