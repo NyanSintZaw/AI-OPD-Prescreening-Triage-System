@@ -11,7 +11,8 @@
   "expect_category = the category the model must pick (never one the patient",
   "denied).",
   "category = complaint category preset on the state (null = turn-1 opener,",
-  "the bounded-vocabulary hard case). Scored by scripts/run_extraction_eval.py."
+  "the bounded-vocabulary hard case). Scored by scripts/run_extraction_eval.py.",
+  "Mid-interview cases (corr_*) preset chief_complaint/findings/pending and score expect_chief_complaint: true = the patient replaced their main problem (the template may move), false = they only added or answered (it must not)."
  ],
  "cases": [
   {
@@ -920,6 +921,217 @@
    ],
    "allow": [
     "balance_loss"
+   ],
+   "forbid": []
+  },
+  {
+   "id": "corr_th_abd_to_chest",
+   "language": "th",
+   "category": "abdominal_pain",
+   "chief_complaint": "ปวดท้อง",
+   "findings": {
+    "abdominal_pain": "present"
+   },
+   "pending": "ตอนนี้คุณหายใจลำบากหรือหายใจเหนื่อยไหมคะ",
+   "phrase": "เอ่อ ขอโทษค่ะ พูดผิด จริงๆ ไม่ได้ปวดท้องค่ะ แต่เจ็บแน่นหน้าอก แน่นๆ มาตั้งแต่เมื่อวาน",
+   "expect": [
+    "chest_pain"
+   ],
+   "expect_absent": [
+    "abdominal_pain"
+   ],
+   "expect_category": "chest_pain",
+   "expect_chief_complaint": true,
+   "allow": [],
+   "forbid": []
+  },
+  {
+   "id": "corr_th_chest_to_abd",
+   "language": "th",
+   "category": "chest_pain",
+   "chief_complaint": "แน่นหน้าอก",
+   "findings": {
+    "chest_pain": "present",
+    "diaphoresis": "present"
+   },
+   "phrase": "เอ๊ะ เดี๋ยวค่ะ หนูพูดผิด ไม่ได้เจ็บหน้าอก แค่ปวดท้องค่ะ",
+   "expect": [
+    "abdominal_pain"
+   ],
+   "expect_absent": [
+    "chest_pain"
+   ],
+   "expect_category": "abdominal_pain",
+   "expect_chief_complaint": true,
+   "allow": [],
+   "forbid": []
+  },
+  {
+   "id": "corr_th_headache_gone_rash",
+   "language": "th",
+   "category": "headache",
+   "chief_complaint": "ปวดหัว",
+   "findings": {
+    "headache": "present"
+   },
+   "pending": "ปวดศีรษะรุนแรงที่สุดในชีวิต เกิดขึ้นทันทีไหมคะ",
+   "phrase": "ไม่ใช่ค่ะ ที่บอกว่าปวดหัวคือเมื่ออาทิตย์ก่อน ตอนนี้หายแล้ว วันนี้มาเรื่องผื่นคันที่แขน",
+   "expect": [
+    "rash_itching"
+   ],
+   "expect_absent": [
+    "headache"
+   ],
+   "expect_category": "skin_rash",
+   "expect_chief_complaint": true,
+   "allow": [
+    "headache_sudden_severe"
+   ],
+   "forbid": []
+  },
+  {
+   "id": "corr_th_retract_sweating",
+   "language": "th",
+   "category": "chest_pain",
+   "chief_complaint": "แน่นหน้าอก",
+   "findings": {
+    "chest_pain": "present",
+    "diaphoresis": "present"
+   },
+   "pending": "ขอยืนยันให้แน่ใจนะคะ ตอนนี้คุณมีอาการนี้ใช่ไหมคะ: เจ็บแน่นหน้าอก",
+   "phrase": "ใช่ค่ะ แต่ที่บอกว่าเหงื่อแตกนั่นไม่ใช่ค่ะ แค่ร้อนๆ เฉยๆ",
+   "expect": [
+    "chest_pain"
+   ],
+   "expect_absent": [
+    "diaphoresis"
+   ],
+   "expect_chief_complaint": false,
+   "allow": [],
+   "forbid": []
+  },
+  {
+   "id": "corr_th_add_chest_to_fever",
+   "language": "th",
+   "category": "fever",
+   "chief_complaint": "มีไข้",
+   "findings": {
+    "fever": "present"
+   },
+   "pending": "ตอนนี้คุณหายใจลำบากหรือหายใจเหนื่อยไหมคะ",
+   "phrase": "ไม่มีค่ะ แต่ว่าตอนนี้แน่นหน้าอกด้วยค่ะ เจ็บแปล๊บๆ",
+   "expect": [
+    "chest_pain"
+   ],
+   "expect_absent": [
+    "dyspnea"
+   ],
+   "expect_chief_complaint": false,
+   "allow": [
+    "severe_respiratory_distress"
+   ],
+   "forbid": []
+  },
+  {
+   "id": "corr_th_add_cough_to_fever",
+   "language": "th",
+   "category": "fever",
+   "chief_complaint": "มีไข้",
+   "findings": {
+    "fever": "present"
+   },
+   "pending": "มีไอ เจ็บคอ น้ำมูก ท้องเสีย หรือปัสสาวะแสบขัดร่วมด้วยไหมคะ",
+   "phrase": "ไอด้วยค่ะ ไอแห้งๆ แต่ไม่เจ็บคอ",
+   "expect": [
+    "cough"
+   ],
+   "expect_absent": [
+    "sore_throat"
+   ],
+   "expect_chief_complaint": false,
+   "allow": [],
+   "forbid": []
+  },
+  {
+   "id": "corr_en_mothers_fall",
+   "language": "en",
+   "category": "injury",
+   "chief_complaint": "pain in my right knee after a fall",
+   "findings": {
+    "injury_within_24h": "present"
+   },
+   "pending": "Did you hit your head?",
+   "phrase": "wait, sorry, that was my mother's fall I was describing — I'm here for my own sore throat, two days now",
+   "expect": [
+    "sore_throat"
+   ],
+   "expect_category": "nose_throat",
+   "expect_chief_complaint": true,
+   "allow": [
+    "head_injury",
+    "injury_within_24h"
+   ],
+   "forbid": [],
+   "note": "The model restates the complaint (sore throat) but rarely flips the old anchor; the engine switches on restated + new anchor present, so the old finding's state is not scored."
+  },
+  {
+   "id": "corr_en_not_sweating",
+   "language": "en",
+   "category": "chest_pain",
+   "chief_complaint": "chest pain",
+   "findings": {
+    "chest_pain": "present",
+    "diaphoresis": "present"
+   },
+   "pending": "Just to make sure I understood — do you have this right now: Chest pain / tightness?",
+   "phrase": "Actually no, I'm not really sweating, I just feel a bit warm. The chest pain is there though",
+   "expect": [
+    "chest_pain"
+   ],
+   "expect_absent": [
+    "diaphoresis"
+   ],
+   "expect_chief_complaint": false,
+   "allow": [],
+   "forbid": []
+  },
+  {
+   "id": "corr_en_pain_score",
+   "language": "en",
+   "category": "abdominal_pain",
+   "chief_complaint": "stomach pain lower right",
+   "findings": {
+    "abdominal_pain": "present"
+   },
+   "pending": "Just to make sure I understood — do you have this right now: Abdominal pain?",
+   "phrase": "sorry, I meant 4 not 7, it's more of a dull ache",
+   "expect": [],
+   "expect_chief_complaint": false,
+   "allow": [
+    "abdominal_pain"
+   ],
+   "forbid": []
+  },
+  {
+   "id": "corr_en_add_dizzy_to_headache",
+   "language": "en",
+   "category": "headache",
+   "chief_complaint": "headache since this morning",
+   "findings": {
+    "headache": "present"
+   },
+   "pending": "Right now, are you having any trouble breathing?",
+   "phrase": "no, breathing's fine. I do feel a bit dizzy when I stand up though",
+   "expect": [
+    "vertigo"
+   ],
+   "expect_absent": [
+    "dyspnea"
+   ],
+   "expect_chief_complaint": false,
+   "allow": [
+    "balance_loss",
+    "severe_respiratory_distress"
    ],
    "forbid": []
   }

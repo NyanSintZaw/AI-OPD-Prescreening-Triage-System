@@ -44,6 +44,16 @@ def test_interrogative_you_have_is_not_diagnosis():
     assert "diagnosis" in codes("You have a chest infection.")
 
 
+def test_empathic_recap_of_what_patient_said_is_not_diagnosis():
+    """Manual passages induce these openers; they restate the patient's own
+    report and must not be mistaken for a diagnosis (RAG regression)."""
+    assert "diagnosis" not in codes("I understand you have been experiencing chest tightness.")
+    assert "diagnosis" not in codes("You have told me the cough started three days ago.")
+    assert "diagnosis" not in codes("You have mentioned some dizziness as well.")
+    # …but a declarative condition right after "you have" still is one.
+    assert "diagnosis" in codes("You have bronchitis and should rest.")
+
+
 def test_prescription_patterns():
     assert "prescription" in codes("Take 500 mg paracetamol every 6 hours.")
     assert "prescription" in codes("ทานยาพารา 2 เม็ดทุก 6 ชั่วโมงนะคะ", language="th")

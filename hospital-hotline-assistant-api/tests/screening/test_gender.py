@@ -259,28 +259,27 @@ def test_normalize_gender_spellings():
     assert _normalize_gender(None) is None
 
 
-async def test_http_adapter_reads_gender_from_visit_lookup():
+async def test_http_adapter_reads_gender_from_patient_lookup():
     def handler(request: httpx.Request) -> httpx.Response:
-        if request.url.path == "/api/v1/visits/V9":
+        if request.url.path == "/api/v1/patients/HN9":
             return httpx.Response(200, json={
-                "visit_id": "V9", "hn": "HN9", "birthdate": "1980-05-01",
-                "active": True, "gender": "หญิง",
+                "hn": "HN9", "birthdate": "1980-05-01", "gender": "หญิง",
             })
         return httpx.Response(404)
 
-    info = await _adapter(handler).validate_visit("V9")
+    info = await _adapter(handler).validate_patient("HN9")
     assert info is not None and info.gender == "female"
 
 
 async def test_http_adapter_gender_missing_stays_none():
     def handler(request: httpx.Request) -> httpx.Response:
-        if request.url.path == "/api/v1/visits/V9":
+        if request.url.path == "/api/v1/patients/HN9":
             return httpx.Response(200, json={
-                "visit_id": "V9", "hn": "HN9", "active": True, "gender": None,
+                "hn": "HN9", "gender": None,
             })
         return httpx.Response(404)
 
-    info = await _adapter(handler).validate_visit("V9")
+    info = await _adapter(handler).validate_patient("HN9")
     assert info is not None and info.gender is None
 
 
@@ -326,20 +325,20 @@ async def _run_push(metadata, gender):
 
 
 async def test_service_pushes_booth_gender_when_his_lacked_it():
-    metadata = {"visit": {"visit_id": "V1", "hn": "HN1", "gender": None}}
+    metadata = {"patient": {"hn": "HN1", "gender": None}}
     assert await _run_push(metadata, "female") == [("HN1", "female")]
     # Success is remembered so later turns don't re-push.
-    assert metadata["visit"]["gender"] == "female"
+    assert metadata["patient"]["gender"] == "female"
     assert await _run_push(metadata, "female") == []
 
 
 async def test_service_never_pushes_over_his_recorded_gender():
-    metadata = {"visit": {"visit_id": "V1", "hn": "HN1", "gender": "male"}}
+    metadata = {"patient": {"hn": "HN1", "gender": "male"}}
     assert await _run_push(metadata, "female") == []
-    assert metadata["visit"]["gender"] == "male"
+    assert metadata["patient"]["gender"] == "male"
 
 
 async def test_service_skips_push_without_hn_or_definite_gender():
-    assert await _run_push({"visit": {}}, "female") == []
-    assert await _run_push({"visit": {"hn": "HN1"}}, "unknown") == []
-    assert await _run_push({"visit": {"hn": "HN1"}}, None) == []
+    assert await _run_push({"patient": {}}, "female") == []
+    assert await _run_push({"patient": {"hn": "HN1"}}, "unknown") == []
+    assert await _run_push({"patient": {"hn": "HN1"}}, None) == []

@@ -55,7 +55,9 @@
     "หัวใจหยุด",
     "ไม่หายใจ",
     "คลำชีพจรไม่ได้"
-   ]
+   ],
+   "confirm_en": "Just to be sure — is the person not breathing and without a pulse?",
+   "confirm_th": "ขอถามให้ชัดนะคะ ผู้ป่วยไม่หายใจและไม่มีชีพจรใช่ไหมคะ"
   },
   "unresponsive": {
    "label_en": "Unresponsive / cannot be woken",
@@ -69,7 +71,9 @@
     "หมดสติ",
     "ปลุกไม่ตื่น",
     "ไม่ตอบสนอง"
-   ]
+   ],
+   "confirm_en": "Just to be sure — is the person unresponsive and can't be woken?",
+   "confirm_th": "ขอถามให้ชัดนะคะ ผู้ป่วยซึมลงปลุกไม่ตื่นหรือไม่รู้สึกตัวใช่ไหมคะ"
   },
   "seizure_now": {
    "label_en": "Seizure now / convulsing and unresponsive",
@@ -81,7 +85,9 @@
    "synonyms_th": [
     "ชัก",
     "ชักเกร็ง"
-   ]
+   ],
+   "confirm_en": "Just to be sure — is the person having a seizure right now, convulsing and not responding?",
+   "confirm_th": "ขอถามให้ชัดนะคะ ตอนนี้กำลังชักเกร็งและเรียกไม่รู้สึกตัวใช่ไหมคะ"
   },
   "airway_obstruction": {
    "label_en": "Airway obstruction / choking",
@@ -93,7 +99,9 @@
    "synonyms_th": [
     "สำลัก",
     "ติดคอหายใจไม่ได้"
-   ]
+   ],
+   "confirm_en": "Just to be sure — is something blocking the airway, or are you choking right now?",
+   "confirm_th": "ขอถามให้ชัดนะคะ ตอนนี้มีอะไรติดคอหรือสำลักจนหายใจไม่ออกไหมคะ"
   },
   "apnea": {
    "label_en": "Stopped breathing (apnea)",
@@ -103,7 +111,9 @@
    ],
    "synonyms_th": [
     "หยุดหายใจเป็นพัก"
-   ]
+   ],
+   "confirm_en": "Just to be sure — has the breathing stopped at any point?",
+   "confirm_th": "ขอถามให้ชัดนะคะ มีช่วงที่หยุดหายใจไปเลยใช่ไหมคะ"
   },
   "severe_respiratory_distress": {
    "label_en": "Severe breathing difficulty (cannot speak full sentences / must sit up to breathe)",
@@ -117,7 +127,9 @@
     "หายใจไม่ทัน",
     "พูดไม่เป็นประโยค",
     "หอบมาก"
-   ]
+   ],
+   "confirm_en": "Just to be sure — is the breathing difficulty severe, so you can't speak full sentences or must sit up to breathe?",
+   "confirm_th": "ขอถามให้ชัดนะคะ หายใจลำบากรุนแรงจนพูดเป็นประโยคไม่ได้หรือต้องลุกนั่งหายใจใช่ไหมคะ"
   },
   "dyspnea": {
    "label_en": "Difficulty breathing / shortness of breath",
@@ -131,7 +143,9 @@
     "เหนื่อยหอบ",
     "หายใจไม่อิ่ม",
     "หายใจลำบาก"
-   ]
+   ],
+   "confirm_en": "Just to be sure — are you short of breath right now?",
+   "confirm_th": "ขอถามให้ชัดนะคะ ตอนนี้หายใจเหนื่อยอยู่ไหมคะ"
   },
   "retraction": {
    "label_en": "Chest retractions when breathing",
@@ -142,7 +156,9 @@
    "synonyms_th": [
     "อกบุ๋ม",
     "ซี่โครงบุ๋ม"
-   ]
+   ],
+   "confirm_en": "Just to be sure — do the spaces between the ribs or at the neck pull in when breathing (retractions)?",
+   "confirm_th": "ขอถามให้ชัดนะคะ หายใจแล้วมีอกบุ๋มใช่ไหมคะ"
   },
   "abnormal_breath_sounds": {
    "label_en": "Audible abnormal breathing (wheeze/stridor)",
@@ -154,7 +170,9 @@
    "synonyms_th": [
     "หายใจมีเสียงหวีด",
     "หายใจครืดคราด"
-   ]
+   ],
+   "confirm_en": "Just to be sure — can you hear a wheeze or a harsh sound when you breathe, without a stethoscope?",
+   "confirm_th": "ขอถามให้ชัดนะคะ เวลาหายใจได้ยินเสียงหวีดหรือครืดคราดชัด ๆ ไหมคะ"
   },
   "blue_lips": {
    "label_en": "Blue lips / cyanosis",
@@ -165,7 +183,9 @@
    "synonyms_th": [
     "เขียวคล้ำ",
     "ปากเขียว"
-   ]
+   ],
+   "confirm_en": "Just to be sure — are the lips or skin looking blue right now?",
+   "confirm_th": "ขอถามให้ชัดนะคะ ตอนนี้ริมฝีปากเขียวหรือตัวเขียวอยู่ไหมคะ"
   },
   "pale_cold_sweaty": {
    "label_en": "Pale AND cold AND clammy skin together (shock signs)",
@@ -177,7 +197,9 @@
    "synonyms_th": [
     "ตัวเย็นหน้าซีด",
     "หน้าซีดตัวเย็น"
-   ]
+   ],
+   "confirm_en": "Just to be sure — is the skin pale, cold, and clammy all at once?",
+   "confirm_th": "ขอถามให้ชัดนะคะ ผิวหนังซีดและตัวเย็นชื้นพร้อมกันใช่ไหมคะ"
   },
   "gasping": {
    "label_en": "Gasping breaths",
@@ -185,7 +207,9 @@
    "synonyms_en": [],
    "synonyms_th": [
     "หายใจเฮือก ๆ"
-   ]
+   ],
+   "confirm_en": "Just to be sure — is the breathing coming in gasps?",
+   "confirm_th": "ขอถามให้ชัดนะคะ หายใจเฮือก ๆ อยู่ใช่ไหมคะ"
   },
   "floppy_infant": {
    "label_en": "Child limp / floppy / not responding",
@@ -196,7 +220,9 @@
    "synonyms_th": [
     "ตัวอ่อน",
     "ไม่ตอบสนอง"
-   ]
+   ],
+   "confirm_en": "Just to be sure — is the child limp or floppy, or not responding?",
+   "confirm_th": "ขอถามให้ชัดนะคะ เด็กตัวอ่อนปวกเปียกหรือไม่ตอบสนองใช่ไหมคะ"
   },
   "chest_pain": {
    "label_en": "Chest pain / tightness",
@@ -210,7 +236,9 @@
     "แน่นหน้าอก",
     "เจ็บหน้าอก",
     "จุกแน่นใต้ลิ้นปี่"
-   ]
+   ],
+   "confirm_en": "Just to be sure — is your chest hurting or feeling tight right now?",
+   "confirm_th": "ขอถามให้ชัดนะคะ ตอนนี้เจ็บหรือแน่นหน้าอกอยู่ไหมคะ"
   },
   "chest_pain_radiating": {
    "label_en": "Chest pain radiating to neck, jaw, shoulder, or arm",
@@ -222,7 +250,9 @@
    "synonyms_th": [
     "เจ็บร้าวไปกราม",
     "เจ็บร้าวไปไหล่"
-   ]
+   ],
+   "confirm_en": "Just to be sure — does the chest pain spread to your neck, jaw, shoulder, or arm?",
+   "confirm_th": "ขอถามให้ชัดนะคะ เจ็บหน้าอกร้าวไปคอ กราม ไหล่ หรือแขนใช่ไหมคะ"
   },
   "palpitations": {
    "label_en": "Palpitations / racing heart",
@@ -234,7 +264,9 @@
    "synonyms_th": [
     "ใจเต้นแรง",
     "ใจสั่นรัว"
-   ]
+   ],
+   "confirm_en": "Just to be sure — do you have palpitations or a racing heart right now?",
+   "confirm_th": "ขอถามให้ชัดนะคะ ตอนนี้ใจสั่นหรือหัวใจเต้นเร็วผิดปกติอยู่ไหมคะ"
   },
   "irregular_pulse": {
    "label_en": "Irregular heartbeat / pulse",
@@ -255,7 +287,9 @@
    ],
    "synonyms_th": [
     "เหงื่อแตกท่วมตัว"
-   ]
+   ],
+   "confirm_en": "Just to be sure — are you sweating heavily or in a cold sweat right now?",
+   "confirm_th": "ขอถามให้ชัดนะคะ ตอนนี้เหงื่อออกมากหรือเหงื่อแตกอยู่ไหมคะ"
   },
   "orthopnea": {
    "label_en": "Cannot lie flat to breathe",
@@ -280,16 +314,26 @@
    ]
   },
   "syncope_24h": {
-   "label_en": "Fainting / near-fainting within 24 hours",
-   "label_th": "วูบ หน้ามืด เป็นลม ภายใน 24 ชั่วโมง",
+   "label_en": "Fainting / near-fainting within 24 hours (no injury as the cause)",
+   "label_th": "วูบ หน้ามืด เป็นลม ภายใน 24 ชั่วโมง (ไม่ได้เกิดจากอุบัติเหตุ)",
    "synonyms_en": [
     "blacked out",
-    "passed out today"
+    "passed out today",
+    "fainted",
+    "nearly fainted",
+    "collapsed",
+    "lost consciousness for a moment"
    ],
    "synonyms_th": [
     "เป็นลม",
-    "วูบหมดสติ"
-   ]
+    "วูบหมดสติ",
+    "วูบ",
+    "หน้ามืด",
+    "หมดสติไปแป๊บนึง",
+    "เป็นลมล้ม"
+   ],
+   "confirm_en": "Just to be sure — did you faint or nearly faint within the last 24 hours, without an injury causing it?",
+   "confirm_th": "ขอถามให้ชัดนะคะ วูบ หน้ามืด หรือเป็นลมภายใน 24 ชั่วโมงที่ผ่านมา โดยไม่ได้เกิดจากอุบัติเหตุใช่ไหมคะ"
   },
   "confusion": {
    "label_en": "New confusion / drowsiness / disorientation (within 72 hours)",
@@ -303,7 +347,9 @@
     "สับสน",
     "ซึมลง",
     "พูดจาสับสน"
-   ]
+   ],
+   "confirm_en": "Just to be sure — is there new confusion or unusual drowsiness?",
+   "confirm_th": "ขอถามให้ชัดนะคะ มีอาการซึมหรือสับสนที่เพิ่งเป็นใช่ไหมคะ"
   },
   "facial_droop": {
    "label_en": "Facial droop / crooked mouth (sudden)",
@@ -314,7 +360,9 @@
    "synonyms_th": [
     "หน้าเบี้ยว",
     "มุมปากตก"
-   ]
+   ],
+   "confirm_en": "Just to be sure — is one side of the face or mouth drooping, and did it start suddenly?",
+   "confirm_th": "ขอถามให้ชัดนะคะ ปากเบี้ยวหรือหน้าเบี้ยวแบบฉับพลันใช่ไหมคะ"
   },
   "limb_weakness": {
    "label_en": "Sudden weakness or numbness of arm/leg (one side)",
@@ -327,7 +375,9 @@
     "อ่อนแรงครึ่งซีก",
     "ยกแขนไม่ขึ้น",
     "ชาครึ่งซีก"
-   ]
+   ],
+   "confirm_en": "Just to be sure — did an arm or leg suddenly go weak or numb on one side?",
+   "confirm_th": "ขอถามให้ชัดนะคะ แขนขาอ่อนแรงหรือชาครึ่งซีกแบบฉับพลันใช่ไหมคะ"
   },
   "slurred_speech": {
    "label_en": "Slurred or garbled speech (sudden)",
@@ -339,7 +389,9 @@
    "synonyms_th": [
     "พูดอ้อแอ้",
     "พูดไม่รู้เรื่องฉับพลัน"
-   ]
+   ],
+   "confirm_en": "Just to be sure — did your speech suddenly become slurred or garbled?",
+   "confirm_th": "ขอถามให้ชัดนะคะ พูดไม่ชัดหรือลิ้นแข็งแบบทันทีทันใดใช่ไหมคะ"
   },
   "sudden_vision_loss": {
    "label_en": "Sudden loss of vision / double vision",
@@ -351,7 +403,9 @@
    "synonyms_th": [
     "ตามืดฉับพลัน",
     "เห็นภาพซ้อน"
-   ]
+   ],
+   "confirm_en": "Just to be sure — did you suddenly lose vision, or start seeing double?",
+   "confirm_th": "ขอถามให้ชัดนะคะ ตามองไม่เห็นเฉียบพลันหรือเห็นภาพซ้อนใช่ไหมคะ"
   },
   "balance_loss": {
    "label_en": "Sudden loss of balance / severe dizziness with unsteady walking",
@@ -363,7 +417,9 @@
    "synonyms_th": [
     "เดินเซ",
     "ทรงตัวไม่ได้"
-   ]
+   ],
+   "confirm_en": "Just to be sure — did you have a sudden loss of balance, or feel so dizzy you can't walk straight?",
+   "confirm_th": "ขอถามให้ชัดนะคะ เสียการทรงตัวหรือเวียนศีรษะฉับพลันจนเดินเซใช่ไหมคะ"
   },
   "stroke_onset_within_72h": {
    "label_en": "Stroke-like symptoms started within 72 hours",
@@ -380,7 +436,9 @@
    "synonyms_th": [
     "ผื่นลมพิษ",
     "ผื่นคันทั้งตัว"
-   ]
+   ],
+   "confirm_en": "Just to be sure — do you have an itchy rash or hives?",
+   "confirm_th": "ขอถามให้ชัดนะคะ มีผื่นคันหรือลมพิษใช่ไหมคะ"
   },
   "lip_swelling": {
    "label_en": "Swelling of lips, mouth, or face",
@@ -392,7 +450,9 @@
    "synonyms_th": [
     "ริมฝีปากบวม",
     "หน้าบวม"
-   ]
+   ],
+   "confirm_en": "Just to be sure — are your lips, mouth, or face swelling?",
+   "confirm_th": "ขอถามให้ชัดนะคะ ปากบวมหรือหน้าบวมอยู่ใช่ไหมคะ"
   },
   "vomiting": {
    "label_en": "Vomiting",
@@ -404,7 +464,9 @@
    "synonyms_th": [
     "คลื่นไส้",
     "อ้วก"
-   ]
+   ],
+   "confirm_en": "Just to be sure — are you vomiting?",
+   "confirm_th": "ขอถามให้ชัดนะคะ มีอาเจียนใช่ไหมคะ"
   },
   "diarrhea": {
    "label_en": "Diarrhea",
@@ -414,7 +476,9 @@
    ],
    "synonyms_th": [
     "ท้องร่วง"
-   ]
+   ],
+   "confirm_en": "Just to be sure — do you have diarrhea?",
+   "confirm_th": "ขอถามให้ชัดนะคะ มีท้องเสียถ่ายเหลวใช่ไหมคะ"
   },
   "fever": {
    "label_en": "Fever",
@@ -426,7 +490,9 @@
    "synonyms_th": [
     "ตัวร้อน",
     "ไข้ขึ้น"
-   ]
+   ],
+   "confirm_en": "Just to be sure — do you have a fever?",
+   "confirm_th": "ขอถามให้ชัดนะคะ มีไข้ใช่ไหมคะ"
   },
   "high_fever": {
    "label_en": "High fever (over 38.5°C)",
@@ -444,7 +510,9 @@
    "synonyms_en": [],
    "synonyms_th": [
     "ไข้ตอนเย็น"
-   ]
+   ],
+   "confirm_en": "Just to be sure — do you get a low-grade fever in the evenings?",
+   "confirm_th": "ขอถามให้ชัดนะคะ มีไข้ต่ำ ๆ ช่วงเย็นใช่ไหมคะ"
   },
   "recent_chemotherapy": {
    "label_en": "Currently receiving chemotherapy",
@@ -456,6 +524,8 @@
     "ให้คีโม",
     "รับยาเคมี"
    ],
+   "confirm_en": "Just to be sure — are you currently receiving chemotherapy?",
+   "confirm_th": "ขอถามให้ชัดนะคะ ตอนนี้ได้รับยาเคมีบำบัดอยู่ใช่ไหมคะ",
    "is_risk_factor": true
   },
   "overdose_or_poison": {
@@ -468,7 +538,9 @@
    "synonyms_th": [
     "กินยาเกินขนาด",
     "โดนสารพิษ"
-   ]
+   ],
+   "confirm_en": "Just to be sure — was there a drug overdose, or contact with poison or chemicals?",
+   "confirm_th": "ขอถามให้ชัดนะคะ ได้รับยาเกินขนาดหรือสัมผัสสารพิษหรือสารเคมีใช่ไหมคะ"
   },
   "assault_24h": {
    "label_en": "Physically assaulted within 24 hours",
@@ -479,7 +551,9 @@
    "synonyms_th": [
     "ถูกทำร้าย",
     "โดนซ้อม"
-   ]
+   ],
+   "confirm_en": "Just to be sure — were you physically assaulted within the last 24 hours?",
+   "confirm_th": "ขอถามให้ชัดนะคะ ถูกทำร้ายร่างกายภายใน 24 ชั่วโมงที่ผ่านมาใช่ไหมคะ"
   },
   "sexual_assault_72h": {
    "label_en": "Sexual assault within 72 hours",
@@ -487,7 +561,9 @@
    "synonyms_en": [],
    "synonyms_th": [
     "ถูกล่วงละเมิดทางเพศ"
-   ]
+   ],
+   "confirm_en": "Just to be sure — was there a sexual assault within the last 72 hours?",
+   "confirm_th": "ขอถามให้ชัดนะคะ ถูกกระทำชำเราภายใน 72 ชั่วโมงที่ผ่านมาใช่ไหมคะ"
   },
   "police_case": {
    "label_en": "Has police report / forensic referral document",
@@ -504,11 +580,14 @@
    "label_en": "Vomiting blood (recent)",
    "label_th": "อาเจียนเป็นเลือด",
    "synonyms_en": [
-    "threw up blood"
-   ],
+     "threw up blood",
+     "throwing up blood"
+    ],
    "synonyms_th": [
     "อ้วกเป็นเลือด"
-   ]
+   ],
+   "confirm_en": "Just to be sure — have you vomited blood recently?",
+   "confirm_th": "ขอถามให้ชัดนะคะ ช่วงนี้อาเจียนเป็นเลือดใช่ไหมคะ"
   },
   "bloody_stool": {
    "label_en": "Fresh blood in stool (recent)",
@@ -517,8 +596,11 @@
     "blood in stool"
    ],
    "synonyms_th": [
-    "อุจจาระมีเลือด"
-   ]
+     "อุจจาระมีเลือด",
+     "ถ่ายมีเลือดสด"
+    ],
+   "confirm_en": "Just to be sure — have you passed fresh blood in your stool recently?",
+   "confirm_th": "ขอถามให้ชัดนะคะ ช่วงนี้ถ่ายเป็นเลือดสดใช่ไหมคะ"
   },
   "melena": {
    "label_en": "Black tarry stool (recent)",
@@ -528,7 +610,9 @@
    ],
    "synonyms_th": [
     "อุจจาระสีดำ"
-   ]
+   ],
+   "confirm_en": "Just to be sure — has your stool been black and tarry recently?",
+   "confirm_th": "ขอถามให้ชัดนะคะ ช่วงนี้ถ่ายดำใช่ไหมคะ"
   },
   "major_trauma_mechanism": {
    "label_en": "Car/motorcycle accident, fall from over 5 metres, or pedestrian hit by vehicle",
@@ -541,7 +625,9 @@
     "รถชน",
     "รถล้ม",
     "ตกจากที่สูง"
-   ]
+   ],
+   "confirm_en": "Just to be sure — was it a car or motorcycle accident, a fall from over 5 metres, or were you hit by a vehicle?",
+   "confirm_th": "ขอถามให้ชัดนะคะ เป็นอุบัติเหตุรถยนต์หรือจักรยานยนต์ ตกจากที่สูงเกิน 5 เมตร หรือถูกรถชนใช่ไหมคะ"
   },
   "penetrating_injury_torso": {
    "label_en": "Stab or penetrating wound to neck, chest, or abdomen",
@@ -552,7 +638,9 @@
    "synonyms_th": [
     "ถูกแทง",
     "ถูกยิง"
-   ]
+   ],
+   "confirm_en": "Just to be sure — is there a stab or penetrating wound to the neck, chest, or abdomen?",
+   "confirm_th": "ขอถามให้ชัดนะคะ ถูกแทงที่คอ หน้าอก หรือช่องท้องใช่ไหมคะ"
   },
   "active_bleeding": {
    "label_en": "Heavy bleeding that won't stop",
@@ -562,9 +650,13 @@
     "can't stop the bleeding"
    ],
    "synonyms_th": [
-    "เลือดไหลไม่หยุด",
-    "เลือดออกเยอะมาก"
-   ]
+     "เลือดไหลไม่หยุด",
+     "เลือดออกเยอะมาก",
+     "ห้ามเลือดไม่อยู่",
+     "เลือดไหลออกมาก"
+    ],
+   "confirm_en": "Just to be sure — is there heavy bleeding that won't stop right now?",
+   "confirm_th": "ขอถามให้ชัดนะคะ ตอนนี้มีเลือดออกมากไม่หยุดอยู่ไหมคะ"
   },
   "head_injury": {
    "label_en": "Head injury / hit head",
@@ -575,7 +667,9 @@
    "synonyms_th": [
     "หัวกระแทก",
     "หัวฟาดพื้น"
-   ]
+   ],
+   "confirm_en": "Just to be sure — did you hit or injure your head?",
+   "confirm_th": "ขอถามให้ชัดนะคะ ศีรษะกระแทกหรือบาดเจ็บที่ศีรษะใช่ไหมคะ"
   },
   "head_injury_over_24h": {
    "label_en": "Isolated head impact more than 24 hours ago",
@@ -587,7 +681,9 @@
    "label_en": "Injury happened within the last 24 hours",
    "label_th": "บาดเจ็บภายใน 24 ชั่วโมงที่ผ่านมา",
    "synonyms_en": [],
-   "synonyms_th": []
+   "synonyms_th": [],
+   "confirm_en": "Just to be sure — did the injury happen within the last 24 hours?",
+   "confirm_th": "ขอถามให้ชัดนะคะ บาดเจ็บภายใน 24 ชั่วโมงที่ผ่านมาใช่ไหมคะ"
   },
   "fracture_suspected": {
    "label_en": "Suspected broken bone or dislocated joint",
@@ -600,7 +696,9 @@
     "กระดูกหัก",
     "ข้อเคลื่อน",
     "ข้อหลุด"
-   ]
+   ],
+   "confirm_en": "Just to be sure — do you suspect a broken bone or a dislocated joint?",
+   "confirm_th": "ขอถามให้ชัดนะคะ สงสัยว่ากระดูกหักหรือข้อหลุดใช่ไหมคะ"
   },
   "back_pain_radiating_leg": {
    "label_en": "Back pain radiating down the leg",
@@ -609,8 +707,9 @@
     "sciatica-like pain"
    ],
    "synonyms_th": [
-    "ปวดหลังร้าวลงขา"
-   ]
+     "ปวดหลังร้าวลงขา",
+     "ปวดหลังร้าวลงไปที่ขา"
+    ]
   },
   "pregnancy": {
    "label_en": "Currently pregnant",
@@ -622,6 +721,8 @@
     "ท้อง",
     "มีครรภ์"
    ],
+   "confirm_en": "Just to be sure — are you currently pregnant?",
+   "confirm_th": "ขอถามให้ชัดนะคะ กำลังตั้งครรภ์อยู่ใช่ไหมคะ",
    "is_risk_factor": true
   },
   "missed_period": {
@@ -633,7 +734,9 @@
    "synonyms_th": [
     "เมนส์ไม่มา",
     "ประจำเดือนไม่มา"
-   ]
+   ],
+   "confirm_en": "Just to be sure — have you missed a period?",
+   "confirm_th": "ขอถามให้ชัดนะคะ ประจำเดือนขาดใช่ไหมคะ"
   },
   "vaginal_bleeding": {
    "label_en": "Vaginal bleeding (abnormal)",
@@ -643,7 +746,9 @@
    ],
    "synonyms_th": [
     "เลือดออกช่องคลอด"
-   ]
+   ],
+   "confirm_en": "Just to be sure — is there abnormal vaginal bleeding?",
+   "confirm_th": "ขอถามให้ชัดนะคะ มีเลือดออกทางช่องคลอดผิดปกติใช่ไหมคะ"
   },
   "heavy_vaginal_bleeding": {
    "label_en": "Heavy vaginal bleeding (soaking a pad every hour)",
@@ -653,7 +758,9 @@
    ],
    "synonyms_th": [
     "เลือดชุ่มผ้าอนามัย"
-   ]
+   ],
+   "confirm_en": "Just to be sure — is the vaginal bleeding heavy, soaking a pad every hour?",
+   "confirm_th": "ขอถามให้ชัดนะคะ เลือดออกทางช่องคลอดมากจนเปียกชุ่มผ้าอนามัยทุกชั่วโมงใช่ไหมคะ"
   },
   "uterine_contractions_frequent": {
    "label_en": "Frequent strong contractions (about every 2 minutes)",
@@ -664,7 +771,9 @@
    "synonyms_th": [
     "เจ็บท้องคลอดถี่",
     "ท้องแข็งถี่"
-   ]
+   ],
+   "confirm_en": "Just to be sure — are the contractions strong and frequent, about every 2 minutes?",
+   "confirm_th": "ขอถามให้ชัดนะคะ ท้องแข็งเจ็บครรภ์ถี่ประมาณทุก 2 นาทีใช่ไหมคะ"
   },
   "crowning": {
    "label_en": "Baby is coming / part of baby visible",
@@ -675,7 +784,9 @@
    "synonyms_th": [
     "เด็กกำลังจะคลอด",
     "อยากเบ่ง"
-   ]
+   ],
+   "confirm_en": "Just to be sure — is the baby coming now, or can part of the baby be seen?",
+   "confirm_th": "ขอถามให้ชัดนะคะ ทารกกำลังคลอดหรือมีส่วนของทารกโผล่ออกมาแล้วใช่ไหมคะ"
   },
   "amniotic_fluid_leak": {
    "label_en": "Water broke / amniotic fluid leaking",
@@ -684,8 +795,11 @@
     "water broke"
    ],
    "synonyms_th": [
-    "น้ำเดิน"
-   ]
+     "น้ำเดิน",
+     "น้ำไหลออกทางช่องคลอด"
+    ],
+   "confirm_en": "Just to be sure — has your water broken, or is amniotic fluid leaking?",
+   "confirm_th": "ขอถามให้ชัดนะคะ น้ำเดินหรือมีน้ำคร่ำไหลออกมาใช่ไหมคะ"
   },
   "decreased_fetal_movement": {
    "label_en": "Baby moving less than usual",
@@ -695,15 +809,20 @@
    ],
    "synonyms_th": [
     "ทารกดิ้นน้อยลง"
-   ]
+   ],
+   "confirm_en": "Just to be sure — is the baby moving less than usual?",
+   "confirm_th": "ขอถามให้ชัดนะคะ ลูกดิ้นน้อยลงกว่าปกติใช่ไหมคะ"
   },
   "severe_morning_sickness": {
    "label_en": "Severe pregnancy vomiting, cannot eat or drink",
    "label_th": "แพ้ท้องรุนแรงจนกินไม่ได้",
    "synonyms_en": [],
    "synonyms_th": [
-    "แพ้ท้องหนัก"
-   ]
+     "แพ้ท้องหนัก",
+     "แพ้ท้องรุนแรง"
+    ],
+   "confirm_en": "Just to be sure — is the pregnancy vomiting so severe you can't eat or drink?",
+   "confirm_th": "ขอถามให้ชัดนะคะ แพ้ท้องรุนแรงจนกินไม่ได้เลยใช่ไหมคะ"
   },
   "ga_24w_or_more": {
    "label_en": "Pregnancy at 24 weeks or more",
@@ -713,7 +832,9 @@
    ],
    "synonyms_th": [
     "ครรภ์ 6 เดือนขึ้นไป"
-   ]
+   ],
+   "confirm_en": "Just to be sure — is the pregnancy at 24 weeks or more?",
+   "confirm_th": "ขอถามให้ชัดนะคะ อายุครรภ์ 24 สัปดาห์ขึ้นไปใช่ไหมคะ"
   },
   "abdominal_pain": {
    "label_en": "Abdominal pain",
@@ -725,7 +846,9 @@
    "synonyms_th": [
     "ปวดท้องน้อย",
     "จุกท้อง"
-   ]
+   ],
+   "confirm_en": "Just to be sure — do you have abdominal pain right now?",
+   "confirm_th": "ขอถามให้ชัดนะคะ ตอนนี้ปวดท้องอยู่ไหมคะ"
   },
   "abdominal_mass": {
    "label_en": "Lump felt in the abdomen",
@@ -785,7 +908,9 @@
    "synonyms_th": [
     "เท้าดำ",
     "แขนขาขาดเลือด"
-   ]
+   ],
+   "confirm_en": "Just to be sure — are your hands or feet cold, painful, or discolored, or is there a wound that won't heal?",
+   "confirm_th": "ขอถามให้ชัดนะคะ มือเท้าเย็น ปวด ซีดดำ หรือมีแผลเรื้อรังที่แขนขาใช่ไหมคะ"
   },
   "varicose_veins": {
    "label_en": "Varicose veins",
@@ -851,17 +976,22 @@
    ],
    "synonyms_th": [
     "สารเคมีเข้าตา"
-   ]
+   ],
+   "confirm_en": "Just to be sure — did a chemical or animal venom get into your eye?",
+   "confirm_th": "ขอถามให้ชัดนะคะ มีสารเคมีหรือพิษสัตว์กระเด็นเข้าตาใช่ไหมคะ"
   },
   "eye_trauma": {
    "label_en": "Eye injury / accident involving the eye",
    "label_th": "อุบัติเหตุทางตา",
    "synonyms_en": [
-    "hit in the eye"
-   ],
+     "hit in the eye",
+     "hurt my eye"
+    ],
    "synonyms_th": [
     "ตาโดนกระแทก"
-   ]
+   ],
+   "confirm_en": "Just to be sure — was there an injury or accident to the eye?",
+   "confirm_th": "ขอถามให้ชัดนะคะ เกิดอุบัติเหตุทางตาใช่ไหมคะ"
   },
   "eye_active_bleeding": {
    "label_en": "Eye bleeding that won't stop",
@@ -869,7 +999,9 @@
    "synonyms_en": [],
    "synonyms_th": [
     "เลือดออกในตา"
-   ]
+   ],
+   "confirm_en": "Just to be sure — is the eye bleeding and not stopping?",
+   "confirm_th": "ขอถามให้ชัดนะคะ มีเลือดออกที่ตาไม่หยุดใช่ไหมคะ"
   },
   "eye_pain_severe": {
    "label_en": "Severe eye pain",
@@ -1018,7 +1150,9 @@
    "synonyms_en": [],
    "synonyms_th": [
     "เลือดกำเดาไม่หยุด"
-   ]
+   ],
+   "confirm_en": "Just to be sure — is the nosebleed still not stopping?",
+   "confirm_th": "ขอถามให้ชัดนะคะ เลือดกำเดาไหลไม่หยุดอยู่ใช่ไหมคะ"
   },
   "neck_mass": {
    "label_en": "Lump in the neck",
@@ -1047,7 +1181,9 @@
    "synonyms_th": [
     "กลืนลำบาก",
     "คอบวม"
-   ]
+   ],
+   "confirm_en": "Just to be sure — is the neck swollen with trouble swallowing or breathing?",
+   "confirm_th": "ขอถามให้ชัดนะคะ คอบวมโตร่วมกับกลืนลำบากหรือหายใจลำบากใช่ไหมคะ"
   },
   "oral_mass": {
    "label_en": "Lump in the mouth",
@@ -1116,9 +1252,13 @@
     "something stuck in my ear"
    ],
    "synonyms_th": [
-    "ของติดในหู",
-    "ก้างติดคอ"
-   ]
+     "ของติดในหู",
+     "ก้างติดคอ",
+     "มีของติดในหู",
+     "แมลงเข้าหู"
+    ],
+   "confirm_en": "Just to be sure — is something stuck in the ear, nose, or throat since the last 24 hours?",
+   "confirm_th": "ขอถามให้ชัดนะคะ มีสิ่งแปลกปลอมติดในหู จมูก หรือคอภายใน 24 ชั่วโมงที่ผ่านมาใช่ไหมคะ"
   },
   "ent_abscess": {
    "label_en": "Abscess with fever, swelling, redness at ear/neck/nose area",
@@ -1165,7 +1305,9 @@
    "synonyms_en": [],
    "synonyms_th": [
     "ไอเรื้อรัง"
-   ]
+   ],
+   "confirm_en": "Just to be sure — has the cough lasted more than 2 weeks?",
+   "confirm_th": "ขอถามให้ชัดนะคะ ไอเรื้อรังมากกว่า 2 สัปดาห์แล้วใช่ไหมคะ"
   },
   "hemoptysis": {
    "label_en": "Coughing up blood / blood-streaked sputum",
@@ -1175,7 +1317,9 @@
    ],
    "synonyms_th": [
     "ไอมีเลือดปน"
-   ]
+   ],
+   "confirm_en": "Just to be sure — are you coughing up blood or blood-streaked sputum?",
+   "confirm_th": "ขอถามให้ชัดนะคะ ไอเป็นเลือดหรือมีเสมหะปนเลือดใช่ไหมคะ"
   },
   "runny_nose": {
    "label_en": "Runny nose",
@@ -1193,7 +1337,9 @@
    ],
    "synonyms_th": [
     "ปวดหัว"
-   ]
+   ],
+   "confirm_en": "Just to be sure — do you have a headache right now?",
+   "confirm_th": "ขอถามให้ชัดนะคะ ตอนนี้ปวดศีรษะอยู่ไหมคะ"
   },
   "headache_sudden_severe": {
    "label_en": "Sudden very severe headache (worst ever)",
@@ -1203,7 +1349,9 @@
    ],
    "synonyms_th": [
     "ปวดหัวรุนแรงที่สุด"
-   ]
+   ],
+   "confirm_en": "Just to be sure — did a very severe headache come on suddenly, the worst you've ever had?",
+   "confirm_th": "ขอถามให้ชัดนะคะ ปวดศีรษะรุนแรงฉับพลัน ปวดที่สุดในชีวิตใช่ไหมคะ"
   },
   "stiff_neck": {
    "label_en": "Stiff neck with fever",
@@ -1211,7 +1359,9 @@
    "synonyms_en": [],
    "synonyms_th": [
     "คอแข็ง"
-   ]
+   ],
+   "confirm_en": "Just to be sure — is your neck stiff along with the fever?",
+   "confirm_th": "ขอถามให้ชัดนะคะ คอแข็งร่วมกับไข้ใช่ไหมคะ"
   },
   "auditory_hallucinations": {
    "label_en": "Hearing voices (understandable speech)",
@@ -1256,7 +1406,9 @@
    "synonyms_th": [
     "อยากตาย",
     "คิดสั้น"
-   ]
+   ],
+   "confirm_en": "Just to be sure — have you had thoughts of suicide or wanting to die?",
+   "confirm_th": "ขอถามให้ชัดนะคะ มีความคิดอยากตายหรืออยากฆ่าตัวตายใช่ไหมคะ"
   },
   "self_harm_risk": {
    "label_en": "Risk of harming self or others / recent self-harm",
@@ -1266,7 +1418,9 @@
    ],
    "synonyms_th": [
     "ทำร้ายตัวเอง"
-   ]
+   ],
+   "confirm_en": "Just to be sure — is there a risk of harming yourself or others, or recent self-harm?",
+   "confirm_th": "ขอถามให้ชัดนะคะ มีความเสี่ยงทำร้ายตนเองหรือผู้อื่น หรือเพิ่งทำร้ายตนเองมาใช่ไหมคะ"
   },
   "agitation_violent": {
    "label_en": "Severe agitation / violent behavior",
@@ -1276,7 +1430,9 @@
    ],
    "synonyms_th": [
     "คลุ้มคลั่ง"
-   ]
+   ],
+   "confirm_en": "Just to be sure — is the person severely agitated or violent right now?",
+   "confirm_th": "ขอถามให้ชัดนะคะ ตอนนี้มีอาการคลุ้มคลั่งหรืออาละวาดอยู่ไหมคะ"
   },
   "severe_stress": {
    "label_en": "Severe stress / overwhelming distress",
@@ -1316,7 +1472,9 @@
    "synonyms_en": [],
    "synonyms_th": [
     "ผื่นฝ่ามือฝ่าเท้า"
-   ]
+   ],
+   "confirm_en": "Just to be sure — is there a red rash on the palms, soles, or around the mouth?",
+   "confirm_th": "ขอถามให้ชัดนะคะ มีผื่นแดงตามฝ่ามือ ฝ่าเท้า หรือรอบปากใช่ไหมคะ"
   },
   "nasal_flaring": {
    "label_en": "Nostrils flaring when breathing (child)",
@@ -1324,7 +1482,9 @@
    "synonyms_en": [],
    "synonyms_th": [
     "ปีกจมูกบาน"
-   ]
+   ],
+   "confirm_en": "Just to be sure — are the child's nostrils flaring when they breathe?",
+   "confirm_th": "ขอถามให้ชัดนะคะ เด็กหายใจปีกจมูกบานใช่ไหมคะ"
   },
   "burn_scald_24h": {
    "label_en": "Burn or scald within 24 hours",
@@ -1335,7 +1495,9 @@
    "synonyms_th": [
     "น้ำร้อนลวก",
     "ไฟลวก"
-   ]
+   ],
+   "confirm_en": "Just to be sure — did you get a burn or scald within the last 24 hours?",
+   "confirm_th": "ขอถามให้ชัดนะคะ ถูกไฟไหม้หรือน้ำร้อนลวกภายใน 24 ชั่วโมงที่ผ่านมาใช่ไหมคะ"
   },
   "electric_shock_24h": {
    "label_en": "Electric shock within 24 hours",
@@ -1346,7 +1508,9 @@
    "synonyms_th": [
     "ไฟดูด",
     "ไฟช็อต"
-   ]
+   ],
+   "confirm_en": "Just to be sure — did you get an electric shock within the last 24 hours?",
+   "confirm_th": "ขอถามให้ชัดนะคะ ถูกไฟดูดภายใน 24 ชั่วโมงที่ผ่านมาใช่ไหมคะ"
   },
   "animal_insect_bite_24h": {
    "label_en": "Animal or insect bite/sting within 24 hours",
@@ -1360,7 +1524,9 @@
     "หมากัด",
     "งูกัด",
     "แมลงต่อย"
-   ]
+   ],
+   "confirm_en": "Just to be sure — were you bitten or stung by an animal or insect within the last 24 hours?",
+   "confirm_th": "ขอถามให้ชัดนะคะ ถูกแมลงสัตว์กัดต่อยภายใน 24 ชั่วโมงที่ผ่านมาใช่ไหมคะ"
   },
   "fatigue_weight_loss": {
    "label_en": "Fatigue with unexplained weight loss",
@@ -1371,7 +1537,9 @@
    "synonyms_th": [
     "น้ำหนักลด",
     "เพลีย"
-   ]
+   ],
+   "confirm_en": "Just to be sure — have you been tired and losing weight without trying?",
+   "confirm_th": "ขอถามให้ชัดนะคะ อ่อนเพลียและน้ำหนักลดโดยไม่ทราบสาเหตุใช่ไหมคะ"
   },
   "home_oxygen": {
    "label_en": "Uses home oxygen",
@@ -1402,6 +1570,8 @@
    "synonyms_th": [
     "ความดันสูง"
    ],
+   "confirm_en": "Just to be sure — do you have a history of high blood pressure?",
+   "confirm_th": "ขอถามให้ชัดนะคะ มีโรคความดันโลหิตสูงใช่ไหมคะ",
    "is_risk_factor": true
   },
   "diabetes_history": {
@@ -1425,6 +1595,8 @@
     "โรคหัวใจ",
     "เส้นเลือดหัวใจตีบ"
    ],
+   "confirm_en": "Just to be sure — do you have a history of heart disease or blocked heart arteries?",
+   "confirm_th": "ขอถามให้ชัดนะคะ มีประวัติโรคหัวใจหรือเส้นเลือดหัวใจตีบใช่ไหมคะ",
    "is_risk_factor": true
   },
   "smoking": {
@@ -1500,7 +1672,9 @@
    "synonyms_th": [
     "มีหนอง",
     "แผลบวมแดง"
-   ]
+   ],
+   "confirm_en": "Just to be sure — does the wound look infected, with spreading redness, pus, or warmth?",
+   "confirm_th": "ขอถามให้ชัดนะคะ แผลมีอาการติดเชื้อ เช่น แดงลาม มีหนอง หรือร้อน ใช่ไหมคะ"
   },
   "breast_infection_signs": {
    "label_en": "Breast redness, warmth, or swelling (possible infection/abscess)",
@@ -1512,7 +1686,9 @@
    "synonyms_th": [
     "เต้านมอักเสบ",
     "เต้านมบวมแดง"
-   ]
+   ],
+   "confirm_en": "Just to be sure — is the breast red, warm, or swollen?",
+   "confirm_th": "ขอถามให้ชัดนะคะ เต้านมแดง ร้อน หรือบวมอยู่ไหมคะ"
   },
   "unilateral_leg_swelling": {
    "label_en": "One leg swollen and painful",
@@ -1523,7 +1699,9 @@
    "synonyms_th": [
     "ขาบวมข้างเดียว",
     "น่องบวม"
-   ]
+   ],
+   "confirm_en": "Just to be sure — is one leg swollen and painful?",
+   "confirm_th": "ขอถามให้ชัดนะคะ ขาบวมและปวดข้างเดียวใช่ไหมคะ"
   },
   "immediate_danger": {
    "label_en": "Still in immediate danger / attacker nearby",
@@ -1533,7 +1711,9 @@
    ],
    "synonyms_th": [
     "ไม่ปลอดภัย"
-   ]
+   ],
+   "confirm_en": "Just to be sure — are you still in immediate danger, or is the attacker nearby?",
+   "confirm_th": "ขอถามให้ชัดนะคะ ตอนนี้ยังอยู่ในอันตรายหรือผู้ก่อเหตุอยู่ใกล้ ๆ ใช่ไหมคะ"
   },
   "dehydration_signs": {
    "label_en": "Signs of dehydration (cannot keep fluids down, little urine, dizzy on standing)",
@@ -1545,7 +1725,9 @@
    "synonyms_th": [
     "ขาดน้ำ",
     "กินน้ำไม่ได้"
-   ]
+   ],
+   "confirm_en": "Just to be sure — can't you keep fluids down, passing little urine, or dizzy on standing?",
+   "confirm_th": "ขอถามให้ชัดนะคะ ดื่มน้ำแล้วอาเจียน ปัสสาวะน้อย หรือลุกแล้วหน้ามืดใช่ไหมคะ"
   },
   "rash_rapidly_spreading": {
    "label_en": "Rash spreading rapidly (within hours)",
@@ -1556,7 +1738,9 @@
    "synonyms_th": [
     "ผื่นลามเร็ว",
     "ผื่นขึ้นทั้งตัว"
-   ]
+   ],
+   "confirm_en": "Just to be sure — is the rash spreading rapidly, within hours?",
+   "confirm_th": "ขอถามให้ชัดนะคะ ผื่นลามเร็วภายในไม่กี่ชั่วโมงใช่ไหมคะ"
   },
   "hypoglycemia_symptoms": {
    "label_en": "Low blood sugar symptoms (shaky, sweaty, confused, very hungry)",
@@ -1568,7 +1752,9 @@
    "synonyms_th": [
     "น้ำตาลตก",
     "น้ำตาลต่ำ"
-   ]
+   ],
+   "confirm_en": "Just to be sure — do you feel shaky, sweaty, confused, or very hungry, like low blood sugar?",
+   "confirm_th": "ขอถามให้ชัดนะคะ มีอาการน้ำตาลต่ำ เช่น มือสั่น เหงื่อแตก มึนงง หิวมาก ใช่ไหมคะ"
   },
   "medication_run_out": {
    "label_en": "Regular medication has run out",
@@ -1592,21 +1778,25 @@
    "synonyms_th": [
     "ปวดมากทนไม่ไหว",
     "ปวดที่สุดในชีวิต"
-   ]
+   ],
+   "confirm_en": "Just to be sure — is the pain so severe it cannot be controlled?",
+   "confirm_th": "ขอถามให้ชัดนะคะ ปวดรุนแรงมากจนทนไม่ไหวใช่ไหมคะ"
   },
   "loc_transient": {
-   "label_en": "Brief loss of consciousness after injury",
-   "label_th": "หมดสติหรือสลบชั่วครู่หลังบาดเจ็บ",
+   "label_en": "Brief loss of consciousness after a head injury / blow (only when an injury caused it)",
+   "label_th": "หมดสติหรือสลบชั่วครู่หลังศีรษะกระแทก/บาดเจ็บ (เฉพาะเมื่อเกิดจากการบาดเจ็บ)",
    "synonyms_en": [
-    "blacked out",
     "knocked out",
-    "passed out briefly"
+    "passed out after hitting my head",
+    "blacked out after the fall"
    ],
    "synonyms_th": [
-    "สลบ",
-    "หมดสติ",
-    "วูบหมดสติ"
-   ]
+    "สลบหลังหัวฟาด",
+    "หมดสติหลังล้ม",
+    "สลบไปหลังกระแทก"
+   ],
+   "confirm_en": "Just to be sure — were you knocked out, even briefly, after hitting your head or getting injured?",
+   "confirm_th": "ขอถามให้ชัดนะคะ หมดสติหรือสลบชั่วครู่หลังศีรษะกระแทกหรือบาดเจ็บใช่ไหมคะ"
   }
  },
  "level1_criteria": [
@@ -1759,8 +1949,8 @@
   },
   {
    "id": "l1_adult_spo2_low",
-   "label_en": "SpO2 < 90% with breathing difficulty and retraction (adult; COPD target 88–92% — nurse verify)",
-   "label_th": "ออกซิเจนปลายนิ้ว < 90% ร่วมกับหายใจเหนื่อยและอกบุ๋ม (ผู้ใหญ่; ผู้ป่วย COPD เป้า 88–92% ให้พยาบาลยืนยัน)",
+   "label_en": "SpO2 < 90% with breathing difficulty (adult; COPD target 88–92% — nurse verify)",
+   "label_th": "ออกซิเจนปลายนิ้ว < 90% ร่วมกับหายใจเหนื่อย (ผู้ใหญ่; ผู้ป่วย COPD เป้า 88–92% ให้พยาบาลยืนยัน)",
    "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 3 (decision point A — SpO2 < 90% not patient's norm, with respiratory compromise); MFU Triage — Level 1: O2 sat < 90% ยกเว้น COPD",
    "condition": {
     "age_band": "adult",
@@ -3362,6 +3552,18 @@
    "priority": 3
   },
   {
+   "id": "uq_spo2",
+   "kind": "measurement",
+   "vital": "spo2",
+   "finding_ids": [
+    "dyspnea"
+   ],
+   "text_en": "Since you mentioned breathing difficulty, please put your finger in the pulse oximeter at the booth so I can check your oxygen level.",
+   "text_th": "เนื่องจากคุณหายใจเหนื่อย รบกวนวางนิ้วบนเครื่องวัดออกซิเจนปลายนิ้วที่จุดคัดกรองเพื่อตรวจระดับออกซิเจนนะคะ",
+   "priority": 4,
+   "citation": "MOPH ED Triage (5-level) — danger vitals: O2 saturation; ESI v5 Handbook, ch. 3 (decision point A — SpO2 < 90% with respiratory compromise); MFU Triage — Level 1: O2 sat < 90% ยกเว้น COPD"
+  },
+  {
    "id": "uq_breathing",
    "kind": "red_flag",
    "finding_ids": [
@@ -3564,8 +3766,8 @@
      "id": "gen_bp",
      "kind": "measurement",
      "vital": "sbp",
-     "text_en": "Please measure your blood pressure now — you can use the machine beside you or type the numbers.",
-     "text_th": "กรุณาวัดความดันโลหิตตอนนี้ — ใช้เครื่องข้างตัวคุณหรือพิมพ์ตัวเลขก็ได้",
+     "text_en": "Let's check your blood pressure — slip the cuff on beside you and press start, or type the numbers if you already have them.",
+     "text_th": "ขอวัดความดันโลหิตสักครู่นะคะ สวมผ้าพันแขนจากเครื่องข้าง ๆ แล้วกดเริ่มได้เลย หรือถ้ามีตัวเลขอยู่แล้วพิมพ์ให้ก็ได้ค่ะ",
      "priority": 7,
      "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (decision point D — full vital signs at triage); MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย)"
     },
@@ -3593,18 +3795,6 @@
      "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 4 (decision point B — high-risk presentation)"
     },
     {
-     "id": "gen_self_harm",
-     "kind": "red_flag",
-     "finding_ids": [
-      "suicidal_ideation",
-      "self_harm_risk"
-     ],
-     "text_en": "Have you had thoughts of hurting yourself or ending your life?",
-     "text_th": "มีความคิดอยากทำร้ายตัวเองหรืออยากตายไหมคะ",
-     "priority": 3,
-     "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 4 (decision point B — high-risk presentation)"
-    },
-    {
      "id": "gen_severe_pain",
      "kind": "red_flag",
      "finding_ids": [
@@ -3619,8 +3809,8 @@
      "id": "gen_temp",
      "kind": "measurement",
      "vital": "temp",
-     "text_en": "Please measure your temperature at the booth and enter it in °C.",
-     "text_th": "กรุณาวัดอุณหภูมิที่จุดคัดกรองแล้วกรอกค่าเป็นองศาเซลเซียสค่ะ",
+     "text_en": "Let's check your temperature — use the thermometer beside you, or type the reading if you already have it.",
+     "text_th": "ขอวัดอุณหภูมิสักครู่นะคะ ใช้เครื่องวัดไข้ข้าง ๆ ได้เลย หรือถ้ามีตัวเลขอยู่แล้วพิมพ์ให้ก็ได้ค่ะ",
      "priority": 6,
      "citation": "MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย) — ขอบเขต: ผู้ป่วยนอกทุกราย; วัตถุประสงค์ ข้อ 2 เพื่อแยกผู้ป่วยโรคติดต่อ โรคอุบัติใหม่ อุบัติซ้ำ; MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (temperature red flags)"
     }
@@ -3655,6 +3845,7 @@
     "diabetes_history",
     "smoking"
    ],
+   "anchor_finding_ids": ["chest_pain"],
    "questions": [
     {
      "id": "cp_radiating",
@@ -3863,8 +4054,8 @@
      "id": "cp_bp",
      "kind": "measurement",
      "vital": "sbp",
-     "text_en": "Please measure your blood pressure now — you can use the machine beside you or type the numbers.",
-     "text_th": "กรุณาวัดความดันโลหิตตอนนี้ — ใช้เครื่องข้างตัวคุณหรือพิมพ์ตัวเลขก็ได้",
+     "text_en": "Let's check your blood pressure — slip the cuff on beside you and press start, or type the numbers if you already have them.",
+     "text_th": "ขอวัดความดันโลหิตสักครู่นะคะ สวมผ้าพันแขนจากเครื่องข้าง ๆ แล้วกดเริ่มได้เลย หรือถ้ามีตัวเลขอยู่แล้วพิมพ์ให้ก็ได้ค่ะ",
      "priority": 7,
      "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (decision point D — full vital signs at triage); MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย)"
     },
@@ -3872,8 +4063,8 @@
      "id": "cp_temp",
      "kind": "measurement",
      "vital": "temp",
-     "text_en": "Please measure your temperature at the booth and enter it in °C.",
-     "text_th": "กรุณาวัดอุณหภูมิที่จุดคัดกรองแล้วกรอกค่าเป็นองศาเซลเซียสค่ะ",
+     "text_en": "Let's check your temperature — use the thermometer beside you, or type the reading if you already have it.",
+     "text_th": "ขอวัดอุณหภูมิสักครู่นะคะ ใช้เครื่องวัดไข้ข้าง ๆ ได้เลย หรือถ้ามีตัวเลขอยู่แล้วพิมพ์ให้ก็ได้ค่ะ",
      "priority": 6,
      "citation": "MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย) — ขอบเขต: ผู้ป่วยนอกทุกราย; วัตถุประสงค์ ข้อ 2 เพื่อแยกผู้ป่วยโรคติดต่อ โรคอุบัติใหม่ อุบัติซ้ำ; MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (temperature red flags)"
     }
@@ -3910,6 +4101,7 @@
     "copd_history",
     "home_oxygen"
    ],
+   "anchor_finding_ids": ["dyspnea", "cough"],
    "questions": [
     {
      "id": "dc_severe_distress",
@@ -4028,11 +4220,22 @@
      "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 4 (decision point B — severe pain/distress); MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย)"
     },
     {
+     "id": "dc_retraction",
+     "kind": "red_flag",
+     "finding_ids": [
+      "retraction"
+     ],
+     "text_en": "When you breathe in, do the spaces between your ribs or at the base of your neck pull inward?",
+     "text_th": "เวลาหายใจเข้า มีอกบุ๋มหรือซี่โครงบุ๋มไหมคะ",
+     "priority": 5,
+     "citation": "MOPH ED Triage (5-level) — danger vitals: SpO2 90–94% with respiratory distress / retraction; ESI v5 Handbook, ch. 3 (decision point A — work of breathing)"
+    },
+    {
      "id": "dc_temp",
      "kind": "measurement",
      "vital": "temp",
-     "text_en": "Please measure your temperature at the booth and enter it in °C.",
-     "text_th": "กรุณาวัดอุณหภูมิที่จุดคัดกรองแล้วกรอกค่าเป็นองศาเซลเซียสค่ะ",
+     "text_en": "Let's check your temperature — use the thermometer beside you, or type the reading if you already have it.",
+     "text_th": "ขอวัดอุณหภูมิสักครู่นะคะ ใช้เครื่องวัดไข้ข้าง ๆ ได้เลย หรือถ้ามีตัวเลขอยู่แล้วพิมพ์ให้ก็ได้ค่ะ",
      "priority": 6,
      "citation": "MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย) — ขอบเขต: ผู้ป่วยนอกทุกราย; วัตถุประสงค์ ข้อ 2 เพื่อแยกผู้ป่วยโรคติดต่อ โรคอุบัติใหม่ อุบัติซ้ำ; MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (temperature red flags)"
     },
@@ -4123,8 +4326,8 @@
      "id": "dc_bp",
      "kind": "measurement",
      "vital": "sbp",
-     "text_en": "Please measure your blood pressure now — you can use the machine beside you or type the numbers.",
-     "text_th": "กรุณาวัดความดันโลหิตตอนนี้ — ใช้เครื่องข้างตัวคุณหรือพิมพ์ตัวเลขก็ได้",
+     "text_en": "Let's check your blood pressure — slip the cuff on beside you and press start, or type the numbers if you already have them.",
+     "text_th": "ขอวัดความดันโลหิตสักครู่นะคะ สวมผ้าพันแขนจากเครื่องข้าง ๆ แล้วกดเริ่มได้เลย หรือถ้ามีตัวเลขอยู่แล้วพิมพ์ให้ก็ได้ค่ะ",
      "priority": 7,
      "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (decision point D — full vital signs at triage); MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย)"
     }
@@ -4158,6 +4361,7 @@
     "missed_period",
     "vaginal_bleeding"
    ],
+   "anchor_finding_ids": ["abdominal_pain"],
    "questions": [
     {
      "id": "ap_gi_bleed",
@@ -4367,8 +4571,8 @@
      "id": "ap_bp",
      "kind": "measurement",
      "vital": "sbp",
-     "text_en": "Please measure your blood pressure now — you can use the machine beside you or type the numbers.",
-     "text_th": "กรุณาวัดความดันโลหิตตอนนี้ — ใช้เครื่องข้างตัวคุณหรือพิมพ์ตัวเลขก็ได้",
+     "text_en": "Let's check your blood pressure — slip the cuff on beside you and press start, or type the numbers if you already have them.",
+     "text_th": "ขอวัดความดันโลหิตสักครู่นะคะ สวมผ้าพันแขนจากเครื่องข้าง ๆ แล้วกดเริ่มได้เลย หรือถ้ามีตัวเลขอยู่แล้วพิมพ์ให้ก็ได้ค่ะ",
      "priority": 7,
      "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (decision point D — full vital signs at triage); MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย)"
     },
@@ -4376,8 +4580,8 @@
      "id": "ap_temp",
      "kind": "measurement",
      "vital": "temp",
-     "text_en": "Please measure your temperature at the booth and enter it in °C.",
-     "text_th": "กรุณาวัดอุณหภูมิที่จุดคัดกรองแล้วกรอกค่าเป็นองศาเซลเซียสค่ะ",
+     "text_en": "Let's check your temperature — use the thermometer beside you, or type the reading if you already have it.",
+     "text_th": "ขอวัดอุณหภูมิสักครู่นะคะ ใช้เครื่องวัดไข้ข้าง ๆ ได้เลย หรือถ้ามีตัวเลขอยู่แล้วพิมพ์ให้ก็ได้ค่ะ",
      "priority": 6,
      "citation": "MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย) — ขอบเขต: ผู้ป่วยนอกทุกราย; วัตถุประสงค์ ข้อ 2 เพื่อแยกผู้ป่วยโรคติดต่อ โรคอุบัติใหม่ อุบัติซ้ำ; MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (temperature red flags)"
     }
@@ -4410,6 +4614,7 @@
     "stiff_neck",
     "hypertension_history"
    ],
+   "anchor_finding_ids": ["headache"],
    "questions": [
     {
      "id": "hd_befast",
@@ -4620,8 +4825,8 @@
      "id": "hd_bp",
      "kind": "measurement",
      "vital": "sbp",
-     "text_en": "Please measure your blood pressure now — you can use the machine beside you or type the numbers.",
-     "text_th": "กรุณาวัดความดันโลหิตตอนนี้ — ใช้เครื่องข้างตัวคุณหรือพิมพ์ตัวเลขก็ได้",
+     "text_en": "Let's check your blood pressure — slip the cuff on beside you and press start, or type the numbers if you already have them.",
+     "text_th": "ขอวัดความดันโลหิตสักครู่นะคะ สวมผ้าพันแขนจากเครื่องข้าง ๆ แล้วกดเริ่มได้เลย หรือถ้ามีตัวเลขอยู่แล้วพิมพ์ให้ก็ได้ค่ะ",
      "priority": 7,
      "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (decision point D — full vital signs at triage); MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย)"
     },
@@ -4629,8 +4834,8 @@
      "id": "hd_temp",
      "kind": "measurement",
      "vital": "temp",
-     "text_en": "Please measure your temperature at the booth and enter it in °C.",
-     "text_th": "กรุณาวัดอุณหภูมิที่จุดคัดกรองแล้วกรอกค่าเป็นองศาเซลเซียสค่ะ",
+     "text_en": "Let's check your temperature — use the thermometer beside you, or type the reading if you already have it.",
+     "text_th": "ขอวัดอุณหภูมิสักครู่นะคะ ใช้เครื่องวัดไข้ข้าง ๆ ได้เลย หรือถ้ามีตัวเลขอยู่แล้วพิมพ์ให้ก็ได้ค่ะ",
      "priority": 6,
      "citation": "MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย) — ขอบเขต: ผู้ป่วยนอกทุกราย; วัตถุประสงค์ ข้อ 2 เพื่อแยกผู้ป่วยโรคติดต่อ โรคอุบัติใหม่ อุบัติซ้ำ; MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (temperature red flags)"
     }
@@ -4664,6 +4869,7 @@
     "rash_vesicles",
     "recent_chemotherapy"
    ],
+   "anchor_finding_ids": ["fever"],
    "questions": [
     {
      "id": "fv_danger",
@@ -4705,8 +4911,8 @@
      "id": "fv_temp",
      "kind": "measurement",
      "vital": "temp",
-     "text_en": "Please measure your temperature at the booth and enter it in °C.",
-     "text_th": "กรุณาวัดอุณหภูมิที่จุดคัดกรองแล้วกรอกค่าเป็นองศาเซลเซียสค่ะ",
+     "text_en": "Let's check your temperature — use the thermometer beside you, or type the reading if you already have it.",
+     "text_th": "ขอวัดอุณหภูมิสักครู่นะคะ ใช้เครื่องวัดไข้ข้าง ๆ ได้เลย หรือถ้ามีตัวเลขอยู่แล้วพิมพ์ให้ก็ได้ค่ะ",
      "priority": 5,
      "citation": "MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย) — ขอบเขต: ผู้ป่วยนอกทุกราย; วัตถุประสงค์ ข้อ 2 เพื่อแยกผู้ป่วยโรคติดต่อ โรคอุบัติใหม่ อุบัติซ้ำ; MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (temperature red flags)"
     },
@@ -4788,8 +4994,8 @@
      "id": "fv_bp",
      "kind": "measurement",
      "vital": "sbp",
-     "text_en": "Please measure your blood pressure now — you can use the machine beside you or type the numbers.",
-     "text_th": "กรุณาวัดความดันโลหิตตอนนี้ — ใช้เครื่องข้างตัวคุณหรือพิมพ์ตัวเลขก็ได้",
+     "text_en": "Let's check your blood pressure — slip the cuff on beside you and press start, or type the numbers if you already have them.",
+     "text_th": "ขอวัดความดันโลหิตสักครู่นะคะ สวมผ้าพันแขนจากเครื่องข้าง ๆ แล้วกดเริ่มได้เลย หรือถ้ามีตัวเลขอยู่แล้วพิมพ์ให้ก็ได้ค่ะ",
      "priority": 7,
      "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (decision point D — full vital signs at triage); MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย)"
     }
@@ -4826,6 +5032,7 @@
     "fever",
     "facial_droop"
    ],
+   "anchor_finding_ids": ["ear_pain"],
    "questions": [
     {
      "id": "ear_severe_pain_droop",
@@ -4992,8 +5199,8 @@
      "id": "ear_bp",
      "kind": "measurement",
      "vital": "sbp",
-     "text_en": "Please measure your blood pressure now — you can use the machine beside you or type the numbers.",
-     "text_th": "กรุณาวัดความดันโลหิตตอนนี้ — ใช้เครื่องข้างตัวคุณหรือพิมพ์ตัวเลขก็ได้",
+     "text_en": "Let's check your blood pressure — slip the cuff on beside you and press start, or type the numbers if you already have them.",
+     "text_th": "ขอวัดความดันโลหิตสักครู่นะคะ สวมผ้าพันแขนจากเครื่องข้าง ๆ แล้วกดเริ่มได้เลย หรือถ้ามีตัวเลขอยู่แล้วพิมพ์ให้ก็ได้ค่ะ",
      "priority": 7,
      "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (decision point D — full vital signs at triage); MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย)"
     },
@@ -5001,8 +5208,8 @@
      "id": "ear_temp",
      "kind": "measurement",
      "vital": "temp",
-     "text_en": "Please measure your temperature at the booth and enter it in °C.",
-     "text_th": "กรุณาวัดอุณหภูมิที่จุดคัดกรองแล้วกรอกค่าเป็นองศาเซลเซียสค่ะ",
+     "text_en": "Let's check your temperature — use the thermometer beside you, or type the reading if you already have it.",
+     "text_th": "ขอวัดอุณหภูมิสักครู่นะคะ ใช้เครื่องวัดไข้ข้าง ๆ ได้เลย หรือถ้ามีตัวเลขอยู่แล้วพิมพ์ให้ก็ได้ค่ะ",
      "priority": 6,
      "citation": "MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย) — ขอบเขต: ผู้ป่วยนอกทุกราย; วัตถุประสงค์ ข้อ 2 เพื่อแยกผู้ป่วยโรคติดต่อ โรคอุบัติใหม่ อุบัติซ้ำ; MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (temperature red flags)"
     }
@@ -5042,6 +5249,7 @@
     "allergy_symptoms",
     "anosmia"
    ],
+   "anchor_finding_ids": ["sore_throat", "nasal_congestion"],
    "questions": [
     {
      "id": "nt_airway",
@@ -5143,8 +5351,8 @@
      "id": "nt_bp",
      "kind": "measurement",
      "vital": "sbp",
-     "text_en": "Please measure your blood pressure now — you can use the machine beside you or type the numbers.",
-     "text_th": "กรุณาวัดความดันโลหิตตอนนี้ — ใช้เครื่องข้างตัวคุณหรือพิมพ์ตัวเลขก็ได้",
+     "text_en": "Let's check your blood pressure — slip the cuff on beside you and press start, or type the numbers if you already have them.",
+     "text_th": "ขอวัดความดันโลหิตสักครู่นะคะ สวมผ้าพันแขนจากเครื่องข้าง ๆ แล้วกดเริ่มได้เลย หรือถ้ามีตัวเลขอยู่แล้วพิมพ์ให้ก็ได้ค่ะ",
      "priority": 7,
      "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (decision point D — full vital signs at triage); MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย)"
     },
@@ -5152,8 +5360,8 @@
      "id": "nt_temp",
      "kind": "measurement",
      "vital": "temp",
-     "text_en": "Please measure your temperature at the booth and enter it in °C.",
-     "text_th": "กรุณาวัดอุณหภูมิที่จุดคัดกรองแล้วกรอกค่าเป็นองศาเซลเซียสค่ะ",
+     "text_en": "Let's check your temperature — use the thermometer beside you, or type the reading if you already have it.",
+     "text_th": "ขอวัดอุณหภูมิสักครู่นะคะ ใช้เครื่องวัดไข้ข้าง ๆ ได้เลย หรือถ้ามีตัวเลขอยู่แล้วพิมพ์ให้ก็ได้ค่ะ",
      "priority": 6,
      "citation": "MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย) — ขอบเขต: ผู้ป่วยนอกทุกราย; วัตถุประสงค์ ข้อ 2 เพื่อแยกผู้ป่วยโรคติดต่อ โรคอุบัติใหม่ อุบัติซ้ำ; MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (temperature red flags)"
     }
@@ -5269,8 +5477,8 @@
      "id": "eye_bp",
      "kind": "measurement",
      "vital": "sbp",
-     "text_en": "Please measure your blood pressure now — you can use the machine beside you or type the numbers.",
-     "text_th": "กรุณาวัดความดันโลหิตตอนนี้ — ใช้เครื่องข้างตัวคุณหรือพิมพ์ตัวเลขก็ได้",
+     "text_en": "Let's check your blood pressure — slip the cuff on beside you and press start, or type the numbers if you already have them.",
+     "text_th": "ขอวัดความดันโลหิตสักครู่นะคะ สวมผ้าพันแขนจากเครื่องข้าง ๆ แล้วกดเริ่มได้เลย หรือถ้ามีตัวเลขอยู่แล้วพิมพ์ให้ก็ได้ค่ะ",
      "priority": 7,
      "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (decision point D — full vital signs at triage); MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย)"
     },
@@ -5278,8 +5486,8 @@
      "id": "eye_temp",
      "kind": "measurement",
      "vital": "temp",
-     "text_en": "Please measure your temperature at the booth and enter it in °C.",
-     "text_th": "กรุณาวัดอุณหภูมิที่จุดคัดกรองแล้วกรอกค่าเป็นองศาเซลเซียสค่ะ",
+     "text_en": "Let's check your temperature — use the thermometer beside you, or type the reading if you already have it.",
+     "text_th": "ขอวัดอุณหภูมิสักครู่นะคะ ใช้เครื่องวัดไข้ข้าง ๆ ได้เลย หรือถ้ามีตัวเลขอยู่แล้วพิมพ์ให้ก็ได้ค่ะ",
      "priority": 6,
      "citation": "MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย) — ขอบเขต: ผู้ป่วยนอกทุกราย; วัตถุประสงค์ ข้อ 2 เพื่อแยกผู้ป่วยโรคติดต่อ โรคอุบัติใหม่ อุบัติซ้ำ; MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (temperature red flags)"
     }
@@ -5318,6 +5526,7 @@
     "active_bleeding",
     "police_case"
    ],
+   "anchor_finding_ids": ["injury_within_24h"],
    "questions": [
     {
      "id": "inj_mechanism",
@@ -5477,8 +5686,8 @@
      "id": "inj_bp",
      "kind": "measurement",
      "vital": "sbp",
-     "text_en": "Please measure your blood pressure now — you can use the machine beside you or type the numbers.",
-     "text_th": "กรุณาวัดความดันโลหิตตอนนี้ — ใช้เครื่องข้างตัวคุณหรือพิมพ์ตัวเลขก็ได้",
+     "text_en": "Let's check your blood pressure — slip the cuff on beside you and press start, or type the numbers if you already have them.",
+     "text_th": "ขอวัดความดันโลหิตสักครู่นะคะ สวมผ้าพันแขนจากเครื่องข้าง ๆ แล้วกดเริ่มได้เลย หรือถ้ามีตัวเลขอยู่แล้วพิมพ์ให้ก็ได้ค่ะ",
      "priority": 7,
      "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (decision point D — full vital signs at triage); MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย)"
     },
@@ -5486,8 +5695,8 @@
      "id": "inj_temp",
      "kind": "measurement",
      "vital": "temp",
-     "text_en": "Please measure your temperature at the booth and enter it in °C.",
-     "text_th": "กรุณาวัดอุณหภูมิที่จุดคัดกรองแล้วกรอกค่าเป็นองศาเซลเซียสค่ะ",
+     "text_en": "Let's check your temperature — use the thermometer beside you, or type the reading if you already have it.",
+     "text_th": "ขอวัดอุณหภูมิสักครู่นะคะ ใช้เครื่องวัดไข้ข้าง ๆ ได้เลย หรือถ้ามีตัวเลขอยู่แล้วพิมพ์ให้ก็ได้ค่ะ",
      "priority": 6,
      "citation": "MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย) — ขอบเขต: ผู้ป่วยนอกทุกราย; วัตถุประสงค์ ข้อ 2 เพื่อแยกผู้ป่วยโรคติดต่อ โรคอุบัติใหม่ อุบัติซ้ำ; MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (temperature red flags)"
     }
@@ -5605,8 +5814,8 @@
      "id": "pg_bp_measure",
      "kind": "measurement",
      "vital": "sbp",
-     "text_en": "Please measure your blood pressure now — you can use the machine beside you or type the numbers.",
-     "text_th": "กรุณาวัดความดันโลหิตตอนนี้ — ใช้เครื่องข้างตัวคุณหรือพิมพ์ตัวเลขก็ได้",
+     "text_en": "Let's check your blood pressure — slip the cuff on beside you and press start, or type the numbers if you already have them.",
+     "text_th": "ขอวัดความดันโลหิตสักครู่นะคะ สวมผ้าพันแขนจากเครื่องข้าง ๆ แล้วกดเริ่มได้เลย หรือถ้ามีตัวเลขอยู่แล้วพิมพ์ให้ก็ได้ค่ะ",
      "priority": 7,
      "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 4 (decision point B — suspected preeclampsia — obstetric high-risk); MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย)"
     },
@@ -5614,8 +5823,8 @@
      "id": "pg_temp",
      "kind": "measurement",
      "vital": "temp",
-     "text_en": "Please measure your temperature at the booth and enter it in °C.",
-     "text_th": "กรุณาวัดอุณหภูมิที่จุดคัดกรองแล้วกรอกค่าเป็นองศาเซลเซียสค่ะ",
+     "text_en": "Let's check your temperature — use the thermometer beside you, or type the reading if you already have it.",
+     "text_th": "ขอวัดอุณหภูมิสักครู่นะคะ ใช้เครื่องวัดไข้ข้าง ๆ ได้เลย หรือถ้ามีตัวเลขอยู่แล้วพิมพ์ให้ก็ได้ค่ะ",
      "priority": 6,
      "citation": "MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย) — ขอบเขต: ผู้ป่วยนอกทุกราย; วัตถุประสงค์ ข้อ 2 เพื่อแยกผู้ป่วยโรคติดต่อ โรคอุบัติใหม่ อุบัติซ้ำ; MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (temperature red flags)"
     }
@@ -5651,6 +5860,7 @@
     "hallucination_paranoia",
     "severe_stress"
    ],
+   "anchor_finding_ids": ["severe_stress", "depression_symptoms"],
    "questions": [
     {
      "id": "mh_suicide",
@@ -5739,8 +5949,8 @@
      "id": "mh_bp",
      "kind": "measurement",
      "vital": "sbp",
-     "text_en": "Please measure your blood pressure now — you can use the machine beside you or type the numbers.",
-     "text_th": "กรุณาวัดความดันโลหิตตอนนี้ — ใช้เครื่องข้างตัวคุณหรือพิมพ์ตัวเลขก็ได้",
+     "text_en": "Let's check your blood pressure — slip the cuff on beside you and press start, or type the numbers if you already have them.",
+     "text_th": "ขอวัดความดันโลหิตสักครู่นะคะ สวมผ้าพันแขนจากเครื่องข้าง ๆ แล้วกดเริ่มได้เลย หรือถ้ามีตัวเลขอยู่แล้วพิมพ์ให้ก็ได้ค่ะ",
      "priority": 7,
      "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (decision point D — full vital signs at triage); MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย)"
     },
@@ -5748,8 +5958,8 @@
      "id": "mh_temp",
      "kind": "measurement",
      "vital": "temp",
-     "text_en": "Please measure your temperature at the booth and enter it in °C.",
-     "text_th": "กรุณาวัดอุณหภูมิที่จุดคัดกรองแล้วกรอกค่าเป็นองศาเซลเซียสค่ะ",
+     "text_en": "Let's check your temperature — use the thermometer beside you, or type the reading if you already have it.",
+     "text_th": "ขอวัดอุณหภูมิสักครู่นะคะ ใช้เครื่องวัดไข้ข้าง ๆ ได้เลย หรือถ้ามีตัวเลขอยู่แล้วพิมพ์ให้ก็ได้ค่ะ",
      "priority": 6,
      "citation": "MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย) — ขอบเขต: ผู้ป่วยนอกทุกราย; วัตถุประสงค์ ข้อ 2 เพื่อแยกผู้ป่วยโรคติดต่อ โรคอุบัติใหม่ อุบัติซ้ำ; MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (temperature red flags)"
     }
@@ -5942,8 +6152,8 @@
      "id": "msk_bp",
      "kind": "measurement",
      "vital": "sbp",
-     "text_en": "Please measure your blood pressure now — you can use the machine beside you or type the numbers.",
-     "text_th": "กรุณาวัดความดันโลหิตตอนนี้ — ใช้เครื่องข้างตัวคุณหรือพิมพ์ตัวเลขก็ได้",
+     "text_en": "Let's check your blood pressure — slip the cuff on beside you and press start, or type the numbers if you already have them.",
+     "text_th": "ขอวัดความดันโลหิตสักครู่นะคะ สวมผ้าพันแขนจากเครื่องข้าง ๆ แล้วกดเริ่มได้เลย หรือถ้ามีตัวเลขอยู่แล้วพิมพ์ให้ก็ได้ค่ะ",
      "priority": 7,
      "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (decision point D — full vital signs at triage); MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย)"
     },
@@ -5951,8 +6161,8 @@
      "id": "msk_temp",
      "kind": "measurement",
      "vital": "temp",
-     "text_en": "Please measure your temperature at the booth and enter it in °C.",
-     "text_th": "กรุณาวัดอุณหภูมิที่จุดคัดกรองแล้วกรอกค่าเป็นองศาเซลเซียสค่ะ",
+     "text_en": "Let's check your temperature — use the thermometer beside you, or type the reading if you already have it.",
+     "text_th": "ขอวัดอุณหภูมิสักครู่นะคะ ใช้เครื่องวัดไข้ข้าง ๆ ได้เลย หรือถ้ามีตัวเลขอยู่แล้วพิมพ์ให้ก็ได้ค่ะ",
      "priority": 6,
      "citation": "MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย) — ขอบเขต: ผู้ป่วยนอกทุกราย; วัตถุประสงค์ ข้อ 2 เพื่อแยกผู้ป่วยโรคติดต่อ โรคอุบัติใหม่ อุบัติซ้ำ; MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (temperature red flags)"
     }
@@ -5982,6 +6192,7 @@
     "abdominal_pain",
     "vomiting"
    ],
+   "anchor_finding_ids": ["dysuria"],
    "questions": [
     {
      "id": "ur_fever_flank",
@@ -6089,8 +6300,8 @@
      "id": "ur_bp",
      "kind": "measurement",
      "vital": "sbp",
-     "text_en": "Please measure your blood pressure now — you can use the machine beside you or type the numbers.",
-     "text_th": "กรุณาวัดความดันโลหิตตอนนี้ — ใช้เครื่องข้างตัวคุณหรือพิมพ์ตัวเลขก็ได้",
+     "text_en": "Let's check your blood pressure — slip the cuff on beside you and press start, or type the numbers if you already have them.",
+     "text_th": "ขอวัดความดันโลหิตสักครู่นะคะ สวมผ้าพันแขนจากเครื่องข้าง ๆ แล้วกดเริ่มได้เลย หรือถ้ามีตัวเลขอยู่แล้วพิมพ์ให้ก็ได้ค่ะ",
      "priority": 7,
      "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (decision point D — full vital signs at triage); MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย)"
     },
@@ -6098,8 +6309,8 @@
      "id": "ur_temp",
      "kind": "measurement",
      "vital": "temp",
-     "text_en": "Please measure your temperature at the booth and enter it in °C.",
-     "text_th": "กรุณาวัดอุณหภูมิที่จุดคัดกรองแล้วกรอกค่าเป็นองศาเซลเซียสค่ะ",
+     "text_en": "Let's check your temperature — use the thermometer beside you, or type the reading if you already have it.",
+     "text_th": "ขอวัดอุณหภูมิสักครู่นะคะ ใช้เครื่องวัดไข้ข้าง ๆ ได้เลย หรือถ้ามีตัวเลขอยู่แล้วพิมพ์ให้ก็ได้ค่ะ",
      "priority": 6,
      "citation": "MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย) — ขอบเขต: ผู้ป่วยนอกทุกราย; วัตถุประสงค์ ข้อ 2 เพื่อแยกผู้ป่วยโรคติดต่อ โรคอุบัติใหม่ อุบัติซ้ำ; MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (temperature red flags)"
     }
@@ -6333,8 +6544,8 @@
      "id": "ws_temp",
      "kind": "measurement",
      "vital": "temp",
-     "text_en": "Please measure your temperature at the booth and enter it in °C.",
-     "text_th": "กรุณาวัดอุณหภูมิที่จุดคัดกรองแล้วกรอกค่าเป็นองศาเซลเซียสค่ะ",
+     "text_en": "Let's check your temperature — use the thermometer beside you, or type the reading if you already have it.",
+     "text_th": "ขอวัดอุณหภูมิสักครู่นะคะ ใช้เครื่องวัดไข้ข้าง ๆ ได้เลย หรือถ้ามีตัวเลขอยู่แล้วพิมพ์ให้ก็ได้ค่ะ",
      "priority": 6,
      "citation": "MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย) — ขอบเขต: ผู้ป่วยนอกทุกราย; วัตถุประสงค์ ข้อ 2 เพื่อแยกผู้ป่วยโรคติดต่อ โรคอุบัติใหม่ อุบัติซ้ำ; MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (temperature red flags)"
     },
@@ -6342,8 +6553,8 @@
      "id": "ws_bp",
      "kind": "measurement",
      "vital": "sbp",
-     "text_en": "Please measure your blood pressure now — you can use the machine beside you or type the numbers.",
-     "text_th": "กรุณาวัดความดันโลหิตตอนนี้ — ใช้เครื่องข้างตัวคุณหรือพิมพ์ตัวเลขก็ได้",
+     "text_en": "Let's check your blood pressure — slip the cuff on beside you and press start, or type the numbers if you already have them.",
+     "text_th": "ขอวัดความดันโลหิตสักครู่นะคะ สวมผ้าพันแขนจากเครื่องข้าง ๆ แล้วกดเริ่มได้เลย หรือถ้ามีตัวเลขอยู่แล้วพิมพ์ให้ก็ได้ค่ะ",
      "priority": 7,
      "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (decision point D — full vital signs at triage); MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย)"
     }
@@ -6375,6 +6586,7 @@
     "fever",
     "abdominal_pain"
    ],
+   "anchor_finding_ids": ["vaginal_bleeding"],
    "questions": [
     {
      "id": "gyn_heavy_bleeding",
@@ -6515,8 +6727,8 @@
      "id": "gyn_temp",
      "kind": "measurement",
      "vital": "temp",
-     "text_en": "Please measure your temperature at the booth and enter it in °C.",
-     "text_th": "กรุณาวัดอุณหภูมิที่จุดคัดกรองแล้วกรอกค่าเป็นองศาเซลเซียสค่ะ",
+     "text_en": "Let's check your temperature — use the thermometer beside you, or type the reading if you already have it.",
+     "text_th": "ขอวัดอุณหภูมิสักครู่นะคะ ใช้เครื่องวัดไข้ข้าง ๆ ได้เลย หรือถ้ามีตัวเลขอยู่แล้วพิมพ์ให้ก็ได้ค่ะ",
      "priority": 6,
      "citation": "MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย) — ขอบเขต: ผู้ป่วยนอกทุกราย; วัตถุประสงค์ ข้อ 2 เพื่อแยกผู้ป่วยโรคติดต่อ โรคอุบัติใหม่ อุบัติซ้ำ; MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (temperature red flags)"
     },
@@ -6524,8 +6736,8 @@
      "id": "gyn_bp",
      "kind": "measurement",
      "vital": "sbp",
-     "text_en": "Please measure your blood pressure now — you can use the machine beside you or type the numbers.",
-     "text_th": "กรุณาวัดความดันโลหิตตอนนี้ — ใช้เครื่องข้างตัวคุณหรือพิมพ์ตัวเลขก็ได้",
+     "text_en": "Let's check your blood pressure — slip the cuff on beside you and press start, or type the numbers if you already have them.",
+     "text_th": "ขอวัดความดันโลหิตสักครู่นะคะ สวมผ้าพันแขนจากเครื่องข้าง ๆ แล้วกดเริ่มได้เลย หรือถ้ามีตัวเลขอยู่แล้วพิมพ์ให้ก็ได้ค่ะ",
      "priority": 7,
      "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (decision point D — full vital signs at triage); MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย)"
     }
@@ -6556,6 +6768,7 @@
     "breast_discharge",
     "fever"
    ],
+   "anchor_finding_ids": ["breast_lump", "breast_pain"],
    "questions": [
     {
      "id": "br_infection",
@@ -6675,8 +6888,8 @@
      "id": "br_temp",
      "kind": "measurement",
      "vital": "temp",
-     "text_en": "Please measure your temperature at the booth and enter it in °C.",
-     "text_th": "กรุณาวัดอุณหภูมิที่จุดคัดกรองแล้วกรอกค่าเป็นองศาเซลเซียสค่ะ",
+     "text_en": "Let's check your temperature — use the thermometer beside you, or type the reading if you already have it.",
+     "text_th": "ขอวัดอุณหภูมิสักครู่นะคะ ใช้เครื่องวัดไข้ข้าง ๆ ได้เลย หรือถ้ามีตัวเลขอยู่แล้วพิมพ์ให้ก็ได้ค่ะ",
      "priority": 6,
      "citation": "MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย) — ขอบเขต: ผู้ป่วยนอกทุกราย; วัตถุประสงค์ ข้อ 2 เพื่อแยกผู้ป่วยโรคติดต่อ โรคอุบัติใหม่ อุบัติซ้ำ; MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (temperature red flags)"
     },
@@ -6684,8 +6897,8 @@
      "id": "br_bp",
      "kind": "measurement",
      "vital": "sbp",
-     "text_en": "Please measure your blood pressure now — you can use the machine beside you or type the numbers.",
-     "text_th": "กรุณาวัดความดันโลหิตตอนนี้ — ใช้เครื่องข้างตัวคุณหรือพิมพ์ตัวเลขก็ได้",
+     "text_en": "Let's check your blood pressure — slip the cuff on beside you and press start, or type the numbers if you already have them.",
+     "text_th": "ขอวัดความดันโลหิตสักครู่นะคะ สวมผ้าพันแขนจากเครื่องข้าง ๆ แล้วกดเริ่มได้เลย หรือถ้ามีตัวเลขอยู่แล้วพิมพ์ให้ก็ได้ค่ะ",
      "priority": 7,
      "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (decision point D — full vital signs at triage); MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย)"
     }
@@ -6717,6 +6930,7 @@
     "hypertension_history",
     "diabetes_history"
    ],
+   "anchor_finding_ids": ["palpitations"],
    "questions": [
     {
      "id": "palp_syncope",
@@ -6858,16 +7072,16 @@
      "id": "palp_bp",
      "kind": "measurement",
      "vital": "sbp",
-     "text_en": "Please measure your blood pressure now — you can use the machine beside you or type the numbers.",
-     "text_th": "กรุณาวัดความดันโลหิตตอนนี้ — ใช้เครื่องข้างตัวคุณหรือพิมพ์ตัวเลขก็ได้",
+     "text_en": "Let's check your blood pressure — slip the cuff on beside you and press start, or type the numbers if you already have them.",
+     "text_th": "ขอวัดความดันโลหิตสักครู่นะคะ สวมผ้าพันแขนจากเครื่องข้าง ๆ แล้วกดเริ่มได้เลย หรือถ้ามีตัวเลขอยู่แล้วพิมพ์ให้ก็ได้ค่ะ",
      "priority": 7
     },
     {
      "id": "palp_temp",
      "kind": "measurement",
      "vital": "temp",
-     "text_en": "Please measure your temperature at the booth and enter it in °C.",
-     "text_th": "กรุณาวัดอุณหภูมิที่จุดคัดกรองแล้วกรอกค่าเป็นองศาเซลเซียสค่ะ",
+     "text_en": "Let's check your temperature — use the thermometer beside you, or type the reading if you already have it.",
+     "text_th": "ขอวัดอุณหภูมิสักครู่นะคะ ใช้เครื่องวัดไข้ข้าง ๆ ได้เลย หรือถ้ามีตัวเลขอยู่แล้วพิมพ์ให้ก็ได้ค่ะ",
      "priority": 6,
      "citation": "MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย) — ขอบเขต: ผู้ป่วยนอกทุกราย; วัตถุประสงค์ ข้อ 2 เพื่อแยกผู้ป่วยโรคติดต่อ โรคอุบัติใหม่ อุบัติซ้ำ; MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (temperature red flags)"
     }
@@ -6899,6 +7113,7 @@
     "edema",
     "dialysis_access_needed"
    ],
+   "anchor_finding_ids": ["edema"],
    "questions": [
     {
      "id": "lv_ischemia",
@@ -7028,8 +7243,8 @@
      "id": "lv_bp",
      "kind": "measurement",
      "vital": "sbp",
-     "text_en": "Please measure your blood pressure now — you can use the machine beside you or type the numbers.",
-     "text_th": "กรุณาวัดความดันโลหิตตอนนี้ — ใช้เครื่องข้างตัวคุณหรือพิมพ์ตัวเลขก็ได้",
+     "text_en": "Let's check your blood pressure — slip the cuff on beside you and press start, or type the numbers if you already have them.",
+     "text_th": "ขอวัดความดันโลหิตสักครู่นะคะ สวมผ้าพันแขนจากเครื่องข้าง ๆ แล้วกดเริ่มได้เลย หรือถ้ามีตัวเลขอยู่แล้วพิมพ์ให้ก็ได้ค่ะ",
      "priority": 7,
      "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (decision point D — full vital signs at triage); MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย)"
     },
@@ -7037,8 +7252,8 @@
      "id": "lv_temp",
      "kind": "measurement",
      "vital": "temp",
-     "text_en": "Please measure your temperature at the booth and enter it in °C.",
-     "text_th": "กรุณาวัดอุณหภูมิที่จุดคัดกรองแล้วกรอกค่าเป็นองศาเซลเซียสค่ะ",
+     "text_en": "Let's check your temperature — use the thermometer beside you, or type the reading if you already have it.",
+     "text_th": "ขอวัดอุณหภูมิสักครู่นะคะ ใช้เครื่องวัดไข้ข้าง ๆ ได้เลย หรือถ้ามีตัวเลขอยู่แล้วพิมพ์ให้ก็ได้ค่ะ",
      "priority": 6,
      "citation": "MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย) — ขอบเขต: ผู้ป่วยนอกทุกราย; วัตถุประสงค์ ข้อ 2 เพื่อแยกผู้ป่วยโรคติดต่อ โรคอุบัติใหม่ อุบัติซ้ำ; MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (temperature red flags)"
     }
@@ -7163,8 +7378,8 @@
      "id": "fo_bp",
      "kind": "measurement",
      "vital": "sbp",
-     "text_en": "Please measure your blood pressure now — you can use the machine beside you or type the numbers.",
-     "text_th": "กรุณาวัดความดันโลหิตตอนนี้ — ใช้เครื่องข้างตัวคุณหรือพิมพ์ตัวเลขก็ได้",
+     "text_en": "Let's check your blood pressure — slip the cuff on beside you and press start, or type the numbers if you already have them.",
+     "text_th": "ขอวัดความดันโลหิตสักครู่นะคะ สวมผ้าพันแขนจากเครื่องข้าง ๆ แล้วกดเริ่มได้เลย หรือถ้ามีตัวเลขอยู่แล้วพิมพ์ให้ก็ได้ค่ะ",
      "priority": 7,
      "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (decision point D — full vital signs at triage); MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย)"
     },
@@ -7172,8 +7387,8 @@
      "id": "fo_temp",
      "kind": "measurement",
      "vital": "temp",
-     "text_en": "Please measure your temperature at the booth and enter it in °C.",
-     "text_th": "กรุณาวัดอุณหภูมิที่จุดคัดกรองแล้วกรอกค่าเป็นองศาเซลเซียสค่ะ",
+     "text_en": "Let's check your temperature — use the thermometer beside you, or type the reading if you already have it.",
+     "text_th": "ขอวัดอุณหภูมิสักครู่นะคะ ใช้เครื่องวัดไข้ข้าง ๆ ได้เลย หรือถ้ามีตัวเลขอยู่แล้วพิมพ์ให้ก็ได้ค่ะ",
      "priority": 6,
      "citation": "MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย) — ขอบเขต: ผู้ป่วยนอกทุกราย; วัตถุประสงค์ ข้อ 2 เพื่อแยกผู้ป่วยโรคติดต่อ โรคอุบัติใหม่ อุบัติซ้ำ; MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (temperature red flags)"
     }
@@ -7206,6 +7421,7 @@
     "diarrhea",
     "abdominal_pain"
    ],
+   "anchor_finding_ids": ["diarrhea", "vomiting"],
    "questions": [
     {
      "id": "gi_blood",
@@ -7342,8 +7558,8 @@
      "id": "gi_temp",
      "kind": "measurement",
      "vital": "temp",
-     "text_en": "Please measure your temperature at the booth and enter it in °C.",
-     "text_th": "กรุณาวัดอุณหภูมิที่จุดคัดกรองแล้วกรอกค่าเป็นองศาเซลเซียสค่ะ",
+     "text_en": "Let's check your temperature — use the thermometer beside you, or type the reading if you already have it.",
+     "text_th": "ขอวัดอุณหภูมิสักครู่นะคะ ใช้เครื่องวัดไข้ข้าง ๆ ได้เลย หรือถ้ามีตัวเลขอยู่แล้วพิมพ์ให้ก็ได้ค่ะ",
      "priority": 6,
      "citation": "MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย) — ขอบเขต: ผู้ป่วยนอกทุกราย; วัตถุประสงค์ ข้อ 2 เพื่อแยกผู้ป่วยโรคติดต่อ โรคอุบัติใหม่ อุบัติซ้ำ; MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (temperature red flags)"
     },
@@ -7351,8 +7567,8 @@
      "id": "gi_bp",
      "kind": "measurement",
      "vital": "sbp",
-     "text_en": "Please measure your blood pressure now — you can use the machine beside you or type the numbers.",
-     "text_th": "กรุณาวัดความดันโลหิตตอนนี้ — ใช้เครื่องข้างตัวคุณหรือพิมพ์ตัวเลขก็ได้",
+     "text_en": "Let's check your blood pressure — slip the cuff on beside you and press start, or type the numbers if you already have them.",
+     "text_th": "ขอวัดความดันโลหิตสักครู่นะคะ สวมผ้าพันแขนจากเครื่องข้าง ๆ แล้วกดเริ่มได้เลย หรือถ้ามีตัวเลขอยู่แล้วพิมพ์ให้ก็ได้ค่ะ",
      "priority": 7,
      "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (decision point D — full vital signs at triage); MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย)"
     }
@@ -7390,6 +7606,7 @@
     "allergy_history",
     "fever"
    ],
+   "anchor_finding_ids": ["rash_itching"],
    "questions": [
     {
      "id": "sr_anaphylaxis",
@@ -7521,8 +7738,8 @@
      "id": "sr_temp",
      "kind": "measurement",
      "vital": "temp",
-     "text_en": "Please measure your temperature at the booth and enter it in °C.",
-     "text_th": "กรุณาวัดอุณหภูมิที่จุดคัดกรองแล้วกรอกค่าเป็นองศาเซลเซียสค่ะ",
+     "text_en": "Let's check your temperature — use the thermometer beside you, or type the reading if you already have it.",
+     "text_th": "ขอวัดอุณหภูมิสักครู่นะคะ ใช้เครื่องวัดไข้ข้าง ๆ ได้เลย หรือถ้ามีตัวเลขอยู่แล้วพิมพ์ให้ก็ได้ค่ะ",
      "priority": 6,
      "citation": "MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย) — ขอบเขต: ผู้ป่วยนอกทุกราย; วัตถุประสงค์ ข้อ 2 เพื่อแยกผู้ป่วยโรคติดต่อ โรคอุบัติใหม่ อุบัติซ้ำ; MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (temperature red flags)"
     },
@@ -7530,8 +7747,8 @@
      "id": "sr_bp",
      "kind": "measurement",
      "vital": "sbp",
-     "text_en": "Please measure your blood pressure now — you can use the machine beside you or type the numbers.",
-     "text_th": "กรุณาวัดความดันโลหิตตอนนี้ — ใช้เครื่องข้างตัวคุณหรือพิมพ์ตัวเลขก็ได้",
+     "text_en": "Let's check your blood pressure — slip the cuff on beside you and press start, or type the numbers if you already have them.",
+     "text_th": "ขอวัดความดันโลหิตสักครู่นะคะ สวมผ้าพันแขนจากเครื่องข้าง ๆ แล้วกดเริ่มได้เลย หรือถ้ามีตัวเลขอยู่แล้วพิมพ์ให้ก็ได้ค่ะ",
      "priority": 7,
      "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (decision point D — full vital signs at triage); MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย)"
     }
@@ -7665,16 +7882,16 @@
      "id": "cf_bp",
      "kind": "measurement",
      "vital": "sbp",
-     "text_en": "Please measure your blood pressure now — you can use the machine beside you or type the numbers.",
-     "text_th": "กรุณาวัดความดันโลหิตตอนนี้ — ใช้เครื่องข้างตัวคุณหรือพิมพ์ตัวเลขก็ได้",
+     "text_en": "Let's check your blood pressure — slip the cuff on beside you and press start, or type the numbers if you already have them.",
+     "text_th": "ขอวัดความดันโลหิตสักครู่นะคะ สวมผ้าพันแขนจากเครื่องข้าง ๆ แล้วกดเริ่มได้เลย หรือถ้ามีตัวเลขอยู่แล้วพิมพ์ให้ก็ได้ค่ะ",
      "priority": 7
     },
     {
      "id": "cf_temp",
      "kind": "measurement",
      "vital": "temp",
-     "text_en": "Please measure your temperature at the booth and enter it in °C.",
-     "text_th": "กรุณาวัดอุณหภูมิที่จุดคัดกรองแล้วกรอกค่าเป็นองศาเซลเซียสค่ะ",
+     "text_en": "Let's check your temperature — use the thermometer beside you, or type the reading if you already have it.",
+     "text_th": "ขอวัดอุณหภูมิสักครู่นะคะ ใช้เครื่องวัดไข้ข้าง ๆ ได้เลย หรือถ้ามีตัวเลขอยู่แล้วพิมพ์ให้ก็ได้ค่ะ",
      "priority": 6,
      "citation": "MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย) — ขอบเขต: ผู้ป่วยนอกทุกราย; วัตถุประสงค์ ข้อ 2 เพื่อแยกผู้ป่วยโรคติดต่อ โรคอุบัติใหม่ อุบัติซ้ำ; MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (temperature red flags)"
     }
@@ -7737,8 +7954,8 @@
      "id": "ad_bp",
      "kind": "measurement",
      "vital": "sbp",
-     "text_en": "Please measure your blood pressure now — you can use the machine beside you or type the numbers.",
-     "text_th": "กรุณาวัดความดันโลหิตตอนนี้ — ใช้เครื่องข้างตัวคุณหรือพิมพ์ตัวเลขก็ได้",
+     "text_en": "Let's check your blood pressure — slip the cuff on beside you and press start, or type the numbers if you already have them.",
+     "text_th": "ขอวัดความดันโลหิตสักครู่นะคะ สวมผ้าพันแขนจากเครื่องข้าง ๆ แล้วกดเริ่มได้เลย หรือถ้ามีตัวเลขอยู่แล้วพิมพ์ให้ก็ได้ค่ะ",
      "priority": 7,
      "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (decision point D — full vital signs at triage); MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย)"
     },
@@ -7746,8 +7963,8 @@
      "id": "ad_temp",
      "kind": "measurement",
      "vital": "temp",
-     "text_en": "Please measure your temperature at the booth and enter it in °C.",
-     "text_th": "กรุณาวัดอุณหภูมิที่จุดคัดกรองแล้วกรอกค่าเป็นองศาเซลเซียสค่ะ",
+     "text_en": "Let's check your temperature — use the thermometer beside you, or type the reading if you already have it.",
+     "text_th": "ขอวัดอุณหภูมิสักครู่นะคะ ใช้เครื่องวัดไข้ข้าง ๆ ได้เลย หรือถ้ามีตัวเลขอยู่แล้วพิมพ์ให้ก็ได้ค่ะ",
      "priority": 6,
      "citation": "MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย) — ขอบเขต: ผู้ป่วยนอกทุกราย; วัตถุประสงค์ ข้อ 2 เพื่อแยกผู้ป่วยโรคติดต่อ โรคอุบัติใหม่ อุบัติซ้ำ; MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (temperature red flags)"
     }
@@ -7759,8 +7976,8 @@
    "id": "pd_weight_height",
    "kind": "measurement",
    "vital": "weight",
-   "text_en": "Please enter your weight and height so we can complete your chart.",
-   "text_th": "กรุณากรอกน้ำหนักและส่วนสูงเพื่อให้ข้อมูลในบัตรครบถ้วน",
+   "text_en": "One last thing — could you step on the scale, or type your weight and height, so your chart is complete?",
+   "text_th": "ขออีกนิดนะคะ ขึ้นชั่งน้ำหนักวัดส่วนสูง หรือพิมพ์ตัวเลขให้ก็ได้ค่ะ เพื่อให้ข้อมูลในบัตรครบถ้วน",
    "priority": 90
   }
  ],

@@ -563,6 +563,42 @@ export function AiMetricsPanel() {
                 </table>
               </div>
 
+              {metrics.grounding && (
+                <div className="table-wrap">
+                  <h4>{t('aiMetricsGrounding')}</h4>
+                  <p className="muted">
+                    {t('aiMetricsGroundedRate', {
+                      grounded: metrics.grounding.grounded,
+                      total: metrics.grounding.explanations,
+                      rate:
+                        metrics.grounding.grounded_rate === null
+                          ? '—'
+                          : `${Math.round(metrics.grounding.grounded_rate * 100)}%`,
+                    })}
+                  </p>
+                  {metrics.grounding.ungrounded_reasons.length > 0 && (
+                    <table className="admin-table">
+                      <thead>
+                        <tr>
+                          <th>{t('aiMetricsUngroundedReason')}</th>
+                          <th className="admin-col-num">{t('aiMetricsCount')}</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {metrics.grounding.ungrounded_reasons.map((row) => (
+                          <tr key={row.reason}>
+                            <td>
+                              {t(`nurseUngroundedReason_${row.reason}`, { defaultValue: row.reason })}
+                            </td>
+                            <td className="admin-col-num">{row.count}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  )}
+                </div>
+              )}
+
               {metrics.validator_violations.length > 0 && (
                 <div className="table-wrap">
                   <h4>{t('aiMetricsViolations')}</h4>

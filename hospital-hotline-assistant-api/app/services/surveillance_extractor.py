@@ -1,16 +1,25 @@
 """End-of-session disease keyword extraction for the outbreak surveillance dashboard.
 
-Called when a session transitions to 'completed'. Uses Gemini to extract
-structured symptom/disease keywords from the full user conversation, then
-upserts the result into ``disease_surveillance``.
+Called when a session transitions to 'completed'. Asks the screening model
+(same adapter + provider switch as the engine, so on-prem it is the local
+LLM) for symptom/disease keywords, then upserts the result into
+``disease_surveillance``.
 
-Guard conditions (all must pass before Gemini is called):
-  1. Session has ≥ 2 user messages.
-  2. At least 1 user message has meaningful health content (length > 10 chars,
-     not just a greeting).
-  3. The existing ``disease_surveillance`` row for this session has fewer than
-     3 keywords — if routing rules already produced rich data, skip the extra
-     API call.
+What is sent to the model is NOT the transcript: it is the screening state
+the engine already extracted — chief complaint, present findings with their
+values, OLDCARTS slot answers. That is the clinical content of the
+conversation with none of the greeting / name / identity talk. The raw
+``messages`` rows are only read locally for the guards below.
+(ponytail: if recall on symptoms no criteria finding covers ever matters,
+the raw-transcript input can return behind a flag.)
+
+Guard conditions (all must pass before the model is called):
+  1. Session has ≥ 2 user messages (counted locally, content never read).
+  2. The existing ``disease_surveillance`` row for this session has fewer than
+     3 keywords — if routing rules already produced rich data, skip the call.
+  3. The engine's screening state exists and holds a complaint or findings.
+     (The old guard was an English keyword list over the transcript, which
+     silently skipped every Thai session.)
 """
 
 from __future__ import annotations
@@ -18,113 +27,72 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-from typing import Any
 
 import asyncpg
+from pydantic import BaseModel, Field
 
 from app.config import settings
-from app.services.ai.env import configure_google_genai_environment
-
-configure_google_genai_environment()
+from app.services.screening.model_adapter import build_chat_model
+from app.services.screening.nodes.base import ainvoke_with_timeout
+from app.services.screening.state import ScreeningState
 
 logger = logging.getLogger(__name__)
 
-# One-word / very-short messages that carry no health information.
-_SKIP_PHRASES = {
-    "hi", "hello", "hey", "ok", "okay", "yes", "no", "nope", "yep", "yeah",
-    "thanks", "thank you", "bye", "goodbye", "sure", "alright", "fine",
-    "good", "great", "done",
-}
-
 _MIN_USER_MESSAGES = 2
-_MIN_MEANINGFUL_LENGTH = 10
 _SKIP_IF_KEYWORDS_GTE = 3   # already have enough from routing rules
-
-# Guard 2b: at least one message must contain a health signal word.
-# Covers diseases, symptoms, body parts, and general illness vocabulary.
-# Pure doctor/schedule queries ("is Dr. Smith available?") won't match any of these.
-_HEALTH_SIGNALS = {
-    # symptoms
-    "pain", "ache", "hurt", "sore", "fever", "temperature", "cough",
-    "sneeze", "runny", "congestion", "nausea", "vomit", "diarrhea",
-    "constipation", "bleed", "bleeding", "dizzy", "dizziness", "faint",
-    "fatigue", "tired", "weak", "weakness", "swollen", "swelling", "rash",
-    "itch", "itchy", "burn", "burning", "numbness", "numb", "tingling",
-    "shortness", "breathe", "breathing", "breath", "choke", "wheeze",
-    "palpitation", "chest", "headache", "migraine", "cramp", "spasm",
-    "discharge", "infection", "inflammation", "abscess",
-    # diseases / conditions
-    "covid", "corona", "flu", "influenza", "dengue", "malaria", "typhoid",
-    "cholera", "tuberculosis", "pneumonia", "bronchitis", "asthma",
-    "diabetes", "hypertension", "cancer", "tumor", "stroke", "seizure",
-    "epilepsy", "anemia", "allergy", "appendicitis", "gastritis", "ulcer",
-    "arthritis", "fracture", "sprain", "wound", "injury", "accident",
-    # general illness words
-    "sick", "ill", "unwell", "symptom", "condition", "diagnosis",
-    "positive", "test", "tested", "smell", "taste", "vision", "hearing",
-}
 
 _EXTRACTION_PROMPT = """\
 You are a medical keyword extractor for a hospital triage system.
 
-Given the following patient messages from a chat session, extract a concise
-list of disease names, symptoms, and body-part complaints that the patient
-mentioned.
+Given the structured summary of a screening conversation below, extract a
+concise list of disease names, symptoms, and body-part complaints that the
+patient reported.
 
 Rules:
-- Return ONLY a valid JSON array of short keyword strings (1–3 words each).
+- Return short keyword strings (1–3 words each).
 - Use lowercase English.
 - Include diseases (e.g. "covid", "dengue", "influenza"), symptoms
   (e.g. "fever", "sore throat", "muscle pain"), and body parts with problems
   (e.g. "ear pain", "chest pain").
 - Do NOT include greetings, question phrases, or doctor/schedule queries.
-- If no health keywords are found, return an empty array: []
+- If no health keywords are found, return an empty list.
 
-Example output: ["fever", "sore throat", "covid", "loss of smell"]
-
-Patient messages:
+Screening summary:
 {messages}
 """
 
 
-async def _call_gemini_extract(messages_text: str) -> list[str]:
-    """Call Gemini with a simple text prompt and return parsed keyword list."""
+class SurveillanceKeywords(BaseModel):
+    keywords: list[str] = Field(default_factory=list)
+
+
+def screening_summary_text(state: ScreeningState) -> str:
+    """What the model sees: the engine's own extraction, never the transcript."""
+    lines: list[str] = []
+    if state.complaint_category:
+        lines.append(f"- complaint category: {state.complaint_category}")
+    if state.chief_complaint:
+        lines.append(f"- chief complaint: {state.chief_complaint}")
+    for fid, finding in state.findings.items():
+        if finding.state == "present":
+            lines.append(f"- {fid}" + (f": {finding.value}" if finding.value else ""))
+    for slot, answer in state.slots.items():
+        lines.append(f"- {slot}: {answer}")
+    return "\n".join(lines)
+
+
+async def _call_model_extract(summary_text: str) -> list[str]:
+    """One structured call through the screening model adapter."""
     try:
-        from google import genai as google_genai
-
-        client = google_genai.Client()
-        prompt = _EXTRACTION_PROMPT.format(messages=messages_text)
-
-        # thinking_level "minimal": thoughts count toward max_output_tokens,
-        # so a thinking model can burn the whole budget and truncate the JSON
-        # ("Unterminated string" parse failures). Keyword extraction needs no
-        # reasoning depth anyway.
-        config: dict[str, object] = {"max_output_tokens": 512}
-        if settings.google_model_name.startswith("gemini-2"):
-            config["temperature"] = 0.0
-            config["thinking_config"] = {"thinking_budget": 0}
-        else:
-            config["thinking_config"] = {"thinking_level": "MINIMAL"}
-        response = await asyncio.to_thread(
-            client.models.generate_content,
-            model=settings.google_model_name,
-            contents=prompt,
-            config=config,
+        model = build_chat_model(settings).with_structured_output(SurveillanceKeywords)
+        prompt = _EXTRACTION_PROMPT.format(messages=summary_text)
+        result = await ainvoke_with_timeout(
+            model, prompt, float(settings.screening_model_timeout_s)
         )
-        raw = (response.text or "").strip()
-
-        # Strip markdown code fences if present
-        if raw.startswith("```"):
-            raw = raw.split("```")[1]
-            if raw.startswith("json"):
-                raw = raw[4:]
-            raw = raw.strip()
-
-        keywords = json.loads(raw)
-        if isinstance(keywords, list):
-            return [str(k).strip().lower() for k in keywords if str(k).strip()]
+        keywords = getattr(result, "keywords", None) or []
+        return [str(k).strip().lower() for k in keywords if str(k).strip()]
     except Exception as exc:
-        logger.warning("surveillance_extractor: gemini call failed: %s", exc)
+        logger.warning("surveillance_extractor: model call failed: %s", exc)
     return []
 
 
@@ -155,49 +123,15 @@ async def _run(
 ) -> None:
 
     # ── Guard 1: enough user messages ─────────────────────────────────────
-    user_messages: list[dict[str, Any]] = [
-        dict(r)
-        for r in await connection.fetch(
-            "SELECT content FROM messages WHERE session_id = $1 AND role = 'user' ORDER BY created_at",
-            session_id,
-        )
-    ]
-
-    if len(user_messages) < _MIN_USER_MESSAGES:
+    user_message_count = await connection.fetchval(
+        "SELECT count(*) FROM messages WHERE session_id = $1 AND role = 'user'",
+        session_id,
+    )
+    if (user_message_count or 0) < _MIN_USER_MESSAGES:
         logger.debug(
-            "surveillance_extractor: skipped session %s — only %d user message(s)",
+            "surveillance_extractor: skipped session %s — only %s user message(s)",
             session_id,
-            len(user_messages),
-        )
-        return
-
-    # ── Guard 2: at least one message has real health content ──────────────
-    meaningful = [
-        m["content"]
-        for m in user_messages
-        if (
-            len(m["content"].strip()) > _MIN_MEANINGFUL_LENGTH
-            and m["content"].strip().lower() not in _SKIP_PHRASES
-        )
-    ]
-
-    if not meaningful:
-        logger.debug(
-            "surveillance_extractor: skipped session %s — no meaningful messages",
-            session_id,
-        )
-        return
-
-    # ── Guard 2b: at least one message contains a health signal word ──────
-    # Filters out pure doctor/schedule conversations ("Is Dr. Smith available?")
-    # before spending an API call on Gemini.
-    all_text = " ".join(meaningful).lower()
-    has_health_signal = any(signal in all_text for signal in _HEALTH_SIGNALS)
-
-    if not has_health_signal:
-        logger.debug(
-            "surveillance_extractor: skipped session %s — no health signal words found",
-            session_id,
+            user_message_count,
         )
         return
 
@@ -216,13 +150,22 @@ async def _run(
         )
         return
 
-    # ── Call Gemini ────────────────────────────────────────────────────────
-    messages_text = "\n".join(f"- {m}" for m in meaningful)
-    extracted: list[str] = await _call_gemini_extract(messages_text)
+    # ── Call the model with the engine's structured state, not the transcript
+    state_row = await connection.fetchrow(
+        "SELECT state FROM screening_sessions WHERE session_id = $1",
+        session_id,
+    )
+    if state_row is None:
+        logger.debug("surveillance_extractor: skipped session %s — no screening state", session_id)
+        return
+    summary_text = screening_summary_text(ScreeningState.from_json(state_row["state"]))
+    if not summary_text:
+        return
+    extracted: list[str] = await _call_model_extract(summary_text)
 
     if not extracted:
         logger.debug(
-            "surveillance_extractor: session %s — gemini returned no keywords",
+            "surveillance_extractor: session %s — model returned no keywords",
             session_id,
         )
         return

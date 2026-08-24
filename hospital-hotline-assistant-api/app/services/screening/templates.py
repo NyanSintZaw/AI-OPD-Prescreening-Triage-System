@@ -39,6 +39,14 @@ REPEAT_GUIDANCE = {
     "th": "การคัดกรองเสร็จสิ้นแล้วค่ะ กรุณาไปที่{department} เจ้าหน้าที่จะดูแลคุณต่อนะคะ หากอาการเปลี่ยนแปลงหรือแย่ลง กรุณาแจ้งเจ้าหน้าที่ทันทีค่ะ",
 }
 
+# A patient who keeps talking after the disposition ("เดี๋ยวค่ะ พูดผิด ไม่ได้
+# เจ็บหน้าอก"): the level is not re-decided — staff are already notified and
+# the nurse review is where it changes — but the words are kept for them.
+POST_DISPOSITION_NOTED = {
+    "en": "Noted — I've passed that on to the staff. Please also tell them directly at {department}.",
+    "th": "รับทราบค่ะ ดิฉันแจ้งเจ้าหน้าที่ไว้ให้แล้ว กรุณาบอกเจ้าหน้าที่ที่{department}โดยตรงอีกครั้งนะคะ",
+}
+
 VOICE_GREETING = {
     "en": "Hello, this is the hospital screening assistant. What symptoms are you experiencing today?",
     "th": "สวัสดีค่ะ ระบบผู้ช่วยคัดกรองของโรงพยาบาลค่ะ วันนี้มีอาการอะไรให้ช่วยดูแลคะ",
@@ -66,9 +74,9 @@ def greeting_line(name: str | None, language: str) -> str:
     return VOICE_GREETING.get(language, VOICE_GREETING["en"])
 
 
-# Spoken VN identity gate — the call opens by confirming the HIS name before
+# Spoken HN identity gate — the call opens by confirming the HIS name before
 # any symptoms are discussed. Answers are classified by nlu_yesno; "no" ends
-# the call and sends the patient back to the VN entry screen.
+# the call and sends the patient back to the HN entry screen.
 CONFIRM_NAME_ASK = {
     "en": "Hello! You are {name}, is that right?",
     "th": "สวัสดีค่ะ คุณคือ {name} ใช่ไหมคะ",
@@ -87,10 +95,10 @@ CONFIRM_NAME_RETRY = {
 
 CONFIRM_NAME_REJECTED = {
     "en": (
-        "I'm sorry for the mix-up. Please enter your correct visit number "
-        "on the screen."
+        "I'm sorry for the mix-up. Please enter your correct HN "
+        "(hospital number) on the screen."
     ),
-    "th": "ขอโทษค่ะ รบกวนกรอกหมายเลข visit ที่ถูกต้องบนหน้าจออีกครั้งนะคะ",
+    "th": "ขอโทษค่ะ รบกวนกรอกหมายเลข HN ที่ถูกต้องบนหน้าจออีกครั้งนะคะ",
 }
 
 def confirm_name_ask(name: str, language: str, *, retry: bool = False) -> str:
@@ -114,13 +122,24 @@ HISTORY_INTRO = {
 }
 
 HISTORY_QUESTIONS: list[dict] = [
+    # Data Requirements V1 §1.3 splits smoking and alcohol into two fields,
+    # so they are two questions — each answer lands in its own HIS column.
     {
-        "field": "smoking_alcohol",
-        "en": "Do you smoke, or drink alcohol?",
-        "th": "คุณสูบบุหรี่หรือดื่มแอลกอฮอล์ไหมคะ",
+        "field": "smoking",
+        "en": "Do you smoke?",
+        "th": "คุณสูบบุหรี่ไหมคะ",
         "options": {
-            "en": ["Neither", "Smoke", "Drink alcohol", "Both smoke and drink"],
-            "th": ["ไม่สูบไม่ดื่ม", "สูบบุหรี่", "ดื่มแอลกอฮอล์", "ทั้งสูบและดื่ม"],
+            "en": ["No", "Yes, I smoke"],
+            "th": ["ไม่สูบ", "สูบบุหรี่"],
+        },
+    },
+    {
+        "field": "alcohol",
+        "en": "Do you drink alcohol?",
+        "th": "คุณดื่มแอลกอฮอล์ไหมคะ",
+        "options": {
+            "en": ["No", "Sometimes", "Regularly"],
+            "th": ["ไม่ดื่ม", "ดื่มบางครั้ง", "ดื่มประจำ"],
         },
     },
     {
@@ -145,7 +164,7 @@ HISTORY_QUESTIONS: list[dict] = [
         },
     },
     {
-        "field": "past_surgeries",
+        "field": "post_surgeries",
         "en": "Have you ever had surgery?",
         "th": "คุณเคยผ่าตัดไหมคะ",
         "options": {

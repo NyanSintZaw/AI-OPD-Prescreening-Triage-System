@@ -1,0 +1,855 @@
+{
+  "info": {
+    "_postman_id": "6090acb9-9ee2-5a83-9e53-fce4d6676de3",
+    "name": "AI Model (local inference)",
+    "description": "Every call our backend makes to the AI workstation, as real requests: four `/chat/completions` (extraction, question, explain, gates, surveillance) + STT + TTS. Point `LLM_BASE_URL` at the server and run them — these are the bytes the booth sends. No request carries a patient identifier; see `docs/ai-model-io.md`.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "extraction",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{LLM_BASE_URL}}/chat/completions",
+          "host": [
+            "{{LLM_BASE_URL}}"
+          ],
+          "path": [
+            "chat",
+            "completions"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"model\": \"{{LLM_MODEL}}\",\n  \"messages\": [\n    {\n      \"role\": \"user\",\n      \"content\": \"You are a clinical intake scribe for a Thai hospital. Read ONE patient message\\n(Thai or English) and extract ONLY what the patient actually said into the\\nstructured schema. Never guess, never diagnose, never infer findings that were\\nnot stated. If the message answers the assistant's pending question, record\\nthat answer (as finding updates with state \\\"absent\\\" when the patient denies,\\nor slot/score updates).\\n\\nAllowed complaint categories (copy ONE id verbatim — never invent or combine ids): generic, chest_pain, dyspnea_cough, abdominal_pain, headache, fever, ear, nose_throat, eye, injury, pregnancy, mental_health, musculoskeletal, urinary, wound_skin, gynecology, breast, palpitations, limb_vascular, forensic, gi, skin_rash, chronic_followup, administrative\\nPick the category from what the patient HAS, never from what they deny: \\\"I have\\na fever but no headache\\\" / \\\"มีไข้ แต่ไม่ปวดหัว\\\" is fever, not headache.\\n\\nFinding catalog (use ONLY these ids):\\n- abdominal_mass: คลำก้อนได้ที่ท้อง (also: ก้อนที่ท้อง)\\n- abdominal_pain: ปวดท้อง (also: ปวดท้องน้อย, จุกท้อง)\\n- abnormal_breath_sounds: เสียงหายใจผิดปกติ (หวีด/ครืดคราด) ได้ยินโดยไม่ใช้เครื่องฟัง (also: หายใจมีเสียงหวีด, หายใจครืดคราด)\\n- active_bleeding: เลือดออกมากไม่หยุด (active bleeding) (also: เลือดไหลไม่หยุด, เลือดออกเยอะมาก, ห้ามเลือดไม่อยู่, เลือดไหลออกมาก)\\n- agitation_violent: คลุ้มคลั่ง อาละวาด (also: คลุ้มคลั่ง)\\n- airway_obstruction: ทางเดินหายใจอุดกั้น สำลักติดคอ (also: สำลัก, ติดคอหายใจไม่ได้)\\n- allergy_history: มีประวัติแพ้ (ยา อาหาร หรืออื่น ๆ) (also: แพ้ยา, แพ้อาหาร, ประวัติแพ้)\\n- allergy_symptoms: อาการภูมิแพ้ (จามบ่อย คันจมูก น้ำมูกใส) (also: ภูมิแพ้, แพ้อากาศ)\\n- amniotic_fluid_leak: น้ำเดิน น้ำคร่ำไหล (also: น้ำเดิน, น้ำไหลออกทางช่องคลอด)\\n- animal_insect_bite_24h: แมลงสัตว์กัดต่อย ภายใน 24 ชั่วโมง (also: หมากัด, งูกัด, แมลงต่อย)\\n- anosmia: จมูกไม่ได้กลิ่น (also: ไม่ได้กลิ่น)\\n- apnea: หยุดหายใจ (also: หยุดหายใจเป็นพัก)\\n- assault_24h: ถูกทำร้ายร่างกายภายใน 24 ชั่วโมง (also: ถูกทำร้าย, โดนซ้อม)\\n- auditory_hallucinations: หูแว่วเสียงคน จับใจความได้ (also: หูแว่ว, ได้ยินเสียงคนพูด)\\n- back_pain_radiating_leg: ปวดหลังร้าวลงขา (also: ปวดหลังร้าวลงขา, ปวดหลังร้าวลงไปที่ขา)\\n- balance_loss: เสียการทรงตัว เดินเซ เวียนศีรษะรุนแรงฉับพลัน (also: เดินเซ, ทรงตัวไม่ได้)\\n- bloody_stool: ถ่ายเป็นเลือดสด (also: อุจจาระมีเลือด, ถ่ายมีเลือดสด)\\n- blue_lips: ริมฝีปากเขียว ตัวเขียว (also: เขียวคล้ำ, ปากเขียว)\\n- blurred_vision_sudden: ตามัว ตาพร่าฉับพลัน (also: ตามัวฉับพลัน)\\n- breast_discharge: มีสารคัดหลั่งจากหัวนม (also: น้ำไหลจากหัวนม)\\n- breast_infection_signs: เต้านมแดง ร้อน หรือบวม (อาจติดเชื้อหรือเป็นฝีหนอง) (also: เต้านมอักเสบ, เต้านมบวมแดง)\\n- breast_lump: คลำก้อนได้ที่เต้านม (also: ก้อนที่เต้านม)\\n- breast_pain: เจ็บเต้านม (also: ปวดเต้านม)\\n- burn_scald_24h: ไฟไหม้ น้ำร้อนลวก ภายใน 24 ชั่วโมง (also: น้ำร้อนลวก, ไฟลวก)\\n- cardiac_arrest: หัวใจหยุดเต้น ไม่หายใจ ไม่มีชีพจร (also: หัวใจหยุด, ไม่หายใจ, คลำชีพจรไม่ได้)\\n- chest_pain: เจ็บแน่นหน้าอก (also: แน่นหน้าอก, เจ็บหน้าอก, จุกแน่นใต้ลิ้นปี่)\\n- chest_pain_radiating: เจ็บหน้าอกร้าวไปคอ กราม ไหล่ หรือแขน (also: เจ็บร้าวไปกราม, เจ็บร้าวไปไหล่)\\n- chronic_cough_2w: ไอเรื้อรังมากกว่า 2 สัปดาห์ (also: ไอเรื้อรัง)\\n- chronic_wound: แผลเรื้อรัง (แผลเท้าเบาหวาน แผลกดทับ แผลไม่หาย) (also: แผลเบาหวาน, แผลกดทับ, แผลเรื้อรัง)\\n- confusion: ซึม สับสน เรียกแล้วตอบช้า ภายใน 72 ชั่วโมง (also: สับสน, ซึมลง, พูดจาสับสน)\\n- copd_history: มีโรคปอดอุดกั้นเรื้อรัง (COPD) (also: ถุงลมโป่งพอง)\\n- cough: ไอ (also: ไอแห้ง, ไอมีเสมหะ)\\n- crowning: ทารกกำลังคลอด มีส่วนของทารกโผล่ออกมา (also: เด็กกำลังจะคลอด, อยากเบ่ง)\\n- decreased_fetal_movement: ลูกดิ้นน้อยลง (also: ทารกดิ้นน้อยลง)\\n- dehydration_signs: อาการขาดน้ำ (ดื่มน้ำแล้วอาเจียน ปัสสาวะน้อย ลุกแล้วหน้ามืด) (also: ขาดน้ำ, กินน้ำไม่ได้)\\n- depression_symptoms: ซึมเศร้า เบื่อหน่าย ท้อแท้ (also: เศร้า, หดหู่)\\n- diabetes_history: มีโรคเบาหวาน (also: เบาหวาน)\\n- dialysis_access_needed: ทำเส้นฟอกไต เตรียมฟอกไตหน้าท้อง (also: ทำเส้นฟอกไต)\\n- diaphoresis: เหงื่อออกมาก เหงื่อแตก (also: เหงื่อแตกท่วมตัว)\\n- diarrhea: ถ่ายเหลว ท้องเสีย (also: ท้องร่วง)\\n- dyspnea: หายใจเหนื่อย หายใจหอบ (also: เหนื่อยหอบ, หายใจไม่อิ่ม, หายใจลำบาก)\\n- dysuria: ปัสสาวะแสบขัด (also: ฉี่แสบ, ปัสสาวะขัด)\\n- ear_discharge: น้ำไหลจากหู (also: หูน้ำหนวก)\\n- ear_pain: ปวดหู (also: เจ็บหู)\\n- edema: บวมที่ขาหรือตามตัว (also: ขาบวม, ตัวบวม)\\n- electric_shock_24h: ไฟดูด ภายใน 24 ชั่วโมง (also: ไฟดูด, ไฟช็อต)\\n- epistaxis_uncontrolled: เลือดกำเดาไหลไม่หยุด (also: เลือดกำเดาไม่หยุด)\\n- evening_fever: มีไข้ตอนเย็น ไข้ต่ำ ๆ ช่วงเย็น (also: ไข้ตอนเย็น)\\n- eye_active_bleeding: เลือดออกที่ตาไม่หยุด (also: เลือดออกในตา)\\n- eye_chemical_exposure: สารเคมีหรือพิษสัตว์กระเด็นเข้าตา (also: สารเคมีเข้าตา)\\n- eye_lump_swelling: ก้อนบวมแดงที่ตา (also: ตากุ้งยิง, ก้อนที่เปลือกตา)\\n- eye_pain_severe: ปวดตามาก (also: ปวดตารุนแรง)\\n- eye_redness_severe: ตาแดงมาก (also: ตาแดงจัด)\\n- eye_trauma: อุบัติเหตุทางตา (also: ตาโดนกระแทก)\\n- facial_droop: ปากเบี้ยว หน้าเบี้ยวฉับพลัน (also: หน้าเบี้ยว, มุมปากตก)\\n- fatigue_weight_loss: อ่อนเพลีย น้ำหนักลด (also: น้ำหนักลด, เพลีย)\\n- fever: มีไข้ (also: ตัวร้อน, ไข้ขึ้น)\\n- floppy_infant: เด็กตัวอ่อนปวกเปียก ไม่ตอบสนอง (also: ตัวอ่อน, ไม่ตอบสนอง)\\n- foreign_body_ent_24h: สิ่งแปลกปลอมติดในหู จมูก หรือคอ ภายใน 24 ชั่วโมง (also: ของติดในหู, ก้างติดคอ, มีของติดในหู, แมลงเข้าหู)\\n- fracture_suspected: สงสัยกระดูกหักหรือข้อหลุด (also: กระดูกหัก, ข้อเคลื่อน, ข้อหลุด)\\n- ga_24w_or_more: อายุครรภ์ 24 สัปดาห์ขึ้นไป (also: ครรภ์ 6 เดือนขึ้นไป)\\n- gasping: หายใจเฮือก (also: หายใจเฮือก ๆ)\\n- hallucination_paranoia: ภาพหลอน หวาดระแวง (also: เห็นภาพหลอน, ระแวง)\\n- head_injury: ศีรษะกระแทก บาดเจ็บที่ศีรษะ (also: หัวกระแทก, หัวฟาดพื้น)\\n- headache: ปวดศีรษะ (also: ปวดหัว)\\n- headache_sudden_severe: ปวดศีรษะรุนแรงฉับพลัน (ปวดที่สุดในชีวิต) (also: ปวดหัวรุนแรงที่สุด)\\n- hearing_loss: การได้ยินลดลง หูอื้อ (also: หูอื้อ, หูตึง, ได้ยินไม่ชัด)\\n- heart_disease_history: มีประวัติโรคหัวใจ เส้นเลือดหัวใจตีบ (also: โรคหัวใจ, เส้นเลือดหัวใจตีบ)\\n- heavy_vaginal_bleeding: เลือดออกมากทางช่องคลอด (เปียกชุ่มผ้าอนามัยทุก 1 ชั่วโมง) (also: เลือดชุ่มผ้าอนามัย)\\n- hematemesis: อาเจียนเป็นเลือด (also: อ้วกเป็นเลือด)\\n- hemoptysis: ไอเป็นเลือด เสมหะปนเลือด (also: ไอมีเลือดปน)\\n- high_fever: ไข้สูง (เกิน 38.5 องศา) (also: ไข้สูงมาก)\\n- hoarseness_over_2w: เสียงแหบนานเกิน 2 สัปดาห์ (also: เสียงแหบเรื้อรัง)\\n- home_oxygen: ใช้ออกซิเจนที่บ้าน (also: ให้ออกซิเจนที่บ้าน)\\n- hypertension_history: มีโรคความดันโลหิตสูง (also: ความดันสูง)\\n- hypoglycemia_symptoms: อาการน้ำตาลต่ำ (มือสั่น เหงื่อแตก มึนงง หิวมาก) (also: น้ำตาลตก, น้ำตาลต่ำ)\\n- immediate_danger: ยังอยู่ในอันตราย / ผู้ก่อเหตุอยู่ใกล้ (also: ไม่ปลอดภัย)\\n- injury_within_24h: บาดเจ็บภายใน 24 ชั่วโมงที่ผ่านมา\\n- irregular_pulse: หัวใจเต้นผิดจังหวะ ชีพจรไม่สม่ำเสมอ (also: หัวใจเต้นไม่เป็นจังหวะ)\\n- limb_ischemia: มือเท้าเย็น ปวดเวลาใช้แขนขา แผลเรื้อรัง/ซีดดำ (also: เท้าดำ, แขนขาขาดเลือด)\\n- limb_weakness: แขนขาอ่อนแรงหรือชาครึ่งซีกฉับพลัน (also: อ่อนแรงครึ่งซีก, ยกแขนไม่ขึ้น, ชาครึ่งซีก)\\n- lip_swelling: ปากบวม หน้าบวม (also: ริมฝีปากบวม, หน้าบวม)\\n- loc_transient: หมดสติหรือสลบชั่วครู่หลังศีรษะกระแทก/บาดเจ็บ (เฉพาะเมื่อเกิดจากการบาดเจ็บ) (also: สลบหลังหัวฟาด, หมดสติหลังล้ม, สลบไปหลังกระแทก)\\n- major_trauma_mechanism: อุบัติเหตุรถยนต์/จักรยานยนต์ ตกจากที่สูงเกิน 5 เมตร หรือคนเดินถนนถูกรถชน (also: รถชน, รถล้ม, ตกจากที่สูง)\\n- medication_run_out: ยาประจำหมด (also: ยาหมด, มารับยา)\\n- melena: ถ่ายดำ (also: อุจจาระสีดำ)\\n- missed_period: ประจำเดือนขาด (also: เมนส์ไม่มา, ประจำเดือนไม่มา)\\n- nasal_congestion: คัดจมูก (also: จมูกตัน)\\n- nasal_flaring: หายใจปีกจมูกบาน (also: ปีกจมูกบาน)\\n- neck_mass: ก้อนที่คอ (also: ก้อนที่ลำคอ)\\n- neck_swelling_dysphagia: คอบวมโต กลืนลำบาก หายใจลำบาก (also: กลืนลำบาก, คอบวม)\\n- oral_ulcer_chronic: แผลในช่องปากเรื้อรังไม่หาย (also: แผลในปากไม่หาย)\\n- orthopnea: นอนราบไม่ได้ ต้องนั่งหายใจ (also: นอนราบแล้วเหนื่อย)\\n- overdose_or_poison: ได้รับยาเกินขนาด หรือสัมผัสสารพิษ/สารเคมี (also: กินยาเกินขนาด, โดนสารพิษ)\\n- pale_cold_sweaty: ผิวหนังซีดและตัวเย็นชื้นพร้อมกัน (สัญญาณช็อก) (also: ตัวเย็นหน้าซีด, หน้าซีดตัวเย็น)\\n- palm_sole_rash: ผื่นแดงตามฝ่ามือ ฝ่าเท้า รอบปาก (also: ผื่นฝ่ามือฝ่าเท้า)\\n- palpitations: ใจสั่น หัวใจเต้นเร็วผิดปกติ (also: ใจเต้นแรง, ใจสั่นรัว)\\n- penetrating_injury_torso: ถูกแทงที่คอ หน้าอก หรือช่องท้อง (also: ถูกแทง, ถูกยิง)\\n- police_case: มีใบรายงานชันสูตรหรือใบนำส่งตรวจจากตำรวจ (also: มีใบนำส่งจากตำรวจ, คดีความ)\\n- pregnancy: กำลังตั้งครรภ์ (also: ท้อง, มีครรภ์)\\n- problem_scar: แผลเป็นมีปัญหา (คีลอยด์ แผลเป็นหดรั้ง เจ็บหรือคันเรื้อรัง) (also: คีลอยด์, แผลเป็นนูน)\\n- rash_itching: ผื่นคัน ลมพิษ (also: ผื่นลมพิษ, ผื่นคันทั้งตัว)\\n- rash_rapidly_spreading: ผื่นลามเร็วภายในไม่กี่ชั่วโมง (also: ผื่นลามเร็ว, ผื่นขึ้นทั้งตัว)\\n- rash_vesicles: ผื่นแดงหรือตุ่มน้ำตามร่างกาย (also: ตุ่มน้ำใส, ผื่นขึ้นตามตัว)\\n- recent_chemotherapy: ได้รับยาเคมีบำบัดอยู่ (also: ให้คีโม, รับยาเคมี)\\n- retraction: หายใจมีอกบุ๋ม (retraction) (also: อกบุ๋ม, ซี่โครงบุ๋ม)\\n- runny_nose: น้ำมูกไหล (also: มีน้ำมูก)\\n- seizure_now: กำลังชักเกร็ง เรียกไม่รู้สึกตัว (also: ชัก, ชักเกร็ง)\\n- self_harm_risk: เสี่ยงทำร้ายตนเองหรือผู้อื่น หรือเพิ่งทำร้ายตนเอง (also: ทำร้ายตัวเอง)\\n- severe_morning_sickness: แพ้ท้องรุนแรงจนกินไม่ได้ (also: แพ้ท้องหนัก, แพ้ท้องรุนแรง)\\n- severe_respiratory_distress: หายใจลำบากรุนแรง พูดเป็นประโยคไม่ได้ ต้องลุกนั่งหายใจ (also: หายใจไม่ทัน, พูดไม่เป็นประโยค, หอบมาก)\\n- severe_stress: เครียดมาก (also: เครียดหนัก)\\n- severe_uncontrolled_pain: ปวดรุนแรงมากจนทนไม่ไหว (also: ปวดมากทนไม่ไหว, ปวดที่สุดในชีวิต)\\n- sexual_assault_72h: ถูกกระทำชำเราภายใน 72 ชั่วโมง (also: ถูกล่วงละเมิดทางเพศ)\\n- slurred_speech: พูดไม่ชัด ลิ้นแข็ง พูดไม่ออกทันที (also: พูดอ้อแอ้, พูดไม่รู้เรื่องฉับพลัน)\\n- smoking: สูบบุหรี่ (also: สูบบุหรี่)\\n- snoring: นอนกรน (also: กรน)\\n- sore_throat: เจ็บคอ (also: เจ็บคอ)\\n- stiff_neck: คอแข็ง ก้มคอไม่ได้ ร่วมกับไข้ (also: คอแข็ง)\\n- sudden_vision_loss: ตามองไม่เห็นเฉียบพลัน เห็นภาพซ้อน (also: ตามืดฉับพลัน, เห็นภาพซ้อน)\\n- suicidal_ideation: มีความคิดอยากตาย อยากฆ่าตัวตาย (also: อยากตาย, คิดสั้น)\\n- syncope_24h: วูบ หน้ามืด เป็นลม ภายใน 24 ชั่วโมง (ไม่ได้เกิดจากอุบัติเหตุ) (also: เป็นลม, วูบหมดสติ, วูบ, หน้ามืด, หมดสติไปแป๊บนึง, เป็นลมล้ม)\\n- tinnitus: เสียงดังในหู (วิ้ง เสียงแมลง) (also: หูมีเสียงวิ้ง, เสียงดังในหู)\\n- unilateral_leg_swelling: ขาบวมและปวดข้างเดียว (also: ขาบวมข้างเดียว, น่องบวม)\\n- unresponsive: ซึมลงปลุกไม่ตื่น ไม่รู้สึกตัว (also: หมดสติ, ปลุกไม่ตื่น, ไม่ตอบสนอง)\\n- uterine_contractions_frequent: ท้องแข็ง เจ็บครรภ์ถี่ (ทุก ๆ 2 นาที) (also: เจ็บท้องคลอดถี่, ท้องแข็งถี่)\\n- vaginal_bleeding: เลือดออกทางช่องคลอดผิดปกติ (also: เลือดออกช่องคลอด)\\n- varicose_veins: เส้นเลือดขอด (also: เส้นเลือดขอด)\\n- vertigo: เวียนศีรษะ บ้านหมุน (also: บ้านหมุน, เวียนหัว)\\n- vertigo_positional: บ้านหมุนสัมพันธ์กับท่าทาง (also: บ้านหมุนเวลาเปลี่ยนท่า)\\n- vomiting: อาเจียน คลื่นไส้ (also: คลื่นไส้, อ้วก)\\n- wound_infection_signs: แผลมีอาการติดเชื้อ (แดงลาม มีหนอง ร้อน) (also: มีหนอง, แผลบวมแดง)\\n\\nRules:\\n- A denial (\\\"no\\\", \\\"ไม่มีค่ะ\\\", \\\"none of these\\\", \\\"ไม่มีอาการเหล่านี้\\\") of the pending\\n  question -> ALL of that question's finding ids with state \\\"absent\\\". A bare\\n  denial applies ONLY to the pending question's finding ids — never to other\\n  findings the question wording mentioned in passing.\\n- Explicit negations the patient volunteers anywhere in the message (\\\"no fever\\n  though\\\", \\\"no trouble breathing\\\", \\\"แต่ไม่มีไข้\\\", \\\"หายใจปกติดี\\\") -> those findings\\n  with state \\\"absent\\\" — including in the very first message. This applies to\\n  \\\"X but no Y\\\" sentences too: \\\"I've had a fever since yesterday but no cough\\\"\\n  -> fever \\\"present\\\" AND cough \\\"absent\\\"; \\\"มีไข้ แต่ไม่ไอ ไม่เจ็บคอ\\\" -> fever\\n  \\\"present\\\", cough \\\"absent\\\", sore_throat \\\"absent\\\". Never drop the negated\\n  finding just because the sentence also reports a positive one.\\n- A correction: when the patient says an earlier symptom was a mistake, has gone\\n  away, or was about someone else (\\\"พูดผิด ไม่ได้ปวดท้อง\\\", \\\"หายแล้ว\\\", \\\"ไม่ได้เป็นแล้ว\\\",\\n  \\\"that was my mother, not me\\\", \\\"I was wrong about the sweating\\\") -> that finding\\n  with state \\\"absent\\\", evidence = those words. If they replace their main problem\\n  (\\\"จริงๆ แล้วมาเรื่องผื่น\\\", \\\"I'm actually here for a sore throat\\\") -> also fill\\n  chief_complaint with the new problem and complaint_category with its category.\\n  Do NOT fill chief_complaint when they only add a symptom to the one they have.\\n- A bare affirmation (\\\"yes\\\", \\\"ใช่\\\", \\\"มี\\\") of a pending question that checks exactly\\n  ONE finding -> that finding id with state \\\"present\\\".\\n- A bare affirmation of a pending question that checks SEVERAL findings:\\n  if they are severity grades of the SAME symptom (e.g. dyspnea vs\\n  severe_respiratory_distress) -> record only the mildest as \\\"present\\\";\\n  if they are DISTINCT symptoms (e.g. confusion vs stiff_neck) -> record NO\\n  finding updates (the assistant will ask which one). When the patient names\\n  specific symptoms, record exactly those as \\\"present\\\".\\n- For EVERY finding update, fill evidence with the exact words from the\\n  patient's message that state it — copied verbatim, never paraphrased or\\n  translated. If you cannot quote supporting words, do not record the finding.\\n- Numbers 0-10 answering a pain/breathing question -> pain_score or distress_score.\\n- A timeframe answering when it started or how long it has lasted (e.g.\\n  \\\"2-3 days\\\", \\\"since yesterday\\\") -> fill BOTH slot_updates.onset and\\n  slot_updates.duration when the phrasing covers both, so neither is re-asked.\\n- Ages like \\\"6 เดือน\\\" -> age_years 0.5.\\n- complaint_category: whenever the patient states any symptom, pick the SINGLE\\n  closest category from the allowed list. If more than one could fit (e.g.\\n  sore throat + cough), pick the one matching the symptom they said first.\\n  Use null only when no category fits at all (e.g. a greeting or a question).\\n- wants_human=true only when they explicitly ask for a person/nurse/staff.\\n\\nContext:\\nChief complaint so far: แน่นหน้าอกมา 2 ชั่วโมง\\nThe assistant just asked: คุณมีอาการเจ็บหน้าอกหรือไม่\\n\\nPatient message:\\nเจ็บแน่นหน้าอกมาสองชั่วโมง ร้าวไปแขนซ้าย ไม่มีไข้\"\n    }\n  ],\n  \"temperature\": 0.1,\n  \"stream\": false,\n  \"response_format\": {\n    \"type\": \"json_schema\",\n    \"json_schema\": {\n      \"name\": \"extraction\",\n      \"strict\": true,\n      \"schema\": {\n        \"$defs\": {\n          \"FindingUpdate\": {\n            \"description\": \"One finding the patient's message resolves.\",\n            \"properties\": {\n              \"id\": {\n                \"description\": \"Canonical finding id from the provided catalog\",\n                \"title\": \"Id\",\n                \"type\": \"string\"\n              },\n              \"state\": {\n                \"description\": \"present if the patient confirms it, absent if they deny it\",\n                \"enum\": [\n                  \"present\",\n                  \"absent\"\n                ],\n                \"title\": \"State\",\n                \"type\": \"string\"\n              },\n              \"value\": {\n                \"anyOf\": [\n                  {\n                    \"type\": \"string\"\n                  },\n                  {\n                    \"type\": \"null\"\n                  }\n                ],\n                \"default\": null,\n                \"description\": \"Optional detail, e.g. '3 days' or 'left side'\",\n                \"title\": \"Value\"\n              },\n              \"evidence\": {\n                \"anyOf\": [\n                  {\n                    \"type\": \"string\"\n                  },\n                  {\n                    \"type\": \"null\"\n                  }\n                ],\n                \"default\": null,\n                \"description\": \"The exact words from the patient's message that state this finding, copied verbatim (same language, no paraphrase)\",\n                \"title\": \"Evidence\"\n              }\n            },\n            \"required\": [\n              \"id\",\n              \"state\"\n            ],\n            \"title\": \"FindingUpdate\",\n            \"type\": \"object\"\n          }\n        },\n        \"description\": \"Structured reading of a single patient message.\",\n        \"properties\": {\n          \"chief_complaint\": {\n            \"anyOf\": [\n              {\n                \"type\": \"string\"\n              },\n              {\n                \"type\": \"null\"\n              }\n            ],\n            \"default\": null,\n            \"description\": \"Patient's main problem in their own words, only when newly stated\",\n            \"title\": \"Chief Complaint\"\n          },\n          \"complaint_category\": {\n            \"anyOf\": [\n              {\n                \"type\": \"string\"\n              },\n              {\n                \"type\": \"null\"\n              }\n            ],\n            \"default\": null,\n            \"description\": \"Best matching complaint category from the provided list, or null\",\n            \"title\": \"Complaint Category\"\n          },\n          \"finding_updates\": {\n            \"items\": {\n              \"$ref\": \"#/$defs/FindingUpdate\"\n            },\n            \"title\": \"Finding Updates\",\n            \"type\": \"array\"\n          },\n          \"slot_updates\": {\n            \"additionalProperties\": {\n              \"type\": \"string\"\n            },\n            \"description\": \"OLDCARTS slots this message answers (onset, location, duration, character, aggravating, relieving, timing, severity) mapped to the answer text\",\n            \"title\": \"Slot Updates\",\n            \"type\": \"object\"\n          },\n          \"age_years\": {\n            \"anyOf\": [\n              {\n                \"type\": \"number\"\n              },\n              {\n                \"type\": \"null\"\n              }\n            ],\n            \"default\": null,\n            \"description\": \"Patient age in years when stated (0.5 = 6 months)\",\n            \"title\": \"Age Years\"\n          },\n          \"gender\": {\n            \"anyOf\": [\n              {\n                \"enum\": [\n                  \"male\",\n                  \"female\"\n                ],\n                \"type\": \"string\"\n              },\n              {\n                \"type\": \"null\"\n              }\n            ],\n            \"default\": null,\n            \"description\": \"The patient's sex ONLY when they explicitly state it (e.g. 'male', 'female', 'ชาย', 'หญิง', typically answering the gender question). Never guess it from the name, symptoms, or wording; null when unstated or declined\",\n            \"title\": \"Gender\"\n          },\n          \"pain_score\": {\n            \"anyOf\": [\n              {\n                \"maximum\": 10,\n                \"minimum\": 0,\n                \"type\": \"integer\"\n              },\n              {\n                \"type\": \"null\"\n              }\n            ],\n            \"default\": null,\n            \"description\": \"0-10 pain score when stated\",\n            \"title\": \"Pain Score\"\n          },\n          \"distress_score\": {\n            \"anyOf\": [\n              {\n                \"maximum\": 10,\n                \"minimum\": 0,\n                \"type\": \"integer\"\n              },\n              {\n                \"type\": \"null\"\n              }\n            ],\n            \"default\": null,\n            \"description\": \"0-10 breathing difficulty score when stated\",\n            \"title\": \"Distress Score\"\n          },\n          \"temperature_c\": {\n            \"anyOf\": [\n              {\n                \"type\": \"number\"\n              },\n              {\n                \"type\": \"null\"\n              }\n            ],\n            \"default\": null,\n            \"description\": \"Body temperature in Celsius when stated\",\n            \"title\": \"Temperature C\"\n          },\n          \"spo2_percent\": {\n            \"anyOf\": [\n              {\n                \"type\": \"number\"\n              },\n              {\n                \"type\": \"null\"\n              }\n            ],\n            \"default\": null,\n            \"description\": \"Blood oxygen saturation percentage when the patient states a reading they measured themselves (e.g. a home pulse oximeter)\",\n            \"title\": \"Spo2 Percent\"\n          },\n          \"is_question_to_assistant\": {\n            \"default\": false,\n            \"description\": \"True when the message is a question to the assistant rather than an answer about symptoms\",\n            \"title\": \"Is Question To Assistant\",\n            \"type\": \"boolean\"\n          },\n          \"wants_human\": {\n            \"default\": false,\n            \"description\": \"True when the patient asks for a human/nurse\",\n            \"title\": \"Wants Human\",\n            \"type\": \"boolean\"\n          }\n        },\n        \"title\": \"ExtractionResult\",\n        \"type\": \"object\"\n      }\n    }\n  }\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "description": "**Extraction — read one patient message into findings**\n\nEvery turn, first. The only call whose output changes the triage: it reports what the patient said, and the rules engine decides what that means.\n\nCarries no patient identifier — see `docs/ai-model-io.md`."
+      },
+      "response": [
+        {
+          "name": "200 — what the engine parses",
+          "originalRequest": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{LLM_BASE_URL}}/chat/completions",
+              "host": [
+                "{{LLM_BASE_URL}}"
+              ],
+              "path": [
+                "chat",
+                "completions"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"model\": \"{{LLM_MODEL}}\",\n  \"messages\": [\n    {\n      \"role\": \"user\",\n      \"content\": \"You are a clinical intake scribe for a Thai hospital. Read ONE patient message\\n(Thai or English) and extract ONLY what the patient actually said into the\\nstructured schema. Never guess, never diagnose, never infer findings that were\\nnot stated. If the message answers the assistant's pending question, record\\nthat answer (as finding updates with state \\\"absent\\\" when the patient denies,\\nor slot/score updates).\\n\\nAllowed complaint categories (copy ONE id verbatim — never invent or combine ids): generic, chest_pain, dyspnea_cough, abdominal_pain, headache, fever, ear, nose_throat, eye, injury, pregnancy, mental_health, musculoskeletal, urinary, wound_skin, gynecology, breast, palpitations, limb_vascular, forensic, gi, skin_rash, chronic_followup, administrative\\nPick the category from what the patient HAS, never from what they deny: \\\"I have\\na fever but no headache\\\" / \\\"มีไข้ แต่ไม่ปวดหัว\\\" is fever, not headache.\\n\\nFinding catalog (use ONLY these ids):\\n- abdominal_mass: คลำก้อนได้ที่ท้อง (also: ก้อนที่ท้อง)\\n- abdominal_pain: ปวดท้อง (also: ปวดท้องน้อย, จุกท้อง)\\n- abnormal_breath_sounds: เสียงหายใจผิดปกติ (หวีด/ครืดคราด) ได้ยินโดยไม่ใช้เครื่องฟัง (also: หายใจมีเสียงหวีด, หายใจครืดคราด)\\n- active_bleeding: เลือดออกมากไม่หยุด (active bleeding) (also: เลือดไหลไม่หยุด, เลือดออกเยอะมาก, ห้ามเลือดไม่อยู่, เลือดไหลออกมาก)\\n- agitation_violent: คลุ้มคลั่ง อาละวาด (also: คลุ้มคลั่ง)\\n- airway_obstruction: ทางเดินหายใจอุดกั้น สำลักติดคอ (also: สำลัก, ติดคอหายใจไม่ได้)\\n- allergy_history: มีประวัติแพ้ (ยา อาหาร หรืออื่น ๆ) (also: แพ้ยา, แพ้อาหาร, ประวัติแพ้)\\n- allergy_symptoms: อาการภูมิแพ้ (จามบ่อย คันจมูก น้ำมูกใส) (also: ภูมิแพ้, แพ้อากาศ)\\n- amniotic_fluid_leak: น้ำเดิน น้ำคร่ำไหล (also: น้ำเดิน, น้ำไหลออกทางช่องคลอด)\\n- animal_insect_bite_24h: แมลงสัตว์กัดต่อย ภายใน 24 ชั่วโมง (also: หมากัด, งูกัด, แมลงต่อย)\\n- anosmia: จมูกไม่ได้กลิ่น (also: ไม่ได้กลิ่น)\\n- apnea: หยุดหายใจ (also: หยุดหายใจเป็นพัก)\\n- assault_24h: ถูกทำร้ายร่างกายภายใน 24 ชั่วโมง (also: ถูกทำร้าย, โดนซ้อม)\\n- auditory_hallucinations: หูแว่วเสียงคน จับใจความได้ (also: หูแว่ว, ได้ยินเสียงคนพูด)\\n- back_pain_radiating_leg: ปวดหลังร้าวลงขา (also: ปวดหลังร้าวลงขา, ปวดหลังร้าวลงไปที่ขา)\\n- balance_loss: เสียการทรงตัว เดินเซ เวียนศีรษะรุนแรงฉับพลัน (also: เดินเซ, ทรงตัวไม่ได้)\\n- bloody_stool: ถ่ายเป็นเลือดสด (also: อุจจาระมีเลือด, ถ่ายมีเลือดสด)\\n- blue_lips: ริมฝีปากเขียว ตัวเขียว (also: เขียวคล้ำ, ปากเขียว)\\n- blurred_vision_sudden: ตามัว ตาพร่าฉับพลัน (also: ตามัวฉับพลัน)\\n- breast_discharge: มีสารคัดหลั่งจากหัวนม (also: น้ำไหลจากหัวนม)\\n- breast_infection_signs: เต้านมแดง ร้อน หรือบวม (อาจติดเชื้อหรือเป็นฝีหนอง) (also: เต้านมอักเสบ, เต้านมบวมแดง)\\n- breast_lump: คลำก้อนได้ที่เต้านม (also: ก้อนที่เต้านม)\\n- breast_pain: เจ็บเต้านม (also: ปวดเต้านม)\\n- burn_scald_24h: ไฟไหม้ น้ำร้อนลวก ภายใน 24 ชั่วโมง (also: น้ำร้อนลวก, ไฟลวก)\\n- cardiac_arrest: หัวใจหยุดเต้น ไม่หายใจ ไม่มีชีพจร (also: หัวใจหยุด, ไม่หายใจ, คลำชีพจรไม่ได้)\\n- chest_pain: เจ็บแน่นหน้าอก (also: แน่นหน้าอก, เจ็บหน้าอก, จุกแน่นใต้ลิ้นปี่)\\n- chest_pain_radiating: เจ็บหน้าอกร้าวไปคอ กราม ไหล่ หรือแขน (also: เจ็บร้าวไปกราม, เจ็บร้าวไปไหล่)\\n- chronic_cough_2w: ไอเรื้อรังมากกว่า 2 สัปดาห์ (also: ไอเรื้อรัง)\\n- chronic_wound: แผลเรื้อรัง (แผลเท้าเบาหวาน แผลกดทับ แผลไม่หาย) (also: แผลเบาหวาน, แผลกดทับ, แผลเรื้อรัง)\\n- confusion: ซึม สับสน เรียกแล้วตอบช้า ภายใน 72 ชั่วโมง (also: สับสน, ซึมลง, พูดจาสับสน)\\n- copd_history: มีโรคปอดอุดกั้นเรื้อรัง (COPD) (also: ถุงลมโป่งพอง)\\n- cough: ไอ (also: ไอแห้ง, ไอมีเสมหะ)\\n- crowning: ทารกกำลังคลอด มีส่วนของทารกโผล่ออกมา (also: เด็กกำลังจะคลอด, อยากเบ่ง)\\n- decreased_fetal_movement: ลูกดิ้นน้อยลง (also: ทารกดิ้นน้อยลง)\\n- dehydration_signs: อาการขาดน้ำ (ดื่มน้ำแล้วอาเจียน ปัสสาวะน้อย ลุกแล้วหน้ามืด) (also: ขาดน้ำ, กินน้ำไม่ได้)\\n- depression_symptoms: ซึมเศร้า เบื่อหน่าย ท้อแท้ (also: เศร้า, หดหู่)\\n- diabetes_history: มีโรคเบาหวาน (also: เบาหวาน)\\n- dialysis_access_needed: ทำเส้นฟอกไต เตรียมฟอกไตหน้าท้อง (also: ทำเส้นฟอกไต)\\n- diaphoresis: เหงื่อออกมาก เหงื่อแตก (also: เหงื่อแตกท่วมตัว)\\n- diarrhea: ถ่ายเหลว ท้องเสีย (also: ท้องร่วง)\\n- dyspnea: หายใจเหนื่อย หายใจหอบ (also: เหนื่อยหอบ, หายใจไม่อิ่ม, หายใจลำบาก)\\n- dysuria: ปัสสาวะแสบขัด (also: ฉี่แสบ, ปัสสาวะขัด)\\n- ear_discharge: น้ำไหลจากหู (also: หูน้ำหนวก)\\n- ear_pain: ปวดหู (also: เจ็บหู)\\n- edema: บวมที่ขาหรือตามตัว (also: ขาบวม, ตัวบวม)\\n- electric_shock_24h: ไฟดูด ภายใน 24 ชั่วโมง (also: ไฟดูด, ไฟช็อต)\\n- epistaxis_uncontrolled: เลือดกำเดาไหลไม่หยุด (also: เลือดกำเดาไม่หยุด)\\n- evening_fever: มีไข้ตอนเย็น ไข้ต่ำ ๆ ช่วงเย็น (also: ไข้ตอนเย็น)\\n- eye_active_bleeding: เลือดออกที่ตาไม่หยุด (also: เลือดออกในตา)\\n- eye_chemical_exposure: สารเคมีหรือพิษสัตว์กระเด็นเข้าตา (also: สารเคมีเข้าตา)\\n- eye_lump_swelling: ก้อนบวมแดงที่ตา (also: ตากุ้งยิง, ก้อนที่เปลือกตา)\\n- eye_pain_severe: ปวดตามาก (also: ปวดตารุนแรง)\\n- eye_redness_severe: ตาแดงมาก (also: ตาแดงจัด)\\n- eye_trauma: อุบัติเหตุทางตา (also: ตาโดนกระแทก)\\n- facial_droop: ปากเบี้ยว หน้าเบี้ยวฉับพลัน (also: หน้าเบี้ยว, มุมปากตก)\\n- fatigue_weight_loss: อ่อนเพลีย น้ำหนักลด (also: น้ำหนักลด, เพลีย)\\n- fever: มีไข้ (also: ตัวร้อน, ไข้ขึ้น)\\n- floppy_infant: เด็กตัวอ่อนปวกเปียก ไม่ตอบสนอง (also: ตัวอ่อน, ไม่ตอบสนอง)\\n- foreign_body_ent_24h: สิ่งแปลกปลอมติดในหู จมูก หรือคอ ภายใน 24 ชั่วโมง (also: ของติดในหู, ก้างติดคอ, มีของติดในหู, แมลงเข้าหู)\\n- fracture_suspected: สงสัยกระดูกหักหรือข้อหลุด (also: กระดูกหัก, ข้อเคลื่อน, ข้อหลุด)\\n- ga_24w_or_more: อายุครรภ์ 24 สัปดาห์ขึ้นไป (also: ครรภ์ 6 เดือนขึ้นไป)\\n- gasping: หายใจเฮือก (also: หายใจเฮือก ๆ)\\n- hallucination_paranoia: ภาพหลอน หวาดระแวง (also: เห็นภาพหลอน, ระแวง)\\n- head_injury: ศีรษะกระแทก บาดเจ็บที่ศีรษะ (also: หัวกระแทก, หัวฟาดพื้น)\\n- headache: ปวดศีรษะ (also: ปวดหัว)\\n- headache_sudden_severe: ปวดศีรษะรุนแรงฉับพลัน (ปวดที่สุดในชีวิต) (also: ปวดหัวรุนแรงที่สุด)\\n- hearing_loss: การได้ยินลดลง หูอื้อ (also: หูอื้อ, หูตึง, ได้ยินไม่ชัด)\\n- heart_disease_history: มีประวัติโรคหัวใจ เส้นเลือดหัวใจตีบ (also: โรคหัวใจ, เส้นเลือดหัวใจตีบ)\\n- heavy_vaginal_bleeding: เลือดออกมากทางช่องคลอด (เปียกชุ่มผ้าอนามัยทุก 1 ชั่วโมง) (also: เลือดชุ่มผ้าอนามัย)\\n- hematemesis: อาเจียนเป็นเลือด (also: อ้วกเป็นเลือด)\\n- hemoptysis: ไอเป็นเลือด เสมหะปนเลือด (also: ไอมีเลือดปน)\\n- high_fever: ไข้สูง (เกิน 38.5 องศา) (also: ไข้สูงมาก)\\n- hoarseness_over_2w: เสียงแหบนานเกิน 2 สัปดาห์ (also: เสียงแหบเรื้อรัง)\\n- home_oxygen: ใช้ออกซิเจนที่บ้าน (also: ให้ออกซิเจนที่บ้าน)\\n- hypertension_history: มีโรคความดันโลหิตสูง (also: ความดันสูง)\\n- hypoglycemia_symptoms: อาการน้ำตาลต่ำ (มือสั่น เหงื่อแตก มึนงง หิวมาก) (also: น้ำตาลตก, น้ำตาลต่ำ)\\n- immediate_danger: ยังอยู่ในอันตราย / ผู้ก่อเหตุอยู่ใกล้ (also: ไม่ปลอดภัย)\\n- injury_within_24h: บาดเจ็บภายใน 24 ชั่วโมงที่ผ่านมา\\n- irregular_pulse: หัวใจเต้นผิดจังหวะ ชีพจรไม่สม่ำเสมอ (also: หัวใจเต้นไม่เป็นจังหวะ)\\n- limb_ischemia: มือเท้าเย็น ปวดเวลาใช้แขนขา แผลเรื้อรัง/ซีดดำ (also: เท้าดำ, แขนขาขาดเลือด)\\n- limb_weakness: แขนขาอ่อนแรงหรือชาครึ่งซีกฉับพลัน (also: อ่อนแรงครึ่งซีก, ยกแขนไม่ขึ้น, ชาครึ่งซีก)\\n- lip_swelling: ปากบวม หน้าบวม (also: ริมฝีปากบวม, หน้าบวม)\\n- loc_transient: หมดสติหรือสลบชั่วครู่หลังศีรษะกระแทก/บาดเจ็บ (เฉพาะเมื่อเกิดจากการบาดเจ็บ) (also: สลบหลังหัวฟาด, หมดสติหลังล้ม, สลบไปหลังกระแทก)\\n- major_trauma_mechanism: อุบัติเหตุรถยนต์/จักรยานยนต์ ตกจากที่สูงเกิน 5 เมตร หรือคนเดินถนนถูกรถชน (also: รถชน, รถล้ม, ตกจากที่สูง)\\n- medication_run_out: ยาประจำหมด (also: ยาหมด, มารับยา)\\n- melena: ถ่ายดำ (also: อุจจาระสีดำ)\\n- missed_period: ประจำเดือนขาด (also: เมนส์ไม่มา, ประจำเดือนไม่มา)\\n- nasal_congestion: คัดจมูก (also: จมูกตัน)\\n- nasal_flaring: หายใจปีกจมูกบาน (also: ปีกจมูกบาน)\\n- neck_mass: ก้อนที่คอ (also: ก้อนที่ลำคอ)\\n- neck_swelling_dysphagia: คอบวมโต กลืนลำบาก หายใจลำบาก (also: กลืนลำบาก, คอบวม)\\n- oral_ulcer_chronic: แผลในช่องปากเรื้อรังไม่หาย (also: แผลในปากไม่หาย)\\n- orthopnea: นอนราบไม่ได้ ต้องนั่งหายใจ (also: นอนราบแล้วเหนื่อย)\\n- overdose_or_poison: ได้รับยาเกินขนาด หรือสัมผัสสารพิษ/สารเคมี (also: กินยาเกินขนาด, โดนสารพิษ)\\n- pale_cold_sweaty: ผิวหนังซีดและตัวเย็นชื้นพร้อมกัน (สัญญาณช็อก) (also: ตัวเย็นหน้าซีด, หน้าซีดตัวเย็น)\\n- palm_sole_rash: ผื่นแดงตามฝ่ามือ ฝ่าเท้า รอบปาก (also: ผื่นฝ่ามือฝ่าเท้า)\\n- palpitations: ใจสั่น หัวใจเต้นเร็วผิดปกติ (also: ใจเต้นแรง, ใจสั่นรัว)\\n- penetrating_injury_torso: ถูกแทงที่คอ หน้าอก หรือช่องท้อง (also: ถูกแทง, ถูกยิง)\\n- police_case: มีใบรายงานชันสูตรหรือใบนำส่งตรวจจากตำรวจ (also: มีใบนำส่งจากตำรวจ, คดีความ)\\n- pregnancy: กำลังตั้งครรภ์ (also: ท้อง, มีครรภ์)\\n- problem_scar: แผลเป็นมีปัญหา (คีลอยด์ แผลเป็นหดรั้ง เจ็บหรือคันเรื้อรัง) (also: คีลอยด์, แผลเป็นนูน)\\n- rash_itching: ผื่นคัน ลมพิษ (also: ผื่นลมพิษ, ผื่นคันทั้งตัว)\\n- rash_rapidly_spreading: ผื่นลามเร็วภายในไม่กี่ชั่วโมง (also: ผื่นลามเร็ว, ผื่นขึ้นทั้งตัว)\\n- rash_vesicles: ผื่นแดงหรือตุ่มน้ำตามร่างกาย (also: ตุ่มน้ำใส, ผื่นขึ้นตามตัว)\\n- recent_chemotherapy: ได้รับยาเคมีบำบัดอยู่ (also: ให้คีโม, รับยาเคมี)\\n- retraction: หายใจมีอกบุ๋ม (retraction) (also: อกบุ๋ม, ซี่โครงบุ๋ม)\\n- runny_nose: น้ำมูกไหล (also: มีน้ำมูก)\\n- seizure_now: กำลังชักเกร็ง เรียกไม่รู้สึกตัว (also: ชัก, ชักเกร็ง)\\n- self_harm_risk: เสี่ยงทำร้ายตนเองหรือผู้อื่น หรือเพิ่งทำร้ายตนเอง (also: ทำร้ายตัวเอง)\\n- severe_morning_sickness: แพ้ท้องรุนแรงจนกินไม่ได้ (also: แพ้ท้องหนัก, แพ้ท้องรุนแรง)\\n- severe_respiratory_distress: หายใจลำบากรุนแรง พูดเป็นประโยคไม่ได้ ต้องลุกนั่งหายใจ (also: หายใจไม่ทัน, พูดไม่เป็นประโยค, หอบมาก)\\n- severe_stress: เครียดมาก (also: เครียดหนัก)\\n- severe_uncontrolled_pain: ปวดรุนแรงมากจนทนไม่ไหว (also: ปวดมากทนไม่ไหว, ปวดที่สุดในชีวิต)\\n- sexual_assault_72h: ถูกกระทำชำเราภายใน 72 ชั่วโมง (also: ถูกล่วงละเมิดทางเพศ)\\n- slurred_speech: พูดไม่ชัด ลิ้นแข็ง พูดไม่ออกทันที (also: พูดอ้อแอ้, พูดไม่รู้เรื่องฉับพลัน)\\n- smoking: สูบบุหรี่ (also: สูบบุหรี่)\\n- snoring: นอนกรน (also: กรน)\\n- sore_throat: เจ็บคอ (also: เจ็บคอ)\\n- stiff_neck: คอแข็ง ก้มคอไม่ได้ ร่วมกับไข้ (also: คอแข็ง)\\n- sudden_vision_loss: ตามองไม่เห็นเฉียบพลัน เห็นภาพซ้อน (also: ตามืดฉับพลัน, เห็นภาพซ้อน)\\n- suicidal_ideation: มีความคิดอยากตาย อยากฆ่าตัวตาย (also: อยากตาย, คิดสั้น)\\n- syncope_24h: วูบ หน้ามืด เป็นลม ภายใน 24 ชั่วโมง (ไม่ได้เกิดจากอุบัติเหตุ) (also: เป็นลม, วูบหมดสติ, วูบ, หน้ามืด, หมดสติไปแป๊บนึง, เป็นลมล้ม)\\n- tinnitus: เสียงดังในหู (วิ้ง เสียงแมลง) (also: หูมีเสียงวิ้ง, เสียงดังในหู)\\n- unilateral_leg_swelling: ขาบวมและปวดข้างเดียว (also: ขาบวมข้างเดียว, น่องบวม)\\n- unresponsive: ซึมลงปลุกไม่ตื่น ไม่รู้สึกตัว (also: หมดสติ, ปลุกไม่ตื่น, ไม่ตอบสนอง)\\n- uterine_contractions_frequent: ท้องแข็ง เจ็บครรภ์ถี่ (ทุก ๆ 2 นาที) (also: เจ็บท้องคลอดถี่, ท้องแข็งถี่)\\n- vaginal_bleeding: เลือดออกทางช่องคลอดผิดปกติ (also: เลือดออกช่องคลอด)\\n- varicose_veins: เส้นเลือดขอด (also: เส้นเลือดขอด)\\n- vertigo: เวียนศีรษะ บ้านหมุน (also: บ้านหมุน, เวียนหัว)\\n- vertigo_positional: บ้านหมุนสัมพันธ์กับท่าทาง (also: บ้านหมุนเวลาเปลี่ยนท่า)\\n- vomiting: อาเจียน คลื่นไส้ (also: คลื่นไส้, อ้วก)\\n- wound_infection_signs: แผลมีอาการติดเชื้อ (แดงลาม มีหนอง ร้อน) (also: มีหนอง, แผลบวมแดง)\\n\\nRules:\\n- A denial (\\\"no\\\", \\\"ไม่มีค่ะ\\\", \\\"none of these\\\", \\\"ไม่มีอาการเหล่านี้\\\") of the pending\\n  question -> ALL of that question's finding ids with state \\\"absent\\\". A bare\\n  denial applies ONLY to the pending question's finding ids — never to other\\n  findings the question wording mentioned in passing.\\n- Explicit negations the patient volunteers anywhere in the message (\\\"no fever\\n  though\\\", \\\"no trouble breathing\\\", \\\"แต่ไม่มีไข้\\\", \\\"หายใจปกติดี\\\") -> those findings\\n  with state \\\"absent\\\" — including in the very first message. This applies to\\n  \\\"X but no Y\\\" sentences too: \\\"I've had a fever since yesterday but no cough\\\"\\n  -> fever \\\"present\\\" AND cough \\\"absent\\\"; \\\"มีไข้ แต่ไม่ไอ ไม่เจ็บคอ\\\" -> fever\\n  \\\"present\\\", cough \\\"absent\\\", sore_throat \\\"absent\\\". Never drop the negated\\n  finding just because the sentence also reports a positive one.\\n- A correction: when the patient says an earlier symptom was a mistake, has gone\\n  away, or was about someone else (\\\"พูดผิด ไม่ได้ปวดท้อง\\\", \\\"หายแล้ว\\\", \\\"ไม่ได้เป็นแล้ว\\\",\\n  \\\"that was my mother, not me\\\", \\\"I was wrong about the sweating\\\") -> that finding\\n  with state \\\"absent\\\", evidence = those words. If they replace their main problem\\n  (\\\"จริงๆ แล้วมาเรื่องผื่น\\\", \\\"I'm actually here for a sore throat\\\") -> also fill\\n  chief_complaint with the new problem and complaint_category with its category.\\n  Do NOT fill chief_complaint when they only add a symptom to the one they have.\\n- A bare affirmation (\\\"yes\\\", \\\"ใช่\\\", \\\"มี\\\") of a pending question that checks exactly\\n  ONE finding -> that finding id with state \\\"present\\\".\\n- A bare affirmation of a pending question that checks SEVERAL findings:\\n  if they are severity grades of the SAME symptom (e.g. dyspnea vs\\n  severe_respiratory_distress) -> record only the mildest as \\\"present\\\";\\n  if they are DISTINCT symptoms (e.g. confusion vs stiff_neck) -> record NO\\n  finding updates (the assistant will ask which one). When the patient names\\n  specific symptoms, record exactly those as \\\"present\\\".\\n- For EVERY finding update, fill evidence with the exact words from the\\n  patient's message that state it — copied verbatim, never paraphrased or\\n  translated. If you cannot quote supporting words, do not record the finding.\\n- Numbers 0-10 answering a pain/breathing question -> pain_score or distress_score.\\n- A timeframe answering when it started or how long it has lasted (e.g.\\n  \\\"2-3 days\\\", \\\"since yesterday\\\") -> fill BOTH slot_updates.onset and\\n  slot_updates.duration when the phrasing covers both, so neither is re-asked.\\n- Ages like \\\"6 เดือน\\\" -> age_years 0.5.\\n- complaint_category: whenever the patient states any symptom, pick the SINGLE\\n  closest category from the allowed list. If more than one could fit (e.g.\\n  sore throat + cough), pick the one matching the symptom they said first.\\n  Use null only when no category fits at all (e.g. a greeting or a question).\\n- wants_human=true only when they explicitly ask for a person/nurse/staff.\\n\\nContext:\\nChief complaint so far: แน่นหน้าอกมา 2 ชั่วโมง\\nThe assistant just asked: คุณมีอาการเจ็บหน้าอกหรือไม่\\n\\nPatient message:\\nเจ็บแน่นหน้าอกมาสองชั่วโมง ร้าวไปแขนซ้าย ไม่มีไข้\"\n    }\n  ],\n  \"temperature\": 0.1,\n  \"stream\": false,\n  \"response_format\": {\n    \"type\": \"json_schema\",\n    \"json_schema\": {\n      \"name\": \"extraction\",\n      \"strict\": true,\n      \"schema\": {\n        \"$defs\": {\n          \"FindingUpdate\": {\n            \"description\": \"One finding the patient's message resolves.\",\n            \"properties\": {\n              \"id\": {\n                \"description\": \"Canonical finding id from the provided catalog\",\n                \"title\": \"Id\",\n                \"type\": \"string\"\n              },\n              \"state\": {\n                \"description\": \"present if the patient confirms it, absent if they deny it\",\n                \"enum\": [\n                  \"present\",\n                  \"absent\"\n                ],\n                \"title\": \"State\",\n                \"type\": \"string\"\n              },\n              \"value\": {\n                \"anyOf\": [\n                  {\n                    \"type\": \"string\"\n                  },\n                  {\n                    \"type\": \"null\"\n                  }\n                ],\n                \"default\": null,\n                \"description\": \"Optional detail, e.g. '3 days' or 'left side'\",\n                \"title\": \"Value\"\n              },\n              \"evidence\": {\n                \"anyOf\": [\n                  {\n                    \"type\": \"string\"\n                  },\n                  {\n                    \"type\": \"null\"\n                  }\n                ],\n                \"default\": null,\n                \"description\": \"The exact words from the patient's message that state this finding, copied verbatim (same language, no paraphrase)\",\n                \"title\": \"Evidence\"\n              }\n            },\n            \"required\": [\n              \"id\",\n              \"state\"\n            ],\n            \"title\": \"FindingUpdate\",\n            \"type\": \"object\"\n          }\n        },\n        \"description\": \"Structured reading of a single patient message.\",\n        \"properties\": {\n          \"chief_complaint\": {\n            \"anyOf\": [\n              {\n                \"type\": \"string\"\n              },\n              {\n                \"type\": \"null\"\n              }\n            ],\n            \"default\": null,\n            \"description\": \"Patient's main problem in their own words, only when newly stated\",\n            \"title\": \"Chief Complaint\"\n          },\n          \"complaint_category\": {\n            \"anyOf\": [\n              {\n                \"type\": \"string\"\n              },\n              {\n                \"type\": \"null\"\n              }\n            ],\n            \"default\": null,\n            \"description\": \"Best matching complaint category from the provided list, or null\",\n            \"title\": \"Complaint Category\"\n          },\n          \"finding_updates\": {\n            \"items\": {\n              \"$ref\": \"#/$defs/FindingUpdate\"\n            },\n            \"title\": \"Finding Updates\",\n            \"type\": \"array\"\n          },\n          \"slot_updates\": {\n            \"additionalProperties\": {\n              \"type\": \"string\"\n            },\n            \"description\": \"OLDCARTS slots this message answers (onset, location, duration, character, aggravating, relieving, timing, severity) mapped to the answer text\",\n            \"title\": \"Slot Updates\",\n            \"type\": \"object\"\n          },\n          \"age_years\": {\n            \"anyOf\": [\n              {\n                \"type\": \"number\"\n              },\n              {\n                \"type\": \"null\"\n              }\n            ],\n            \"default\": null,\n            \"description\": \"Patient age in years when stated (0.5 = 6 months)\",\n            \"title\": \"Age Years\"\n          },\n          \"gender\": {\n            \"anyOf\": [\n              {\n                \"enum\": [\n                  \"male\",\n                  \"female\"\n                ],\n                \"type\": \"string\"\n              },\n              {\n                \"type\": \"null\"\n              }\n            ],\n            \"default\": null,\n            \"description\": \"The patient's sex ONLY when they explicitly state it (e.g. 'male', 'female', 'ชาย', 'หญิง', typically answering the gender question). Never guess it from the name, symptoms, or wording; null when unstated or declined\",\n            \"title\": \"Gender\"\n          },\n          \"pain_score\": {\n            \"anyOf\": [\n              {\n                \"maximum\": 10,\n                \"minimum\": 0,\n                \"type\": \"integer\"\n              },\n              {\n                \"type\": \"null\"\n              }\n            ],\n            \"default\": null,\n            \"description\": \"0-10 pain score when stated\",\n            \"title\": \"Pain Score\"\n          },\n          \"distress_score\": {\n            \"anyOf\": [\n              {\n                \"maximum\": 10,\n                \"minimum\": 0,\n                \"type\": \"integer\"\n              },\n              {\n                \"type\": \"null\"\n              }\n            ],\n            \"default\": null,\n            \"description\": \"0-10 breathing difficulty score when stated\",\n            \"title\": \"Distress Score\"\n          },\n          \"temperature_c\": {\n            \"anyOf\": [\n              {\n                \"type\": \"number\"\n              },\n              {\n                \"type\": \"null\"\n              }\n            ],\n            \"default\": null,\n            \"description\": \"Body temperature in Celsius when stated\",\n            \"title\": \"Temperature C\"\n          },\n          \"spo2_percent\": {\n            \"anyOf\": [\n              {\n                \"type\": \"number\"\n              },\n              {\n                \"type\": \"null\"\n              }\n            ],\n            \"default\": null,\n            \"description\": \"Blood oxygen saturation percentage when the patient states a reading they measured themselves (e.g. a home pulse oximeter)\",\n            \"title\": \"Spo2 Percent\"\n          },\n          \"is_question_to_assistant\": {\n            \"default\": false,\n            \"description\": \"True when the message is a question to the assistant rather than an answer about symptoms\",\n            \"title\": \"Is Question To Assistant\",\n            \"type\": \"boolean\"\n          },\n          \"wants_human\": {\n            \"default\": false,\n            \"description\": \"True when the patient asks for a human/nurse\",\n            \"title\": \"Wants Human\",\n            \"type\": \"boolean\"\n          }\n        },\n        \"title\": \"ExtractionResult\",\n        \"type\": \"object\"\n      }\n    }\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "**Extraction — read one patient message into findings**\n\nEvery turn, first. The only call whose output changes the triage: it reports what the patient said, and the rules engine decides what that means.\n\nCarries no patient identifier — see `docs/ai-model-io.md`."
+          },
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": "json",
+          "header": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "cookie": [],
+          "body": "{\n  \"id\": \"chatcmpl-mfu-0001\",\n  \"object\": \"chat.completion\",\n  \"model\": \"{{LLM_MODEL}}\",\n  \"choices\": [\n    {\n      \"index\": 0,\n      \"message\": {\n        \"role\": \"assistant\",\n        \"content\": \"{\\\"chief_complaint\\\": \\\"แน่นหน้าอกมา 2 ชั่วโมง ร้าวไปแขนซ้าย\\\", \\\"complaint_category\\\": \\\"chest_pain\\\", \\\"finding_updates\\\": [{\\\"id\\\": \\\"chest_pain_radiating\\\", \\\"state\\\": \\\"present\\\", \\\"evidence\\\": \\\"ร้าวไปแขนซ้าย\\\"}, {\\\"id\\\": \\\"fever\\\", \\\"state\\\": \\\"absent\\\", \\\"evidence\\\": \\\"ไม่มีไข้\\\"}], \\\"slot_updates\\\": {\\\"onset\\\": \\\"2 ชั่วโมง\\\", \\\"location\\\": \\\"หน้าอก\\\"}, \\\"age_years\\\": null, \\\"pain_score\\\": null, \\\"distress_score\\\": null}\"\n      },\n      \"finish_reason\": \"stop\"\n    }\n  ],\n  \"usage\": {\n    \"prompt_tokens\": 0,\n    \"completion_tokens\": 0,\n    \"total_tokens\": 0\n  }\n}"
+        }
+      ]
+    },
+    {
+      "name": "question",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{LLM_BASE_URL}}/chat/completions",
+          "host": [
+            "{{LLM_BASE_URL}}"
+          ],
+          "path": [
+            "chat",
+            "completions"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"model\": \"{{LLM_MODEL}}\",\n  \"messages\": [\n    {\n      \"role\": \"user\",\n      \"content\": \"คุณเป็นผู้ช่วยคัดกรองของโรงพยาบาล พูดภาษาไทยอย่างอบอุ่นและใจเย็น พูดภาษาไทยเท่านั้น พูดง่าย ๆ เหมือนพยาบาลใจดีหน้าเคาน์เตอร์ ห้ามใช้ศัพท์แพทย์ ครั้งละหนึ่งถึงสองประโยคสั้น ๆ ห้ามเป็นรายการ รับรู้สิ่งที่ผู้ป่วยเพิ่งบอกสั้น ๆ ก่อนถามต่อ โดยไม่ทวนซ้ำยาวเกินไป ข้อห้ามเด็ดขาด: ห้ามพูดถึงระดับการคัดกรอง สี คะแนน หรือการจัดประเภท ห้ามวินิจฉัยหรือระบุชื่อโรคที่สงสัย ห้ามแนะนำยา\\nคุณกำลังอยู่ระหว่างการสนทนาคัดกรอง บทสนทนาล่าสุด:\\nuser: เจ็บแน่นหน้าอกมาสองชั่วโมง ร้าวไปแขนซ้าย\\nคุณ: [NAME] คะ เข้าใจค่ะ ตอนนี้เหนื่อยหรือหายใจลำบากไหมคะ\\nบริบทผู้ป่วย: แน่นหน้าอกมา 2 ชั่วโมง\\nข้อมูลที่ผู้ป่วยตอบแล้ว ห้ามถามซ้ำ: อายุ 58 ปี | ความดัน 158/94\\nขั้นแรก เขียน `ack`: วลีสั้น ๆ หนึ่งวลี (ไม่เกิน 15 คำ) ที่รับรู้สิ่งที่ผู้ป่วยเพิ่งบอกอย่างอบอุ่น โดยไม่ทวนซ้ำยาว ห้ามมีคำถาม คำแนะนำ หรือคำปลอบใจเรื่องผลลัพธ์ เปลี่ยนถ้อยคำทุกครั้ง ห้ามใช้คำเดิมกับประโยคก่อนหน้าของคุณ บ่อยครั้งคำเดียว (เช่น ค่ะ เข้าใจค่ะ) หรือไม่ต้องมีเลยจะดีที่สุด เว้นว่างไว้หากไม่มีอะไรต้องรับรู้\\nจากนั้นเขียน `question`: เรียบเรียงคำถามด้านล่างให้เป็นธรรมชาติ โดยคงความหมายทางคลินิกเดิมทุกประการ ถามเพียงหนึ่งคำถาม ความยาวหนึ่งถึงสองประโยคสั้น ๆ ห้ามใช้ศัพท์แพทย์ ห้ามถามซ้ำสิ่งที่ตอบแล้ว\\nพร้อมกันนี้ให้เสนอตัวเลือกคำตอบสั้น ๆ 3 หรือ 4 ตัวเลือก (ไม่เกิน 30 ตัวอักษรต่อตัวเลือก) เป็นภาษาไทย แตกต่างกันชัดเจน ครอบคลุมคำตอบที่เป็นไปได้ ห้ามมีการวินิจฉัย ระดับการคัดกรอง หรือชื่อยา\\nคำถาม: อาการเจ็บหน้าอกร้าวไปที่แขน คอ หรือกรามหรือไม่\"\n    }\n  ],\n  \"temperature\": 0.1,\n  \"stream\": false,\n  \"response_format\": {\n    \"type\": \"json_schema\",\n    \"json_schema\": {\n      \"name\": \"question\",\n      \"strict\": true,\n      \"schema\": {\n        \"description\": \"Structured render: acknowledgement + question + tappable answers.\",\n        \"properties\": {\n          \"ack\": {\n            \"default\": \"\",\n            \"description\": \"One short clause acknowledging what the patient just said, with no question in it; empty when there is nothing to acknowledge\",\n            \"title\": \"Ack\",\n            \"type\": \"string\"\n          },\n          \"question\": {\n            \"description\": \"The screening question to ask next\",\n            \"title\": \"Question\",\n            \"type\": \"string\"\n          },\n          \"options\": {\n            \"description\": \"3 or 4 short, mutually distinct answer choices the patient could tap, in the same language as the question\",\n            \"items\": {\n              \"type\": \"string\"\n            },\n            \"title\": \"Options\",\n            \"type\": \"array\"\n          }\n        },\n        \"required\": [\n          \"question\"\n        ],\n        \"title\": \"PhrasedQuestion\",\n        \"type\": \"object\"\n      }\n    }\n  }\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "description": "**Question — acknowledge, then ask the approved question**\n\nEvery interview turn, once the rules engine has picked the next question. The model returns a short acknowledgement and (only for history/associated-symptom questions) a rewording. Red-flag, scale, measurement and confirm questions are sent with a 'return it unchanged' instruction and the engine uses the criteria text regardless of what comes back.\n\nCarries no patient identifier — see `docs/ai-model-io.md`."
+      },
+      "response": [
+        {
+          "name": "200 — what the engine parses",
+          "originalRequest": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{LLM_BASE_URL}}/chat/completions",
+              "host": [
+                "{{LLM_BASE_URL}}"
+              ],
+              "path": [
+                "chat",
+                "completions"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"model\": \"{{LLM_MODEL}}\",\n  \"messages\": [\n    {\n      \"role\": \"user\",\n      \"content\": \"คุณเป็นผู้ช่วยคัดกรองของโรงพยาบาล พูดภาษาไทยอย่างอบอุ่นและใจเย็น พูดภาษาไทยเท่านั้น พูดง่าย ๆ เหมือนพยาบาลใจดีหน้าเคาน์เตอร์ ห้ามใช้ศัพท์แพทย์ ครั้งละหนึ่งถึงสองประโยคสั้น ๆ ห้ามเป็นรายการ รับรู้สิ่งที่ผู้ป่วยเพิ่งบอกสั้น ๆ ก่อนถามต่อ โดยไม่ทวนซ้ำยาวเกินไป ข้อห้ามเด็ดขาด: ห้ามพูดถึงระดับการคัดกรอง สี คะแนน หรือการจัดประเภท ห้ามวินิจฉัยหรือระบุชื่อโรคที่สงสัย ห้ามแนะนำยา\\nคุณกำลังอยู่ระหว่างการสนทนาคัดกรอง บทสนทนาล่าสุด:\\nuser: เจ็บแน่นหน้าอกมาสองชั่วโมง ร้าวไปแขนซ้าย\\nคุณ: [NAME] คะ เข้าใจค่ะ ตอนนี้เหนื่อยหรือหายใจลำบากไหมคะ\\nบริบทผู้ป่วย: แน่นหน้าอกมา 2 ชั่วโมง\\nข้อมูลที่ผู้ป่วยตอบแล้ว ห้ามถามซ้ำ: อายุ 58 ปี | ความดัน 158/94\\nขั้นแรก เขียน `ack`: วลีสั้น ๆ หนึ่งวลี (ไม่เกิน 15 คำ) ที่รับรู้สิ่งที่ผู้ป่วยเพิ่งบอกอย่างอบอุ่น โดยไม่ทวนซ้ำยาว ห้ามมีคำถาม คำแนะนำ หรือคำปลอบใจเรื่องผลลัพธ์ เปลี่ยนถ้อยคำทุกครั้ง ห้ามใช้คำเดิมกับประโยคก่อนหน้าของคุณ บ่อยครั้งคำเดียว (เช่น ค่ะ เข้าใจค่ะ) หรือไม่ต้องมีเลยจะดีที่สุด เว้นว่างไว้หากไม่มีอะไรต้องรับรู้\\nจากนั้นเขียน `question`: เรียบเรียงคำถามด้านล่างให้เป็นธรรมชาติ โดยคงความหมายทางคลินิกเดิมทุกประการ ถามเพียงหนึ่งคำถาม ความยาวหนึ่งถึงสองประโยคสั้น ๆ ห้ามใช้ศัพท์แพทย์ ห้ามถามซ้ำสิ่งที่ตอบแล้ว\\nพร้อมกันนี้ให้เสนอตัวเลือกคำตอบสั้น ๆ 3 หรือ 4 ตัวเลือก (ไม่เกิน 30 ตัวอักษรต่อตัวเลือก) เป็นภาษาไทย แตกต่างกันชัดเจน ครอบคลุมคำตอบที่เป็นไปได้ ห้ามมีการวินิจฉัย ระดับการคัดกรอง หรือชื่อยา\\nคำถาม: อาการเจ็บหน้าอกร้าวไปที่แขน คอ หรือกรามหรือไม่\"\n    }\n  ],\n  \"temperature\": 0.1,\n  \"stream\": false,\n  \"response_format\": {\n    \"type\": \"json_schema\",\n    \"json_schema\": {\n      \"name\": \"question\",\n      \"strict\": true,\n      \"schema\": {\n        \"description\": \"Structured render: acknowledgement + question + tappable answers.\",\n        \"properties\": {\n          \"ack\": {\n            \"default\": \"\",\n            \"description\": \"One short clause acknowledging what the patient just said, with no question in it; empty when there is nothing to acknowledge\",\n            \"title\": \"Ack\",\n            \"type\": \"string\"\n          },\n          \"question\": {\n            \"description\": \"The screening question to ask next\",\n            \"title\": \"Question\",\n            \"type\": \"string\"\n          },\n          \"options\": {\n            \"description\": \"3 or 4 short, mutually distinct answer choices the patient could tap, in the same language as the question\",\n            \"items\": {\n              \"type\": \"string\"\n            },\n            \"title\": \"Options\",\n            \"type\": \"array\"\n          }\n        },\n        \"required\": [\n          \"question\"\n        ],\n        \"title\": \"PhrasedQuestion\",\n        \"type\": \"object\"\n      }\n    }\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "**Question — acknowledge, then ask the approved question**\n\nEvery interview turn, once the rules engine has picked the next question. The model returns a short acknowledgement and (only for history/associated-symptom questions) a rewording. Red-flag, scale, measurement and confirm questions are sent with a 'return it unchanged' instruction and the engine uses the criteria text regardless of what comes back.\n\nCarries no patient identifier — see `docs/ai-model-io.md`."
+          },
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": "json",
+          "header": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "cookie": [],
+          "body": "{\n  \"id\": \"chatcmpl-mfu-0001\",\n  \"object\": \"chat.completion\",\n  \"model\": \"{{LLM_MODEL}}\",\n  \"choices\": [\n    {\n      \"index\": 0,\n      \"message\": {\n        \"role\": \"assistant\",\n        \"content\": \"{\\\"ack\\\": \\\"เข้าใจค่ะ\\\", \\\"question\\\": \\\"อาการเจ็บที่หน้าอก มีร้าวไปที่แขน คอ หรือกรามด้วยไหมคะ\\\", \\\"options\\\": [\\\"ร้าวไปแขน\\\", \\\"ร้าวไปคอหรือกราม\\\", \\\"ไม่ร้าวไปไหน\\\", \\\"ไม่แน่ใจ\\\"]}\"\n      },\n      \"finish_reason\": \"stop\"\n    }\n  ],\n  \"usage\": {\n    \"prompt_tokens\": 0,\n    \"completion_tokens\": 0,\n    \"total_tokens\": 0\n  }\n}"
+        }
+      ]
+    },
+    {
+      "name": "explain",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{LLM_BASE_URL}}/chat/completions",
+          "host": [
+            "{{LLM_BASE_URL}}"
+          ],
+          "path": [
+            "chat",
+            "completions"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"model\": \"{{LLM_MODEL}}\",\n  \"messages\": [\n    {\n      \"role\": \"user\",\n      \"content\": \"คุณเป็นผู้ช่วยคัดกรองของโรงพยาบาล พูดภาษาไทยอย่างอบอุ่นและใจเย็น พูดภาษาไทยเท่านั้น พูดง่าย ๆ เหมือนพยาบาลใจดีหน้าเคาน์เตอร์ ห้ามใช้ศัพท์แพทย์ ครั้งละหนึ่งถึงสองประโยคสั้น ๆ ห้ามเป็นรายการ รับรู้สิ่งที่ผู้ป่วยเพิ่งบอกสั้น ๆ ก่อนถามต่อ โดยไม่ทวนซ้ำยาวเกินไป ข้อห้ามเด็ดขาด: ห้ามพูดถึงระดับการคัดกรอง สี คะแนน หรือการจัดประเภท ห้ามวินิจฉัยหรือระบุชื่อโรคที่สงสัย ห้ามแนะนำยา\\nระบบเกณฑ์ทางคลินิกได้ตัดสินใจแล้วว่าผู้ป่วยควรไปที่แผนกใด หน้าที่ของคุณคืออธิบายอย่างสุภาพใน 2-4 ประโยคสั้น ๆ เท่านั้น ห้ามพูดถึงแผนกอื่น\\nอาการที่ผู้ป่วยเล่า: แน่นหน้าอกมา 2 ชั่วโมง ร้าวไปแขนซ้าย\\nให้ผู้ป่วยไปที่: แผนก OPD MED (อายุรกรรม)\\nเรียกผู้ป่วยหนึ่งครั้งอย่างเป็นธรรมชาติ โดยเขียนโทเคน [NAME] ตรงตำแหน่งที่ควรเป็นชื่อ (โทเคนนี้มีคำว่า 'คุณ' อยู่แล้ว อย่าเขียน 'คุณ' นำหน้าซ้ำ ห้ามแต่งชื่อขึ้นเอง และห้ามแปลโทเคนนี้)\\n\"\n    }\n  ],\n  \"temperature\": 0.1,\n  \"stream\": false\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "description": "**Explain — phrase the decision the rules already made**\n\nOnce, at disposition. The department and urgency are inputs, not something the model chooses.\n\nCarries no patient identifier — see `docs/ai-model-io.md`."
+      },
+      "response": [
+        {
+          "name": "200 — what the engine parses",
+          "originalRequest": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{LLM_BASE_URL}}/chat/completions",
+              "host": [
+                "{{LLM_BASE_URL}}"
+              ],
+              "path": [
+                "chat",
+                "completions"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"model\": \"{{LLM_MODEL}}\",\n  \"messages\": [\n    {\n      \"role\": \"user\",\n      \"content\": \"คุณเป็นผู้ช่วยคัดกรองของโรงพยาบาล พูดภาษาไทยอย่างอบอุ่นและใจเย็น พูดภาษาไทยเท่านั้น พูดง่าย ๆ เหมือนพยาบาลใจดีหน้าเคาน์เตอร์ ห้ามใช้ศัพท์แพทย์ ครั้งละหนึ่งถึงสองประโยคสั้น ๆ ห้ามเป็นรายการ รับรู้สิ่งที่ผู้ป่วยเพิ่งบอกสั้น ๆ ก่อนถามต่อ โดยไม่ทวนซ้ำยาวเกินไป ข้อห้ามเด็ดขาด: ห้ามพูดถึงระดับการคัดกรอง สี คะแนน หรือการจัดประเภท ห้ามวินิจฉัยหรือระบุชื่อโรคที่สงสัย ห้ามแนะนำยา\\nระบบเกณฑ์ทางคลินิกได้ตัดสินใจแล้วว่าผู้ป่วยควรไปที่แผนกใด หน้าที่ของคุณคืออธิบายอย่างสุภาพใน 2-4 ประโยคสั้น ๆ เท่านั้น ห้ามพูดถึงแผนกอื่น\\nอาการที่ผู้ป่วยเล่า: แน่นหน้าอกมา 2 ชั่วโมง ร้าวไปแขนซ้าย\\nให้ผู้ป่วยไปที่: แผนก OPD MED (อายุรกรรม)\\nเรียกผู้ป่วยหนึ่งครั้งอย่างเป็นธรรมชาติ โดยเขียนโทเคน [NAME] ตรงตำแหน่งที่ควรเป็นชื่อ (โทเคนนี้มีคำว่า 'คุณ' อยู่แล้ว อย่าเขียน 'คุณ' นำหน้าซ้ำ ห้ามแต่งชื่อขึ้นเอง และห้ามแปลโทเคนนี้)\\n\"\n    }\n  ],\n  \"temperature\": 0.1,\n  \"stream\": false\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "**Explain — phrase the decision the rules already made**\n\nOnce, at disposition. The department and urgency are inputs, not something the model chooses.\n\nCarries no patient identifier — see `docs/ai-model-io.md`."
+          },
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": "json",
+          "header": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "cookie": [],
+          "body": "{\n  \"id\": \"chatcmpl-mfu-0001\",\n  \"object\": \"chat.completion\",\n  \"model\": \"{{LLM_MODEL}}\",\n  \"choices\": [\n    {\n      \"index\": 0,\n      \"message\": {\n        \"role\": \"assistant\",\n        \"content\": \"[NAME] คะ จากอาการที่เล่ามา ทางเราขอให้ไปที่แผนก OPD MED (อายุรกรรม) เพื่อให้แพทย์ตรวจดูอย่างละเอียดนะคะ เดี๋ยวเจ้าหน้าที่จะช่วยแนะนำทางให้ค่ะ\"\n      },\n      \"finish_reason\": \"stop\"\n    }\n  ],\n  \"usage\": {\n    \"prompt_tokens\": 0,\n    \"completion_tokens\": 0,\n    \"total_tokens\": 0\n  }\n}"
+        }
+      ]
+    },
+    {
+      "name": "gate:followup_decline",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{LLM_BASE_URL}}/chat/completions",
+          "host": [
+            "{{LLM_BASE_URL}}"
+          ],
+          "path": [
+            "chat",
+            "completions"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"model\": \"{{LLM_MODEL}}\",\n  \"messages\": [\n    {\n      \"role\": \"user\",\n      \"content\": \"A hospital kiosk assistant just asked the patient (in Thai or English): 'Is there anything else you would like to ask, or anything to note for the doctor?'\\nClassify the patient's reply below. Answer with exactly one verdict:\\n- decline: the reply only declines or politely closes the conversation (e.g. 'No, nothing else', 'I'm done, thanks', 'no worries, I'm all set', 'ไม่มีแล้วค่ะ ขอบคุณค่ะ')\\n- content: the reply contains an actual question, symptom, or note the doctor should see\\n- unclear: cannot tell\\nSession language: th. Context: -\\nPatient reply: 'ไม่มีแล้วค่ะ ขอบคุณค่ะ'\"\n    }\n  ],\n  \"temperature\": 0.1,\n  \"stream\": false,\n  \"response_format\": {\n    \"type\": \"json_schema\",\n    \"json_schema\": {\n      \"name\": \"gate_followup_decline\",\n      \"strict\": true,\n      \"schema\": {\n        \"properties\": {\n          \"verdict\": {\n            \"enum\": [\n              \"decline\",\n              \"content\",\n              \"unclear\"\n            ],\n            \"title\": \"Verdict\",\n            \"type\": \"string\"\n          }\n        },\n        \"required\": [\n          \"verdict\"\n        ],\n        \"title\": \"_FollowupVerdict\",\n        \"type\": \"object\"\n      }\n    }\n  }\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "description": "**Gate (followup_decline) — classify one yes/no-ish reply**\n\nOnly when the deterministic regex classifier is unsure. The model returns one enum value and never generates anything the patient hears.\n\nCarries no patient identifier — see `docs/ai-model-io.md`."
+      },
+      "response": [
+        {
+          "name": "200 — what the engine parses",
+          "originalRequest": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{LLM_BASE_URL}}/chat/completions",
+              "host": [
+                "{{LLM_BASE_URL}}"
+              ],
+              "path": [
+                "chat",
+                "completions"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"model\": \"{{LLM_MODEL}}\",\n  \"messages\": [\n    {\n      \"role\": \"user\",\n      \"content\": \"A hospital kiosk assistant just asked the patient (in Thai or English): 'Is there anything else you would like to ask, or anything to note for the doctor?'\\nClassify the patient's reply below. Answer with exactly one verdict:\\n- decline: the reply only declines or politely closes the conversation (e.g. 'No, nothing else', 'I'm done, thanks', 'no worries, I'm all set', 'ไม่มีแล้วค่ะ ขอบคุณค่ะ')\\n- content: the reply contains an actual question, symptom, or note the doctor should see\\n- unclear: cannot tell\\nSession language: th. Context: -\\nPatient reply: 'ไม่มีแล้วค่ะ ขอบคุณค่ะ'\"\n    }\n  ],\n  \"temperature\": 0.1,\n  \"stream\": false,\n  \"response_format\": {\n    \"type\": \"json_schema\",\n    \"json_schema\": {\n      \"name\": \"gate_followup_decline\",\n      \"strict\": true,\n      \"schema\": {\n        \"properties\": {\n          \"verdict\": {\n            \"enum\": [\n              \"decline\",\n              \"content\",\n              \"unclear\"\n            ],\n            \"title\": \"Verdict\",\n            \"type\": \"string\"\n          }\n        },\n        \"required\": [\n          \"verdict\"\n        ],\n        \"title\": \"_FollowupVerdict\",\n        \"type\": \"object\"\n      }\n    }\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "**Gate (followup_decline) — classify one yes/no-ish reply**\n\nOnly when the deterministic regex classifier is unsure. The model returns one enum value and never generates anything the patient hears.\n\nCarries no patient identifier — see `docs/ai-model-io.md`."
+          },
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": "json",
+          "header": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "cookie": [],
+          "body": "{\n  \"id\": \"chatcmpl-mfu-0001\",\n  \"object\": \"chat.completion\",\n  \"model\": \"{{LLM_MODEL}}\",\n  \"choices\": [\n    {\n      \"index\": 0,\n      \"message\": {\n        \"role\": \"assistant\",\n        \"content\": \"{\\\"verdict\\\": \\\"decline\\\"}\"\n      },\n      \"finish_reason\": \"stop\"\n    }\n  ],\n  \"usage\": {\n    \"prompt_tokens\": 0,\n    \"completion_tokens\": 0,\n    \"total_tokens\": 0\n  }\n}"
+        }
+      ]
+    },
+    {
+      "name": "gate:identity_yesno",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{LLM_BASE_URL}}/chat/completions",
+          "host": [
+            "{{LLM_BASE_URL}}"
+          ],
+          "path": [
+            "chat",
+            "completions"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"model\": \"{{LLM_MODEL}}\",\n  \"messages\": [\n    {\n      \"role\": \"user\",\n      \"content\": \"A hospital kiosk showed the patient the name on their record and asked 'is this you?'\\nClassify the patient's reply below (Thai or English). Answer with exactly one verdict:\\n- yes: the reply confirms it is them\\n- no: the reply says it is not them / wrong name / wrong person\\n- unclear: cannot tell (off-topic, ambiguous)\\nSession language: th.\\nPatient reply: 'ไม่มีแล้วค่ะ ขอบคุณค่ะ'\"\n    }\n  ],\n  \"temperature\": 0.1,\n  \"stream\": false,\n  \"response_format\": {\n    \"type\": \"json_schema\",\n    \"json_schema\": {\n      \"name\": \"gate_identity_yesno\",\n      \"strict\": true,\n      \"schema\": {\n        \"properties\": {\n          \"verdict\": {\n            \"enum\": [\n              \"yes\",\n              \"no\",\n              \"unclear\"\n            ],\n            \"title\": \"Verdict\",\n            \"type\": \"string\"\n          }\n        },\n        \"required\": [\n          \"verdict\"\n        ],\n        \"title\": \"_IdentityVerdict\",\n        \"type\": \"object\"\n      }\n    }\n  }\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "description": "**Gate (identity_yesno) — classify one yes/no-ish reply**\n\nOnly when the deterministic regex classifier is unsure. The model returns one enum value and never generates anything the patient hears.\n\nCarries no patient identifier — see `docs/ai-model-io.md`."
+      },
+      "response": [
+        {
+          "name": "200 — what the engine parses",
+          "originalRequest": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{LLM_BASE_URL}}/chat/completions",
+              "host": [
+                "{{LLM_BASE_URL}}"
+              ],
+              "path": [
+                "chat",
+                "completions"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"model\": \"{{LLM_MODEL}}\",\n  \"messages\": [\n    {\n      \"role\": \"user\",\n      \"content\": \"A hospital kiosk showed the patient the name on their record and asked 'is this you?'\\nClassify the patient's reply below (Thai or English). Answer with exactly one verdict:\\n- yes: the reply confirms it is them\\n- no: the reply says it is not them / wrong name / wrong person\\n- unclear: cannot tell (off-topic, ambiguous)\\nSession language: th.\\nPatient reply: 'ไม่มีแล้วค่ะ ขอบคุณค่ะ'\"\n    }\n  ],\n  \"temperature\": 0.1,\n  \"stream\": false,\n  \"response_format\": {\n    \"type\": \"json_schema\",\n    \"json_schema\": {\n      \"name\": \"gate_identity_yesno\",\n      \"strict\": true,\n      \"schema\": {\n        \"properties\": {\n          \"verdict\": {\n            \"enum\": [\n              \"yes\",\n              \"no\",\n              \"unclear\"\n            ],\n            \"title\": \"Verdict\",\n            \"type\": \"string\"\n          }\n        },\n        \"required\": [\n          \"verdict\"\n        ],\n        \"title\": \"_IdentityVerdict\",\n        \"type\": \"object\"\n      }\n    }\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "**Gate (identity_yesno) — classify one yes/no-ish reply**\n\nOnly when the deterministic regex classifier is unsure. The model returns one enum value and never generates anything the patient hears.\n\nCarries no patient identifier — see `docs/ai-model-io.md`."
+          },
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": "json",
+          "header": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "cookie": [],
+          "body": "{\n  \"id\": \"chatcmpl-mfu-0001\",\n  \"object\": \"chat.completion\",\n  \"model\": \"{{LLM_MODEL}}\",\n  \"choices\": [\n    {\n      \"index\": 0,\n      \"message\": {\n        \"role\": \"assistant\",\n        \"content\": \"{\\\"verdict\\\": \\\"yes\\\"}\"\n      },\n      \"finish_reason\": \"stop\"\n    }\n  ],\n  \"usage\": {\n    \"prompt_tokens\": 0,\n    \"completion_tokens\": 0,\n    \"total_tokens\": 0\n  }\n}"
+        }
+      ]
+    },
+    {
+      "name": "gate:resume_choice",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{LLM_BASE_URL}}/chat/completions",
+          "host": [
+            "{{LLM_BASE_URL}}"
+          ],
+          "path": [
+            "chat",
+            "completions"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"model\": \"{{LLM_MODEL}}\",\n  \"messages\": [\n    {\n      \"role\": \"user\",\n      \"content\": \"A hospital kiosk found the patient's earlier assessment (status: in_progress) and asked whether they want to CONTINUE it or START OVER with a new one.\\nClassify the patient's reply below (Thai or English). Answer with exactly one verdict:\\n- continue: they want to pick up the earlier assessment\\n- start_over: they want a fresh assessment from the beginning\\n- unclear: cannot tell\\nSession language: th.\\nPatient reply: 'ไม่มีแล้วค่ะ ขอบคุณค่ะ'\"\n    }\n  ],\n  \"temperature\": 0.1,\n  \"stream\": false,\n  \"response_format\": {\n    \"type\": \"json_schema\",\n    \"json_schema\": {\n      \"name\": \"gate_resume_choice\",\n      \"strict\": true,\n      \"schema\": {\n        \"properties\": {\n          \"verdict\": {\n            \"enum\": [\n              \"continue\",\n              \"start_over\",\n              \"unclear\"\n            ],\n            \"title\": \"Verdict\",\n            \"type\": \"string\"\n          }\n        },\n        \"required\": [\n          \"verdict\"\n        ],\n        \"title\": \"_ResumeVerdict\",\n        \"type\": \"object\"\n      }\n    }\n  }\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "description": "**Gate (resume_choice) — classify one yes/no-ish reply**\n\nOnly when the deterministic regex classifier is unsure. The model returns one enum value and never generates anything the patient hears.\n\nCarries no patient identifier — see `docs/ai-model-io.md`."
+      },
+      "response": [
+        {
+          "name": "200 — what the engine parses",
+          "originalRequest": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{LLM_BASE_URL}}/chat/completions",
+              "host": [
+                "{{LLM_BASE_URL}}"
+              ],
+              "path": [
+                "chat",
+                "completions"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"model\": \"{{LLM_MODEL}}\",\n  \"messages\": [\n    {\n      \"role\": \"user\",\n      \"content\": \"A hospital kiosk found the patient's earlier assessment (status: in_progress) and asked whether they want to CONTINUE it or START OVER with a new one.\\nClassify the patient's reply below (Thai or English). Answer with exactly one verdict:\\n- continue: they want to pick up the earlier assessment\\n- start_over: they want a fresh assessment from the beginning\\n- unclear: cannot tell\\nSession language: th.\\nPatient reply: 'ไม่มีแล้วค่ะ ขอบคุณค่ะ'\"\n    }\n  ],\n  \"temperature\": 0.1,\n  \"stream\": false,\n  \"response_format\": {\n    \"type\": \"json_schema\",\n    \"json_schema\": {\n      \"name\": \"gate_resume_choice\",\n      \"strict\": true,\n      \"schema\": {\n        \"properties\": {\n          \"verdict\": {\n            \"enum\": [\n              \"continue\",\n              \"start_over\",\n              \"unclear\"\n            ],\n            \"title\": \"Verdict\",\n            \"type\": \"string\"\n          }\n        },\n        \"required\": [\n          \"verdict\"\n        ],\n        \"title\": \"_ResumeVerdict\",\n        \"type\": \"object\"\n      }\n    }\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "**Gate (resume_choice) — classify one yes/no-ish reply**\n\nOnly when the deterministic regex classifier is unsure. The model returns one enum value and never generates anything the patient hears.\n\nCarries no patient identifier — see `docs/ai-model-io.md`."
+          },
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": "json",
+          "header": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "cookie": [],
+          "body": "{\n  \"id\": \"chatcmpl-mfu-0001\",\n  \"object\": \"chat.completion\",\n  \"model\": \"{{LLM_MODEL}}\",\n  \"choices\": [\n    {\n      \"index\": 0,\n      \"message\": {\n        \"role\": \"assistant\",\n        \"content\": \"{\\\"verdict\\\": \\\"continue\\\"}\"\n      },\n      \"finish_reason\": \"stop\"\n    }\n  ],\n  \"usage\": {\n    \"prompt_tokens\": 0,\n    \"completion_tokens\": 0,\n    \"total_tokens\": 0\n  }\n}"
+        }
+      ]
+    },
+    {
+      "name": "surveillance",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{LLM_BASE_URL}}/chat/completions",
+          "host": [
+            "{{LLM_BASE_URL}}"
+          ],
+          "path": [
+            "chat",
+            "completions"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"model\": \"{{LLM_MODEL}}\",\n  \"messages\": [\n    {\n      \"role\": \"user\",\n      \"content\": \"You are a medical keyword extractor for a hospital triage system.\\n\\nGiven the structured summary of a screening conversation below, extract a\\nconcise list of disease names, symptoms, and body-part complaints that the\\npatient reported.\\n\\nRules:\\n- Return short keyword strings (1–3 words each).\\n- Use lowercase English.\\n- Include diseases (e.g. \\\"covid\\\", \\\"dengue\\\", \\\"influenza\\\"), symptoms\\n  (e.g. \\\"fever\\\", \\\"sore throat\\\", \\\"muscle pain\\\"), and body parts with problems\\n  (e.g. \\\"ear pain\\\", \\\"chest pain\\\").\\n- Do NOT include greetings, question phrases, or doctor/schedule queries.\\n- If no health keywords are found, return an empty list.\\n\\nScreening summary:\\n- complaint category: chest_pain\\n- chief complaint: แน่นหน้าอกมา 2 ชั่วโมง\\n- chest_pain_radiating: ร้าวไปแขนซ้าย\\n- onset: 2 ชั่วโมง\\n- location: หน้าอก\\n\"\n    }\n  ],\n  \"temperature\": 0.1,\n  \"stream\": false,\n  \"response_format\": {\n    \"type\": \"json_schema\",\n    \"json_schema\": {\n      \"name\": \"surveillance\",\n      \"strict\": true,\n      \"schema\": {\n        \"properties\": {\n          \"keywords\": {\n            \"items\": {\n              \"type\": \"string\"\n            },\n            \"title\": \"Keywords\",\n            \"type\": \"array\"\n          }\n        },\n        \"title\": \"SurveillanceKeywords\",\n        \"type\": \"object\"\n      }\n    }\n  }\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "description": "**Surveillance — disease keywords for the outbreak dashboard**\n\nOnce, when the session is marked completed, in the background. Input is the engine's own screening state (complaint, present findings, slot answers) — never the transcript, never the identity. Output feeds disease_surveillance only; nothing the patient hears.\n\nCarries no patient identifier — see `docs/ai-model-io.md`."
+      },
+      "response": [
+        {
+          "name": "200 — what the engine parses",
+          "originalRequest": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{LLM_BASE_URL}}/chat/completions",
+              "host": [
+                "{{LLM_BASE_URL}}"
+              ],
+              "path": [
+                "chat",
+                "completions"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"model\": \"{{LLM_MODEL}}\",\n  \"messages\": [\n    {\n      \"role\": \"user\",\n      \"content\": \"You are a medical keyword extractor for a hospital triage system.\\n\\nGiven the structured summary of a screening conversation below, extract a\\nconcise list of disease names, symptoms, and body-part complaints that the\\npatient reported.\\n\\nRules:\\n- Return short keyword strings (1–3 words each).\\n- Use lowercase English.\\n- Include diseases (e.g. \\\"covid\\\", \\\"dengue\\\", \\\"influenza\\\"), symptoms\\n  (e.g. \\\"fever\\\", \\\"sore throat\\\", \\\"muscle pain\\\"), and body parts with problems\\n  (e.g. \\\"ear pain\\\", \\\"chest pain\\\").\\n- Do NOT include greetings, question phrases, or doctor/schedule queries.\\n- If no health keywords are found, return an empty list.\\n\\nScreening summary:\\n- complaint category: chest_pain\\n- chief complaint: แน่นหน้าอกมา 2 ชั่วโมง\\n- chest_pain_radiating: ร้าวไปแขนซ้าย\\n- onset: 2 ชั่วโมง\\n- location: หน้าอก\\n\"\n    }\n  ],\n  \"temperature\": 0.1,\n  \"stream\": false,\n  \"response_format\": {\n    \"type\": \"json_schema\",\n    \"json_schema\": {\n      \"name\": \"surveillance\",\n      \"strict\": true,\n      \"schema\": {\n        \"properties\": {\n          \"keywords\": {\n            \"items\": {\n              \"type\": \"string\"\n            },\n            \"title\": \"Keywords\",\n            \"type\": \"array\"\n          }\n        },\n        \"title\": \"SurveillanceKeywords\",\n        \"type\": \"object\"\n      }\n    }\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "**Surveillance — disease keywords for the outbreak dashboard**\n\nOnce, when the session is marked completed, in the background. Input is the engine's own screening state (complaint, present findings, slot answers) — never the transcript, never the identity. Output feeds disease_surveillance only; nothing the patient hears.\n\nCarries no patient identifier — see `docs/ai-model-io.md`."
+          },
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": "json",
+          "header": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "cookie": [],
+          "body": "{\n  \"id\": \"chatcmpl-mfu-0001\",\n  \"object\": \"chat.completion\",\n  \"model\": \"{{LLM_MODEL}}\",\n  \"choices\": [\n    {\n      \"index\": 0,\n      \"message\": {\n        \"role\": \"assistant\",\n        \"content\": \"{\\\"keywords\\\": [\\\"chest pain\\\", \\\"arm pain\\\"]}\"\n      },\n      \"finish_reason\": \"stop\"\n    }\n  ],\n  \"usage\": {\n    \"prompt_tokens\": 0,\n    \"completion_tokens\": 0,\n    \"total_tokens\": 0\n  }\n}"
+        }
+      ]
+    },
+    {
+      "name": "extraction (en)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{LLM_BASE_URL}}/chat/completions",
+          "host": [
+            "{{LLM_BASE_URL}}"
+          ],
+          "path": [
+            "chat",
+            "completions"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"model\": \"{{LLM_MODEL}}\",\n  \"messages\": [\n    {\n      \"role\": \"user\",\n      \"content\": \"You are a clinical intake scribe for a Thai hospital. Read ONE patient message\\n(Thai or English) and extract ONLY what the patient actually said into the\\nstructured schema. Never guess, never diagnose, never infer findings that were\\nnot stated. If the message answers the assistant's pending question, record\\nthat answer (as finding updates with state \\\"absent\\\" when the patient denies,\\nor slot/score updates).\\n\\nAllowed complaint categories (copy ONE id verbatim — never invent or combine ids): generic, chest_pain, dyspnea_cough, abdominal_pain, headache, fever, ear, nose_throat, eye, injury, pregnancy, mental_health, musculoskeletal, urinary, wound_skin, gynecology, breast, palpitations, limb_vascular, forensic, gi, skin_rash, chronic_followup, administrative\\nPick the category from what the patient HAS, never from what they deny: \\\"I have\\na fever but no headache\\\" / \\\"มีไข้ แต่ไม่ปวดหัว\\\" is fever, not headache.\\n\\nFinding catalog (use ONLY these ids):\\n- abdominal_mass: Lump felt in the abdomen (also: lump in belly)\\n- abdominal_pain: Abdominal pain (also: stomach ache, belly pain)\\n- abnormal_breath_sounds: Audible abnormal breathing (wheeze/stridor) (also: wheezing, noisy breathing)\\n- active_bleeding: Heavy bleeding that won't stop (also: bleeding a lot, can't stop the bleeding)\\n- agitation_violent: Severe agitation / violent behavior (also: out of control)\\n- airway_obstruction: Airway obstruction / choking (also: choking, something stuck in throat blocking breathing)\\n- allergy_history: Known allergy (medication, food, or other) (also: allergic to, drug allergy, food allergy)\\n- allergy_symptoms: Allergy symptoms (sneezing, itchy runny nose) (also: hay fever)\\n- amniotic_fluid_leak: Water broke / amniotic fluid leaking (also: water broke)\\n- animal_insect_bite_24h: Animal or insect bite/sting within 24 hours (also: dog bite, snake bite, stung)\\n- anosmia: Loss of smell (also: can't smell)\\n- apnea: Stopped breathing (apnea) (also: stops breathing)\\n- assault_24h: Physically assaulted within 24 hours (also: was attacked)\\n- auditory_hallucinations: Hearing voices (understandable speech) (also: hearing voices)\\n- back_pain_radiating_leg: Back pain radiating down the leg (also: sciatica-like pain)\\n- balance_loss: Sudden loss of balance / severe dizziness with unsteady walking (also: staggering, can't walk straight)\\n- bloody_stool: Fresh blood in stool (recent) (also: blood in stool)\\n- blue_lips: Blue lips / cyanosis (also: turning blue)\\n- blurred_vision_sudden: Sudden blurred vision (also: vision suddenly blurry)\\n- breast_discharge: Discharge from nipple\\n- breast_infection_signs: Breast redness, warmth, or swelling (possible infection/abscess) (also: breast abscess, mastitis)\\n- breast_lump: Breast lump (also: lump in breast)\\n- breast_pain: Breast pain\\n- burn_scald_24h: Burn or scald within 24 hours (also: scalded)\\n- cardiac_arrest: Cardiac arrest / not breathing, no pulse (also: no pulse, not breathing, collapsed and unresponsive)\\n- chest_pain: Chest pain / tightness (also: chest tightness, pressure on chest, chest discomfort)\\n- chest_pain_radiating: Chest pain radiating to neck, jaw, shoulder, or arm (also: pain spreading to jaw, pain going down the arm)\\n- chronic_cough_2w: Cough lasting more than 2 weeks\\n- chronic_wound: Chronic wound (diabetic foot, pressure sore, non-healing ulcer) (also: wound that won't heal)\\n- confusion: New confusion / drowsiness / disorientation (within 72 hours) (also: disoriented, not making sense, very drowsy)\\n- copd_history: History of COPD / chronic lung disease (also: emphysema)\\n- cough: Cough (also: coughing)\\n- crowning: Baby is coming / part of baby visible (also: baby's head is coming out)\\n- decreased_fetal_movement: Baby moving less than usual (also: baby not moving much)\\n- dehydration_signs: Signs of dehydration (cannot keep fluids down, little urine, dizzy on standing) (also: can't keep fluids down, dehydrated)\\n- depression_symptoms: Depressed mood / loss of interest (also: feeling depressed)\\n- diabetes_history: History of diabetes (also: diabetic)\\n- dialysis_access_needed: Needs dialysis access creation (fistula / PD catheter)\\n- diaphoresis: Sweating heavily / cold sweat with symptoms (also: cold sweat, drenched in sweat)\\n- diarrhea: Diarrhea (also: loose stools)\\n- dyspnea: Difficulty breathing / shortness of breath (also: short of breath, breathless, hard to breathe)\\n- dysuria: Painful or burning urination (also: burning when peeing)\\n- ear_discharge: Fluid draining from the ear\\n- ear_pain: Ear pain (also: earache)\\n- edema: Swelling of legs or body (also: swollen legs, puffy ankles)\\n- electric_shock_24h: Electric shock within 24 hours (also: electrocuted)\\n- epistaxis_uncontrolled: Nosebleed that will not stop\\n- evening_fever: Low-grade fever in the evenings\\n- eye_active_bleeding: Eye bleeding that won't stop\\n- eye_chemical_exposure: Chemical or animal venom splashed into eye (also: chemical in eye)\\n- eye_lump_swelling: Red swollen lump at the eye (also: stye)\\n- eye_pain_severe: Severe eye pain\\n- eye_redness_severe: Very red eye\\n- eye_trauma: Eye injury / accident involving the eye (also: hit in the eye, hurt my eye)\\n- facial_droop: Facial droop / crooked mouth (sudden) (also: face drooping on one side)\\n- fatigue_weight_loss: Fatigue with unexplained weight loss (also: losing weight)\\n- fever: Fever (also: feverish, high temperature)\\n- floppy_infant: Child limp / floppy / not responding (also: limp child)\\n- foreign_body_ent_24h: Foreign object stuck in ear, nose, or throat (within 24 hours) (also: something stuck in my ear)\\n- fracture_suspected: Suspected broken bone or dislocated joint (also: bone might be broken, joint popped out)\\n- ga_24w_or_more: Pregnancy at 24 weeks or more (also: 6 months pregnant or more)\\n- gasping: Gasping breaths\\n- hallucination_paranoia: Hallucinations or paranoia (also: seeing things, paranoid)\\n- head_injury: Head injury / hit head (also: hit my head)\\n- headache: Headache (also: head hurts)\\n- headache_sudden_severe: Sudden very severe headache (worst ever) (also: thunderclap headache)\\n- hearing_loss: Hearing loss / reduced hearing (also: can't hear well)\\n- heart_disease_history: History of heart disease / coronary artery disease (also: heart problems before)\\n- heavy_vaginal_bleeding: Heavy vaginal bleeding (soaking a pad every hour) (also: soaking pads)\\n- hematemesis: Vomiting blood (recent) (also: threw up blood, throwing up blood)\\n- hemoptysis: Coughing up blood / blood-streaked sputum (also: blood in sputum)\\n- high_fever: High fever (over 38.5°C) (also: burning up)\\n- hoarseness_over_2w: Hoarse voice for more than 2 weeks (also: voice hoarse for weeks)\\n- home_oxygen: Uses home oxygen\\n- hypertension_history: History of high blood pressure (also: hypertension)\\n- hypoglycemia_symptoms: Low blood sugar symptoms (shaky, sweaty, confused, very hungry) (also: hypoglycemia, sugar crash)\\n- immediate_danger: Still in immediate danger / attacker nearby (also: not safe)\\n- injury_within_24h: Injury happened within the last 24 hours\\n- irregular_pulse: Irregular heartbeat / pulse (also: skipping beats)\\n- limb_ischemia: Cold, painful, or discolored hands/feet; chronic non-healing limb wounds (also: foot turning black)\\n- limb_weakness: Sudden weakness or numbness of arm/leg (one side) (also: one side weak, arm won't lift)\\n- lip_swelling: Swelling of lips, mouth, or face (also: swollen lips, face swelling up)\\n- loc_transient: Brief loss of consciousness after a head injury / blow (only when an injury caused it) (also: knocked out, passed out after hitting my head, blacked out after the fall)\\n- major_trauma_mechanism: Car/motorcycle accident, fall from over 5 metres, or pedestrian hit by vehicle (also: motorbike crash, hit by a car)\\n- medication_run_out: Regular medication has run out (also: out of medication, refill)\\n- melena: Black tarry stool (recent) (also: black stools)\\n- missed_period: Missed period (also: late period)\\n- nasal_congestion: Nasal congestion / blocked nose (also: stuffy nose)\\n- nasal_flaring: Nostrils flaring when breathing (child)\\n- neck_mass: Lump in the neck (also: neck lump)\\n- neck_swelling_dysphagia: Neck swelling with trouble swallowing or breathing (also: can't swallow)\\n- oral_ulcer_chronic: Chronic mouth ulcer that won't heal\\n- orthopnea: Cannot lie flat to breathe (also: needs to sit up to breathe at night)\\n- overdose_or_poison: Drug overdose or exposure to poison/chemicals (also: took too many pills, swallowed chemicals)\\n- pale_cold_sweaty: Pale AND cold AND clammy skin together (shock signs) (also: cold and clammy, pale and cold to the touch)\\n- palm_sole_rash: Red rash on palms, soles, or around the mouth\\n- palpitations: Palpitations / racing heart (also: heart racing, heart pounding)\\n- penetrating_injury_torso: Stab or penetrating wound to neck, chest, or abdomen (also: stabbed)\\n- police_case: Has police report / forensic referral document (also: police sent me for examination)\\n- pregnancy: Currently pregnant (also: expecting)\\n- problem_scar: Problem scar (keloid, contracture, chronic painful/itchy scar) (also: keloid)\\n- rash_itching: Itchy rash / hives (also: hives)\\n- rash_rapidly_spreading: Rash spreading rapidly (within hours) (also: spreading rash)\\n- rash_vesicles: Red rash or fluid-filled blisters on the body (also: blisters)\\n- recent_chemotherapy: Currently receiving chemotherapy (also: on chemo)\\n- retraction: Chest retractions when breathing (also: ribs pulling in when breathing)\\n- runny_nose: Runny nose\\n- seizure_now: Seizure now / convulsing and unresponsive (also: convulsions, fitting)\\n- self_harm_risk: Risk of harming self or others / recent self-harm (also: hurt myself)\\n- severe_morning_sickness: Severe pregnancy vomiting, cannot eat or drink\\n- severe_respiratory_distress: Severe breathing difficulty (cannot speak full sentences / must sit up to breathe) (also: can't speak full sentences, gasping for air, struggling to breathe)\\n- severe_stress: Severe stress / overwhelming distress (also: extremely stressed)\\n- severe_uncontrolled_pain: Very severe pain that cannot be controlled (also: worst pain, unbearable pain)\\n- sexual_assault_72h: Sexual assault within 72 hours\\n- slurred_speech: Slurred or garbled speech (sudden) (also: can't get words out, speech suddenly unclear)\\n- smoking: Smoker\\n- snoring: Snoring / suspected sleep apnea\\n- sore_throat: Sore throat\\n- stiff_neck: Stiff neck with fever\\n- sudden_vision_loss: Sudden loss of vision / double vision (also: suddenly can't see, double vision)\\n- suicidal_ideation: Thoughts of suicide or wanting to die (also: want to end my life)\\n- syncope_24h: Fainting / near-fainting within 24 hours (no injury as the cause) (also: blacked out, passed out today, fainted, nearly fainted, collapsed, lost consciousness for a moment)\\n- tinnitus: Ringing or buzzing in the ear (also: ringing in ears)\\n- unilateral_leg_swelling: One leg swollen and painful (also: swollen calf)\\n- unresponsive: Unresponsive / cannot be woken (also: unconscious, won't wake up, passed out and not waking)\\n- uterine_contractions_frequent: Frequent strong contractions (about every 2 minutes) (also: contractions every few minutes)\\n- vaginal_bleeding: Vaginal bleeding (abnormal) (also: bleeding down there)\\n- varicose_veins: Varicose veins\\n- vertigo: Dizziness / spinning sensation (also: room spinning)\\n- vertigo_positional: Spinning dizziness related to head position (also: dizzy when turning head)\\n- vomiting: Vomiting (also: throwing up, nausea)\\n- wound_infection_signs: Wound infection signs (spreading redness, pus, warmth) (also: pus, infected wound)\\n\\nRules:\\n- A denial (\\\"no\\\", \\\"ไม่มีค่ะ\\\", \\\"none of these\\\", \\\"ไม่มีอาการเหล่านี้\\\") of the pending\\n  question -> ALL of that question's finding ids with state \\\"absent\\\". A bare\\n  denial applies ONLY to the pending question's finding ids — never to other\\n  findings the question wording mentioned in passing.\\n- Explicit negations the patient volunteers anywhere in the message (\\\"no fever\\n  though\\\", \\\"no trouble breathing\\\", \\\"แต่ไม่มีไข้\\\", \\\"หายใจปกติดี\\\") -> those findings\\n  with state \\\"absent\\\" — including in the very first message. This applies to\\n  \\\"X but no Y\\\" sentences too: \\\"I've had a fever since yesterday but no cough\\\"\\n  -> fever \\\"present\\\" AND cough \\\"absent\\\"; \\\"มีไข้ แต่ไม่ไอ ไม่เจ็บคอ\\\" -> fever\\n  \\\"present\\\", cough \\\"absent\\\", sore_throat \\\"absent\\\". Never drop the negated\\n  finding just because the sentence also reports a positive one.\\n- A correction: when the patient says an earlier symptom was a mistake, has gone\\n  away, or was about someone else (\\\"พูดผิด ไม่ได้ปวดท้อง\\\", \\\"หายแล้ว\\\", \\\"ไม่ได้เป็นแล้ว\\\",\\n  \\\"that was my mother, not me\\\", \\\"I was wrong about the sweating\\\") -> that finding\\n  with state \\\"absent\\\", evidence = those words. If they replace their main problem\\n  (\\\"จริงๆ แล้วมาเรื่องผื่น\\\", \\\"I'm actually here for a sore throat\\\") -> also fill\\n  chief_complaint with the new problem and complaint_category with its category.\\n  Do NOT fill chief_complaint when they only add a symptom to the one they have.\\n- A bare affirmation (\\\"yes\\\", \\\"ใช่\\\", \\\"มี\\\") of a pending question that checks exactly\\n  ONE finding -> that finding id with state \\\"present\\\".\\n- A bare affirmation of a pending question that checks SEVERAL findings:\\n  if they are severity grades of the SAME symptom (e.g. dyspnea vs\\n  severe_respiratory_distress) -> record only the mildest as \\\"present\\\";\\n  if they are DISTINCT symptoms (e.g. confusion vs stiff_neck) -> record NO\\n  finding updates (the assistant will ask which one). When the patient names\\n  specific symptoms, record exactly those as \\\"present\\\".\\n- For EVERY finding update, fill evidence with the exact words from the\\n  patient's message that state it — copied verbatim, never paraphrased or\\n  translated. If you cannot quote supporting words, do not record the finding.\\n- Numbers 0-10 answering a pain/breathing question -> pain_score or distress_score.\\n- A timeframe answering when it started or how long it has lasted (e.g.\\n  \\\"2-3 days\\\", \\\"since yesterday\\\") -> fill BOTH slot_updates.onset and\\n  slot_updates.duration when the phrasing covers both, so neither is re-asked.\\n- Ages like \\\"6 เดือน\\\" -> age_years 0.5.\\n- complaint_category: whenever the patient states any symptom, pick the SINGLE\\n  closest category from the allowed list. If more than one could fit (e.g.\\n  sore throat + cough), pick the one matching the symptom they said first.\\n  Use null only when no category fits at all (e.g. a greeting or a question).\\n- wants_human=true only when they explicitly ask for a person/nurse/staff.\\n\\nContext:\\nChief complaint so far: chest tightness for 2 hours\\nThe assistant just asked: Do you have chest pain?\\n\\nPatient message:\\nMy chest has been tight for two hours, it goes into my left arm, no fever\"\n    }\n  ],\n  \"temperature\": 0.1,\n  \"stream\": false,\n  \"response_format\": {\n    \"type\": \"json_schema\",\n    \"json_schema\": {\n      \"name\": \"extraction (en)\",\n      \"strict\": true,\n      \"schema\": {\n        \"$defs\": {\n          \"FindingUpdate\": {\n            \"description\": \"One finding the patient's message resolves.\",\n            \"properties\": {\n              \"id\": {\n                \"description\": \"Canonical finding id from the provided catalog\",\n                \"title\": \"Id\",\n                \"type\": \"string\"\n              },\n              \"state\": {\n                \"description\": \"present if the patient confirms it, absent if they deny it\",\n                \"enum\": [\n                  \"present\",\n                  \"absent\"\n                ],\n                \"title\": \"State\",\n                \"type\": \"string\"\n              },\n              \"value\": {\n                \"anyOf\": [\n                  {\n                    \"type\": \"string\"\n                  },\n                  {\n                    \"type\": \"null\"\n                  }\n                ],\n                \"default\": null,\n                \"description\": \"Optional detail, e.g. '3 days' or 'left side'\",\n                \"title\": \"Value\"\n              },\n              \"evidence\": {\n                \"anyOf\": [\n                  {\n                    \"type\": \"string\"\n                  },\n                  {\n                    \"type\": \"null\"\n                  }\n                ],\n                \"default\": null,\n                \"description\": \"The exact words from the patient's message that state this finding, copied verbatim (same language, no paraphrase)\",\n                \"title\": \"Evidence\"\n              }\n            },\n            \"required\": [\n              \"id\",\n              \"state\"\n            ],\n            \"title\": \"FindingUpdate\",\n            \"type\": \"object\"\n          }\n        },\n        \"description\": \"Structured reading of a single patient message.\",\n        \"properties\": {\n          \"chief_complaint\": {\n            \"anyOf\": [\n              {\n                \"type\": \"string\"\n              },\n              {\n                \"type\": \"null\"\n              }\n            ],\n            \"default\": null,\n            \"description\": \"Patient's main problem in their own words, only when newly stated\",\n            \"title\": \"Chief Complaint\"\n          },\n          \"complaint_category\": {\n            \"anyOf\": [\n              {\n                \"type\": \"string\"\n              },\n              {\n                \"type\": \"null\"\n              }\n            ],\n            \"default\": null,\n            \"description\": \"Best matching complaint category from the provided list, or null\",\n            \"title\": \"Complaint Category\"\n          },\n          \"finding_updates\": {\n            \"items\": {\n              \"$ref\": \"#/$defs/FindingUpdate\"\n            },\n            \"title\": \"Finding Updates\",\n            \"type\": \"array\"\n          },\n          \"slot_updates\": {\n            \"additionalProperties\": {\n              \"type\": \"string\"\n            },\n            \"description\": \"OLDCARTS slots this message answers (onset, location, duration, character, aggravating, relieving, timing, severity) mapped to the answer text\",\n            \"title\": \"Slot Updates\",\n            \"type\": \"object\"\n          },\n          \"age_years\": {\n            \"anyOf\": [\n              {\n                \"type\": \"number\"\n              },\n              {\n                \"type\": \"null\"\n              }\n            ],\n            \"default\": null,\n            \"description\": \"Patient age in years when stated (0.5 = 6 months)\",\n            \"title\": \"Age Years\"\n          },\n          \"gender\": {\n            \"anyOf\": [\n              {\n                \"enum\": [\n                  \"male\",\n                  \"female\"\n                ],\n                \"type\": \"string\"\n              },\n              {\n                \"type\": \"null\"\n              }\n            ],\n            \"default\": null,\n            \"description\": \"The patient's sex ONLY when they explicitly state it (e.g. 'male', 'female', 'ชาย', 'หญิง', typically answering the gender question). Never guess it from the name, symptoms, or wording; null when unstated or declined\",\n            \"title\": \"Gender\"\n          },\n          \"pain_score\": {\n            \"anyOf\": [\n              {\n                \"maximum\": 10,\n                \"minimum\": 0,\n                \"type\": \"integer\"\n              },\n              {\n                \"type\": \"null\"\n              }\n            ],\n            \"default\": null,\n            \"description\": \"0-10 pain score when stated\",\n            \"title\": \"Pain Score\"\n          },\n          \"distress_score\": {\n            \"anyOf\": [\n              {\n                \"maximum\": 10,\n                \"minimum\": 0,\n                \"type\": \"integer\"\n              },\n              {\n                \"type\": \"null\"\n              }\n            ],\n            \"default\": null,\n            \"description\": \"0-10 breathing difficulty score when stated\",\n            \"title\": \"Distress Score\"\n          },\n          \"temperature_c\": {\n            \"anyOf\": [\n              {\n                \"type\": \"number\"\n              },\n              {\n                \"type\": \"null\"\n              }\n            ],\n            \"default\": null,\n            \"description\": \"Body temperature in Celsius when stated\",\n            \"title\": \"Temperature C\"\n          },\n          \"spo2_percent\": {\n            \"anyOf\": [\n              {\n                \"type\": \"number\"\n              },\n              {\n                \"type\": \"null\"\n              }\n            ],\n            \"default\": null,\n            \"description\": \"Blood oxygen saturation percentage when the patient states a reading they measured themselves (e.g. a home pulse oximeter)\",\n            \"title\": \"Spo2 Percent\"\n          },\n          \"is_question_to_assistant\": {\n            \"default\": false,\n            \"description\": \"True when the message is a question to the assistant rather than an answer about symptoms\",\n            \"title\": \"Is Question To Assistant\",\n            \"type\": \"boolean\"\n          },\n          \"wants_human\": {\n            \"default\": false,\n            \"description\": \"True when the patient asks for a human/nurse\",\n            \"title\": \"Wants Human\",\n            \"type\": \"boolean\"\n          }\n        },\n        \"title\": \"ExtractionResult\",\n        \"type\": \"object\"\n      }\n    }\n  }\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "description": "**Extraction — read one patient message into findings**\n\nEvery turn, first. The only call whose output changes the triage: it reports what the patient said, and the rules engine decides what that means.\n\nCarries no patient identifier — see `docs/ai-model-io.md`."
+      },
+      "response": [
+        {
+          "name": "200 — what the engine parses",
+          "originalRequest": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{LLM_BASE_URL}}/chat/completions",
+              "host": [
+                "{{LLM_BASE_URL}}"
+              ],
+              "path": [
+                "chat",
+                "completions"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"model\": \"{{LLM_MODEL}}\",\n  \"messages\": [\n    {\n      \"role\": \"user\",\n      \"content\": \"You are a clinical intake scribe for a Thai hospital. Read ONE patient message\\n(Thai or English) and extract ONLY what the patient actually said into the\\nstructured schema. Never guess, never diagnose, never infer findings that were\\nnot stated. If the message answers the assistant's pending question, record\\nthat answer (as finding updates with state \\\"absent\\\" when the patient denies,\\nor slot/score updates).\\n\\nAllowed complaint categories (copy ONE id verbatim — never invent or combine ids): generic, chest_pain, dyspnea_cough, abdominal_pain, headache, fever, ear, nose_throat, eye, injury, pregnancy, mental_health, musculoskeletal, urinary, wound_skin, gynecology, breast, palpitations, limb_vascular, forensic, gi, skin_rash, chronic_followup, administrative\\nPick the category from what the patient HAS, never from what they deny: \\\"I have\\na fever but no headache\\\" / \\\"มีไข้ แต่ไม่ปวดหัว\\\" is fever, not headache.\\n\\nFinding catalog (use ONLY these ids):\\n- abdominal_mass: Lump felt in the abdomen (also: lump in belly)\\n- abdominal_pain: Abdominal pain (also: stomach ache, belly pain)\\n- abnormal_breath_sounds: Audible abnormal breathing (wheeze/stridor) (also: wheezing, noisy breathing)\\n- active_bleeding: Heavy bleeding that won't stop (also: bleeding a lot, can't stop the bleeding)\\n- agitation_violent: Severe agitation / violent behavior (also: out of control)\\n- airway_obstruction: Airway obstruction / choking (also: choking, something stuck in throat blocking breathing)\\n- allergy_history: Known allergy (medication, food, or other) (also: allergic to, drug allergy, food allergy)\\n- allergy_symptoms: Allergy symptoms (sneezing, itchy runny nose) (also: hay fever)\\n- amniotic_fluid_leak: Water broke / amniotic fluid leaking (also: water broke)\\n- animal_insect_bite_24h: Animal or insect bite/sting within 24 hours (also: dog bite, snake bite, stung)\\n- anosmia: Loss of smell (also: can't smell)\\n- apnea: Stopped breathing (apnea) (also: stops breathing)\\n- assault_24h: Physically assaulted within 24 hours (also: was attacked)\\n- auditory_hallucinations: Hearing voices (understandable speech) (also: hearing voices)\\n- back_pain_radiating_leg: Back pain radiating down the leg (also: sciatica-like pain)\\n- balance_loss: Sudden loss of balance / severe dizziness with unsteady walking (also: staggering, can't walk straight)\\n- bloody_stool: Fresh blood in stool (recent) (also: blood in stool)\\n- blue_lips: Blue lips / cyanosis (also: turning blue)\\n- blurred_vision_sudden: Sudden blurred vision (also: vision suddenly blurry)\\n- breast_discharge: Discharge from nipple\\n- breast_infection_signs: Breast redness, warmth, or swelling (possible infection/abscess) (also: breast abscess, mastitis)\\n- breast_lump: Breast lump (also: lump in breast)\\n- breast_pain: Breast pain\\n- burn_scald_24h: Burn or scald within 24 hours (also: scalded)\\n- cardiac_arrest: Cardiac arrest / not breathing, no pulse (also: no pulse, not breathing, collapsed and unresponsive)\\n- chest_pain: Chest pain / tightness (also: chest tightness, pressure on chest, chest discomfort)\\n- chest_pain_radiating: Chest pain radiating to neck, jaw, shoulder, or arm (also: pain spreading to jaw, pain going down the arm)\\n- chronic_cough_2w: Cough lasting more than 2 weeks\\n- chronic_wound: Chronic wound (diabetic foot, pressure sore, non-healing ulcer) (also: wound that won't heal)\\n- confusion: New confusion / drowsiness / disorientation (within 72 hours) (also: disoriented, not making sense, very drowsy)\\n- copd_history: History of COPD / chronic lung disease (also: emphysema)\\n- cough: Cough (also: coughing)\\n- crowning: Baby is coming / part of baby visible (also: baby's head is coming out)\\n- decreased_fetal_movement: Baby moving less than usual (also: baby not moving much)\\n- dehydration_signs: Signs of dehydration (cannot keep fluids down, little urine, dizzy on standing) (also: can't keep fluids down, dehydrated)\\n- depression_symptoms: Depressed mood / loss of interest (also: feeling depressed)\\n- diabetes_history: History of diabetes (also: diabetic)\\n- dialysis_access_needed: Needs dialysis access creation (fistula / PD catheter)\\n- diaphoresis: Sweating heavily / cold sweat with symptoms (also: cold sweat, drenched in sweat)\\n- diarrhea: Diarrhea (also: loose stools)\\n- dyspnea: Difficulty breathing / shortness of breath (also: short of breath, breathless, hard to breathe)\\n- dysuria: Painful or burning urination (also: burning when peeing)\\n- ear_discharge: Fluid draining from the ear\\n- ear_pain: Ear pain (also: earache)\\n- edema: Swelling of legs or body (also: swollen legs, puffy ankles)\\n- electric_shock_24h: Electric shock within 24 hours (also: electrocuted)\\n- epistaxis_uncontrolled: Nosebleed that will not stop\\n- evening_fever: Low-grade fever in the evenings\\n- eye_active_bleeding: Eye bleeding that won't stop\\n- eye_chemical_exposure: Chemical or animal venom splashed into eye (also: chemical in eye)\\n- eye_lump_swelling: Red swollen lump at the eye (also: stye)\\n- eye_pain_severe: Severe eye pain\\n- eye_redness_severe: Very red eye\\n- eye_trauma: Eye injury / accident involving the eye (also: hit in the eye, hurt my eye)\\n- facial_droop: Facial droop / crooked mouth (sudden) (also: face drooping on one side)\\n- fatigue_weight_loss: Fatigue with unexplained weight loss (also: losing weight)\\n- fever: Fever (also: feverish, high temperature)\\n- floppy_infant: Child limp / floppy / not responding (also: limp child)\\n- foreign_body_ent_24h: Foreign object stuck in ear, nose, or throat (within 24 hours) (also: something stuck in my ear)\\n- fracture_suspected: Suspected broken bone or dislocated joint (also: bone might be broken, joint popped out)\\n- ga_24w_or_more: Pregnancy at 24 weeks or more (also: 6 months pregnant or more)\\n- gasping: Gasping breaths\\n- hallucination_paranoia: Hallucinations or paranoia (also: seeing things, paranoid)\\n- head_injury: Head injury / hit head (also: hit my head)\\n- headache: Headache (also: head hurts)\\n- headache_sudden_severe: Sudden very severe headache (worst ever) (also: thunderclap headache)\\n- hearing_loss: Hearing loss / reduced hearing (also: can't hear well)\\n- heart_disease_history: History of heart disease / coronary artery disease (also: heart problems before)\\n- heavy_vaginal_bleeding: Heavy vaginal bleeding (soaking a pad every hour) (also: soaking pads)\\n- hematemesis: Vomiting blood (recent) (also: threw up blood, throwing up blood)\\n- hemoptysis: Coughing up blood / blood-streaked sputum (also: blood in sputum)\\n- high_fever: High fever (over 38.5°C) (also: burning up)\\n- hoarseness_over_2w: Hoarse voice for more than 2 weeks (also: voice hoarse for weeks)\\n- home_oxygen: Uses home oxygen\\n- hypertension_history: History of high blood pressure (also: hypertension)\\n- hypoglycemia_symptoms: Low blood sugar symptoms (shaky, sweaty, confused, very hungry) (also: hypoglycemia, sugar crash)\\n- immediate_danger: Still in immediate danger / attacker nearby (also: not safe)\\n- injury_within_24h: Injury happened within the last 24 hours\\n- irregular_pulse: Irregular heartbeat / pulse (also: skipping beats)\\n- limb_ischemia: Cold, painful, or discolored hands/feet; chronic non-healing limb wounds (also: foot turning black)\\n- limb_weakness: Sudden weakness or numbness of arm/leg (one side) (also: one side weak, arm won't lift)\\n- lip_swelling: Swelling of lips, mouth, or face (also: swollen lips, face swelling up)\\n- loc_transient: Brief loss of consciousness after a head injury / blow (only when an injury caused it) (also: knocked out, passed out after hitting my head, blacked out after the fall)\\n- major_trauma_mechanism: Car/motorcycle accident, fall from over 5 metres, or pedestrian hit by vehicle (also: motorbike crash, hit by a car)\\n- medication_run_out: Regular medication has run out (also: out of medication, refill)\\n- melena: Black tarry stool (recent) (also: black stools)\\n- missed_period: Missed period (also: late period)\\n- nasal_congestion: Nasal congestion / blocked nose (also: stuffy nose)\\n- nasal_flaring: Nostrils flaring when breathing (child)\\n- neck_mass: Lump in the neck (also: neck lump)\\n- neck_swelling_dysphagia: Neck swelling with trouble swallowing or breathing (also: can't swallow)\\n- oral_ulcer_chronic: Chronic mouth ulcer that won't heal\\n- orthopnea: Cannot lie flat to breathe (also: needs to sit up to breathe at night)\\n- overdose_or_poison: Drug overdose or exposure to poison/chemicals (also: took too many pills, swallowed chemicals)\\n- pale_cold_sweaty: Pale AND cold AND clammy skin together (shock signs) (also: cold and clammy, pale and cold to the touch)\\n- palm_sole_rash: Red rash on palms, soles, or around the mouth\\n- palpitations: Palpitations / racing heart (also: heart racing, heart pounding)\\n- penetrating_injury_torso: Stab or penetrating wound to neck, chest, or abdomen (also: stabbed)\\n- police_case: Has police report / forensic referral document (also: police sent me for examination)\\n- pregnancy: Currently pregnant (also: expecting)\\n- problem_scar: Problem scar (keloid, contracture, chronic painful/itchy scar) (also: keloid)\\n- rash_itching: Itchy rash / hives (also: hives)\\n- rash_rapidly_spreading: Rash spreading rapidly (within hours) (also: spreading rash)\\n- rash_vesicles: Red rash or fluid-filled blisters on the body (also: blisters)\\n- recent_chemotherapy: Currently receiving chemotherapy (also: on chemo)\\n- retraction: Chest retractions when breathing (also: ribs pulling in when breathing)\\n- runny_nose: Runny nose\\n- seizure_now: Seizure now / convulsing and unresponsive (also: convulsions, fitting)\\n- self_harm_risk: Risk of harming self or others / recent self-harm (also: hurt myself)\\n- severe_morning_sickness: Severe pregnancy vomiting, cannot eat or drink\\n- severe_respiratory_distress: Severe breathing difficulty (cannot speak full sentences / must sit up to breathe) (also: can't speak full sentences, gasping for air, struggling to breathe)\\n- severe_stress: Severe stress / overwhelming distress (also: extremely stressed)\\n- severe_uncontrolled_pain: Very severe pain that cannot be controlled (also: worst pain, unbearable pain)\\n- sexual_assault_72h: Sexual assault within 72 hours\\n- slurred_speech: Slurred or garbled speech (sudden) (also: can't get words out, speech suddenly unclear)\\n- smoking: Smoker\\n- snoring: Snoring / suspected sleep apnea\\n- sore_throat: Sore throat\\n- stiff_neck: Stiff neck with fever\\n- sudden_vision_loss: Sudden loss of vision / double vision (also: suddenly can't see, double vision)\\n- suicidal_ideation: Thoughts of suicide or wanting to die (also: want to end my life)\\n- syncope_24h: Fainting / near-fainting within 24 hours (no injury as the cause) (also: blacked out, passed out today, fainted, nearly fainted, collapsed, lost consciousness for a moment)\\n- tinnitus: Ringing or buzzing in the ear (also: ringing in ears)\\n- unilateral_leg_swelling: One leg swollen and painful (also: swollen calf)\\n- unresponsive: Unresponsive / cannot be woken (also: unconscious, won't wake up, passed out and not waking)\\n- uterine_contractions_frequent: Frequent strong contractions (about every 2 minutes) (also: contractions every few minutes)\\n- vaginal_bleeding: Vaginal bleeding (abnormal) (also: bleeding down there)\\n- varicose_veins: Varicose veins\\n- vertigo: Dizziness / spinning sensation (also: room spinning)\\n- vertigo_positional: Spinning dizziness related to head position (also: dizzy when turning head)\\n- vomiting: Vomiting (also: throwing up, nausea)\\n- wound_infection_signs: Wound infection signs (spreading redness, pus, warmth) (also: pus, infected wound)\\n\\nRules:\\n- A denial (\\\"no\\\", \\\"ไม่มีค่ะ\\\", \\\"none of these\\\", \\\"ไม่มีอาการเหล่านี้\\\") of the pending\\n  question -> ALL of that question's finding ids with state \\\"absent\\\". A bare\\n  denial applies ONLY to the pending question's finding ids — never to other\\n  findings the question wording mentioned in passing.\\n- Explicit negations the patient volunteers anywhere in the message (\\\"no fever\\n  though\\\", \\\"no trouble breathing\\\", \\\"แต่ไม่มีไข้\\\", \\\"หายใจปกติดี\\\") -> those findings\\n  with state \\\"absent\\\" — including in the very first message. This applies to\\n  \\\"X but no Y\\\" sentences too: \\\"I've had a fever since yesterday but no cough\\\"\\n  -> fever \\\"present\\\" AND cough \\\"absent\\\"; \\\"มีไข้ แต่ไม่ไอ ไม่เจ็บคอ\\\" -> fever\\n  \\\"present\\\", cough \\\"absent\\\", sore_throat \\\"absent\\\". Never drop the negated\\n  finding just because the sentence also reports a positive one.\\n- A correction: when the patient says an earlier symptom was a mistake, has gone\\n  away, or was about someone else (\\\"พูดผิด ไม่ได้ปวดท้อง\\\", \\\"หายแล้ว\\\", \\\"ไม่ได้เป็นแล้ว\\\",\\n  \\\"that was my mother, not me\\\", \\\"I was wrong about the sweating\\\") -> that finding\\n  with state \\\"absent\\\", evidence = those words. If they replace their main problem\\n  (\\\"จริงๆ แล้วมาเรื่องผื่น\\\", \\\"I'm actually here for a sore throat\\\") -> also fill\\n  chief_complaint with the new problem and complaint_category with its category.\\n  Do NOT fill chief_complaint when they only add a symptom to the one they have.\\n- A bare affirmation (\\\"yes\\\", \\\"ใช่\\\", \\\"มี\\\") of a pending question that checks exactly\\n  ONE finding -> that finding id with state \\\"present\\\".\\n- A bare affirmation of a pending question that checks SEVERAL findings:\\n  if they are severity grades of the SAME symptom (e.g. dyspnea vs\\n  severe_respiratory_distress) -> record only the mildest as \\\"present\\\";\\n  if they are DISTINCT symptoms (e.g. confusion vs stiff_neck) -> record NO\\n  finding updates (the assistant will ask which one). When the patient names\\n  specific symptoms, record exactly those as \\\"present\\\".\\n- For EVERY finding update, fill evidence with the exact words from the\\n  patient's message that state it — copied verbatim, never paraphrased or\\n  translated. If you cannot quote supporting words, do not record the finding.\\n- Numbers 0-10 answering a pain/breathing question -> pain_score or distress_score.\\n- A timeframe answering when it started or how long it has lasted (e.g.\\n  \\\"2-3 days\\\", \\\"since yesterday\\\") -> fill BOTH slot_updates.onset and\\n  slot_updates.duration when the phrasing covers both, so neither is re-asked.\\n- Ages like \\\"6 เดือน\\\" -> age_years 0.5.\\n- complaint_category: whenever the patient states any symptom, pick the SINGLE\\n  closest category from the allowed list. If more than one could fit (e.g.\\n  sore throat + cough), pick the one matching the symptom they said first.\\n  Use null only when no category fits at all (e.g. a greeting or a question).\\n- wants_human=true only when they explicitly ask for a person/nurse/staff.\\n\\nContext:\\nChief complaint so far: chest tightness for 2 hours\\nThe assistant just asked: Do you have chest pain?\\n\\nPatient message:\\nMy chest has been tight for two hours, it goes into my left arm, no fever\"\n    }\n  ],\n  \"temperature\": 0.1,\n  \"stream\": false,\n  \"response_format\": {\n    \"type\": \"json_schema\",\n    \"json_schema\": {\n      \"name\": \"extraction (en)\",\n      \"strict\": true,\n      \"schema\": {\n        \"$defs\": {\n          \"FindingUpdate\": {\n            \"description\": \"One finding the patient's message resolves.\",\n            \"properties\": {\n              \"id\": {\n                \"description\": \"Canonical finding id from the provided catalog\",\n                \"title\": \"Id\",\n                \"type\": \"string\"\n              },\n              \"state\": {\n                \"description\": \"present if the patient confirms it, absent if they deny it\",\n                \"enum\": [\n                  \"present\",\n                  \"absent\"\n                ],\n                \"title\": \"State\",\n                \"type\": \"string\"\n              },\n              \"value\": {\n                \"anyOf\": [\n                  {\n                    \"type\": \"string\"\n                  },\n                  {\n                    \"type\": \"null\"\n                  }\n                ],\n                \"default\": null,\n                \"description\": \"Optional detail, e.g. '3 days' or 'left side'\",\n                \"title\": \"Value\"\n              },\n              \"evidence\": {\n                \"anyOf\": [\n                  {\n                    \"type\": \"string\"\n                  },\n                  {\n                    \"type\": \"null\"\n                  }\n                ],\n                \"default\": null,\n                \"description\": \"The exact words from the patient's message that state this finding, copied verbatim (same language, no paraphrase)\",\n                \"title\": \"Evidence\"\n              }\n            },\n            \"required\": [\n              \"id\",\n              \"state\"\n            ],\n            \"title\": \"FindingUpdate\",\n            \"type\": \"object\"\n          }\n        },\n        \"description\": \"Structured reading of a single patient message.\",\n        \"properties\": {\n          \"chief_complaint\": {\n            \"anyOf\": [\n              {\n                \"type\": \"string\"\n              },\n              {\n                \"type\": \"null\"\n              }\n            ],\n            \"default\": null,\n            \"description\": \"Patient's main problem in their own words, only when newly stated\",\n            \"title\": \"Chief Complaint\"\n          },\n          \"complaint_category\": {\n            \"anyOf\": [\n              {\n                \"type\": \"string\"\n              },\n              {\n                \"type\": \"null\"\n              }\n            ],\n            \"default\": null,\n            \"description\": \"Best matching complaint category from the provided list, or null\",\n            \"title\": \"Complaint Category\"\n          },\n          \"finding_updates\": {\n            \"items\": {\n              \"$ref\": \"#/$defs/FindingUpdate\"\n            },\n            \"title\": \"Finding Updates\",\n            \"type\": \"array\"\n          },\n          \"slot_updates\": {\n            \"additionalProperties\": {\n              \"type\": \"string\"\n            },\n            \"description\": \"OLDCARTS slots this message answers (onset, location, duration, character, aggravating, relieving, timing, severity) mapped to the answer text\",\n            \"title\": \"Slot Updates\",\n            \"type\": \"object\"\n          },\n          \"age_years\": {\n            \"anyOf\": [\n              {\n                \"type\": \"number\"\n              },\n              {\n                \"type\": \"null\"\n              }\n            ],\n            \"default\": null,\n            \"description\": \"Patient age in years when stated (0.5 = 6 months)\",\n            \"title\": \"Age Years\"\n          },\n          \"gender\": {\n            \"anyOf\": [\n              {\n                \"enum\": [\n                  \"male\",\n                  \"female\"\n                ],\n                \"type\": \"string\"\n              },\n              {\n                \"type\": \"null\"\n              }\n            ],\n            \"default\": null,\n            \"description\": \"The patient's sex ONLY when they explicitly state it (e.g. 'male', 'female', 'ชาย', 'หญิง', typically answering the gender question). Never guess it from the name, symptoms, or wording; null when unstated or declined\",\n            \"title\": \"Gender\"\n          },\n          \"pain_score\": {\n            \"anyOf\": [\n              {\n                \"maximum\": 10,\n                \"minimum\": 0,\n                \"type\": \"integer\"\n              },\n              {\n                \"type\": \"null\"\n              }\n            ],\n            \"default\": null,\n            \"description\": \"0-10 pain score when stated\",\n            \"title\": \"Pain Score\"\n          },\n          \"distress_score\": {\n            \"anyOf\": [\n              {\n                \"maximum\": 10,\n                \"minimum\": 0,\n                \"type\": \"integer\"\n              },\n              {\n                \"type\": \"null\"\n              }\n            ],\n            \"default\": null,\n            \"description\": \"0-10 breathing difficulty score when stated\",\n            \"title\": \"Distress Score\"\n          },\n          \"temperature_c\": {\n            \"anyOf\": [\n              {\n                \"type\": \"number\"\n              },\n              {\n                \"type\": \"null\"\n              }\n            ],\n            \"default\": null,\n            \"description\": \"Body temperature in Celsius when stated\",\n            \"title\": \"Temperature C\"\n          },\n          \"spo2_percent\": {\n            \"anyOf\": [\n              {\n                \"type\": \"number\"\n              },\n              {\n                \"type\": \"null\"\n              }\n            ],\n            \"default\": null,\n            \"description\": \"Blood oxygen saturation percentage when the patient states a reading they measured themselves (e.g. a home pulse oximeter)\",\n            \"title\": \"Spo2 Percent\"\n          },\n          \"is_question_to_assistant\": {\n            \"default\": false,\n            \"description\": \"True when the message is a question to the assistant rather than an answer about symptoms\",\n            \"title\": \"Is Question To Assistant\",\n            \"type\": \"boolean\"\n          },\n          \"wants_human\": {\n            \"default\": false,\n            \"description\": \"True when the patient asks for a human/nurse\",\n            \"title\": \"Wants Human\",\n            \"type\": \"boolean\"\n          }\n        },\n        \"title\": \"ExtractionResult\",\n        \"type\": \"object\"\n      }\n    }\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "**Extraction — read one patient message into findings**\n\nEvery turn, first. The only call whose output changes the triage: it reports what the patient said, and the rules engine decides what that means.\n\nCarries no patient identifier — see `docs/ai-model-io.md`."
+          },
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": "json",
+          "header": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "cookie": [],
+          "body": "{\n  \"id\": \"chatcmpl-mfu-0001\",\n  \"object\": \"chat.completion\",\n  \"model\": \"{{LLM_MODEL}}\",\n  \"choices\": [\n    {\n      \"index\": 0,\n      \"message\": {\n        \"role\": \"assistant\",\n        \"content\": \"{\\\"chief_complaint\\\": \\\"แน่นหน้าอกมา 2 ชั่วโมง ร้าวไปแขนซ้าย\\\", \\\"complaint_category\\\": \\\"chest_pain\\\", \\\"finding_updates\\\": [{\\\"id\\\": \\\"chest_pain_radiating\\\", \\\"state\\\": \\\"present\\\", \\\"evidence\\\": \\\"ร้าวไปแขนซ้าย\\\"}, {\\\"id\\\": \\\"fever\\\", \\\"state\\\": \\\"absent\\\", \\\"evidence\\\": \\\"ไม่มีไข้\\\"}], \\\"slot_updates\\\": {\\\"onset\\\": \\\"2 ชั่วโมง\\\", \\\"location\\\": \\\"หน้าอก\\\"}, \\\"age_years\\\": null, \\\"pain_score\\\": null, \\\"distress_score\\\": null}\"\n      },\n      \"finish_reason\": \"stop\"\n    }\n  ],\n  \"usage\": {\n    \"prompt_tokens\": 0,\n    \"completion_tokens\": 0,\n    \"total_tokens\": 0\n  }\n}"
+        }
+      ]
+    },
+    {
+      "name": "question (en)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{LLM_BASE_URL}}/chat/completions",
+          "host": [
+            "{{LLM_BASE_URL}}"
+          ],
+          "path": [
+            "chat",
+            "completions"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"model\": \"{{LLM_MODEL}}\",\n  \"messages\": [\n    {\n      \"role\": \"user\",\n      \"content\": \"You are a warm, calm hospital screening assistant speaking English. Speak plainly, like a kind nurse at a front desk — no medical jargon. One or two short sentences at a time; never lists. Acknowledge what the patient just said before moving on, briefly and without repeating it back at length. STRICT RULES: never mention triage levels, colors, scores, or classifications; never diagnose or name a suspected disease; never recommend medication.\\nYou are in the middle of a screening conversation. Recent exchange:\\nuser: My chest has been tight for two hours, it goes into my left arm\\nYou: [NAME], I understand. Are you short of breath right now?\\nPatient context: chest tightness for 2 hours\\nAlready answered — do not re-ask: อายุ 58 ปี | ความดัน 158/94\\nFirst, write `ack`: one short clause (under 12 words) that acknowledges what the patient just said, warmly and without repeating it back at length. It must not contain a question, advice, or reassurance about the outcome. Vary it — never reuse the wording of your previous line; a single word or nothing at all is often best. Leave it empty if there is nothing to acknowledge.\\nThen write `question`: rephrase the question below conversationally, preserving its exact clinical meaning. Exactly ONE question, one or two short sentences, no lists, no medical jargon. Do NOT re-ask anything already answered.\\nAlso provide 3 or 4 short answer choices (max 30 characters each) the patient could tap to answer, in English, mutually distinct, covering the most likely answers; never include diagnoses, levels, or medication.\\nQuestion: อาการเจ็บหน้าอกร้าวไปที่แขน คอ หรือกรามหรือไม่\"\n    }\n  ],\n  \"temperature\": 0.1,\n  \"stream\": false,\n  \"response_format\": {\n    \"type\": \"json_schema\",\n    \"json_schema\": {\n      \"name\": \"question (en)\",\n      \"strict\": true,\n      \"schema\": {\n        \"description\": \"Structured render: acknowledgement + question + tappable answers.\",\n        \"properties\": {\n          \"ack\": {\n            \"default\": \"\",\n            \"description\": \"One short clause acknowledging what the patient just said, with no question in it; empty when there is nothing to acknowledge\",\n            \"title\": \"Ack\",\n            \"type\": \"string\"\n          },\n          \"question\": {\n            \"description\": \"The screening question to ask next\",\n            \"title\": \"Question\",\n            \"type\": \"string\"\n          },\n          \"options\": {\n            \"description\": \"3 or 4 short, mutually distinct answer choices the patient could tap, in the same language as the question\",\n            \"items\": {\n              \"type\": \"string\"\n            },\n            \"title\": \"Options\",\n            \"type\": \"array\"\n          }\n        },\n        \"required\": [\n          \"question\"\n        ],\n        \"title\": \"PhrasedQuestion\",\n        \"type\": \"object\"\n      }\n    }\n  }\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "description": "**Question — acknowledge, then ask the approved question**\n\nEvery interview turn, once the rules engine has picked the next question. The model returns a short acknowledgement and (only for history/associated-symptom questions) a rewording. Red-flag, scale, measurement and confirm questions are sent with a 'return it unchanged' instruction and the engine uses the criteria text regardless of what comes back.\n\nCarries no patient identifier — see `docs/ai-model-io.md`."
+      },
+      "response": [
+        {
+          "name": "200 — what the engine parses",
+          "originalRequest": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{LLM_BASE_URL}}/chat/completions",
+              "host": [
+                "{{LLM_BASE_URL}}"
+              ],
+              "path": [
+                "chat",
+                "completions"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"model\": \"{{LLM_MODEL}}\",\n  \"messages\": [\n    {\n      \"role\": \"user\",\n      \"content\": \"You are a warm, calm hospital screening assistant speaking English. Speak plainly, like a kind nurse at a front desk — no medical jargon. One or two short sentences at a time; never lists. Acknowledge what the patient just said before moving on, briefly and without repeating it back at length. STRICT RULES: never mention triage levels, colors, scores, or classifications; never diagnose or name a suspected disease; never recommend medication.\\nYou are in the middle of a screening conversation. Recent exchange:\\nuser: My chest has been tight for two hours, it goes into my left arm\\nYou: [NAME], I understand. Are you short of breath right now?\\nPatient context: chest tightness for 2 hours\\nAlready answered — do not re-ask: อายุ 58 ปี | ความดัน 158/94\\nFirst, write `ack`: one short clause (under 12 words) that acknowledges what the patient just said, warmly and without repeating it back at length. It must not contain a question, advice, or reassurance about the outcome. Vary it — never reuse the wording of your previous line; a single word or nothing at all is often best. Leave it empty if there is nothing to acknowledge.\\nThen write `question`: rephrase the question below conversationally, preserving its exact clinical meaning. Exactly ONE question, one or two short sentences, no lists, no medical jargon. Do NOT re-ask anything already answered.\\nAlso provide 3 or 4 short answer choices (max 30 characters each) the patient could tap to answer, in English, mutually distinct, covering the most likely answers; never include diagnoses, levels, or medication.\\nQuestion: อาการเจ็บหน้าอกร้าวไปที่แขน คอ หรือกรามหรือไม่\"\n    }\n  ],\n  \"temperature\": 0.1,\n  \"stream\": false,\n  \"response_format\": {\n    \"type\": \"json_schema\",\n    \"json_schema\": {\n      \"name\": \"question (en)\",\n      \"strict\": true,\n      \"schema\": {\n        \"description\": \"Structured render: acknowledgement + question + tappable answers.\",\n        \"properties\": {\n          \"ack\": {\n            \"default\": \"\",\n            \"description\": \"One short clause acknowledging what the patient just said, with no question in it; empty when there is nothing to acknowledge\",\n            \"title\": \"Ack\",\n            \"type\": \"string\"\n          },\n          \"question\": {\n            \"description\": \"The screening question to ask next\",\n            \"title\": \"Question\",\n            \"type\": \"string\"\n          },\n          \"options\": {\n            \"description\": \"3 or 4 short, mutually distinct answer choices the patient could tap, in the same language as the question\",\n            \"items\": {\n              \"type\": \"string\"\n            },\n            \"title\": \"Options\",\n            \"type\": \"array\"\n          }\n        },\n        \"required\": [\n          \"question\"\n        ],\n        \"title\": \"PhrasedQuestion\",\n        \"type\": \"object\"\n      }\n    }\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "**Question — acknowledge, then ask the approved question**\n\nEvery interview turn, once the rules engine has picked the next question. The model returns a short acknowledgement and (only for history/associated-symptom questions) a rewording. Red-flag, scale, measurement and confirm questions are sent with a 'return it unchanged' instruction and the engine uses the criteria text regardless of what comes back.\n\nCarries no patient identifier — see `docs/ai-model-io.md`."
+          },
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": "json",
+          "header": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "cookie": [],
+          "body": "{\n  \"id\": \"chatcmpl-mfu-0001\",\n  \"object\": \"chat.completion\",\n  \"model\": \"{{LLM_MODEL}}\",\n  \"choices\": [\n    {\n      \"index\": 0,\n      \"message\": {\n        \"role\": \"assistant\",\n        \"content\": \"{\\\"ack\\\": \\\"เข้าใจค่ะ\\\", \\\"question\\\": \\\"อาการเจ็บที่หน้าอก มีร้าวไปที่แขน คอ หรือกรามด้วยไหมคะ\\\", \\\"options\\\": [\\\"ร้าวไปแขน\\\", \\\"ร้าวไปคอหรือกราม\\\", \\\"ไม่ร้าวไปไหน\\\", \\\"ไม่แน่ใจ\\\"]}\"\n      },\n      \"finish_reason\": \"stop\"\n    }\n  ],\n  \"usage\": {\n    \"prompt_tokens\": 0,\n    \"completion_tokens\": 0,\n    \"total_tokens\": 0\n  }\n}"
+        }
+      ]
+    },
+    {
+      "name": "explain (en)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{LLM_BASE_URL}}/chat/completions",
+          "host": [
+            "{{LLM_BASE_URL}}"
+          ],
+          "path": [
+            "chat",
+            "completions"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"model\": \"{{LLM_MODEL}}\",\n  \"messages\": [\n    {\n      \"role\": \"user\",\n      \"content\": \"You are a warm, calm hospital screening assistant speaking English. Speak plainly, like a kind nurse at a front desk — no medical jargon. One or two short sentences at a time; never lists. Acknowledge what the patient just said before moving on, briefly and without repeating it back at length. STRICT RULES: never mention triage levels, colors, scores, or classifications; never diagnose or name a suspected disease; never recommend medication.\\nThe clinical rules engine has decided where this patient should go — your ONLY job is to explain it kindly in 2–4 short sentences. Do not name any other department.\\nPatient's reported symptoms: แน่นหน้าอกมา 2 ชั่วโมง ร้าวไปแขนซ้าย\\nSend the patient to: แผนก OPD MED (อายุรกรรม)\\nAddress the patient once, naturally, writing the literal token [NAME] exactly where their name belongs (do not invent a name, do not translate the token).\\n\"\n    }\n  ],\n  \"temperature\": 0.1,\n  \"stream\": false\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "description": "**Explain — phrase the decision the rules already made**\n\nOnce, at disposition. The department and urgency are inputs, not something the model chooses.\n\nCarries no patient identifier — see `docs/ai-model-io.md`."
+      },
+      "response": [
+        {
+          "name": "200 — what the engine parses",
+          "originalRequest": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{LLM_BASE_URL}}/chat/completions",
+              "host": [
+                "{{LLM_BASE_URL}}"
+              ],
+              "path": [
+                "chat",
+                "completions"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"model\": \"{{LLM_MODEL}}\",\n  \"messages\": [\n    {\n      \"role\": \"user\",\n      \"content\": \"You are a warm, calm hospital screening assistant speaking English. Speak plainly, like a kind nurse at a front desk — no medical jargon. One or two short sentences at a time; never lists. Acknowledge what the patient just said before moving on, briefly and without repeating it back at length. STRICT RULES: never mention triage levels, colors, scores, or classifications; never diagnose or name a suspected disease; never recommend medication.\\nThe clinical rules engine has decided where this patient should go — your ONLY job is to explain it kindly in 2–4 short sentences. Do not name any other department.\\nPatient's reported symptoms: แน่นหน้าอกมา 2 ชั่วโมง ร้าวไปแขนซ้าย\\nSend the patient to: แผนก OPD MED (อายุรกรรม)\\nAddress the patient once, naturally, writing the literal token [NAME] exactly where their name belongs (do not invent a name, do not translate the token).\\n\"\n    }\n  ],\n  \"temperature\": 0.1,\n  \"stream\": false\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "**Explain — phrase the decision the rules already made**\n\nOnce, at disposition. The department and urgency are inputs, not something the model chooses.\n\nCarries no patient identifier — see `docs/ai-model-io.md`."
+          },
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": "json",
+          "header": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "cookie": [],
+          "body": "{\n  \"id\": \"chatcmpl-mfu-0001\",\n  \"object\": \"chat.completion\",\n  \"model\": \"{{LLM_MODEL}}\",\n  \"choices\": [\n    {\n      \"index\": 0,\n      \"message\": {\n        \"role\": \"assistant\",\n        \"content\": \"[NAME] คะ จากอาการที่เล่ามา ทางเราขอให้ไปที่แผนก OPD MED (อายุรกรรม) เพื่อให้แพทย์ตรวจดูอย่างละเอียดนะคะ เดี๋ยวเจ้าหน้าที่จะช่วยแนะนำทางให้ค่ะ\"\n      },\n      \"finish_reason\": \"stop\"\n    }\n  ],\n  \"usage\": {\n    \"prompt_tokens\": 0,\n    \"completion_tokens\": 0,\n    \"total_tokens\": 0\n  }\n}"
+        }
+      ]
+    },
+    {
+      "name": "stt",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "url": {
+          "raw": "{{LLM_BASE_URL}}/audio/transcriptions",
+          "host": [
+            "{{LLM_BASE_URL}}"
+          ],
+          "path": [
+            "audio",
+            "transcriptions"
+          ]
+        },
+        "body": {
+          "mode": "formdata",
+          "formdata": [
+            {
+              "key": "model",
+              "value": "{STT_MODEL}",
+              "type": "text"
+            },
+            {
+              "key": "language",
+              "value": "th",
+              "type": "text"
+            },
+            {
+              "key": "response_format",
+              "value": "json",
+              "type": "text"
+            },
+            {
+              "key": "file",
+              "value": "<turn audio, audio/wav>",
+              "type": "file"
+            }
+          ]
+        },
+        "description": "**STT — POST {LLM_BASE_URL}/audio/transcriptions**\n\nEvery patient turn: the 16 kHz PCM of that turn, multipart.\n\nCarries: raw patient audio (whatever they say, including a name)."
+      }
+    },
+    {
+      "name": "tts",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{LLM_BASE_URL}}/audio/speech",
+          "host": [
+            "{{LLM_BASE_URL}}"
+          ],
+          "path": [
+            "audio",
+            "speech"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"model\": \"{TTS_MODEL}\",\n  \"input\": \"สวัสดีค่ะ คุณสมชาย วันนี้มีอาการอะไรให้ช่วยคะ\",\n  \"voice\": \"{TTS_LOCAL_VOICE_TH}\",\n  \"response_format\": \"wav\",\n  \"sample_rate\": 24000\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "description": "**TTS — POST {LLM_BASE_URL}/audio/speech**\n\nEvery assistant line the patient hears.\n\nCarries: the finished reply text — the greeting includes the patient's given name."
+      }
+    }
+  ]
+}

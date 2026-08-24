@@ -126,6 +126,23 @@ def build_screening_graph(deps: GraphDeps):
         # disposing. A yes fires the rule next turn; a no corrects the
         # extraction; two non-answers accept it (fail-safe: over-triage).
         state.pending_confirm = []
+        # Confirm-before-stand-down, the mirror of confirm-before-fire: a
+        # critical finding the patient had CONFIRMED and then retracted in
+        # free text gets its verbatim confirm question once (an STT "ไม่"
+        # must not silently cancel an emergency path). The answer confirms
+        # whichever state it lands on; the same two-ask cap as any confirm.
+        if state.pending_retraction:
+            counts = Counter(state.asked_question_ids)
+            retracted = [
+                fid for fid in state.pending_retraction
+                if counts.get(
+                    confirm_question_for(criteria, fid, state.complaint_category).id, 0
+                ) < 2
+            ]
+            state.pending_retraction = []
+            if retracted:
+                state.pending_confirm = retracted[:3]
+                return "question"
         if provisional.level <= 2:
             need = _confirmation_targets(state, criteria, provisional)
             if need:

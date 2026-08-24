@@ -42,9 +42,9 @@ async def _serialize_review(
             NULLIF(s.metadata->>'patient_contact_preferred_time', '') AS patient_contact_preferred_time,
             NULLIF(s.metadata->>'patient_contact_relation', '') AS patient_contact_relation,
             s.metadata->'triage_classification'->'disposition_reasons' AS disposition_reasons,
-            s.metadata->'visit'->>'visit_id' AS visit_id,
-            NULLIF(s.metadata->'visit'->>'patient_name', '') AS patient_name,
-            NULLIF(s.metadata->'visit'->>'hn', '') AS patient_hn,
+            s.metadata->'patient'->>'visit_id' AS visit_id,
+            NULLIF(s.metadata->'patient'->>'patient_name', '') AS patient_name,
+            NULLIF(s.metadata->'patient'->>'hn', '') AS patient_hn,
             s.metadata->'patient_history' AS patient_history,
             s.metadata->'vitals' AS vitals,
             s.metadata->'triage_classification'->>'symptoms_summary' AS ai_chief_complaint,
@@ -54,6 +54,7 @@ async def _serialize_review(
             s.metadata->'his_routing'->>'queue_number' AS his_queue_number,
             s.metadata->'his_routing'->>'message_th' AS his_routing_message_th,
             s.metadata->'his_routing'->>'request_id' AS his_request_id,
+            s.metadata->'rag_grounding' AS rag_grounding,
             ss.state->'measured_vitals' AS screening_measured_vitals,
             ss.state->'rejected_vitals' AS screening_rejected_vitals,
             ss.state->>'phase' AS screening_phase
@@ -185,9 +186,9 @@ async def list_assessment_reviews(
             NULLIF(s.metadata->>'patient_contact_preferred_time', '') AS patient_contact_preferred_time,
             NULLIF(s.metadata->>'patient_contact_relation', '') AS patient_contact_relation,
             s.metadata->'triage_classification'->'disposition_reasons' AS disposition_reasons,
-            s.metadata->'visit'->>'visit_id' AS visit_id,
-            NULLIF(s.metadata->'visit'->>'patient_name', '') AS patient_name,
-            NULLIF(s.metadata->'visit'->>'hn', '') AS patient_hn,
+            s.metadata->'patient'->>'visit_id' AS visit_id,
+            NULLIF(s.metadata->'patient'->>'patient_name', '') AS patient_name,
+            NULLIF(s.metadata->'patient'->>'hn', '') AS patient_hn,
             s.metadata->'patient_history' AS patient_history,
             s.metadata->'vitals' AS vitals,
             s.metadata->'triage_classification'->>'symptoms_summary' AS ai_chief_complaint,
@@ -197,6 +198,7 @@ async def list_assessment_reviews(
             s.metadata->'his_routing'->>'queue_number' AS his_queue_number,
             s.metadata->'his_routing'->>'message_th' AS his_routing_message_th,
             s.metadata->'his_routing'->>'request_id' AS his_request_id,
+            s.metadata->'rag_grounding' AS rag_grounding,
             ss.state->'measured_vitals' AS screening_measured_vitals,
             ss.state->'rejected_vitals' AS screening_rejected_vitals,
             ss.state->>'phase' AS screening_phase
@@ -236,6 +238,34 @@ def _resolve_request_id(prior: dict[str, Any] | None, department_code: str) -> s
     return f"MFU-{datetime.now(timezone.utc):%Y%m%d}-{uuid4().hex[:6].upper()}"
 
 
+async def _set_visit_passthrough(
+    connection: asyncpg.Connection, session_id, visit_id: str | None
+) -> None:
+    """Nurse-entered VN for a session whose HIS lookup had no current visit.
+
+    Fills metadata.patient.visit_id only — never touches identity (hn), and
+    is a no-op for anonymous sessions (no patient link to hang a VN on)."""
+    cleaned = (visit_id or "").strip()
+    if not cleaned:
+        return
+    row = await connection.fetchrow(
+        "SELECT metadata FROM sessions WHERE id = $1", session_id
+    )
+    if row is None:
+        return
+    metadata = dict(row["metadata"] or {})
+    patient = dict(metadata.get("patient") or {})
+    if not patient.get("hn"):
+        return
+    patient["visit_id"] = cleaned
+    metadata["patient"] = patient
+    await connection.execute(
+        "UPDATE sessions SET metadata = $2::jsonb WHERE id = $1",
+        session_id,
+        metadata,
+    )
+
+
 async def _push_his_routing(
     request: Request,
     connection: asyncpg.Connection,
@@ -248,8 +278,9 @@ async def _push_his_routing(
     illness_note: str | None = None,
     sbar: SbarPayload | None = None,
 ) -> None:
-    """Stage-2 HIS write-back: send the visit to its destination service point
-    now that a nurse has signed off (the hospital's patient-assignment API).
+    """Stage-2 HIS write-back: send the patient to their destination
+    department now that a nurse has signed off (the hospital's
+    patient-assignment API, Data Requirements V1 §2.2/§4.4).
 
     Best-effort — never raises into the endpoint. The whole outcome is stored
     on ``session.metadata.his_routing`` so the nurse sees the queue number, or
@@ -259,10 +290,10 @@ async def _push_his_routing(
     """
     from app.services.screening.his import (
         AssignmentResult,
+        his_department_id,
         his_department_name,
-        his_service_point,
     )
-    from app.services.screening.his.sbar import build_sbar
+    from app.services.screening.his.sbar import build_mfu_prescreen, build_sbar
 
     session_row = await connection.fetchrow(
         "SELECT metadata FROM sessions WHERE id = $1", session_id
@@ -290,10 +321,14 @@ async def _push_his_routing(
     if not department_id:
         await _record({"status": "skipped", "reason": "no_department"})
         return
-    visit_id = (metadata.get("visit") or {}).get("visit_id")
-    if not visit_id:
-        await _record({"status": "skipped", "reason": "no_visit_link"})
+    patient = metadata.get("patient") or {}
+    hn = patient.get("hn")
+    if not hn:
+        await _record({"status": "skipped", "reason": "no_patient_link"})
         return
+    # VN passthrough when the HIS knew an open visit at link time; the HIS
+    # resolves the HN's active visit itself otherwise.
+    visit_id = patient.get("visit_id")
     dept = await connection.fetchrow(
         "SELECT code, name_th FROM departments WHERE id = $1", department_id
     )
@@ -302,14 +337,14 @@ async def _push_his_routing(
         return
 
     his_dept = his_department_name(dept["code"]) or dept["name_th"] or dept["code"]
-    assign_spid = his_service_point(dept["code"])
-    if not assign_spid:
-        # Never invent a service-point id: the hospital would queue the patient
+    base_department_id = his_department_id(dept["code"])
+    if not base_department_id:
+        # Never invent a department id: the hospital would queue the patient
         # somewhere real, or reject the call.
         await _record(
             {
                 "status": "skipped",
-                "reason": "no_service_point",
+                "reason": "no_department_id",
                 "department": his_dept,
                 "department_code": dept["code"],
             }
@@ -327,13 +362,21 @@ async def _push_his_routing(
     edited = sent_sbar != engine_sbar
 
     request_id = _resolve_request_id(prior, dept["code"])
+    mfu_prescreen = build_mfu_prescreen(
+        metadata,
+        confirmed_by=confirmed_by,
+        rerouted=rerouted,
+        session_id=str(session_id),
+    )
     adapter = request.app.state.his_adapter
     try:
         result = await adapter.confirm_routing(
             visit_id,
             request_id=request_id,
-            assign_spid=assign_spid,
+            hn=hn,
+            base_department_id=base_department_id,
             sbar=sent_sbar,
+            mfu_prescreen=mfu_prescreen,
         )
     except Exception:  # pragma: no cover - defensive
         logger.exception("[session=%s] HIS stage-2 assignment raised", session_id)
@@ -346,7 +389,7 @@ async def _push_his_routing(
         "request_id": result.request_id,
         "department": his_dept,
         "department_code": dept["code"],
-        "assign_spid": assign_spid,
+        "base_department_id": base_department_id,
         "queue_number": result.queue_number,
         "visit_queue_id": result.visit_queue_id,
         "queue_status": result.queue_status,
@@ -482,6 +525,7 @@ async def approve_assessment_review(
             "Approved by OPD nurse review",
         )
 
+    await _set_visit_passthrough(connection, row["session_id"], payload.visit_id)
     await _push_his_routing(
         request,
         connection,
@@ -580,6 +624,9 @@ async def correct_assessment_review(
         payload.reason,
     )
 
+    await _set_visit_passthrough(
+        connection, review_before["session_id"], payload.visit_id
+    )
     await _push_his_routing(
         request,
         connection,

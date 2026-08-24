@@ -94,36 +94,39 @@ class SessionMeasurementUpdate(BaseModel):
         return self
 
 
-class LinkVisitRequest(BaseModel):
-    visit_id: str = Field(..., min_length=1, max_length=64)
+class LinkPatientRequest(BaseModel):
+    hn: str = Field(..., min_length=1, max_length=64)
     # Same kiosk walk-up, identity already spoken-confirmed (e.g. start over
     # relinks on a fresh session): carry the confirmation atomically so the
     # new call never re-asks "are you {name}?".
     preconfirmed: bool = False
 
 
-class LinkVisitResponse(BaseModel):
+class LinkPatientResponse(BaseModel):
     linked: bool
-    visit_id: str
+    # Echoing the HN the patient just typed leaks nothing — unlike the old
+    # VN flow, the HN IS what they entered. Everything else stays minimal:
+    # this endpoint is unauthenticated by design.
+    hn: str
     patient_name: str | None = None
     age_years: int | None = None
-    appointment: bool = False
-    has_his_vitals: bool = False
+    # None when the HIS knows no open visit for this HN — screening still
+    # runs; the write-backs then go HN-only.
+    appointment: bool | None = None
     is_first_time: bool = False
-    # No `hn`: this endpoint is unauthenticated by design — the VN the patient
-    # types IS the credential — so it must return only what the kiosk renders.
-    # Nothing consumed the HN (the admin panel gets it from its own API), and
-    # handing a hospital number to anyone who guesses a VN is the same leak
-    # that was just closed on GET /sessions/by-visit.
 
 
 class PatientHistoryIntakeRequest(BaseModel):
-    """First-time-patient structured history collected at the booth."""
+    """First-time-patient structured history collected at the booth.
 
-    smoking_alcohol: str | None = Field(default=None, max_length=500)
+    Field names per Data Requirements V1 §1.3: smoking and alcohol are
+    separate questions, surgery history is ``post_surgeries``."""
+
+    smoking: str | None = Field(default=None, max_length=500)
+    alcohol: str | None = Field(default=None, max_length=500)
     allergies: str | None = Field(default=None, max_length=500)
     chronic_conditions: str | None = Field(default=None, max_length=500)
-    past_surgeries: str | None = Field(default=None, max_length=500)
+    post_surgeries: str | None = Field(default=None, max_length=500)
     family_history: str | None = Field(default=None, max_length=500)
 
 
@@ -184,14 +187,13 @@ class BloodPressureFetchResponse(BaseModel):
 
 
 class BpRestStatusOut(BaseModel):
-    """Whether this patient/visit must wait before another BP reading."""
+    """Whether this patient (HN) must wait before another BP reading."""
 
     resting: bool
     rest_until: datetime | None = None
     seconds_remaining: int = 0
     reason: str | None = None
     hn: str | None = None
-    visit_id: str | None = None
 
 
 class BpDeviceStatusOut(BaseModel):
@@ -391,8 +393,8 @@ class SessionOut(BaseModel):
     metadata: dict[str, Any]
 
 
-class ConfirmVisitNameRequest(BaseModel):
-    """Patient response to \"Is this you, {name}?\" after link-visit.
+class ConfirmPatientNameRequest(BaseModel):
+    """Patient response to \"Is this you, {name}?\" after link-patient.
 
     Provide either ``confirmed`` (button) or ``text`` (typed/spoken natural
     language). When ``text`` is set, the shared yes/no classifier decides.
@@ -402,8 +404,8 @@ class ConfirmVisitNameRequest(BaseModel):
     text: str | None = Field(default=None, max_length=200)
 
 
-class ConfirmVisitNameResponse(BaseModel):
-    """Outcome of the VN name-confirm step."""
+class ConfirmPatientNameResponse(BaseModel):
+    """Outcome of the HN name-confirm step."""
 
     decision: Literal["yes", "no", "uncertain", "other"]
     name_confirmed: bool
@@ -411,17 +413,17 @@ class ConfirmVisitNameResponse(BaseModel):
     patient_name: str | None = None
 
 
-class SessionByVisitOut(BaseModel):
-    """Result of looking up a recent session by hospital visit ID (VN).
+class SessionByHnOut(BaseModel):
+    """Result of looking up a recent session by patient HN.
 
-    ``found=False`` when no same-day session is linked to this VN — the
-    client should create a new session and call ``link-visit``. When
+    ``found=False`` when no recent-window session is linked to this HN — the
+    client should create a new session and call ``link-patient``. When
     ``found=True``, ``status`` says what the kiosk should offer: ``active``
     → continue or start over; ``completed`` → start over / reprint slip.
     """
 
     found: bool
-    visit_id: str
+    hn: str
     session: SessionOut | None = None
     status: str | None = None
     patient_name: str | None = None
@@ -651,6 +653,9 @@ class SbarPreviewRequest(BaseModel):
 
 class AssessmentReviewApproveRequest(BaseModel):
     notes: str | None = None
+    # Nurse-entered VN when the HIS gave us no current_visit at link time —
+    # written to metadata.patient.visit_id before the Stage-2 push.
+    visit_id: str | None = Field(default=None, max_length=64)
     ai_assessment_score: int | None = Field(default=None, ge=1, le=10)
     # Nurse-confirmed clinical narrative (edited or accepted as-is); published
     # to the HIS at Stage 2. None keeps the AI's values.
@@ -662,6 +667,7 @@ class AssessmentReviewApproveRequest(BaseModel):
 class AssessmentReviewCorrectRequest(BaseModel):
     confirmed_department_id: UUID
     reason: str | None = None
+    visit_id: str | None = Field(default=None, max_length=64)
     ai_assessment_score: int | None = Field(default=None, ge=1, le=10)
     chief_complaint: str | None = None
     illness_note: str | None = None
@@ -691,8 +697,9 @@ class AssessmentReviewOut(BaseModel):
     disposition_reasons: list[dict[str, Any]] | None = None
     notes: str | None = None
     # Booth context for the review screen: measurements taken at the kiosk,
-    # the linked HIS visit, and the AI narrative the nurse can edit before it
-    # is published to the HIS at Stage 2.
+    # the linked patient (HN-first; visit_id is the VN passthrough when the
+    # HIS knew an open visit), and the AI narrative the nurse can edit before
+    # it is published to the HIS at Stage 2.
     visit_id: str | None = None
     patient_name: str | None = None
     patient_hn: str | None = None
@@ -720,6 +727,10 @@ class AssessmentReviewOut(BaseModel):
     his_queue_number: str | None = None
     his_routing_message_th: str | None = None
     his_request_id: str | None = None
+    # Whether the patient-facing explanation drew on the uploaded triage
+    # manual: {used, reason, hits[{title,page,chars}], chars, latency_ms}.
+    # Null for sessions that never reached the explain step.
+    rag_grounding: dict[str, Any] | None = None
     reviewed_at: datetime | None = None
     created_at: datetime
     updated_at: datetime

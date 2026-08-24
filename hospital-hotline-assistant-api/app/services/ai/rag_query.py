@@ -197,9 +197,10 @@ async def search_triage_manual_status(
 ) -> dict[str, object]:
     """Search the indexed triage manual and return explicit fallback status.
 
-    The ADK live/text triage agents use this shape so they can prefer the
-    uploaded pgvector index when available, while transparently falling back to
-    static JSON references when the index is missing, empty, or unavailable.
+    The screening engine's explain node uses this shape (via
+    ``GraphDeps.rag_search``) so it injects manual passages only when
+    ``available`` is true and can record WHY grounding did not happen
+    (``fallback_reason``) plus WHICH pages it drew on (``hits``).
     """
 
     clean_query = str(query or "").strip()
@@ -239,6 +240,7 @@ async def search_triage_manual_status(
             }
 
         passages: list[str] = []
+        hits: list[dict[str, object]] = []
         for node in nodes:
             text = getattr(node.node, "text", "") or ""
             title = node.node.metadata.get("title", "")
@@ -247,6 +249,9 @@ async def search_triage_manual_status(
             passage = f"{header}\n{text}".strip()
             if passage:
                 passages.append(passage)
+                # Structured citation for the audit trail / nurse view, so
+                # "grounded" can name the manual page it came from.
+                hits.append({"title": title or None, "page": page or None, "chars": len(text)})
 
         if not passages:
             logger.warning(
@@ -271,6 +276,7 @@ async def search_triage_manual_status(
             "available": True,
             "source": "indexed_triage_manual",
             "passages": joined,
+            "hits": hits,
             "fallback_reason": None,
             "language": lang,
         }

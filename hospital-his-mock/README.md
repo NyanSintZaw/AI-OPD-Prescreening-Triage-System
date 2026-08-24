@@ -84,21 +84,37 @@ for the demo: watch a visit's record go blank → `screened` (stage 1) →
 
 ## API
 
-All endpoints require `X-API-Key` (default `demo-his-key`, override with
-`HIS_MOCK_API_KEY`).
+Two families. **`/api/v1/*`** is the hospital contract per the *Data
+Requirements Specification V1* (2026-08-11) — what `HttpHisAdapter` calls;
+auth is `Authorization: Bearer` **or** `X-API-Key`. **`/api/*`** is the
+legacy/admin family (admin Hospital DB tab, demo reset); `X-API-Key` only.
+Default key `demo-his-key`, override with `HIS_MOCK_API_KEY`.
+
+### `/api/v1` — the hospital contract (HN-first)
+
+| Method | Path | Purpose |
+|---|---|---|
+| GET | `/api/v1/patients/{hn}` | **The booth's identity read**: demographics, split history (`smoking`/`alcohol`, `post_surgeries`), `last_vitals` (`hight` — the contract's spelling), `is_first_time`, plus our extensions `gender` and `current_visit` (newest routable visit — the VN passthrough) |
+| PUT | `/api/v1/patients/{hn}/history` | Fill-only history write-back (never overwrites); V1 §1.3 fields |
+| PUT | `/api/v1/patients/{hn}/gender` | Fill-only gender write-back (our extension — V1 has no gender field) |
+| POST | `/api/v1/patient-prescreens` | **Stage 1** (V1 §2.1/§4.3): objective vitals with per-vital `sources` + `bmi`, `measured_at`, booth as `first_location`. `visit_id` optional — resolves the HN's newest visit |
+| POST | `/api/v1/patient-assignments` | **Stage 2** (V1 §2.2/§4.4): `base_department_id` (the mock picks the service point itself), `hn`, SBAR, `mfu_prescreen` stored verbatim → returns `queue_number`. Idempotent per `request_id`; `visit_id` optional with HN fallback |
+| GET | `/api/v1/patient-assignments/{request_id}` | Read an assignment back by its idempotency key (incl. SBAR + `mfu_prescreen`) |
+| GET | `/api/v1/visits/{visit_id}` | VN lookup per V1 §1.1 — implemented for contract fidelity; the HN-first booth flow no longer calls it |
+| GET | `/api/v1/departments` | `{id, name, active}` per department (V1 §3.1) |
+
+### `/api` — legacy/admin family
 
 | Method | Path | Purpose |
 |---|---|---|
 | GET | `/api/visits` | List all visits with `screening_status` (registered/screened/routed) — powers the admin Hospital DB tab |
-| GET | `/api/visits/{visit_id}` | Full visit row (demographics + any filled screening fields) plus a nested `patient` object (HN history + last-known vitals) and both `hnx`/`hn` keys; booth reads this after the patient types their visit ID |
-| POST | `/api/visits/{visit_id}/prescreen` | **Stage 1**: write booth measurements + booth location; hold dept/complaint/reason pending |
-| POST | `/api/v1/patient-assignments` | **Stage 2**, iMed-shaped: queue the patient at a destination service point → returns `queue_number`. Idempotent per `request_id`. |
-| GET | `/api/visits/{visit_id}/prescreen` | Read the held/finalized prescreen record |
-| GET | `/api/patients/{hn}` | HN master record: demographics, history, last-known vitals, `is_first_time` |
-| PUT | `/api/patients/{hn}/history` | Record booth-collected history (smoking/alcohol, allergies, chronic conditions, surgeries, family history); stamps `history_recorded_at` |
-| PUT | `/api/patients/{hn}/vitals` | Record last-known weight/height (`weight_kg`/`height_cm`) so a future visit can skip re-asking |
-| GET | `/api/departments` | Distinct department names known to the HIS |
-| POST | `/api/admin/reset` | Reset visits to pre-registration; pass `reset_history: true` to also wipe the affected patients' history back to first-time |
+| GET | `/api/visits/{visit_id}` | Full visit row plus nested `patient` object and both `hnx`/`hn` keys |
+| GET | `/api/visits/{visit_id}/prescreen` | Read the held/staged prescreen record (incl. `measured_at` + vitals `sources`) |
+| POST | `/api/visits/{visit_id}/prescreen` | Legacy Stage-1 write (dept/complaint held pending) |
+| GET | `/api/patients` · GET `/api/patients/{hn}` | HN master records (+ `visit_count` on the list) |
+| PUT | `/api/patients/{hn}/history` · `/vitals` | Unconditional history write / last-known weight-height |
+| GET | `/api/departments` | Distinct department names seen in visit rows |
+| POST | `/api/admin/reset` | Reset visits to pre-registration; `reset_history: true` also wipes the affected patients back to first-time |
 
 ## Config
 

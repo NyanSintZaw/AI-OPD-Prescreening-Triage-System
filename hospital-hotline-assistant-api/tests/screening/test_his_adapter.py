@@ -1,8 +1,8 @@
 """HIS adapter tests.
 
 MockHisAdapter is exercised directly; HttpHisAdapter is driven against an
-inline httpx.MockTransport that mimics the hospital HIS endpoints — no
-network, no cross-package import.
+inline httpx.MockTransport that mimics the hospital HIS endpoints (Data
+Requirements V1 shapes) — no network, no cross-package import.
 """
 
 import json
@@ -14,7 +14,9 @@ from app.services.screening.his import (
     HttpHisAdapter,
     MockHisAdapter,
     PatientHistory,
+    his_department_id,
     his_department_name,
+    pdf_vitals,
 )
 from app.services.screening.his.http_adapter import _age_from_birthdate
 
@@ -26,9 +28,14 @@ def test_department_map_covers_all_engine_codes():
 
     for code in DEPARTMENT_NAMES:
         assert his_department_name(code), f"no HIS name for {code}"
+        # V1 routes at department granularity: every routable code needs a
+        # base_department_id, or Stage 2 records a skip instead of pushing.
+        assert his_department_id(code), f"no department id for {code}"
     assert his_department_name("emergency").startswith("แผนก ER")
+    assert his_department_id("emergency") == "DEPT_ER"
     assert his_department_name(None) is None
-    assert his_department_name("unknown_code") is None
+    assert his_department_id(None) is None
+    assert his_department_id("unknown_code") is None
 
 
 # --- age computation ---------------------------------------------------------
@@ -42,18 +49,61 @@ def test_age_from_birthdate():
     assert _age_from_birthdate("1990-06-15T00:00:00") is not None
 
 
+# --- pdf_vitals projection ---------------------------------------------------
+
+def test_pdf_vitals_projects_renames_and_derives_bmi():
+    out = pdf_vitals({
+        "systolic": 158, "diastolic": 94, "pulse_bpm": 96,
+        "temperature": 36.8, "weight_kg": 72.5, "height_cm": 165,
+        # internal junk that must never reach a hospital payload
+        "source": "device", "recorded_at": "2026-08-20T09:00:00Z",
+        "bp_recheck_pending": True, "spo2": 98, "measured_at": "x",
+    })
+    assert out["systolic"] == 158 and out["diastolic"] == 94
+    assert out["temperature_c"] == 36.8       # wire rename
+    assert out["hight_cm"] == 165             # the hospital's own spelling
+    assert out["bmi"] == 26.63                # derived at send time
+    for junk in ("source", "recorded_at", "bp_recheck_pending", "spo2",
+                 "measured_at", "temperature", "height_cm"):
+        assert junk not in out
+
+
+def test_pdf_vitals_normalizes_sources_and_drops_his_provenance():
+    out = pdf_vitals({
+        "systolic": 120, "diastolic": 80, "temperature": 37.0,
+        "weight_kg": 70, "height_cm": 170,
+        "sources": {
+            "systolic": "device", "diastolic": "device",
+            "temperature": "manual",          # typed at the booth
+            "weight_kg": "his_recent",        # HIS-carried — not in the enum
+            "height_cm": "patient_input",
+        },
+    })
+    src = out["sources"]
+    assert src["systolic"] == "device"
+    assert src["temperature_c"] == "patient_input"   # manual → patient_input
+    assert src["hight_cm"] == "patient_input"
+    assert "weight_kg" not in src   # HIS-sourced values carry no attribution
+
+
+def test_pdf_vitals_omits_bmi_when_a_measurement_is_missing():
+    assert "bmi" not in pdf_vitals({"weight_kg": 72.5})
+    assert pdf_vitals(None) == {}
+
+
 # --- MockHisAdapter ----------------------------------------------------------
 
 async def test_mock_adapter_validate_and_writes():
     mock = MockHisAdapter()
-    assert await mock.validate_visit("") is None
-    info = await mock.validate_visit("V123")
-    assert info is not None and info.visit_id == "V123"
+    assert await mock.validate_patient("") is None
+    info = await mock.validate_patient("09900001")
+    assert info is not None and info.hn == "09900001"
     assert info.patient_history is not None and info.patient_history.is_first_time is True
-    assert await mock.push_referral({"visit_id": "V123"}) is True
-    assert await mock.push_patient_history("HN1", {"smoking_alcohol": "none"}) is True
+    assert info.current_visit is None
+    assert await mock.push_prescreen({"hn": "09900001"}) is True
+    assert await mock.push_patient_history("HN1", {"smoking": "none"}) is True
     result = await mock.confirm_routing(
-        "V123", request_id="MFU-1", assign_spid="SP_OPD_MED_01"
+        None, request_id="MFU-1", hn="09900001", base_department_id="DEPT_MED"
     )
     assert result.status == "pushed" and result.queue_number
 
@@ -67,47 +117,51 @@ def _fake_his_handler():
         assert request.headers.get("X-API-Key") == "k"
         assert request.headers.get("Authorization") == "Bearer k"
         path = request.url.path
-        # The visit read carries identity + age band + is-it-open only; the
-        # history lives behind a separate patient read (see the proposals).
-        if request.method == "GET" and path == "/api/v1/visits/V1":
-            return httpx.Response(200, json={
-                "visit_id": "V1", "hn": "HN1", "birthdate": "1980-05-01",
-                "active": True, "appointment": True,
-                "vitals": {"systolic": 120, "diastolic": 80},
-            })
+        # One patient read gives the booth everything (V1 §1.2–1.4 + our
+        # current_visit / gender extensions).
         if request.method == "GET" and path == "/api/v1/patients/HN1":
             return httpx.Response(200, json={
                 "hn": "HN1",
+                "patient_name": "สมชาย ใจดี",
+                "birthdate": "1980-05-01",
+                "gender": "male",
                 "is_first_time": False,
                 "history": {
-                    "smoking_alcohol": "smokes daily",
+                    "smoking": "smokes daily",
+                    "alcohol": "no alcohol",
                     "allergies": "penicillin",
                     "chronic_conditions": "hypertension",
-                    "past_surgeries": None,
+                    "post_surgeries": None,
                     "family_history": "father: diabetes",
+                    "recorded_at": "2025-01-01",
                 },
                 "last_vitals": {
-                    "weight": 70.5, "height": 171, "measured_at": "2025-01-01",
+                    "weight": 70.5, "hight": 171, "measured_at": "2025-01-01",
                 },
-            })
-        if request.method == "GET" and path == "/api/v1/visits/V2":
-            return httpx.Response(200, json={
-                "visit_id": "V2", "hn": "HN2", "birthdate": "1990-01-01",
-                "active": True,
+                "current_visit": {"visit_id": "V1", "appointment": True},
             })
         if request.method == "GET" and path == "/api/v1/patients/HN2":
-            # Hospital declined the patient read, or has no record: the booth
-            # must still work, it just asks the patient their history.
-            return httpx.Response(404, json={"detail": "not found"})
-        if request.method == "GET" and path == "/api/v1/visits/MISSING":
+            # A first-time patient with no open visit today: screening still
+            # starts; the write-backs later go HN-only.
+            return httpx.Response(200, json={
+                "hn": "HN2",
+                "patient_name": "Anucha Thongdee",
+                "birthdate": "1990-01-01",
+                "gender": None,
+                "is_first_time": True,
+                "history": {"recorded_at": None},
+                "last_vitals": {},
+                "current_visit": None,
+            })
+        if request.method == "GET" and path == "/api/v1/patients/MISSING":
             return httpx.Response(404, json={"detail": "not found"})
         if request.method == "POST" and path == "/api/v1/patient-prescreens":
             body = json.loads(request.content)
-            state["prescreens"]["V1"] = body
+            state["prescreens"][body.get("hn")] = body
             return httpx.Response(200, json={
                 "request_id": body.get("session_ref", ""),
                 "status": "STATUS_SUCCESS",
-                "result": {"visit_id": body["visit_id"],
+                "result": {"visit_id": body.get("visit_id"),
                            "prescreen_status": "AWAITING_CONFIRMATION"},
             })
         if request.method == "POST" and path == "/api/v1/patient-assignments":
@@ -121,9 +175,9 @@ def _fake_his_handler():
                 "request_id": body["request_id"],
                 "status": "STATUS_SUCCESS",
                 "result": {
-                    "visit_id": body["visit_id"],
+                    "visit_id": body.get("visit_id"),
                     "visit_queue_id": "VQ-1",
-                    "assign_spid": body["assign_spid"],
+                    "assign_spid": "SP_OPD_MED_01",
                     "assign_eid": None,
                     "queue_number": "M001",
                     "queue_status": "WAITING",
@@ -132,7 +186,7 @@ def _fake_his_handler():
             })
         if request.method == "PUT" and path == "/api/v1/patients/HN1/history":
             state["patient_history"] = json.loads(request.content)
-            return httpx.Response(200, json={"hn": "HN1", "is_first_time": False})
+            return httpx.Response(200, json={"hn": "HN1", "written": True})
         return httpx.Response(500)
 
     return handler, state
@@ -143,68 +197,78 @@ def _adapter_with(handler) -> HttpHisAdapter:
     return HttpHisAdapter(base_url="http://his", api_key="k", client=client)
 
 
-async def test_http_validate_visit_returns_age_and_vitals():
+async def test_http_validate_patient_returns_demographics_and_visit():
     handler, _ = _fake_his_handler()
     adapter = _adapter_with(handler)
-    info = await adapter.validate_visit("V1")
+    info = await adapter.validate_patient("HN1")
     assert info is not None
-    assert info.patient_id == "HN1"
+    assert info.hn == "HN1"
+    assert info.patient_name == "สมชาย ใจดี"
     assert info.birthdate == "1980-05-01"
     assert info.age_years and info.age_years > 40
-    assert info.vitals["systolic"] == 120
-    assert info.appointment is True
+    assert info.gender == "male"
+    assert info.is_first_time is False
+    # The current visit rides along as the write-backs' VN passthrough.
+    assert info.current_visit is not None
+    assert info.current_visit.visit_id == "V1"
+    assert info.current_visit.appointment is True
 
 
-async def test_http_validate_visit_parses_nested_patient_history():
+async def test_http_validate_patient_parses_split_history():
     handler, _ = _fake_his_handler()
     adapter = _adapter_with(handler)
-    info = await adapter.validate_visit("V1")
+    info = await adapter.validate_patient("HN1")
     assert info is not None
     history = info.patient_history
     assert isinstance(history, PatientHistory)
     assert history.is_first_time is False
-    assert history.smoking_alcohol == "smokes daily"
+    assert history.smoking == "smokes daily"
+    assert history.alcohol == "no alcohol"
     assert history.chronic_conditions == "hypertension"
     assert history.last_weight_kg == 70.5
-    assert history.last_height_cm == 171
+    assert history.last_height_cm == 171          # parsed from "hight"
     assert history.vitals_measured_at == "2025-01-01"
 
 
-async def test_http_validate_visit_without_patient_object_is_none():
+async def test_http_validate_patient_first_time_without_visit():
     handler, _ = _fake_his_handler()
     adapter = _adapter_with(handler)
-    info = await adapter.validate_visit("V2")
+    info = await adapter.validate_patient("HN2")
     assert info is not None
-    assert info.patient_id == "HN2"
-    assert info.patient_history is None
+    assert info.is_first_time is True
+    assert info.gender is None
+    assert info.current_visit is None   # no open visit — screening still runs
 
 
 async def test_http_push_patient_history():
     handler, state = _fake_his_handler()
     adapter = _adapter_with(handler)
-    ok = await adapter.push_patient_history("HN1", {"smoking_alcohol": "quit 2020"})
+    ok = await adapter.push_patient_history("HN1", {"smoking": "quit 2020"})
     assert ok is True
-    assert state["patient_history"]["smoking_alcohol"] == "quit 2020"
+    assert state["patient_history"]["smoking"] == "quit 2020"
 
 
-async def test_http_validate_visit_unknown_returns_none():
+async def test_http_validate_patient_unknown_returns_none():
     handler, _ = _fake_his_handler()
     adapter = _adapter_with(handler)
-    assert await adapter.validate_visit("MISSING") is None
-    assert await adapter.validate_visit("  ") is None
+    assert await adapter.validate_patient("MISSING") is None
+    assert await adapter.validate_patient("  ") is None
 
 
 async def test_http_push_and_confirm():
     handler, state = _fake_his_handler()
     adapter = _adapter_with(handler)
-    ok = await adapter.push_referral({
-        "visit_id": "V1", "session_ref": "s", "recommended_department": "d",
+    ok = await adapter.push_prescreen({
+        "visit_id": "V1", "hn": "HN1", "session_ref": "s",
     })
     assert ok is True
-    assert state["prescreens"]["V1"]["session_ref"] == "s"
+    assert state["prescreens"]["HN1"]["session_ref"] == "s"
+    mfu = {"triage_level": 3, "triage_scale": "MOPH-5"}
     result = await adapter.confirm_routing(
-        "V1", request_id="MFU-20260807-AAA111", assign_spid="SP_OPD_MED_01",
+        "V1", request_id="MFU-20260807-AAA111", hn="HN1",
+        base_department_id="DEPT_MED",
         sbar={"situation": "แน่นหน้าอก", "assessment_equipment": None},
+        mfu_prescreen=mfu,
     )
     assert result.status == "pushed"
     assert result.queue_number == "M001"
@@ -212,41 +276,58 @@ async def test_http_push_and_confirm():
     assert result.sbar_id == "SBAR-1"
     sent = state["assignment"]
     assert sent["request_id"] == "MFU-20260807-AAA111"
-    assert sent["assign_spid"] == "SP_OPD_MED_01"
+    # V1 §4.4 golden body: department granularity + hn + our screening block.
+    assert sent["base_department_id"] == "DEPT_MED"
+    assert sent["hn"] == "HN1"
+    assert sent["visit_id"] == "V1"
+    assert sent["mfu_prescreen"] == mfu
     # Empty SBAR fields are dropped rather than sent as nulls.
     assert sent["sbar"] == {"situation": "แน่นหน้าอก"}
-    # Never sent: the hospital owns these.
+    # Never sent: the hospital owns service-point selection and sequencing.
+    assert "assign_spid" not in sent
     assert "queue_number" not in sent
-    assert "base_department_id" not in sent
     assert "assign_eid" not in sent
 
 
-async def test_prescreen_carries_a_derived_bmi():
-    """The hospital's Prescreen export has a bmi column, so we fill it.
-
-    Derived at send time from the weight and height in the same payload —
-    a stored BMI would survive a re-measure and contradict them.
-    """
+async def test_confirm_without_visit_passthrough_sends_hn_only():
     handler, state = _fake_his_handler()
     adapter = _adapter_with(handler)
-    await adapter.push_referral({
-        "visit_id": "V1",
-        "vitals": {"weight_kg": 72.5, "height_cm": 165, "systolic": 158},
+    result = await adapter.confirm_routing(
+        None, request_id="R-HN", hn="HN2", base_department_id="DEPT_GP"
+    )
+    assert result.status == "pushed"
+    sent = state["assignment"]
+    assert sent["visit_id"] is None
+    assert sent["hn"] == "HN2"
+
+
+async def test_prescreen_carries_pdf_vitals_shape():
+    """§4.3 wire shape: renamed keys, hight_cm spelling, per-vital sources,
+    bmi derived at send time, measured_at hoisted to the top level."""
+    handler, state = _fake_his_handler()
+    adapter = _adapter_with(handler)
+    await adapter.push_prescreen({
+        "visit_id": "V1", "hn": "HN1",
+        "vitals": {"weight_kg": 72.5, "height_cm": 165, "systolic": 158,
+                   "diastolic": 94, "temperature": 36.8,
+                   "measured_at": "2026-08-20T09:12:00+07:00",
+                   "sources": {"systolic": "device", "diastolic": "device",
+                               "temperature": "manual"}},
     })
-    assert state["prescreens"]["V1"]["vitals"]["bmi"] == 26.63
+    sent = state["prescreens"]["HN1"]
+    assert sent["measured_at"] == "2026-08-20T09:12:00+07:00"
+    vitals = sent["vitals"]
+    assert vitals["bmi"] == 26.63
+    assert vitals["hight_cm"] == 165
+    assert vitals["temperature_c"] == 36.8
+    assert vitals["sources"]["temperature_c"] == "patient_input"
+    assert "height_cm" not in vitals and "temperature" not in vitals
 
 
-async def test_prescreen_omits_bmi_when_a_measurement_is_missing():
-    handler, state = _fake_his_handler()
-    adapter = _adapter_with(handler)
-    await adapter.push_referral({"visit_id": "V1", "vitals": {"weight_kg": 72.5}})
-    assert "bmi" not in state["prescreens"]["V1"]["vitals"]
-
-
-async def test_http_push_without_visit_id_is_false():
+async def test_http_push_without_hn_is_false():
     handler, _ = _fake_his_handler()
     adapter = _adapter_with(handler)
-    assert await adapter.push_referral({"session_ref": "s"}) is False
+    assert await adapter.push_prescreen({"session_ref": "s"}) is False
 
 
 async def test_http_tolerates_transport_errors():
@@ -255,13 +336,13 @@ async def test_http_tolerates_transport_errors():
 
     client = httpx.AsyncClient(transport=httpx.MockTransport(boom), base_url="http://his")
     adapter = HttpHisAdapter(base_url="http://his", api_key="k", client=client)
-    assert await adapter.validate_visit("V1") is None
-    assert await adapter.push_referral({"visit_id": "V1"}) is False
-    assert await adapter.push_patient_history("HN1", {"smoking_alcohol": "x"}) is False
+    assert await adapter.validate_patient("HN1") is None
+    assert await adapter.push_prescreen({"hn": "HN1"}) is False
+    assert await adapter.push_patient_history("HN1", {"smoking": "x"}) is False
     # A transport error is "unknown", NEVER "failed": the queue row may exist,
     # and calling it a failure invites a re-confirm that double-books.
     unknown = await adapter.confirm_routing(
-        "V1", request_id="R1", assign_spid="SP_OPD_MED_01"
+        "V1", request_id="R1", hn="HN1", base_department_id="DEPT_MED"
     )
     assert unknown.status == "unknown"
     assert unknown.request_id == "R1"
@@ -294,7 +375,7 @@ async def test_assignment_status_mapping(code, body, expected):
     state["assignment_reply"] = (code, body)
     adapter = _adapter_with(handler)
     result = await adapter.confirm_routing(
-        "V1", request_id="R1", assign_spid="SP_OPD_MED_01"
+        "V1", request_id="R1", hn="HN1", base_department_id="DEPT_MED"
     )
     assert result.status == expected
     assert result.status != "failed"  # the word must never come back
@@ -310,7 +391,9 @@ async def test_assignment_409_carries_queue_number_when_hospital_returns_it():
         "result": {"queue_number": "M007", "queue_status": "WAITING"},
     })
     adapter = _adapter_with(handler)
-    result = await adapter.confirm_routing("V1", request_id="R1", assign_spid="SP_X")
+    result = await adapter.confirm_routing(
+        "V1", request_id="R1", hn="HN1", base_department_id="DEPT_MED"
+    )
     assert (result.status, result.queue_number) == ("pushed", "M007")
 
 
@@ -319,30 +402,10 @@ async def test_assignment_non_json_body_is_unknown():
         return httpx.Response(200, text="<html>gateway</html>")
 
     adapter = _adapter_with(handler)
-    result = await adapter.confirm_routing("V1", request_id="R1", assign_spid="SP_X")
+    result = await adapter.confirm_routing(
+        "V1", request_id="R1", hn="HN1", base_department_id="DEPT_MED"
+    )
     assert result.status == "unknown"
-
-
-async def test_visit_read_survives_the_patient_read_being_refused():
-    """The patient read is optional by design — the hospital may decline it.
-    When it 404s the booth must still start; it just asks the patient their
-    history instead of skipping the interview."""
-    handler, _ = _fake_his_handler()
-    adapter = _adapter_with(handler)
-    info = await adapter.validate_visit("V2")
-    assert info is not None            # the session can still start
-    assert info.patient_id == "HN2"
-    assert info.patient_history is None  # -> booth runs the history intake
-
-
-async def test_inactive_visit_is_refused():
-    """A locked or financially discharged visit must never be screened."""
-    def handler(request: httpx.Request) -> httpx.Response:
-        return httpx.Response(200, json={
-            "visit_id": "V9", "hn": "HN9", "active": False,
-        })
-
-    assert await _adapter_with(handler).validate_visit("V9") is None
 
 
 async def test_prescreen_never_carries_the_ai_recommendation():
@@ -351,15 +414,16 @@ async def test_prescreen_never_carries_the_ai_recommendation():
     before a nurse signed it off, and the confirm step would be decorative."""
     handler, state = _fake_his_handler()
     adapter = _adapter_with(handler)
-    ok = await adapter.push_referral({
+    ok = await adapter.push_prescreen({
         "visit_id": "V1", "hn": "HN1", "session_ref": "s1", "slip_code": "MCH-1",
+        # Junk a sloppy caller might include — must all be dropped.
         "recommended_department": "แผนก OPD MED (อายุรกรรม)",
         "complaint": "chest tightness", "reason": "cardiac risk factors",
         "reasons": ["rule fired"],
         "vitals": {"systolic": 158, "diastolic": 94},
     })
     assert ok is True
-    sent = state["prescreens"]["V1"]
+    sent = state["prescreens"]["HN1"]
     assert sent["visit_id"] == "V1"
     assert sent["vitals"]["systolic"] == 158
     # HN travels with the VN so the hospital can cross-check the pair.

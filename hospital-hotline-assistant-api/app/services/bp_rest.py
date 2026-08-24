@@ -1,7 +1,9 @@
 """BP 15-minute rest window after hypertensive-crisis readings.
 
-Keyed by HN (preferred) or visit_id so the timer persists across intervening
-kiosk patients / session hang-ups — matching the meeting requirement.
+Keyed by HN so the timer persists across intervening kiosk patients /
+session hang-ups — matching the meeting requirement. HN-first refactor:
+the VN leg was dropped along with VN identity everywhere else; an
+anonymous (unlinked) session simply never opens a window, same as before.
 """
 
 from __future__ import annotations
@@ -50,7 +52,6 @@ class BpRestStatus:
     seconds_remaining: int = 0
     reason: str | None = None
     hn: str | None = None
-    visit_id: str | None = None
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -59,7 +60,6 @@ class BpRestStatus:
             "seconds_remaining": self.seconds_remaining,
             "reason": self.reason,
             "hn": self.hn,
-            "visit_id": self.visit_id,
         }
 
 
@@ -67,11 +67,10 @@ async def get_active_rest(
     connection: asyncpg.Connection,
     *,
     hn: str | None = None,
-    visit_id: str | None = None,
     now: datetime | None = None,
 ) -> BpRestStatus:
     """Return the active (unresolved, still in the future) rest window if any."""
-    if not hn and not visit_id:
+    if not hn:
         return BpRestStatus(resting=False)
 
     anchor = now or datetime.now(timezone.utc)
@@ -80,20 +79,16 @@ async def get_active_rest(
 
     row = await connection.fetchrow(
         """
-        SELECT hn, visit_id, rest_until, reason
+        SELECT hn, rest_until, reason
         FROM bp_rest_windows
         WHERE resolved_at IS NULL
           AND rest_until > $1
-          AND (
-                ($2::text IS NOT NULL AND hn = $2)
-             OR ($3::text IS NOT NULL AND visit_id = $3)
-          )
+          AND hn = $2
         ORDER BY rest_until DESC
         LIMIT 1
         """,
         anchor,
         hn,
-        visit_id,
     )
     if row is None:
         return BpRestStatus(resting=False)
@@ -108,7 +103,6 @@ async def get_active_rest(
         seconds_remaining=remaining,
         reason=row["reason"],
         hn=row["hn"],
-        visit_id=row["visit_id"],
     )
 
 
@@ -116,30 +110,25 @@ async def has_prior_window(
     connection: asyncpg.Connection,
     *,
     hn: str | None = None,
-    visit_id: str | None = None,
     within_hours: int = 24,
 ) -> bool:
-    """True when this patient/visit already had a rest window recently.
+    """True when this patient already had a rest window recently.
 
     The meeting flow is rest ONCE then proceed: the first crisis reading
     opens the window; the post-rest reading is confirmatory and must reach
     the rules engine even if still critical — never loop the patient
     through endless 15-minute rests.
     """
-    if not hn and not visit_id:
+    if not hn:
         return False
     row = await connection.fetchrow(
         """
         SELECT 1 FROM bp_rest_windows
-        WHERE created_at > NOW() - make_interval(hours => $3)
-          AND (
-                ($1::text IS NOT NULL AND hn = $1)
-             OR ($2::text IS NOT NULL AND visit_id = $2)
-          )
+        WHERE created_at > NOW() - make_interval(hours => $2)
+          AND hn = $1
         LIMIT 1
         """,
         hn,
-        visit_id,
         within_hours,
     )
     return row is not None
@@ -149,25 +138,20 @@ async def resolve_windows_for(
     connection: asyncpg.Connection,
     *,
     hn: str | None = None,
-    visit_id: str | None = None,
     now: datetime | None = None,
 ) -> None:
     """Mark this patient's open windows resolved (the recheck happened)."""
-    if not hn and not visit_id:
+    if not hn:
         return
     anchor = now or datetime.now(timezone.utc)
     await connection.execute(
         """
         UPDATE bp_rest_windows
-        SET resolved_at = $3
+        SET resolved_at = $2
         WHERE resolved_at IS NULL
-          AND (
-                ($1::text IS NOT NULL AND hn = $1)
-             OR ($2::text IS NOT NULL AND visit_id = $2)
-          )
+          AND hn = $1
         """,
         hn,
-        visit_id,
         anchor,
     )
 
@@ -176,23 +160,21 @@ async def open_rest_window(
     connection: asyncpg.Connection,
     *,
     hn: str | None,
-    visit_id: str | None,
     reading_id: UUID | None = None,
     reason: str = "hypertensive_crisis",
     now: datetime | None = None,
 ) -> datetime:
     """Insert a new rest window. Callers should only invoke this on crisis BP."""
-    if not hn and not visit_id:
-        raise ValueError("hn or visit_id required to open a BP rest window")
+    if not hn:
+        raise ValueError("hn required to open a BP rest window")
     rest_until = compute_rest_until(now=now)
     await connection.execute(
         """
         INSERT INTO bp_rest_windows
-            (hn, visit_id, triggered_by_reading, rest_until, reason)
-        VALUES ($1, $2, $3, $4, $5)
+            (hn, triggered_by_reading, rest_until, reason)
+        VALUES ($1, $2, $3, $4)
         """,
         hn,
-        visit_id,
         reading_id,
         rest_until,
         reason,

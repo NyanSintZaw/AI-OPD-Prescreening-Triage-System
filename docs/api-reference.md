@@ -1,7 +1,7 @@
 # API Reference — AI OPD Prescreening & Triage System
 
 **Generated from code** (FastAPI OpenAPI dump of `app/main.py` + `hospital-his-mock`),
-updated 2026-08-04. Nothing here is hand-invented; every path, field, type, and JSON
+updated 2026-08-23. Nothing here is hand-invented; every path, field, type, and JSON
 example comes from the running route definitions. Interactive testing: run the backend
 and open `http://localhost:8000/docs`, or import `http://localhost:8000/openapi.json`
 into Postman.
@@ -279,64 +279,64 @@ Example response:
 
 ---
 
-### `POST /sessions/{session_id}/link-visit`
+### `POST /sessions/{session_id}/link-patient`
 
-Link Visit.
+Link Patient.
 
-Link a hospital visit to this session.
+Link a hospital patient (HN) to this session.
 
-The patient types (or scans) the visit ID issued at the registration
-booth; we validate it against the HIS and pull demographics (birthdate →
-age) and any HIS-recorded vitals into session metadata so the screening
-engine can pre-fill them. Unknown visit → ``linked=false`` and the
-patient continues anonymously.
+The patient types (or scans) the HN from their hospital card; we resolve
+it against the HIS and pull demographics (birthdate → age, gender), the
+carried-forward history, and the current-visit VN passthrough into
+session metadata so the screening engine can pre-fill them. Unknown HN →
+``linked=false`` and the patient continues anonymously. A VN, if one
+ever reaches this endpoint, is ignored — HN is the only identity.
 
 **Auth:** none
 
 **Path params:** `session_id`
 
-**Request body** (`application/json`, `LinkVisitRequest`):
+**Request body** (`application/json`, `LinkPatientRequest`):
 
 | Field | Type | Required | Notes |
 |---|---|---|---|
-| `visit_id` | string | Y | Visit Id |
+| `hn` | string | Y | Hn |
 | `preconfirmed` | boolean | N | Preconfirmed (default: `false`) |
 
 Example request:
 
 ```json
 {
-  "visit_id": "string",
+  "hn": "string",
   "preconfirmed": false
 }
 ```
 
-**Response 200:** `LinkVisitResponse`
+**Response 200:** `LinkPatientResponse`
 
 Example response:
 
 ```json
 {
   "linked": false,
-  "visit_id": "string",
+  "hn": "string",
   "patient_name": "string",
   "age_years": 0,
   "appointment": false,
-  "has_his_vitals": false,
   "is_first_time": false
 }
 ```
 
 ---
 
-### `DELETE /sessions/{session_id}/link-visit`
+### `DELETE /sessions/{session_id}/link-patient`
 
-Unlink Visit.
+Unlink Patient.
 
-Clear the linked hospital visit so the patient can re-enter a VN.
+Clear the linked patient so a different HN can be entered.
 
 Used when name confirmation fails ("Is this you?" → No). Does not delete
-the session or screening state — drops ``metadata.visit`` plus any
+the session or screening state — drops ``metadata.patient`` plus any
 HIS-derived prefill (history, HIS-sourced vitals) of the wrong patient.
 
 **Auth:** none
@@ -362,28 +362,29 @@ Example response:
 
 ---
 
-### `GET /sessions/by-visit/{visit_id}`
+### `GET /sessions/by-hn/{hn}`
 
-Get Session By Visit.
+Get Session By Hn.
 
-Return the most recent active session linked to this hospital visit (VN).
+Return the most recent recent-window session linked to this HN.
 
 Used by the kiosk before creating a new session: if the patient hung up
-or walked away mid-interview and re-enters the same VN, resume the prior
-session (screening engine state is already in Postgres).
+or walked away mid-interview and re-enters the same HN, resume the prior
+session (screening engine state is already in Postgres). Many sessions
+may exist per HN; only the newest inside the 12h window is offered.
 
 **Auth:** none
 
-**Path params:** `visit_id`
+**Path params:** `hn`
 
-**Response 200:** `SessionByVisitOut`
+**Response 200:** `SessionByHnOut`
 
 Example response:
 
 ```json
 {
   "found": false,
-  "visit_id": "string",
+  "hn": "string",
   "session": {
     "id": "00000000-0000-0000-0000-000000000000",
     "language": "th",
@@ -420,20 +421,22 @@ Gated for booth intake after name confirmation. Writes through
 
 | Field | Type | Required | Notes |
 |---|---|---|---|
-| `smoking_alcohol` | string or null | N | Smoking Alcohol |
+| `smoking` | string or null | N | Smoking |
+| `alcohol` | string or null | N | Alcohol |
 | `allergies` | string or null | N | Allergies |
 | `chronic_conditions` | string or null | N | Chronic Conditions |
-| `past_surgeries` | string or null | N | Past Surgeries |
+| `post_surgeries` | string or null | N | Post Surgeries |
 | `family_history` | string or null | N | Family History |
 
 Example request:
 
 ```json
 {
-  "smoking_alcohol": "string",
+  "smoking": "string",
+  "alcohol": "string",
   "allergies": "string",
   "chronic_conditions": "string",
-  "past_surgeries": "string",
+  "post_surgeries": "string",
   "family_history": "string"
 }
 ```
@@ -452,24 +455,24 @@ Example response:
 
 ---
 
-### `POST /sessions/{session_id}/confirm-visit-name`
+### `POST /sessions/{session_id}/confirm-patient-name`
 
-Confirm Visit Name.
+Confirm Patient Name.
 
-Confirm or reject the HIS patient name after link-visit.
+Confirm or reject the HIS patient name after link-patient.
 
 Buttons send ``confirmed=true/false``; typed/spoken replies send ``text``
 and are classified by the shared yes/no NLU. A ``no`` decision unlinks the
-visit so the kiosk can re-prompt for VN. An unclear reply returns 422 and
-is re-asked at most MAX_IDENTITY_RETRIES times, then treated as rejected —
-fail closed like the voice identity gate (never interview an unverified
-identity).
+patient so the kiosk can re-prompt for an HN. An unclear reply returns 422
+and is re-asked at most MAX_IDENTITY_RETRIES times, then treated as
+rejected — fail closed like the voice identity gate (never interview an
+unverified identity).
 
 **Auth:** none
 
 **Path params:** `session_id`
 
-**Request body** (`application/json`, `ConfirmVisitNameRequest`):
+**Request body** (`application/json`, `ConfirmPatientNameRequest`):
 
 | Field | Type | Required | Notes |
 |---|---|---|---|
@@ -485,7 +488,7 @@ Example request:
 }
 ```
 
-**Response 200:** `ConfirmVisitNameResponse`
+**Response 200:** `ConfirmPatientNameResponse`
 
 Example response:
 
@@ -597,6 +600,40 @@ Example request:
 
 ---
 
+### `POST /sessions/{session_id}/measurement`
+
+Update Session Measurement.
+
+Record a single vital the screening engine asked for mid-interview
+(temperature-on-demand; weight/height near the end of the interview,
+self-reported by the patient). Merges into the session's stored vitals so
+the next turn's ``turn_context`` carries it — without requiring the booth
+to re-send the blood-pressure reading.
+
+**Auth:** none
+
+**Path params:** `session_id`
+
+**Request body** (`application/json`, `SessionMeasurementUpdate`):
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `vital` | string — one of `temp` \| `weight` \| `height` \| `spo2` | Y | Vital |
+| `value` | number | Y | Value |
+
+Example request:
+
+```json
+{
+  "vital": "temp",
+  "value": 0.0
+}
+```
+
+**Response 200:** JSON (Successful Response)
+
+---
+
 ### `PUT /sessions/{session_id}/vitals`
 
 Update Session Vitals.
@@ -649,55 +686,6 @@ Example request:
 
 ---
 
-### `POST /sessions/{session_id}/measurement`
-
-Update Session Measurement.
-
-Record a single vital the screening engine asked for mid-interview
-(temperature-on-demand). Merges into the session's stored vitals so the
-next turn's ``turn_context`` carries it — without requiring the booth to
-re-send the blood-pressure reading.
-
-**Auth:** none
-
-**Path params:** `session_id`
-
-**Request body** (`application/json`, `SessionMeasurementUpdate`):
-
-| Field | Type | Required | Notes |
-|---|---|---|---|
-| `vital` | string — one of `temp` \| `weight` \| `height` | Y | Vital |
-| `value` | number | Y | Value |
-
-Example request:
-
-```json
-{
-  "vital": "temp",
-  "value": 0.0
-}
-```
-
-**Response 200:** JSON (Successful Response)
-
----
-
-### `GET /screening/vital-bounds`
-
-Get Vital Bounds.
-
-Physiologically possible ranges from the active criteria version.
-
-The kiosk reads these so the patient gets instant, correctly-worded
-feedback instead of a bare 422 — and so the numbers live in exactly one
-place (the criteria document) rather than being retyped in the client.
-
-**Auth:** none
-
-**Response 200:** JSON (Successful Response)
-
----
-
 ### `GET /vitals/blood-pressure/rest-status`
 
 Get Bp Rest Status.
@@ -712,7 +700,6 @@ Whether this patient must wait before another BP measurement.
 |---|---|---|---|
 | `session_id` | string (uuid) or null | N |  |
 | `hn` | string or null | N |  |
-| `visit_id` | string or null | N |  |
 
 **Response 200:** `BpRestStatusOut`
 
@@ -724,8 +711,7 @@ Example response:
   "rest_until": "2026-08-04T09:00:00Z",
   "seconds_remaining": 0,
   "reason": "string",
-  "hn": "string",
-  "visit_id": "string"
+  "hn": "string"
 }
 ```
 
@@ -913,6 +899,273 @@ Example request:
 ```
 
 **Response 200:** `BpPairResponse`
+
+Example response:
+
+```json
+{
+  "status": "ok",
+  "device_name": "string",
+  "device_mac": "string",
+  "message": "string"
+}
+```
+
+---
+
+### `POST /vitals/temperature/fetch`
+
+Fetch Temperature.
+
+Long-poll the kiosk thermometer for one measurement.
+
+The device pushes the reading over a standard Health Thermometer
+indication the moment the measurement beeps, so this call connects,
+waits for that push (up to ``timeout_seconds``), persists the reading
+to ``temperature_readings`` and — when a session is given — merges it
+into the session vitals so the next screening turn carries it.
+Always returns 200 with a ``status`` field the kiosk UI branches on.
+
+**Auth:** none
+
+**Request body** (`application/json`): see schema in /docs
+
+Example request:
+
+```json
+{
+  "session_id": "00000000-0000-0000-0000-000000000000",
+  "timeout_seconds": 0.0
+}
+```
+
+**Response 200:** `TemperatureFetchResponse`
+
+Example response:
+
+```json
+{
+  "status": "ok",
+  "temperature_c": 0.0,
+  "measured_at": "2026-08-04T09:00:00Z",
+  "message": "string",
+  "reading_id": "00000000-0000-0000-0000-000000000000"
+}
+```
+
+---
+
+### `GET /admin/temp-device`
+
+Get Temp Device Status.
+
+Current thermometer configuration for the admin portal device manager.
+
+**Auth:** bearer token (roles: super_admin, nurse, viewer)
+
+**Response 200:** `TempDeviceStatusOut`
+
+Example response:
+
+```json
+{
+  "device_name": "string",
+  "device_mac": "string",
+  "configured": false,
+  "busy": false
+}
+```
+
+---
+
+### `POST /admin/temp-device/scan`
+
+Scan Temp Devices.
+
+Sweep for nearby BLE devices (~6s) so the admin can pick the thermometer.
+
+**Auth:** bearer token (roles: super_admin, nurse)
+
+**Response 200:** `TempScanResponse`
+
+Example response:
+
+```json
+{
+  "status": "ok",
+  "devices": [
+    {
+      "mac": "string",
+      "name": "string",
+      "rssi": 0,
+      "is_thermometer": false
+    }
+  ],
+  "message": "string"
+}
+```
+
+---
+
+### `POST /admin/temp-device/pair`
+
+Pair Temp Device.
+
+Verify the selected device speaks the thermometer service and make it
+the active kiosk thermometer (persists to .env, effective immediately).
+
+**Auth:** bearer token (roles: super_admin, nurse)
+
+**Request body** (`application/json`, `TempPairRequest`):
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `mac` | string | Y | Mac |
+| `name` | string or null | N | Name |
+
+Example request:
+
+```json
+{
+  "mac": "string",
+  "name": "string"
+}
+```
+
+**Response 200:** `TempPairResponse`
+
+Example response:
+
+```json
+{
+  "status": "ok",
+  "device_name": "string",
+  "device_mac": "string"
+}
+```
+
+---
+
+### `POST /vitals/spo2/fetch`
+
+Fetch Spo2.
+
+Take one settled SpO2/pulse reading from the fingertip oximeter.
+
+Connects, waits for the patient's finger (up to ``timeout_seconds``),
+lets the value settle, persists the reading to ``spo2_readings`` and —
+when a session is given — merges it into the session vitals so the next
+screening turn carries it (the criteria's low-SpO2 rules read it).
+Always returns 200 with a ``status`` field the kiosk UI branches on.
+
+**Auth:** none
+
+**Request body** (`application/json`): see schema in /docs
+
+Example request:
+
+```json
+{
+  "session_id": "00000000-0000-0000-0000-000000000000",
+  "timeout_seconds": 0.0
+}
+```
+
+**Response 200:** `Spo2FetchResponse`
+
+Example response:
+
+```json
+{
+  "status": "ok",
+  "spo2": 0,
+  "pulse_bpm": 0,
+  "measured_at": "2026-08-04T09:00:00Z",
+  "message": "string",
+  "reading_id": "00000000-0000-0000-0000-000000000000"
+}
+```
+
+---
+
+### `GET /admin/spo2-device`
+
+Get Spo2 Device Status.
+
+Current pulse-oximeter configuration for the admin device manager.
+
+**Auth:** bearer token (roles: super_admin, nurse, viewer)
+
+**Response 200:** `Spo2DeviceStatusOut`
+
+Example response:
+
+```json
+{
+  "device_name": "string",
+  "device_mac": "string",
+  "configured": false,
+  "busy": false
+}
+```
+
+---
+
+### `POST /admin/spo2-device/scan`
+
+Scan Spo2 Devices.
+
+Sweep for nearby BLE devices (~6s) so the admin can pick the oximeter.
+
+**Auth:** bearer token (roles: super_admin, nurse)
+
+**Response 200:** `Spo2ScanResponse`
+
+Example response:
+
+```json
+{
+  "status": "ok",
+  "devices": [
+    {
+      "mac": "string",
+      "name": "string",
+      "rssi": 0,
+      "is_oximeter": false
+    }
+  ],
+  "message": "string"
+}
+```
+
+---
+
+### `POST /admin/spo2-device/pair`
+
+Pair Spo2 Device.
+
+Verify the selected device streams SB210 oximeter data and make it
+the active kiosk pulse oximeter (persists to .env, effective immediately).
+
+**Auth:** bearer token (roles: super_admin, nurse)
+
+**Request body** (`application/json`, `Spo2PairRequest`):
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `mac` | string | Y | Mac |
+| `name` | string or null | N | Name |
+
+Example request:
+
+```json
+{
+  "mac": "string",
+  "name": "string"
+}
+```
+
+**Response 200:** `Spo2PairResponse`
 
 Example response:
 
@@ -1399,7 +1652,7 @@ Kiosk Stats.
 Public counters for the kiosk home / attract screen (no auth).
 
 Three "today" numbers the booth shows patients:
-  - ``booth_patients_today`` : distinct patients (by linked visit) who
+  - ``booth_patients_today`` : distinct patients (by linked HN) who
                           used this booth today. Counted from our own
                           sessions — deliberately NOT from the hospital:
                           this endpoint is unauthenticated, and asking the
@@ -1863,6 +2116,22 @@ Example response:
 
 ---
 
+### `GET /screening/vital-bounds`
+
+Get Vital Bounds.
+
+Physiologically possible ranges from the active criteria version.
+
+The kiosk reads these so the patient gets instant, correctly-worded
+feedback instead of a bare 422 — and so the numbers live in exactly one
+place (the criteria document) rather than being retyped in the client.
+
+**Auth:** none
+
+**Response 200:** JSON (Successful Response)
+
+---
+
 ### `POST /tts`
 
 Text To Speech.
@@ -2159,6 +2428,7 @@ Example response:
     "his_queue_number": "string",
     "his_routing_message_th": "string",
     "his_request_id": "string",
+    "rag_grounding": {},
     "reviewed_at": "2026-08-04T09:00:00Z",
     "created_at": "2026-08-04T09:00:00Z",
     "updated_at": "2026-08-04T09:00:00Z"
@@ -2233,6 +2503,7 @@ Approve Assessment Review.
 | Field | Type | Required | Notes |
 |---|---|---|---|
 | `notes` | string or null | N | Notes |
+| `visit_id` | string or null | N | Visit Id |
 | `ai_assessment_score` | integer or null | N | Ai Assessment Score |
 | `chief_complaint` | string or null | N | Chief Complaint |
 | `illness_note` | string or null | N | Illness Note |
@@ -2243,6 +2514,7 @@ Example request:
 ```json
 {
   "notes": "string",
+  "visit_id": "string",
   "ai_assessment_score": 0,
   "chief_complaint": "string",
   "illness_note": "string",
@@ -2304,6 +2576,7 @@ Example response:
   "his_queue_number": "string",
   "his_routing_message_th": "string",
   "his_request_id": "string",
+  "rag_grounding": {},
   "reviewed_at": "2026-08-04T09:00:00Z",
   "created_at": "2026-08-04T09:00:00Z",
   "updated_at": "2026-08-04T09:00:00Z"
@@ -2326,6 +2599,7 @@ Correct Assessment Review.
 |---|---|---|---|
 | `confirmed_department_id` | string (uuid) | Y | Confirmed Department Id |
 | `reason` | string or null | N | Reason |
+| `visit_id` | string or null | N | Visit Id |
 | `ai_assessment_score` | integer or null | N | Ai Assessment Score |
 | `chief_complaint` | string or null | N | Chief Complaint |
 | `illness_note` | string or null | N | Illness Note |
@@ -2337,6 +2611,7 @@ Example request:
 {
   "confirmed_department_id": "00000000-0000-0000-0000-000000000000",
   "reason": "string",
+  "visit_id": "string",
   "ai_assessment_score": 0,
   "chief_complaint": "string",
   "illness_note": "string",
@@ -2398,6 +2673,7 @@ Example response:
   "his_queue_number": "string",
   "his_routing_message_th": "string",
   "his_request_id": "string",
+  "rag_grounding": {},
   "reviewed_at": "2026-08-04T09:00:00Z",
   "created_at": "2026-08-04T09:00:00Z",
   "updated_at": "2026-08-04T09:00:00Z"
@@ -2896,20 +3172,22 @@ overwrites one the hospital already holds.
 
 | Field | Type | Required | Notes |
 |---|---|---|---|
-| `smoking_alcohol` | string or null | N | Smoking Alcohol |
+| `smoking` | string or null | N | Smoking |
+| `alcohol` | string or null | N | Alcohol |
 | `allergies` | string or null | N | Allergies |
 | `chronic_conditions` | string or null | N | Chronic Conditions |
-| `past_surgeries` | string or null | N | Past Surgeries |
+| `post_surgeries` | string or null | N | Post Surgeries |
 | `family_history` | string or null | N | Family History |
 
 Example request:
 
 ```json
 {
-  "smoking_alcohol": "string",
+  "smoking": "string",
+  "alcohol": "string",
   "allergies": "string",
   "chronic_conditions": "string",
-  "past_surgeries": "string",
+  "post_surgeries": "string",
   "family_history": "string"
 }
 ```
@@ -2965,7 +3243,7 @@ nurse-confirm step at POST /patient-assignments meaningful.
 
 | Field | Type | Required | Notes |
 |---|---|---|---|
-| `visit_id` | string | Y | Visit Id |
+| `visit_id` | string or null | N | Visit Id |
 | `hn` | string or null | N | Hn |
 | `session_ref` | string or null | N | Session Ref |
 | `slip_code` | string or null | N | Slip Code |
@@ -3013,22 +3291,22 @@ for us).
 
 Create Patient Assignment.
 
-Send a registered visit to a destination service point.
+Send a registered visit to a destination *department*.
 
-Mirrors the hospital's real iMed contract
-(``docs/imed-patient-assignment-api.md``) — same envelope, same error
-codes, same idempotency rule. Replaces the retired
-``PUT /api/visits/{id}/routing``.
+Data Requirements V1 §2.2/§4.4: we send only ``base_department_id``;
+the hospital resolves the actual service point / examination room
+itself (this mock picks the department's first service point). Same
+iMed envelope, error codes and idempotency rule as before.
 
-Two deliberate divergences, both flagged for the hospital meeting:
+Deliberate behaviors flagged for the hospital meeting:
 
 * A repeated ``request_id`` returns **200 with the original result**
   rather than a bare 409. That is our *change request 7* — an
   idempotency key is useless if a retry after a timeout cannot tell us
   the queue number. Implemented here so the proposal is runnable.
-* ``confirmed_by`` is left NULL and a reroute cannot be marked as such:
-  iMed derives the sender from the access token and has no reroute
-  flag (change requests 3 and 4). The empty column is the demo.
+* ``confirmed_by`` is left NULL on the staging row: iMed derives the
+  sender from the access token. The confirmer we do know rides inside
+  ``mfu_prescreen`` (change requests 1, 2 and 4).
 
 **Auth:** none
 
@@ -3037,12 +3315,11 @@ Two deliberate divergences, both flagged for the hospital meeting:
 | Field | Type | Required | Notes |
 |---|---|---|---|
 | `request_id` | string | Y | Request Id |
-| `visit_id` | string | Y | Visit Id |
-| `assign_spid` | string | Y | Assign Spid |
-| `assign_eid` | string or null | N | Assign Eid |
-| `base_department_id` | string or null | N | Base Department Id |
-| `queue_number` | string or null | N | Queue Number |
+| `visit_id` | string or null | N | Visit Id |
+| `hn` | string or null | N | Hn |
+| `base_department_id` | string | Y | Base Department Id |
 | `sbar` | SbarIn or null | N |  |
+| `mfu_prescreen` | object or null | N | Mfu Prescreen |
 
 Example request:
 
@@ -3050,10 +3327,8 @@ Example request:
 {
   "request_id": "string",
   "visit_id": "string",
-  "assign_spid": "string",
-  "assign_eid": "string",
+  "hn": "string",
   "base_department_id": "string",
-  "queue_number": "string",
   "sbar": {
     "situation": "string",
     "background": "string",
@@ -3062,39 +3337,8 @@ Example request:
     "assessment_equipment": "string",
     "recommend": "string",
     "documentation": "string"
-  }
-}
-```
-
-**Response 200:** JSON (Successful Response)
-
----
-
-### `PUT /api/visits/{visit_id}/follow-up`
-
-Update Follow Up.
-
-Record the patient's own follow-up question/concern from the booth.
-
-Written as soon as the patient states it (end of the booth flow) —
-unlike the nurse narrative it needs no human sign-off, it IS the
-patient's verbatim words for the doctor.
-
-**Auth:** none
-
-**Path params:** `visit_id`
-
-**Request body** (`application/json`, `FollowUpIn`):
-
-| Field | Type | Required | Notes |
-|---|---|---|---|
-| `follow_up` | string | Y | Follow Up |
-
-Example request:
-
-```json
-{
-  "follow_up": "string"
+  },
+  "mfu_prescreen": {}
 }
 ```
 
@@ -3152,20 +3396,22 @@ longer first-time, on this visit and any future one.
 
 | Field | Type | Required | Notes |
 |---|---|---|---|
-| `smoking_alcohol` | string or null | N | Smoking Alcohol |
+| `smoking` | string or null | N | Smoking |
+| `alcohol` | string or null | N | Alcohol |
 | `allergies` | string or null | N | Allergies |
 | `chronic_conditions` | string or null | N | Chronic Conditions |
-| `past_surgeries` | string or null | N | Past Surgeries |
+| `post_surgeries` | string or null | N | Post Surgeries |
 | `family_history` | string or null | N | Family History |
 
 Example request:
 
 ```json
 {
-  "smoking_alcohol": "string",
+  "smoking": "string",
+  "alcohol": "string",
   "allergies": "string",
   "chronic_conditions": "string",
-  "past_surgeries": "string",
+  "post_surgeries": "string",
   "family_history": "string"
 }
 ```
@@ -3328,6 +3574,7 @@ Row in the admin User Settings table (nurse accounts).
 | Field | Type | Required | Notes |
 |---|---|---|---|
 | `notes` | string or null | N | Notes |
+| `visit_id` | string or null | N | Visit Id |
 | `ai_assessment_score` | integer or null | N | Ai Assessment Score |
 | `chief_complaint` | string or null | N | Chief Complaint |
 | `illness_note` | string or null | N | Illness Note |
@@ -3339,6 +3586,7 @@ Row in the admin User Settings table (nurse accounts).
 |---|---|---|---|
 | `confirmed_department_id` | string (uuid) | Y | Confirmed Department Id |
 | `reason` | string or null | N | Reason |
+| `visit_id` | string or null | N | Visit Id |
 | `ai_assessment_score` | integer or null | N | Ai Assessment Score |
 | `chief_complaint` | string or null | N | Chief Complaint |
 | `illness_note` | string or null | N | Illness Note |
@@ -3384,6 +3632,7 @@ Row in the admin User Settings table (nurse accounts).
 | `his_queue_number` | string or null | N | His Queue Number |
 | `his_routing_message_th` | string or null | N | His Routing Message Th |
 | `his_request_id` | string or null | N | His Request Id |
+| `rag_grounding` | object or null | N | Rag Grounding |
 | `reviewed_at` | string (date-time) or null | N | Reviewed At |
 | `created_at` | string (date-time) | Y | Created At |
 | `updated_at` | string (date-time) | Y | Updated At |
@@ -3445,7 +3694,7 @@ Optional body for the cuff fetch: links the stored reading to the kiosk session 
 
 ### `BpRestStatusOut`
 
-Whether this patient/visit must wait before another BP reading.
+Whether this patient (HN) must wait before another BP reading.
 
 | Field | Type | Required | Notes |
 |---|---|---|---|
@@ -3454,7 +3703,6 @@ Whether this patient/visit must wait before another BP reading.
 | `seconds_remaining` | integer | N | Seconds Remaining (default: `0`) |
 | `reason` | string or null | N | Reason |
 | `hn` | string or null | N | Hn |
-| `visit_id` | string or null | N | Visit Id |
 
 ### `BpScanDeviceOut`
 
@@ -3482,18 +3730,18 @@ Body for the long-poll watch: wait up to ``timeout_seconds`` for the cuff's fini
 | `session_id` | string (uuid) or null | N | Session Id |
 | `timeout_seconds` | number | N | Timeout Seconds (default: `25`) |
 
-### `ConfirmVisitNameRequest`
+### `ConfirmPatientNameRequest`
 
-Patient response to "Is this you, {name}?" after link-visit.  Provide either ``confirmed`` (button) or ``text`` (typed/spoken natural language). When ``text`` is set, the shared yes/no classifier decides.
+Patient response to "Is this you, {name}?" after link-patient.  Provide either ``confirmed`` (button) or ``text`` (typed/spoken natural language). When ``text`` is set, the shared yes/no classifier decides.
 
 | Field | Type | Required | Notes |
 |---|---|---|---|
 | `confirmed` | boolean or null | N | Confirmed |
 | `text` | string or null | N | Text |
 
-### `ConfirmVisitNameResponse`
+### `ConfirmPatientNameResponse`
 
-Outcome of the VN name-confirm step.
+Outcome of the HN name-confirm step.
 
 | Field | Type | Required | Notes |
 |---|---|---|---|
@@ -3726,23 +3974,22 @@ Hospital-DB connection state shown in admin Database Settings.
 | `name` | string | Y | Name |
 | `api_key` | string or null | N | Api Key |
 
-### `LinkVisitRequest`
+### `LinkPatientRequest`
 
 | Field | Type | Required | Notes |
 |---|---|---|---|
-| `visit_id` | string | Y | Visit Id |
+| `hn` | string | Y | Hn |
 | `preconfirmed` | boolean | N | Preconfirmed (default: `false`) |
 
-### `LinkVisitResponse`
+### `LinkPatientResponse`
 
 | Field | Type | Required | Notes |
 |---|---|---|---|
 | `linked` | boolean | Y | Linked |
-| `visit_id` | string | Y | Visit Id |
+| `hn` | string | Y | Hn |
 | `patient_name` | string or null | N | Patient Name |
 | `age_years` | integer or null | N | Age Years |
-| `appointment` | boolean | N | Appointment (default: `false`) |
-| `has_his_vitals` | boolean | N | Has His Vitals (default: `false`) |
+| `appointment` | boolean or null | N | Appointment |
 | `is_first_time` | boolean | N | Is First Time (default: `false`) |
 
 ### `MessageCreate`
@@ -3786,14 +4033,15 @@ Hospital-DB connection state shown in admin Database Settings.
 
 ### `PatientHistoryIntakeRequest`
 
-First-time-patient structured history collected at the booth.
+First-time-patient structured history collected at the booth.  Field names per Data Requirements V1 §1.3: smoking and alcohol are separate questions, surgery history is ``post_surgeries``.
 
 | Field | Type | Required | Notes |
 |---|---|---|---|
-| `smoking_alcohol` | string or null | N | Smoking Alcohol |
+| `smoking` | string or null | N | Smoking |
+| `alcohol` | string or null | N | Alcohol |
 | `allergies` | string or null | N | Allergies |
 | `chronic_conditions` | string or null | N | Chronic Conditions |
-| `past_surgeries` | string or null | N | Past Surgeries |
+| `post_surgeries` | string or null | N | Post Surgeries |
 | `family_history` | string or null | N | Family History |
 
 ### `PatientHistoryIntakeResponse`
@@ -3858,14 +4106,14 @@ The nurse's current draft, since SBAR depends on all three.
 | `chief_complaint` | string or null | N | Chief Complaint |
 | `illness_note` | string or null | N | Illness Note |
 
-### `SessionByVisitOut`
+### `SessionByHnOut`
 
-Result of looking up a recent session by hospital visit ID (VN).  ``found=False`` when no same-day session is linked to this VN — the client should create a new session and call ``link-visit``. When ``found=True``, ``status`` says what the kiosk should offer: ``active`` → continue or start over; ``completed`` → start over / reprint slip.
+Result of looking up a recent session by patient HN.  ``found=False`` when no recent-window session is linked to this HN — the client should create a new session and call ``link-patient``. When ``found=True``, ``status`` says what the kiosk should offer: ``active`` → continue or start over; ``completed`` → start over / reprint slip.
 
 | Field | Type | Required | Notes |
 |---|---|---|---|
 | `found` | boolean | Y | Found |
-| `visit_id` | string | Y | Visit Id |
+| `hn` | string | Y | Hn |
 | `session` | SessionOut or null | N |  |
 | `status` | string or null | N | Status |
 | `patient_name` | string or null | N | Patient Name |
@@ -3893,7 +4141,7 @@ A single vital captured mid-interview when the engine requests it (temperature o
 
 | Field | Type | Required | Notes |
 |---|---|---|---|
-| `vital` | string — one of `temp` \| `weight` \| `height` | Y | Vital |
+| `vital` | string — one of `temp` \| `weight` \| `height` \| `spo2` | Y | Vital |
 | `value` | number | Y | Value |
 
 ### `SessionOut`
@@ -3946,6 +4194,72 @@ A single vital captured mid-interview when the engine requests it (temperature o
 | `severity_level` | string or null | Y | Severity Level |
 | `count` | integer | Y | Count |
 
+### `Spo2DeviceStatusOut`
+
+Current pulse-oximeter configuration shown in the admin portal.
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `device_name` | string | Y | Device Name |
+| `device_mac` | string or null | Y | Device Mac |
+| `configured` | boolean | Y | Configured |
+| `busy` | boolean | Y | Busy |
+
+### `Spo2FetchRequest`
+
+Body for the pulse-oximeter fetch: waits for a settled fingertip reading, links the stored reading to the kiosk session when given.
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `session_id` | string (uuid) or null | N | Session Id |
+| `timeout_seconds` | number or null | N | Timeout Seconds |
+
+### `Spo2FetchResponse`
+
+Result of a kiosk-side pulse-oximeter fetch. ``status`` is always set; the reading fields are only present when ``status == "ok"``.
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `status` | string — one of `ok` \| `busy` \| `not_configured` \| `device_not_found` \| `wrong_device` \| `timeout` \| `error` | Y | Status |
+| `spo2` | integer or null | N | Spo2 |
+| `pulse_bpm` | integer or null | N | Pulse Bpm |
+| `measured_at` | string (date-time) or null | N | Measured At |
+| `message` | string or null | N | Message |
+| `reading_id` | string (uuid) or null | N | Reading Id |
+
+### `Spo2PairRequest`
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `mac` | string | Y | Mac |
+| `name` | string or null | N | Name |
+
+### `Spo2PairResponse`
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `status` | string — one of `ok` \| `busy` \| `invalid` \| `device_not_found` \| `wrong_device` \| `timeout` \| `error` | Y | Status |
+| `device_name` | string or null | N | Device Name |
+| `device_mac` | string or null | N | Device Mac |
+| `message` | string or null | N | Message |
+
+### `Spo2ScanDeviceOut`
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `mac` | string | Y | Mac |
+| `name` | string or null | N | Name |
+| `rssi` | integer or null | N | Rssi |
+| `is_oximeter` | boolean | N | Is Oximeter (default: `false`) |
+
+### `Spo2ScanResponse`
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `status` | string — one of `ok` \| `busy` \| `error` | Y | Status |
+| `devices` | array of Spo2ScanDeviceOut | N | Devices |
+| `message` | string or null | N | Message |
+
 ### `SttResponse`
 
 | Field | Type | Required | Notes |
@@ -3988,6 +4302,70 @@ A single vital captured mid-interview when the engine requests it (temperature o
 | `distress_type` | string or null | N | Distress Type |
 | `red_flags` | array of string | N | Red Flags |
 
+### `TempDeviceStatusOut`
+
+Current thermometer configuration shown in the admin portal.
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `device_name` | string | Y | Device Name |
+| `device_mac` | string or null | Y | Device Mac |
+| `configured` | boolean | Y | Configured |
+| `busy` | boolean | Y | Busy |
+
+### `TempFetchRequest`
+
+Body for the thermometer fetch: waits for the device to push a measurement, links the stored reading to the kiosk session when given.
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `session_id` | string (uuid) or null | N | Session Id |
+| `timeout_seconds` | number or null | N | Timeout Seconds |
+
+### `TempPairRequest`
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `mac` | string | Y | Mac |
+| `name` | string or null | N | Name |
+
+### `TempPairResponse`
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `status` | string — one of `ok` \| `busy` \| `invalid` \| `device_not_found` \| `wrong_device` \| `timeout` \| `error` | Y | Status |
+| `device_name` | string or null | N | Device Name |
+| `device_mac` | string or null | N | Device Mac |
+
+### `TempScanDeviceOut`
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `mac` | string | Y | Mac |
+| `name` | string or null | N | Name |
+| `rssi` | integer or null | N | Rssi |
+| `is_thermometer` | boolean | N | Is Thermometer (default: `false`) |
+
+### `TempScanResponse`
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `status` | string — one of `ok` \| `busy` \| `error` | Y | Status |
+| `devices` | array of TempScanDeviceOut | N | Devices |
+| `message` | string or null | N | Message |
+
+### `TemperatureFetchResponse`
+
+Result of a kiosk-side thermometer fetch. ``status`` is always set; the reading fields are only present when ``status == "ok"``.
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `status` | string — one of `ok` \| `busy` \| `not_configured` \| `device_not_found` \| `wrong_device` \| `timeout` \| `error` | Y | Status |
+| `temperature_c` | number or null | N | Temperature C |
+| `measured_at` | string (date-time) or null | N | Measured At |
+| `message` | string or null | N | Message |
+| `reading_id` | string (uuid) or null | N | Reading Id |
+
 ### `TtsRequest`
 
 | Field | Type | Required | Notes |
@@ -3999,23 +4377,16 @@ A single vital captured mid-interview when the engine requests it (temperature o
 
 ### `AssignmentIn`
 
-Body of POST /api/v1/patient-assignments — mirrors the hospital's iMed contract (docs/imed-patient-assignment-api.md).  We never send patient_id / fix_visit_type_id / any timestamp: iMed derives those from the visit and from the access-token identity.
+Body of POST /api/v1/patient-assignments — the hospital's Data Requirements V1 shape (§2.2/§4.4).  We route at *department* granularity only (``base_department_id``); the hospital assigns the actual service point / examination room itself. ``visit_id`` may be absent — the booth flow is HN-first, so when no VN passthrough is available the mock resolves the HN's newest visit. ``mfu_prescreen`` is our screening block (triage level, vitals with provenance, confirmer, source refs), stored verbatim.
 
 | Field | Type | Required | Notes |
 |---|---|---|---|
 | `request_id` | string | Y | Request Id |
-| `visit_id` | string | Y | Visit Id |
-| `assign_spid` | string | Y | Assign Spid |
-| `assign_eid` | string or null | N | Assign Eid |
-| `base_department_id` | string or null | N | Base Department Id |
-| `queue_number` | string or null | N | Queue Number |
+| `visit_id` | string or null | N | Visit Id |
+| `hn` | string or null | N | Hn |
+| `base_department_id` | string | Y | Base Department Id |
 | `sbar` | SbarIn or null | N |  |
-
-### `FollowUpIn`
-
-| Field | Type | Required | Notes |
-|---|---|---|---|
-| `follow_up` | string | Y | Follow Up |
+| `mfu_prescreen` | object or null | N | Mfu Prescreen |
 
 ### `PatientGenderIn`
 
@@ -4027,19 +4398,20 @@ Body of POST /api/v1/patient-assignments — mirrors the hospital's iMed contrac
 
 | Field | Type | Required | Notes |
 |---|---|---|---|
-| `smoking_alcohol` | string or null | N | Smoking Alcohol |
+| `smoking` | string or null | N | Smoking |
+| `alcohol` | string or null | N | Alcohol |
 | `allergies` | string or null | N | Allergies |
 | `chronic_conditions` | string or null | N | Chronic Conditions |
-| `past_surgeries` | string or null | N | Past Surgeries |
+| `post_surgeries` | string or null | N | Post Surgeries |
 | `family_history` | string or null | N | Family History |
 
 ### `PatientPrescreenIn`
 
-Body of POST /api/v1/patient-prescreens (our change request 14).  Note what is absent: no ``recommended_department``, no triage level, no reasoning. That is the point — this marks the patient pre-screened and awaiting confirmation, carrying only what an instrument measured. The clinical decision arrives later, at POST /api/v1/patient-assignments, after a nurse has signed it off.
+Body of POST /api/v1/patient-prescreens (Data Requirements V1 §2.1/§4.3).  Note what is absent: no ``recommended_department``, no triage level, no reasoning. That is the point — this marks the patient pre-screened and awaiting confirmation, carrying only what an instrument measured. The clinical decision arrives later, at POST /api/v1/patient-assignments, after a nurse has signed it off.
 
 | Field | Type | Required | Notes |
 |---|---|---|---|
-| `visit_id` | string | Y | Visit Id |
+| `visit_id` | string or null | N | Visit Id |
 | `hn` | string or null | N | Hn |
 | `session_ref` | string or null | N | Session Ref |
 | `slip_code` | string or null | N | Slip Code |

@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import inspect
 import json
 import math
 import re
@@ -41,6 +42,7 @@ from app.services.screening.extraction import ExtractionResult  # noqa: E402
 from app.services.screening.persistence import InMemoryStateStore  # noqa: E402
 from app.services.screening.rules.criteria_models import ScreeningCriteria  # noqa: E402
 from app.services.screening.rules.criteria_store import load_seed_criteria  # noqa: E402
+from app.services.screening.rules.disposition import decide as rules_decide  # noqa: E402
 from app.services.screening.validator import validate_reply  # noqa: E402
 
 VIGNETTES_PATH = ROOT / "evals" / "vignettes.json"
@@ -52,7 +54,7 @@ VALIDATOR_DEPARTMENT_NAMES = {
     for code, names in templates.DEPARTMENT_NAMES.items()
 }
 
-DEFAULT_MEASUREMENTS = {"bp": [118, 76], "temp": 36.8, "weight": 65, "height": 165}
+DEFAULT_MEASUREMENTS = {"bp": [118, 76], "temp": 36.8, "weight": 65, "height": 165, "spo2": 98}
 DEFAULT_ANSWER = {"en": "no", "th": "ไม่มีค่ะ"}
 DEFAULT_SCALE_ANSWER = {"en": "about a 3", "th": "ประมาณ 3 ค่ะ"}
 DEFAULT_CONFIRM_ANSWER = {"en": "yes, that's right", "th": "ใช่ค่ะ"}
@@ -165,28 +167,34 @@ RAG_CALLS: list[dict[str, Any]] = []
 
 
 async def build_rag_search() -> Any:
-    """production `search_triage_manual`, wrapped to record what it returned.
+    """production `search_triage_manual_status`, wrapped to record what it
+    returned (available / fallback_reason / hits) per call.
 
     Prewarmed first: the explain node gives RAG a 1.5s budget, and a cold index
     (HuggingFace embed model load) blows that on the very first vignette."""
-    from app.services.ai.rag_query import prewarm_rag_query_engine, search_triage_manual
+    from app.services.ai.rag_query import (
+        prewarm_rag_query_engine,
+        search_triage_manual_status,
+    )
 
     warm = await prewarm_rag_query_engine()
     print(f"RAG: enabled (index prewarm {'ok' if warm else 'FAILED — expect misses'})")
 
-    async def counting_search(query: str) -> str:
+    async def counting_search(query: str, language: str = "en") -> dict[str, Any]:
         try:
-            text = await search_triage_manual(query)
-        except Exception as exc:  # search_triage_manual swallows its own, belt+braces
-            RAG_CALLS.append({"query": query, "chars": 0, "error": repr(exc)})
+            status = await search_triage_manual_status(query, language)
+        except Exception as exc:  # the fn swallows its own; belt+braces
+            RAG_CALLS.append({"query": query, "chars": 0, "hit": False, "error": repr(exc)})
             raise
+        passages = str(status.get("passages") or "")
         RAG_CALLS.append({
             "query": query,
-            "chars": len(text or ""),
-            # the fn returns this sentence instead of raising when the index is down
-            "hit": bool(text.strip()) and not text.startswith("ไม่พบข้อมูลจากคู่มือ"),
+            "chars": len(passages),
+            "hit": bool(status.get("available")),
+            "reason": status.get("fallback_reason"),
+            "pages": [h.get("page") for h in (status.get("hits") or [])],
         })
-        return text
+        return status
 
     return counting_search
 
@@ -224,6 +232,79 @@ def dry_run_feeder(
             chief_complaint=vig["opening"][:120],
             complaint_category=category if category in valid else None,
         )
+    return ExtractionResult()
+
+
+
+def _question_by_id(criteria: ScreeningCriteria, qid: str | None):
+    if not qid:
+        return None
+    for q in [*criteria.universal_questions, *criteria.pre_disposition_questions]:
+        if q.id == qid:
+            return q
+    for template in criteria.complaint_templates:
+        for q in template.questions:
+            if q.id == qid:
+                return q
+    return None
+
+
+def present_feeder(
+    turn_no: int, vig: dict[str, Any], criteria: ScreeningCriteria, state: Any = None
+) -> ExtractionResult:
+    """Deterministic stand-in for the extraction model, driven by the
+    vignette's authored truth (``present``, ``age``, ``gender``).
+
+    Turn 1 states the complaint + category + every ``present`` finding. Each
+    later turn answers exactly the pending question: its ``finding_ids``
+    become present/absent from ``present``; an age/gender question is
+    answered from the vignette; a slot question fills that slot; a scale
+    question scores 3. Answering the pending question is what CONFIRMS a
+    finding in the ingest node, so confirm-before-fire runs for real.
+    Nothing here reaches a rule that the vignette did not author — which is
+    what makes the engine-vs-rules-oracle comparison meaningful."""
+    from app.services.screening.extraction import FindingUpdate
+
+    present = set(vig.get("present") or [])
+    if turn_no == 1:
+        # the more specific label (category_v2) when the vignette carries it
+        category = next(iter(expected_categories(vig, "seed")), None)
+        valid = {t.category for t in criteria.complaint_templates}
+        return ExtractionResult(
+            chief_complaint=vig["opening"][:120],
+            complaint_category=category if category in valid else None,
+            finding_updates=[
+                FindingUpdate(id=fid, state="present")
+                for fid in present if fid in criteria.finding_catalog
+            ],
+        )
+    if state is None:
+        return ExtractionResult()
+    confirming = list(getattr(state, "pending_confirm", []) or [])
+    question = _question_by_id(criteria, getattr(state, "pending_question_id", None))
+    if confirming:
+        fid = confirming[0]
+        return ExtractionResult(finding_updates=[
+            FindingUpdate(id=fid, state="present" if fid in present else "absent")
+        ])
+    if question is None:
+        return ExtractionResult()
+    if question.kind == "age":
+        return ExtractionResult(age_years=vig.get("age"))
+    if question.kind == "gender":
+        gender = vig.get("gender")
+        return ExtractionResult(gender=gender if gender in ("male", "female") else None)
+    if question.kind == "scale":
+        if "distress" in question.id or "breath" in question.id:
+            return ExtractionResult(distress_score=3)
+        return ExtractionResult(pain_score=3)
+    if question.kind == "slot" and question.slot:
+        return ExtractionResult(slot_updates={question.slot: "about 3 days"})
+    if question.finding_ids:
+        return ExtractionResult(finding_updates=[
+            FindingUpdate(id=fid, state="present" if fid in present else "absent")
+            for fid in question.finding_ids
+        ])
     return ExtractionResult()
 
 
@@ -267,9 +348,17 @@ async def run_vignette(
     turns = 0
     result: dict[str, Any] = {}
 
+    prev_state = None
+    feeder_wants_state = (
+        feeder is not None and len(inspect.signature(feeder).parameters) >= 4
+    )
     for turn_no in range(1, turn_cap + 1):
         if feeder is not None and model is not None:
-            model.extractions.append(feeder(turn_no, vig, criteria))
+            model.extractions.append(
+                feeder(turn_no, vig, criteria, prev_state)
+                if feeder_wants_state
+                else feeder(turn_no, vig, criteria)
+            )
         result = await engine.run_turn(
             session_id=session_id,
             language=language,
@@ -281,6 +370,7 @@ async def run_vignette(
         turns = turn_no
         state = await store.load(session_id)
         assert state is not None
+        prev_state = state
         if turn_no == 1:
             turn1_findings = state.finding_states()
         classification = result["classification"] or {}
@@ -305,10 +395,15 @@ async def run_vignette(
         flow_complete = bool(result.get("flow_complete"))
         if is_final or escalated:
             break
+        scripted = vig.get("utterances") or []
         if result.get("awaiting_measurement"):
             vital = result["awaiting_measurement"]
             ctx = {"vitals": measurement_ctx(vital, vig.get("measurements") or {})}
             text = MEASURED_TEXT[language]
+        elif turn_no - 1 < len(scripted):
+            # Strict per-turn script (golden-transcript style): utterances[i]
+            # is what the patient says after turn i+1, measurements aside.
+            text = scripted[turn_no - 1]
         else:
             text = pick_answer(
                 vig, state.pending_question_id or "", result["reply"], kind_index,
@@ -340,8 +435,43 @@ async def run_vignette(
 
     final_state = await store.load(session_id)
     assert final_state is not None
+
+    # The pure-rules oracle over the FINAL state: the engine's disposition must
+    # agree with rules.disposition.decide(...) on the same findings/vitals —
+    # catches graph/state plumbing bugs without re-encoding the criteria.
+    oracle: dict[str, Any] | None = None
+    if vig.get("expected", {}).get("oracle"):
+        verdict = rules_decide(
+            findings=final_state.finding_states(),
+            vitals=dict(final_state.vitals),
+            age_years=final_state.age_years,
+            complaint_category=final_state.complaint_category,
+            criteria=criteria,
+            gender=final_state.gender,
+        )
+        oracle = {"level": verdict.level, "department_code": verdict.department_code}
+
+    # Explain-node audit for this session: did the wording come from the
+    # model (ok) or fall back to the template, and was it manual-grounded?
+    explain_ok: bool | None = None
+    grounded: bool | None = None
+    grounding_reason: str | None = None
+    for record in getattr(store, "audit_log", []):
+        if record.get("session_id") != session_id:
+            continue
+        for entry in record.get("entries") or []:
+            if entry.get("call_site") == "explain":
+                explain_ok = bool(entry.get("ok"))
+                rag = entry.get("rag") or {}
+                grounded = bool(rag.get("used"))
+                grounding_reason = rag.get("reason")
+
     return {
         "classification": classification,
+        "oracle": oracle,
+        "explain_ok": explain_ok,
+        "grounded": grounded,
+        "grounding_reason": grounding_reason,
         "category_actual": final_state.complaint_category,
         "asked_question_ids": list(final_state.asked_question_ids),
         "findings": final_state.finding_states(),
@@ -421,6 +551,33 @@ def score_vignette(
     ]
     if must_ask_missing:
         fail.append(f"must_ask not asked: {must_ask_missing}")
+    must_not_ask_hit = [
+        pattern
+        for pattern in expected.get("must_not_ask", [])
+        if any(re.search(pattern, qid, re.IGNORECASE) for qid in asked)
+    ]
+    if must_not_ask_hit:
+        fail.append(f"must_not_ask was asked: {must_not_ask_hit}")
+
+    # The string the patient actually hears for the department, per language.
+    lang = vig["language"]
+    name_expected = expected.get(f"department_name_{lang}")
+    name_actual = (templates.DEPARTMENT_NAMES.get(dept_actual or "") or {}).get(lang)
+    if name_expected and name_actual != name_expected:
+        fail.append(f"department name {name_actual!r} != {name_expected!r}")
+
+    oracle = outcome.get("oracle")
+    oracle_ok = True
+    if oracle is not None:
+        oracle_ok = (
+            oracle["level"] == level
+            and oracle["department_code"] == dept_actual
+        )
+        if not oracle_ok:
+            fail.append(
+                f"engine {level}/{dept_actual} disagrees with rules oracle "
+                f"{oracle['level']}/{oracle['department_code']}"
+            )
 
     if outcome["leaks"]:
         fail.append(f"{len(outcome['leaks'])} validator leak(s)")
@@ -467,6 +624,12 @@ def score_vignette(
         "department_actual": dept_actual,
         "department_ok": department_ok,
         "must_ask_missing": must_ask_missing,
+        "must_not_ask_hit": must_not_ask_hit,
+        "oracle": oracle,
+        "oracle_ok": oracle_ok,
+        "explain_ok": outcome.get("explain_ok"),
+        "grounded": outcome.get("grounded"),
+        "grounding_reason": outcome.get("grounding_reason"),
         "leaks": outcome["leaks"],
         "turns": outcome["turns"],
         "wall_time_s": outcome["wall_time_s"],
@@ -597,6 +760,13 @@ def _metrics(results: list[dict[str, Any]]) -> dict[str, Any]:
         "category_pct": pct(sum(r["category_ok"] for r in results), n),
         "department_pct": pct(sum(r["department_ok"] for r in results), n),
         "leak_count": sum(len(r["leaks"]) for r in results),
+        # Explain node: how many dispositions spoke model wording vs fell back
+        # to the template, and how many were grounded in the uploaded manual.
+        # Compared across --rag / no-RAG runs this IS the grounding evidence.
+        "explain_calls": sum(1 for r in results if r.get("explain_ok") is not None),
+        "explain_template_fallbacks": sum(1 for r in results if r.get("explain_ok") is False),
+        "explain_grounded": sum(1 for r in results if r.get("grounded")),
+        "oracle_disagreements": [r["id"] for r in results if not r.get("oracle_ok", True)],
         "avg_turns": round(sum(r["turns"] for r in results) / n, 1) if n else 0,
         "total_wall_time_s": round(sum(r["wall_time_s"] for r in results), 1),
     }
@@ -658,6 +828,9 @@ def write_reports(
         f"| Category match | {aggregates['category_pct']}% |",
         f"| Department match | {aggregates['department_pct']}% |",
         f"| Validator leaks | {aggregates['leak_count']} |",
+        f"| Explain: template fallbacks | {aggregates['explain_template_fallbacks']}/{aggregates['explain_calls']} |",
+        f"| Explain: grounded in uploaded manual (RAG {'ON' if meta.get('rag') else 'OFF'}) | {aggregates['explain_grounded']}/{aggregates['explain_calls']} |",
+        f"| Rules-oracle disagreements | {len(aggregates['oracle_disagreements'])} |",
         f"| Avg turns | {aggregates['avg_turns']} |",
         f"| Total wall time | {aggregates['total_wall_time_s']}s |",
         "",
@@ -818,7 +991,10 @@ async def main_async(args: argparse.Namespace) -> int:
 
         logging.getLogger("app.services.screening").setLevel(logging.CRITICAL)
         model = build_dry_model()
-        feeder, model_label = dry_run_feeder, "dry-run:FakeChatModel"
+        # present_feeder answers every question from the vignette's authored
+        # truth, so a dry run exercises red flags, confirm-before-fire,
+        # measurements and the rules oracle — not just the plumbing.
+        feeder, model_label = present_feeder, "dry-run:FakeChatModel+present_feeder"
     else:
         model, model_label = build_real_model()
         feeder = None

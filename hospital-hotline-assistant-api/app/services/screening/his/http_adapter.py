@@ -14,18 +14,17 @@ from typing import Any
 
 import httpx
 
-from .adapter import AssignmentResult, PatientHistory, VisitInfo
+from .adapter import AssignmentResult, CurrentVisit, PatientHistory, PatientInfo
 
 logger = logging.getLogger(__name__)
 
 # The hospital's assignment endpoint. Their UAT/PROD base URLs are documented
 # with the /api/v1 suffix already on them — configure HIS_BASE_URL WITHOUT it,
 # the way the mock is mounted at http://localhost:8001.
-# Every call we make to the hospital. All under /api/v1, all proposed to them
-# in the `HIS Integration (hospital-facing)` Postman collection — only
-# ASSIGNMENTS_PATH comes from iMed's own contract.
+# Every call we make to the hospital, per Data Requirements V1. The booth flow
+# is HN-first: GET /visits/{visit_id} still exists HIS-side but nothing here
+# calls it any more.
 ASSIGNMENTS_PATH = "/api/v1/patient-assignments"
-VISIT_PATH = "/api/v1/visits/{visit_id}"
 PATIENT_PATH = "/api/v1/patients/{hn}"
 PATIENT_HISTORY_PATH = "/api/v1/patients/{hn}/history"
 PATIENT_GENDER_PATH = "/api/v1/patients/{hn}/gender"
@@ -50,25 +49,78 @@ def his_auth_headers(api_key: str | None) -> dict[str, str]:
 
 
 def _parse_patient_history(patient: dict[str, Any] | None) -> PatientHistory | None:
-    """Parse the ``visit_payload()``-nested ``"patient"`` object (mock HIS's
-    ``GET /api/visits/{id}``) into a ``PatientHistory``. None when the HIS
-    doesn't support/return HN-level data."""
+    """Parse a ``GET /patients/{hn}`` payload's history + last-vitals blocks
+    into a ``PatientHistory``. None when the HIS doesn't support/return
+    HN-level data. Field names per Data Requirements V1 §1.3/§1.4 — note the
+    hospital's own ``hight`` spelling (``height`` accepted as a fallback)."""
     if not patient:
         return None
     history = patient.get("history") or {}
     last_vitals = patient.get("last_vitals") or {}
     return PatientHistory(
         is_first_time=bool(patient.get("is_first_time", True)),
-        smoking_alcohol=history.get("smoking_alcohol"),
+        smoking=history.get("smoking"),
+        alcohol=history.get("alcohol"),
         allergies=history.get("allergies"),
         chronic_conditions=history.get("chronic_conditions"),
-        past_surgeries=history.get("past_surgeries"),
+        post_surgeries=history.get("post_surgeries"),
         family_history=history.get("family_history"),
         recorded_at=history.get("recorded_at"),
         last_weight_kg=last_vitals.get("weight"),
-        last_height_cm=last_vitals.get("height"),
+        last_height_cm=last_vitals.get("hight", last_vitals.get("height")),
         vitals_measured_at=last_vitals.get("measured_at"),
     )
+
+
+# session.metadata.vitals key → the wire name Data Requirements V1 uses.
+_PDF_VITAL_KEYS = {
+    "systolic": "systolic",
+    "diastolic": "diastolic",
+    "pulse_bpm": "pulse_bpm",
+    "temperature": "temperature_c",
+    "weight_kg": "weight_kg",
+    "height_cm": "hight_cm",   # the hospital's spelling — verbatim from V1
+}
+
+# Per-vital provenance → the V1 enum (device | patient_input). HIS-sourced
+# values have no place in that enum, so their keys simply carry no entry.
+_PDF_SOURCE_VALUES = {
+    "device": "device",
+    "patient_input": "patient_input",
+    "manual": "patient_input",
+}
+
+
+def pdf_vitals(metadata_vitals: dict[str, Any] | None) -> dict[str, Any]:
+    """Project ``session.metadata.vitals`` onto the Data Requirements V1
+    vitals object (§2.1/§4.3): allowlisted keys only, wire renames
+    (``temperature``→``temperature_c``, ``height_cm``→``hight_cm``), the
+    normalized per-vital ``sources`` map, and ``bmi`` computed at send time.
+
+    An explicit allowlist because the metadata blob carries internal keys
+    (``source``, ``recorded_at``, ``bp_recheck_pending``, ``spo2``…) that
+    must never leak into a hospital payload.
+    """
+    v = metadata_vitals or {}
+    out: dict[str, Any] = {}
+    for meta_key, wire_key in _PDF_VITAL_KEYS.items():
+        if v.get(meta_key) is not None:
+            out[wire_key] = v[meta_key]
+    sources = {}
+    for meta_key, provenance in (v.get("sources") or {}).items():
+        wire_key = _PDF_VITAL_KEYS.get(meta_key)
+        wire_value = _PDF_SOURCE_VALUES.get(provenance)
+        if wire_key and wire_key in out and wire_value:
+            sources[wire_key] = wire_value
+    if sources:
+        out["sources"] = sources
+    weight, height = v.get("weight_kg"), v.get("height_cm")
+    try:
+        if weight and height and float(height) > 0:
+            out["bmi"] = round(float(weight) / (float(height) / 100) ** 2, 2)
+    except (TypeError, ValueError):
+        pass  # implausible values are already dropped upstream by check_vitals
+    return out
 
 
 def with_bmi(vitals: dict[str, Any]) -> dict[str, Any]:
@@ -144,58 +196,40 @@ class HttpHisAdapter:
             logger.warning("[HIS] %s %s failed: %s", method, path, exc)
             return None
 
-    async def validate_visit(self, visit_id: str) -> VisitInfo | None:
-        """Resolve the VN the patient typed at the booth.
-
-        Two calls, because the reads are split by purpose: the visit gives us
-        identity, the age band and whether the visit is open — everything
-        needed to *start* safely. The patient read only saves us re-asking
-        history, so a failure there degrades to "ask them again" rather than
-        blocking the booth.
-        """
-        if not visit_id.strip():
+    async def validate_patient(self, hn: str) -> PatientInfo | None:
+        """Resolve the HN the patient typed at the booth — one read gives
+        identity, the age band, gender, the carried-forward history and the
+        current-visit passthrough (Data Requirements V1 §1.2–1.4)."""
+        if not hn.strip():
             return None
-        resp = await self._request("GET", VISIT_PATH.format(visit_id=visit_id.strip()))
+        resp = await self._request("GET", PATIENT_PATH.format(hn=hn.strip()))
         if resp is None or resp.status_code == 404:
             return None
         if resp.status_code != 200:
-            logger.warning("[HIS] validate_visit %s → %s", visit_id, resp.status_code)
+            logger.warning("[HIS] validate_patient %s → %s", hn, resp.status_code)
             return None
         data = resp.json()
-        # A locked or financially discharged visit must not be screened.
-        if data.get("active") is False:
-            logger.info("[HIS] visit %s is not active", visit_id)
-            return None
         birthdate = data.get("birthdate")
-        # Prefer "hn"; "hnx" is the older export spelling.
-        hn = data.get("hn") or data.get("hnx")
-        return VisitInfo(
-            visit_id=data.get("visit_id", visit_id),
-            patient_id=hn,
+        cv = data.get("current_visit") or None
+        return PatientInfo(
+            hn=data.get("hn") or hn.strip(),
             patient_name=data.get("patient_name"),
-            is_active=True,
             birthdate=birthdate,
             age_years=_age_from_birthdate(birthdate),
             gender=_normalize_gender(data.get("gender")),
-            vitals=data.get("vitals") or {},
-            appointment=bool(data.get("appointment")),
-            patient_history=await self._patient_history(hn),
+            patient_history=_parse_patient_history(data),
+            current_visit=CurrentVisit(
+                visit_id=str(cv["visit_id"]),
+                appointment=bool(cv.get("appointment")),
+            )
+            if cv and cv.get("visit_id")
+            else None,
             raw=data,
         )
 
-    async def _patient_history(self, hn: str | None) -> PatientHistory | None:
-        """Best-effort HN read. None simply means the booth asks the patient,
-        so the hospital can decline this endpoint without breaking anything."""
-        if not hn:
-            return None
-        resp = await self._request("GET", PATIENT_PATH.format(hn=hn))
-        if resp is None or resp.status_code != 200:
-            logger.info("[HIS] no patient record for hn=%s; will ask the patient", hn)
-            return None
-        return _parse_patient_history(resp.json())
-
-    async def push_referral(self, referral: dict[str, Any]) -> bool:
-        """Mark the patient pre-screened and awaiting nurse confirmation.
+    async def push_prescreen(self, prescreen: dict[str, Any]) -> bool:
+        """Mark the patient pre-screened and awaiting nurse confirmation
+        (Data Requirements V1 §2.1/§4.3).
 
         **Objective data only.** The recommended department, the complaint
         summary and the AI's reasoning are deliberately dropped here — they
@@ -204,28 +238,28 @@ class HttpHisAdapter:
         judgement in the hospital's record and make the confirm step
         decorative.
         """
-        visit_id = referral.get("visit_id")
-        if not visit_id:
+        hn = prescreen.get("hn")
+        if not hn:
             return False
-        vitals = referral.get("vitals") or {}
+        vitals = prescreen.get("vitals") or {}
         body = {
-            "visit_id": visit_id,
-            # HN alongside the VN so the hospital can cross-check that the two
-            # resolve to the same patient before writing anything.
-            "hn": referral.get("hn"),
-            "session_ref": referral.get("session_ref"),
-            "slip_code": referral.get("slip_code"),
+            # VN passthrough when the HIS gave us one at link time; with only
+            # the HN the HIS resolves the patient's active visit itself.
+            "visit_id": prescreen.get("visit_id"),
+            "hn": hn,
+            "session_ref": prescreen.get("session_ref"),
+            "slip_code": prescreen.get("slip_code"),
             # Their export's own model: the booth is the FIRST location the
             # patient was seen at; the assignment sets the second.
             "first_location": BOOTH_LOCATION,
             "measured_at": vitals.get("measured_at") or vitals.get("recorded_at"),
-            "vitals": with_bmi(vitals),
+            "vitals": pdf_vitals(vitals),
         }
         resp = await self._request("POST", PRESCREENS_PATH, json=body)
         if resp is None or not resp.is_success:
             logger.warning(
-                "[HIS] prescreen visit=%s → %s",
-                visit_id,
+                "[HIS] prescreen hn=%s → %s",
+                hn,
                 None if resp is None else resp.status_code,
             )
             return False
@@ -262,54 +296,41 @@ class HttpHisAdapter:
             return False
         return True
 
-    async def push_follow_up(self, visit_id: str, follow_up: str) -> bool:
-        # iMed documents no counterpart and we have not proposed one: the same
-        # text reaches them in `sbar.documentation` when the nurse confirms.
-        # This call is mock-only and simply drops away at go-live.
-        resp = await self._request(
-            "PUT",
-            f"/api/visits/{visit_id}/follow-up",
-            json={"follow_up": follow_up},
-        )
-        if resp is None or resp.status_code != 200:
-            logger.warning(
-                "[HIS] push_follow_up visit=%s → %s",
-                visit_id,
-                None if resp is None else resp.status_code,
-            )
-            return False
-        return True
-
     async def confirm_routing(
         self,
-        visit_id: str,
+        visit_id: str | None,
         *,
         request_id: str,
-        assign_spid: str,
+        hn: str | None,
+        base_department_id: str,
         sbar: dict[str, str | None] | None = None,
+        mfu_prescreen: dict[str, Any] | None = None,
     ) -> AssignmentResult:
         body: dict[str, Any] = {
             "request_id": request_id,
             "visit_id": visit_id,
-            "assign_spid": assign_spid,
+            "hn": hn,
+            # Department granularity only (Data Requirements V1 §2.2): the
+            # hospital assigns the service point / room itself, so no spid,
+            # no queue_number, no assign_eid.
+            "base_department_id": base_department_id,
         }
-        # Omitted on purpose: queue_number (their queue rules own sequencing),
-        # base_department_id (they derive it from the service point) and
-        # assign_eid (we route to a department, never a named doctor).
         if sbar and any(v for v in sbar.values()):
             body["sbar"] = {k: v for k, v in sbar.items() if v}
+        if mfu_prescreen:
+            body["mfu_prescreen"] = mfu_prescreen
 
         resp = await self._request("POST", ASSIGNMENTS_PATH, json=body)
         if resp is None:
             # Transport error or timeout: the queue row MAY have been created.
             # Never report this as a failure — see AssignmentResult.
-            logger.warning("[HIS] assignment visit=%s → no response", visit_id)
+            logger.warning("[HIS] assignment hn=%s → no response", hn)
             return AssignmentResult(status="unknown", request_id=request_id)
 
         try:
             payload = resp.json()
         except ValueError:
-            logger.warning("[HIS] assignment visit=%s → non-JSON body", visit_id)
+            logger.warning("[HIS] assignment hn=%s → non-JSON body", hn)
             return AssignmentResult(
                 status="unknown", request_id=request_id, http_status=resp.status_code
             )

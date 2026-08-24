@@ -40,7 +40,8 @@ REFERRAL = {
 # The real contract authenticates with a Bearer token; the mock accepts
 # X-API-Key too so one credential works against both endpoint families.
 BEARER = {"Authorization": f"Bearer {API_KEY}"}
-SPID_MED = "SP_OPD_MED_01"
+SPID_MED = "SP_OPD_MED_01"   # what the mock resolves DEPT_MED to
+DEPT_MED = "DEPT_MED"
 SBAR = {
     "situation": "แน่นหน้าอกมา 2 ชั่วโมง",
     "background": "ความดันโลหิตสูง",
@@ -48,13 +49,27 @@ SBAR = {
     "assessment_problem": "เจ็บหน้าอกร่วมกับปัจจัยเสี่ยง",
     "recommend": "ส่งตรวจอายุรกรรม",
 }
+MFU_PRESCREEN = {
+    "triage_level": 3,
+    "triage_scale": "MOPH-5",
+    "triage_label": "Urgent",
+    "confirmed_by": "OPD Nurse (สมหญิง)",
+    "source_ref": {"slip_code": "MCH-A1B2-C3D4", "session_ref": "sess-1"},
+    "rerouted": False,
+}
 
 
-async def _assign(client, *, request_id="MFU-TEST-000001", spid=SPID_MED,
-                  visit=VISIT, sbar=SBAR, headers=None):
-    body = {"request_id": request_id, "visit_id": visit, "assign_spid": spid}
+async def _assign(client, *, request_id="MFU-TEST-000001", dept=DEPT_MED,
+                  visit=VISIT, hn=None, sbar=SBAR, mfu=None, headers=None):
+    body = {"request_id": request_id, "base_department_id": dept}
+    if visit is not None:
+        body["visit_id"] = visit
+    if hn is not None:
+        body["hn"] = hn
     if sbar is not None:
         body["sbar"] = sbar
+    if mfu is not None:
+        body["mfu_prescreen"] = mfu
     # `is None`, not `or` — an explicitly empty dict is how the no-auth case
     # is expressed, and `{} or BEARER` would silently authenticate it.
     return await client.post(
@@ -131,29 +146,6 @@ async def test_visit_payload_includes_patient_name(client):
     assert by_id[VISIT]["patient_name"] == "สมชาย ใจดี"
 
 
-async def test_follow_up_written_and_reset(client):
-    resp = await client.put(
-        f"/api/visits/{VISIT}/follow-up",
-        headers=HEADERS,
-        json={"follow_up": "Can I eat before the blood test?"},
-    )
-    assert resp.status_code == 200
-    assert resp.json()["follow_up"] == "Can I eat before the blood test?"
-
-    # reset clears follow_up but keeps the registration-owned name
-    await client.post("/api/admin/reset", headers=HEADERS, json={"visit_ids": [VISIT]})
-    visit = (await client.get(f"/api/visits/{VISIT}", headers=HEADERS)).json()
-    assert visit["follow_up"] is None
-    assert visit["patient_name"] == "สมชาย ใจดี"
-
-
-async def test_follow_up_requires_api_key(client):
-    resp = await client.put(
-        f"/api/visits/{VISIT}/follow-up", json={"follow_up": "x"}
-    )
-    assert resp.status_code == 401
-
-
 async def test_reset_single_visit_back_to_registered(client):
     # Drive the visit all the way to routed, then reset just it.
     await client.post(f"/api/visits/{VISIT}/prescreen", headers=HEADERS, json=REFERRAL)
@@ -211,7 +203,11 @@ async def test_get_patient_returning_vs_first_time(client):
     returning = (await client.get("/api/patients/09900001", headers=HEADERS)).json()
     assert returning["is_first_time"] is False
     assert returning["history"]["recorded_at"]
-    assert returning["last_vitals"]["height"] == 172
+    # Data Requirements V1 spelling on the wire: hight, split smoking/alcohol
+    assert returning["last_vitals"]["hight"] == 172
+    assert returning["history"]["smoking"] and returning["history"]["alcohol"]
+    # HN-first extension: the newest routable visit rides along
+    assert returning["current_visit"]["visit_id"] == VISIT
 
     first_time = (await client.get("/api/patients/09900003", headers=HEADERS)).json()
     assert first_time["is_first_time"] is True
@@ -261,10 +257,11 @@ async def test_first_visit_history_captured_then_returning(client):
         f"/api/patients/{hn}/history",
         headers=HEADERS,
         json={
-            "smoking_alcohol": "Non-smoker; no alcohol",
+            "smoking": "Non-smoker",
+            "alcohol": "No alcohol",
             "allergies": "None known",
             "chronic_conditions": "None",
-            "past_surgeries": "None",
+            "post_surgeries": "None",
             "family_history": "Father: hypertension",
         },
     )
@@ -291,7 +288,7 @@ async def test_update_patient_vitals_recorded_for_next_visit(client):
     assert resp.status_code == 200
     body = resp.json()
     assert body["last_vitals"]["weight"] == 55.5
-    assert body["last_vitals"]["height"] == 160
+    assert body["last_vitals"]["hight"] == 160
     assert body["last_vitals"]["measured_at"]
 
     fetched = (await client.get(f"/api/patients/{hn}", headers=HEADERS)).json()
@@ -300,7 +297,7 @@ async def test_update_patient_vitals_recorded_for_next_visit(client):
 
 async def test_history_and_vitals_write_require_api_key(client):
     assert (await client.put(
-        "/api/patients/09900001/history", json={"smoking_alcohol": "x"}
+        "/api/patients/09900001/history", json={"smoking": "x"}
     )).status_code == 401
     assert (await client.put(
         "/api/patients/09900001/vitals", json={"weight_kg": 1}
@@ -311,7 +308,7 @@ async def test_write_history_for_unknown_patient_404(client):
     resp = await client.put(
         "/api/patients/does-not-exist/history",
         headers=HEADERS,
-        json={"smoking_alcohol": "x"},
+        json={"smoking": "x"},
     )
     assert resp.status_code == 404
 
@@ -443,9 +440,35 @@ async def test_assignment_succeeds_without_any_prescreen(client):
     assert (await _assign(client)).status_code == 200
 
 
+async def test_assignment_resolves_visit_by_hn_when_no_vn(client):
+    """HN-first: an assignment with only an HN routes the HN's newest visit."""
+    resp = await _assign(client, request_id="HN-1", visit=None, hn="09900002")
+    assert resp.status_code == 200
+    assert resp.json()["result"]["visit_id"] == "990000000000000002"
+
+
+async def test_assignment_rejects_visit_hn_mismatch(client):
+    resp = await _assign(client, request_id="MM-1", hn="09999999")
+    assert resp.status_code == 400
+    assert resp.json()["message"] == "invalid_request"
+
+
+async def test_assignment_stores_mfu_prescreen_and_lookup_returns_it(client):
+    """§4.4: our screening block (triage level, confirmer, source refs) is
+    stored verbatim and readable back via the request_id lookup."""
+    resp = await _assign(client, request_id="MFU-1", mfu=MFU_PRESCREEN)
+    assert resp.status_code == 200
+    read = await client.get("/api/v1/patient-assignments/MFU-1", headers=BEARER)
+    block = read.json()["result"]["mfu_prescreen"]
+    assert block["triage_scale"] == "MOPH-5"
+    assert block["triage_level"] == 3
+    assert block["source_ref"]["session_ref"] == "sess-1"
+    assert block["confirmed_by"] == "OPD Nurse (สมหญิง)"
+
+
 async def test_reassign_elsewhere_cancels_the_previous_queue(client):
-    await _assign(client, request_id="R1", spid=SPID_MED)
-    resp = await _assign(client, request_id="R2", spid="SP_OPD_HEART_01")
+    await _assign(client, request_id="R1", dept=DEPT_MED)
+    resp = await _assign(client, request_id="R2", dept="DEPT_HEART")
     assert resp.status_code == 200
     visit = (await client.get(f"/api/visits/{VISIT}", headers=HEADERS)).json()
     assert visit["second_location"]["id"] == "SP_OPD_HEART_01"
@@ -475,12 +498,15 @@ async def test_closed_service_point_is_unavailable(client, tmp_path):
     assert resp.json()["message"] == "SERVICE_POINT_NOT_AVAILABLE"
 
 
-async def test_unknown_service_point_and_unknown_visit_are_invalid_request(client):
-    bad_sp = await _assign(client, request_id="U1", spid="SP_NOPE")
-    assert bad_sp.status_code == 400
-    assert bad_sp.json()["message"] == "invalid_request"
+async def test_unknown_department_and_unknown_visit_are_invalid_request(client):
+    bad_dept = await _assign(client, request_id="U1", dept="DEPT_NOPE")
+    assert bad_dept.status_code == 400
+    assert bad_dept.json()["message"] == "invalid_request"
     bad_visit = await _assign(client, request_id="U2", visit="does-not-exist")
     assert bad_visit.status_code == 400
+    # HN-first: neither identifier at all is bad data too
+    neither = await _assign(client, request_id="U3", visit=None)
+    assert neither.status_code == 400
 
 
 async def test_malformed_body_is_400_not_422(client):
@@ -569,27 +595,67 @@ async def test_v1_prescreen_records_measurements_but_no_judgement(client):
     r = await client.post(
         "/api/v1/patient-prescreens", headers=BEARER,
         json={
-            "visit_id": VISIT, "session_ref": "sess-1", "slip_code": "MCH-A1B2-C3D4",
+            "visit_id": VISIT, "hn": "09900001",
+            "session_ref": "sess-1", "slip_code": "MCH-A1B2-C3D4",
             "measured_at": "2026-08-07T09:12:00+07:00",
+            # Data Requirements V1 §4.3 shape: hight_cm spelling, per-vital
+            # provenance, bmi computed at send time.
             "vitals": {"systolic": 158, "diastolic": 94, "pulse_bpm": 96,
-                       "temperature_c": 36.8, "weight_kg": 72.5, "height_cm": 165},
+                       "temperature_c": 36.8, "weight_kg": 72.5, "hight_cm": 165,
+                       "bmi": 26.63,
+                       "sources": {"systolic": "device", "diastolic": "device",
+                                   "pulse_bpm": "device",
+                                   "temperature_c": "patient_input",
+                                   "weight_kg": "patient_input",
+                                   "hight_cm": "patient_input"}},
         },
     )
     assert r.status_code == 200
     assert r.json()["status"] == "STATUS_SUCCESS"
-    assert r.json()["result"]["prescreen_status"] == "AWAITING_CONFIRMATION"
+    result = r.json()["result"]
+    assert result["prescreen_status"] == "AWAITING_CONFIRMATION"
+    assert result["measured_at"] == "2026-08-07T09:12:00+07:00"
 
     visit = (await client.get(f"/api/visits/{VISIT}", headers=HEADERS)).json()
     assert visit["vitals"]["pressure"] == "158/94"
     assert visit["vitals"]["temperature"] == 36.8
+    assert visit["vitals"]["height"] == 165        # hight_cm accepted
+    assert visit["vitals"]["bmi"] == 26.63
     # screened, NOT routed: no department was sent, and none was inferred
     assert visit["screening_status"] == "screened"
     assert visit["second_location"]["department"] is None
+
+    # The staging row keeps the full payload: measured_at + sources survive,
+    # and there is still no clinical judgement in it.
+    held = (await client.get(f"/api/visits/{VISIT}/prescreen", headers=HEADERS)).json()
+    assert held["measured_at"] == "2026-08-07T09:12:00+07:00"
+    assert held["vitals"]["sources"]["systolic"] == "device"
+    assert held["vitals"]["sources"]["weight_kg"] == "patient_input"
+    assert held["recommended_department"] is None
+    assert held["status"] == "pending"
+
+
+async def test_v1_prescreen_resolves_visit_by_hn_when_no_vn(client):
+    """HN-first booth: no visit_id in the payload — the mock resolves the
+    HN's newest visit itself."""
+    r = await client.post(
+        "/api/v1/patient-prescreens", headers=BEARER,
+        json={"hn": "09900001", "session_ref": "sess-hn",
+              "vitals": {"systolic": 120, "diastolic": 80}},
+    )
+    assert r.status_code == 200
+    assert r.json()["result"]["visit_id"] == VISIT
+    visit = (await client.get(f"/api/visits/{VISIT}", headers=HEADERS)).json()
+    assert visit["screening_status"] == "screened"
 
 
 async def test_v1_prescreen_for_unknown_visit_is_invalid_request(client):
     r = await client.post("/api/v1/patient-prescreens", headers=BEARER,
                           json={"visit_id": "nope", "vitals": {}})
+    assert r.status_code == 400 and r.json()["message"] == "invalid_request"
+    # neither visit_id nor hn → nothing to resolve
+    r = await client.post("/api/v1/patient-prescreens", headers=BEARER,
+                          json={"vitals": {}})
     assert r.status_code == 400 and r.json()["message"] == "invalid_request"
 
 
@@ -709,6 +775,46 @@ async def test_gender_write_rejects_open_values_and_unknown_patient(client):
         "/api/v1/patients/no-such-hn/gender", headers=BEARER, json={"gender": "male"}
     )
     assert resp.status_code == 404
+
+
+async def test_current_visit_null_when_only_visit_is_locked(client, tmp_path):
+    """current_visit is the HN's newest ROUTABLE visit — a locked one is not
+    offered as a passthrough (the assignment's own 403 still covers explicit
+    VNs)."""
+    from his_mock.database import connect
+
+    conn = connect(tmp_path / "test.db")
+    conn.execute(
+        "UPDATE visits SET visit_lock_status = 'LOCKED' WHERE visit_id = ?", (VISIT,)
+    )
+    conn.commit()
+    patient = (await client.get("/api/v1/patients/09900001", headers=BEARER)).json()
+    assert patient["current_visit"] is None
+
+
+async def test_pre_v1_patients_table_is_rebuilt(tmp_path):
+    """A DB file from before the Data-Requirements-V1 reshape (combined
+    smoking_alcohol column) is dropped and rebuilt by connect(), so the app
+    reseeds it instead of crashing on missing columns."""
+    import sqlite3
+
+    from his_mock.database import connect
+
+    db_path = tmp_path / "old.db"
+    legacy = sqlite3.connect(db_path)
+    legacy.execute(
+        "CREATE TABLE patients (hn TEXT PRIMARY KEY, smoking_alcohol TEXT)"
+    )
+    legacy.execute("INSERT INTO patients (hn, smoking_alcohol) VALUES ('X1', 'old')")
+    legacy.commit()
+    legacy.close()
+
+    conn = connect(db_path)
+    cols = {r["name"] for r in conn.execute("PRAGMA table_info(patients)")}
+    assert {"smoking", "alcohol", "post_surgeries"} <= cols
+    assert "smoking_alcohol" not in cols
+    # rebuilt empty → build_app would reseed
+    assert conn.execute("SELECT COUNT(*) FROM patients").fetchone()[0] == 0
 
 
 async def test_gender_column_patched_into_existing_db(tmp_path, monkeypatch):

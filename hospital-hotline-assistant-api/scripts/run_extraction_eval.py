@@ -41,9 +41,10 @@ from app.services.screening.extraction import (  # noqa: E402
     build_extraction_prompt,
 )
 from app.services.screening.model_adapter import build_chat_model  # noqa: E402
+from app.services.screening.nodes.ingest import _known_category  # noqa: E402
 from app.services.screening.rules.criteria_store import load_seed_criteria  # noqa: E402
 from app.services.screening.rules.red_flags import critical_finding_ids  # noqa: E402
-from app.services.screening.state import ScreeningState  # noqa: E402
+from app.services.screening.state import Finding, ScreeningState  # noqa: E402
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 CONCURRENCY = 8
@@ -58,7 +59,12 @@ async def run_case(model, criteria, case, sem) -> dict:
     )
     if case.get("category"):
         state.complaint_category = case["category"]
-    prompt = build_extraction_prompt(criteria, state, case["phrase"], None)
+    # Mid-interview cases: what the session already holds when the phrase
+    # arrives (a correction only makes sense against a prior statement).
+    state.chief_complaint = case.get("chief_complaint")
+    for fid, st in (case.get("findings") or {}).items():
+        state.findings[fid] = Finding(state=st, confirmed=True)
+    prompt = build_extraction_prompt(criteria, state, case["phrase"], case.get("pending"))
     async with sem:
         try:
             structured = model.with_structured_output(ExtractionResult)
@@ -79,7 +85,21 @@ async def run_case(model, criteria, case, sem) -> dict:
     # the interview asks about it again.
     absent_misses = sorted(set(case.get("expect_absent", [])) - absent)
     want_category = case.get("expect_category")
-    category_wrong = bool(want_category) and result.complaint_category != want_category
+    # Score the id the ENGINE sees: ingest maps near-miss ids the model
+    # invents ("ear_nose_throat" -> nose_throat) before anything reads them.
+    got_category = _known_category(criteria, result.complaint_category)
+    category_wrong = bool(want_category) and got_category != want_category
+    # True = the patient replaced their main problem and the model must say
+    # so; False = they only added/answered and chief_complaint must stay null
+    # (a spurious restatement is what would move the interview template).
+    want_restated = case.get("expect_chief_complaint")
+    # Echoing the complaint already on file is not a restatement (ingest only
+    # acts on a chief complaint that differs, with a different category).
+    restated = bool(
+        result.chief_complaint
+        and result.chief_complaint.strip() != (case.get("chief_complaint") or "").strip()
+    )
+    restated_wrong = want_restated is not None and restated != bool(want_restated)
     overmatch = sorted(set(case.get("forbid", [])) & present)
     stray = sorted(
         (present & crit) - set(case["expect"]) - set(case.get("allow", []))
@@ -89,15 +109,17 @@ async def run_case(model, criteria, case, sem) -> dict:
         **case,
         "present": sorted(present),
         "absent": sorted(absent),
-        "got_category": result.complaint_category,
+        "got_category": got_category,
         "evidence": evidence,
         "misses": misses,
         "absent_misses": absent_misses,
         "category_wrong": category_wrong,
+        "got_chief_complaint": result.chief_complaint,
+        "restated_wrong": restated_wrong,
         "overmatch": overmatch,
         "stray": stray,
         "passed": not misses and not overmatch and not absent_misses
-        and not category_wrong,
+        and not category_wrong and not restated_wrong,
     }
 
 

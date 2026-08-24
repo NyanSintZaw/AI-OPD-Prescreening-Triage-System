@@ -18,8 +18,9 @@ from app.services.ai.triage_models import TriageDecision
 from . import templates
 from .graph import build_screening_graph
 from .nodes.base import GraphDeps
+from .nodes.explain import NAME_PLACEHOLDER
 from .persistence import InMemoryStateStore, StateStore
-from .state import ScreeningState, TurnOutput
+from .state import RECENT_TURNS_MAX, ScreeningState, TurnOutput
 from .vitals import apply_objective_findings, check_vitals, record_rejections
 from .history_findings import apply_history_findings
 
@@ -38,6 +39,28 @@ _LEVEL_TO_SEVERITY: dict[int, str] = {
 
 def _default_department_names() -> dict[str, dict[str, str]]:
     return {code: dict(names) for code, names in templates.DEPARTMENT_NAMES.items()}
+
+
+def _remember(state: ScreeningState, role: str, text: str | None) -> None:
+    """Keep the last two exchanges on the state for the question renderer.
+    Single choke point for every turn (run_turn and run_turn_stream both pass
+    through _execute), so every terminal node's reply is covered."""
+    clean = (text or "").strip()
+    if not clean:
+        return
+    if role == "assistant":
+        # Our own lines may carry the patient's name (greeting, explain after
+        # [NAME] substitution, follow-up ack). recent_turns goes back into the
+        # question prompt, so mask it here — the one place every reply passes.
+        for candidate in (
+            templates.polite_name(state.patient_name, state.language),
+            (state.patient_name or "").strip() or None,
+        ):
+            if candidate:
+                clean = clean.replace(candidate, NAME_PLACEHOLDER)
+    state.recent_turns.append({"role": role, "text": clean})
+    if len(state.recent_turns) > RECENT_TURNS_MAX:
+        del state.recent_turns[: len(state.recent_turns) - RECENT_TURNS_MAX]
 
 
 class ScreeningTriageEngine:
@@ -151,6 +174,10 @@ class ScreeningTriageEngine:
             "post_disposition": bool(result.get("post_disposition")),
             "patient_follow_up": result.get("patient_follow_up"),
             "gender": result.get("gender"),
+            # Per-turn audit entries (extraction / question / explain incl.
+            # its `rag` grounding block) — the voice path is the only caller
+            # and TriageService copies grounding onto the session from here.
+            "audit": result.get("audit") or [],
         }
 
     def decision_from_classification(self, classification: dict[str, Any]) -> TriageDecision:
@@ -245,6 +272,7 @@ class ScreeningTriageEngine:
         state.criteria_version_id = version_id
         self._apply_turn_context(state, turn_context, criteria)
         state.turn_count += 1
+        _remember(state, "patient", user_text)
 
         result = await self._graph.ainvoke({
             "s": state,
@@ -256,6 +284,7 @@ class ScreeningTriageEngine:
         output: TurnOutput = result.get("output") or TurnOutput(
             reply=templates.ESCALATION[state.language], escalated=True,
         )
+        _remember(state, "assistant", output.reply)
         await self._store.save(state)
         await self._store.write_audit(
             session_id=session_id,
@@ -298,9 +327,13 @@ def make_triage_engine(settings, pool=None):
     store = PostgresStateStore(pool) if pool is not None else InMemoryStateStore()
     rag_search = None
     try:
-        from app.services.ai.rag_query import search_triage_manual
+        # The *status* variant: it says whether the manual index actually
+        # answered (available / fallback_reason / hits) instead of returning
+        # a "manual unavailable" sentence that the explain node would have
+        # pasted into the prompt as if it were guidance.
+        from app.services.ai.rag_query import search_triage_manual_status
 
-        rag_search = search_triage_manual
+        rag_search = search_triage_manual_status
     except Exception:  # pragma: no cover - RAG stack optional in dev
         logger.warning("RAG grounding unavailable for screening engine")
     return ScreeningTriageEngine(

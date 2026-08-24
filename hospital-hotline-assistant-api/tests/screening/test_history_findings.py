@@ -59,7 +59,8 @@ def test_negated_habits_and_allergies_do_not_fire():
     apply_history_findings(
         state,
         {
-            "smoking_alcohol": "ไม่เคยสูบ ไม่ดื่ม",
+            "smoking": "ไม่เคยสูบ",
+            "alcohol": "ไม่ดื่ม",
             "allergies": "no allergies that I know of",
         },
     )
@@ -67,13 +68,17 @@ def test_negated_habits_and_allergies_do_not_fire():
     assert "alcohol_use" not in state.findings
     assert "allergy_history" not in state.findings
 
+    # Mixed answer split across the V1 fields: the negated half stays quiet,
+    # the affirmed half still fires.
     mixed = _state()
-    apply_history_findings(mixed, {"smoking_alcohol": "ไม่สูบ แต่ดื่มเหล้าหนักทุกวัน"})
+    apply_history_findings(
+        mixed, {"smoking": "ไม่สูบ", "alcohol": "ดื่มเหล้าหนักทุกวัน"}
+    )
     assert "smoking" not in mixed.findings
     assert mixed.findings["alcohol_use"].state == "present"
 
     ex_smoker = _state()
-    apply_history_findings(ex_smoker, {"smoking_alcohol": "quit smoking 10 years ago"})
+    apply_history_findings(ex_smoker, {"smoking": "quit smoking 10 years ago"})
     # Former smoker remains a risk factor; verbatim detail rides the value.
     assert ex_smoker.findings["smoking"].state == "present"
 
@@ -84,7 +89,8 @@ def test_thai_hypertension_and_smoking_alcohol():
         state,
         {
             "chronic_conditions": "ความดันโลหิตสูง",
-            "smoking_alcohol": "สูบบุหรี่ทุกวัน ดื่มเหล้านาน ๆ ครั้ง",
+            "smoking": "สูบบุหรี่ทุกวัน",
+            "alcohol": "ดื่มเหล้านาน ๆ ครั้ง",
         },
     )
     assert state.findings["hypertension_history"].state == "present"
@@ -98,7 +104,7 @@ def test_allergies_surgeries_family():
         state,
         {
             "allergies": "penicillin",
-            "past_surgeries": "appendectomy 2019",
+            "post_surgeries": "appendectomy 2019",
             "family_history": "father has diabetes",
         },
     )

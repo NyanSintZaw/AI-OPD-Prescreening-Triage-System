@@ -25,6 +25,8 @@ CASES = [
     ("adult shock BP", {}, {"sbp": 85}, 30, "l1_adult_shock_bp"),
     ("adult RR > 30", {}, {"rr": 34}, 30, "l1_adult_rr_extreme"),
     ("adult SpO2 < 90 with dyspnea", {"dyspnea": "present"}, {"spo2": 88}, 30, "l1_adult_spo2_low"),
+    # The 90–94% danger band is gated on retraction — now askable via dc_retraction.
+    ("adult SpO2 90-94 with dyspnea + retraction", {"dyspnea": "present", "retraction": "present"}, {"spo2": 92}, 30, "dv_adult_spo2_90_94"),
     ("infant HR > 220", {}, {"hr": 230}, 0.5, "l1_child_hr_infant"),
     ("child HR > 180", {}, {"hr": 190}, 6, "l1_child_hr_over1y"),
     ("child HR < 60", {}, {"hr": 55}, 4, "l1_child_hr_low"),

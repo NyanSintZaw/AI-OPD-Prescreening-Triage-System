@@ -403,10 +403,46 @@ async def get_ai_metrics(
         *bounds,
     )
 
+    # Grounding: how often the patient-facing explanation actually drew on
+    # the uploaded triage manual, and why not when it didn't. Lives in the
+    # explain entry's rules_trace->'rag' (written by the explain node).
+    grounding_row = await connection.fetchrow(
+        f"""
+        SELECT
+            COUNT(*) AS explanations,
+            COUNT(*) FILTER (WHERE (rules_trace->'rag'->>'used')::boolean) AS grounded
+        FROM ai_inference_audit
+        {where + (' AND ' if where else 'WHERE ')} call_site = 'explain'
+        """,
+        *bounds,
+    )
+    ungrounded_reasons = await connection.fetch(
+        f"""
+        SELECT rules_trace->'rag'->>'reason' AS reason, COUNT(*) AS count
+        FROM ai_inference_audit
+        {where + (' AND ' if where else 'WHERE ')} call_site = 'explain'
+            AND NOT COALESCE((rules_trace->'rag'->>'used')::boolean, FALSE)
+        GROUP BY 1
+        ORDER BY count DESC
+        """,
+        *bounds,
+    )
+    explanations = (grounding_row["explanations"] if grounding_row else 0) or 0
+    grounded = (grounding_row["grounded"] if grounding_row else 0) or 0
+
     return {
         "from": lower.isoformat() if lower else None,
         "to": upper.isoformat() if upper else None,
         "totals": dict(totals_row) if totals_row else {},
+        "grounding": {
+            "explanations": explanations,
+            "grounded": grounded,
+            "grounded_rate": round(grounded / explanations, 4) if explanations else None,
+            "ungrounded_reasons": [
+                {"reason": r["reason"] or "unknown", "count": r["count"]}
+                for r in ungrounded_reasons
+            ],
+        },
         "call_sites": [
             {
                 "call_site": r["call_site"],

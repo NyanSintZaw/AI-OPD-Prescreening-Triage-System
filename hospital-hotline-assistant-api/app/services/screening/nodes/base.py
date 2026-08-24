@@ -48,5 +48,7 @@ class GraphDeps:
     # department_code -> list of display names for the consistency validator
     validator_department_names: dict[str, list[str]] = field(default_factory=dict)
     # optional async retriever over the nurse-uploaded manual, used to ground
-    # the routing explanation with citations (query -> passage text)
-    rag_search: Callable[[str], Awaitable[str]] | None = None
+    # the routing explanation: (query, language) -> status dict
+    # {available: bool, passages: str, hits: [{title, page, chars}],
+    #  fallback_reason: str | None} — see rag_query.search_triage_manual_status
+    rag_search: Callable[[str, str], Awaitable[dict[str, Any]]] | None = None

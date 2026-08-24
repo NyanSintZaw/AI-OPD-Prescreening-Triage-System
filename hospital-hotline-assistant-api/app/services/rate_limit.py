@@ -1,6 +1,6 @@
 """In-process per-IP rate limiting for the few endpoints that need it.
 
-Login is brute-forceable and the VN endpoints turn a guessable visit number
+Login is brute-forceable and the HN endpoints turn a guessable hospital number
 into patient identity, so both get a sliding-window cap per client IP.
 
 ponytail: single-process only (one uvicorn worker per booth server) and keyed

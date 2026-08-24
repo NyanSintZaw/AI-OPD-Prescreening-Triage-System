@@ -657,17 +657,17 @@ async def test_thai_voice_turn_uses_thai_language_end_to_end():
         await harness.stop()
 
 
-# ── spoken VN identity gate ───────────────────────────────────────────────────
+# ── spoken HN identity gate ───────────────────────────────────────────────────
 
 PATIENT = "Waraporn Srisuk"
 
 
 def identity_harness(language: str = "en", *, first_time: bool = False) -> Harness:
     metadata: dict = {
-        "visit": {
+        "patient": {
+            "hn": "09900004",
             "visit_id": "990000000000000004",
             "patient_name": PATIENT,
-            "hn": "09900004",
         },
     }
     if first_time:
@@ -700,7 +700,7 @@ async def test_identity_yes_confirms_and_continues_into_intake():
         await harness.wait_until(lambda: harness.identities)
 
         assert harness.identities == [{"kind": "confirmed", "needs_history": False}]
-        assert harness.conn.metadata["visit"]["name_confirmed"] is True
+        assert harness.conn.metadata["patient"]["name_confirmed"] is True
         # Same call continues straight into the intake greeting.
         assert (
             "agent",
@@ -722,7 +722,7 @@ async def test_identity_no_unlinks_and_signals_rejected_thai():
         await harness.wait_until(lambda: harness.identities)
 
         assert harness.identities == [{"kind": "rejected"}]
-        assert "visit" not in harness.conn.metadata
+        assert "patient" not in harness.conn.metadata
         assert (
             "agent",
             templates.CONFIRM_NAME_REJECTED["th"],
@@ -745,7 +745,7 @@ async def test_identity_chip_tap_no_via_injected_button_turn():
         harness.service.inject_text_turn(SESSION_ID, "ไม่", "button")
         await harness.wait_until(lambda: harness.identities)
         assert harness.identities == [{"kind": "rejected"}]
-        assert "visit" not in harness.conn.metadata
+        assert "patient" not in harness.conn.metadata
     finally:
         await harness.stop()
 
@@ -765,13 +765,13 @@ async def test_identity_unclear_retries_once_then_rejects():
             in harness.transcripts
         )
         # Link still intact after one unclear answer.
-        assert "visit" in harness.conn.metadata
+        assert "patient" in harness.conn.metadata
 
         harness.stt.transcripts.append("what is the weather")
         await harness.speak_turn()
         await harness.wait_until(lambda: harness.identities)
         assert harness.identities == [{"kind": "rejected"}]
-        assert "visit" not in harness.conn.metadata
+        assert "patient" not in harness.conn.metadata
     finally:
         await harness.stop()
 
@@ -786,7 +786,7 @@ async def test_identity_yes_first_time_starts_history_intake():
         await harness.wait_until(lambda: harness.identities)
 
         assert harness.identities == [{"kind": "confirmed", "needs_history": True}]
-        assert harness.conn.metadata["visit"]["name_confirmed"] is True
+        assert harness.conn.metadata["patient"]["name_confirmed"] is True
         # Same call: spoken intro + first history question, with chips.
         first_q = (
             f"{templates.HISTORY_INTRO['en']} {templates.history_question(0, 'en')}"
@@ -814,9 +814,11 @@ async def test_history_intake_full_flow_persists_and_continues():
         await harness.speak_turn()
         await harness.wait_until(lambda: harness.identities)
 
-        # Q1 spoken by voice, Q3 by chip tap — both rails feed the gate.
+        # Some answers spoken by voice, some by chip tap — both rails feed
+        # the gate. Six questions since V1 split smoking and alcohol.
         answers = [
             ("I smoke sometimes", "voice"),
+            ("No", "chip"),
             ("None", "chip"),
             ("Diabetes", "chip"),
             ("appendix surgery years ago", "voice"),
@@ -843,9 +845,10 @@ async def test_history_intake_full_flow_persists_and_continues():
         history = harness.conn.metadata["patient_history"]
         assert history["intake_complete"] is True
         assert history["is_first_time"] is False
-        assert history["smoking_alcohol"] == "I smoke sometimes"
+        assert history["smoking"] == "I smoke sometimes"
+        assert history["alcohol"] == "No"
         assert history["chronic_conditions"] == "Diabetes"
-        assert history["past_surgeries"] == "appendix surgery years ago"
+        assert history["post_surgeries"] == "appendix surgery years ago"
         # Written back to the HIS HN as well.
         assert harness.his_adapter.pushes
         hn, payload = harness.his_adapter.pushes[0]
@@ -869,10 +872,10 @@ async def test_history_gate_restarts_at_greeting_after_call_drop():
     # a reconnect opens straight on the history questions.
     harness = Harness(
         metadata={
-            "visit": {
+            "patient": {
+                "hn": "09900004",
                 "visit_id": "990000000000000004",
                 "patient_name": PATIENT,
-                "hn": "09900004",
                 "name_confirmed": True,
             },
             "patient_history": {"is_first_time": True},
@@ -924,7 +927,8 @@ def resume_harness(status: str = "active", *, confirmed: bool = True,
     return Harness(
         language=language,
         metadata={
-            "visit": {
+            "patient": {
+                "hn": "09900007",
                 "visit_id": "990000000000000007",
                 "patient_name": "มาลี วงศ์สว่าง",
                 "name_confirmed": confirmed,
@@ -976,8 +980,8 @@ async def test_resume_identity_no_keeps_old_session_intact():
         assert harness.identities == [{"kind": "rejected"}]
         # The REAL patient's session must survive a stranger's "no":
         # still linked, still confirmed.
-        assert harness.conn.metadata["visit"]["visit_id"] == "990000000000000007"
-        assert harness.conn.metadata["visit"]["name_confirmed"] is True
+        assert harness.conn.metadata["patient"]["hn"] == "09900007"
+        assert harness.conn.metadata["patient"]["name_confirmed"] is True
         assert harness.resumes == []
     finally:
         await harness.stop()
@@ -1055,10 +1059,10 @@ async def test_resume_continue_first_time_flows_into_history_intake():
     harness = Harness(
         language="en",
         metadata={
-            "visit": {
+            "patient": {
+                "hn": "09900004",
                 "visit_id": "990000000000000004",
                 "patient_name": PATIENT,
-                "hn": "09900004",
                 "name_confirmed": True,
             },
             "patient_history": {"is_first_time": True},
@@ -1175,7 +1179,7 @@ async def test_identity_unclear_backstop_yes_confirms_without_retry():
         await harness.wait_until(lambda: harness.identities)
 
         assert harness.identities == [{"kind": "confirmed", "needs_history": False}]
-        assert harness.conn.metadata["visit"]["name_confirmed"] is True
+        assert harness.conn.metadata["patient"]["name_confirmed"] is True
         # No retry consumed, no retry line spoken.
         assert harness.service._sessions[SESSION_ID]["identity_attempts"] == 0
         assert (
@@ -1209,7 +1213,7 @@ async def test_identity_unclear_backstop_unclear_consumes_retry_as_today():
             in harness.transcripts
         )
         assert harness.service._sessions[SESSION_ID]["identity_attempts"] == 1
-        assert "visit" in harness.conn.metadata  # link untouched while retrying
+        assert "patient" in harness.conn.metadata  # link untouched while retrying
     finally:
         await harness.stop()
 

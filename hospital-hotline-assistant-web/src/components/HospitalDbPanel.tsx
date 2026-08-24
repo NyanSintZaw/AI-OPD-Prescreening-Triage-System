@@ -217,7 +217,8 @@ export function HospitalDbPanel() {
   const { t } = useTranslation();
   const [conn, setConn] = useState<HisConnection | null>(null);
   const [available, setAvailable] = useState(true);
-  const [view, setView] = useState<'vn' | 'hn'>('vn');
+  // HN-first: the patient (HN) master view is the default tab.
+  const [view, setView] = useState<'vn' | 'hn'>('hn');
   const [visits, setVisits] = useState<HisVisitSummary[]>([]);
   const [patients, setPatients] = useState<HisPatientSummary[]>([]);
   const [selected, setSelected] = useState<HisVisitDetail | null>(null);
@@ -371,8 +372,13 @@ export function HospitalDbPanel() {
 
               <h4>{t('hdbGroupHistory')}</h4>
               <Field
-                label={t('hdbSmokingAlcohol')}
-                value={selectedPatient.history.smoking_alcohol}
+                label={t('hdbSmoking')}
+                value={selectedPatient.history.smoking}
+                stage="1"
+              />
+              <Field
+                label={t('hdbAlcohol')}
+                value={selectedPatient.history.alcohol}
                 stage="1"
               />
               <Field label={t('hdbAllergies')} value={selectedPatient.history.allergies} stage="1" />
@@ -382,8 +388,8 @@ export function HospitalDbPanel() {
                 stage="1"
               />
               <Field
-                label={t('hdbPastSurgeries')}
-                value={selectedPatient.history.past_surgeries}
+                label={t('hdbPostSurgeries')}
+                value={selectedPatient.history.post_surgeries}
                 stage="1"
               />
               <Field
@@ -395,7 +401,7 @@ export function HospitalDbPanel() {
 
               <h4>{t('hdbGroupLastVitals')}</h4>
               <Field label={t('hdbWeight')} value={selectedPatient.last_vitals.weight} />
-              <Field label={t('hdbHeight')} value={selectedPatient.last_vitals.height} />
+              <Field label={t('hdbHeight')} value={selectedPatient.last_vitals.hight} />
               <Field label={t('hdbVitalsMeasuredAt')} value={selectedPatient.last_vitals.measured_at} />
             </div>
           )}
@@ -459,7 +465,6 @@ export function HospitalDbPanel() {
               <Field label={t('hdbTemperature')} value={selected.vitals.temperature} stage="1" />
               <Field label={t('hdbWaist')} value={selected.vitals.waist_width} />
               <Field label={t('hdbFirstLocation')} value={selected.first_location.department} stage="1" />
-              <Field label={t('hdbFollowUp')} value={selected.follow_up} stage="1" />
 
               <h4>{t('hdbGroupStage2')}</h4>
               <Field label={t('hdbChiefComplaint')} value={selected.nurse_chief_complaint} stage="2" />

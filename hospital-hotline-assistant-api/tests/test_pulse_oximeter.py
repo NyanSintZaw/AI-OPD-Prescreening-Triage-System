@@ -76,3 +76,54 @@ def test_unrelated_devices_not_flagged():
         None, ["00001809-0000-1000-8000-00805f9b34fb"]         # thermometer svc
     )
     assert not looks_like_oximeter(None, None)
+
+
+# ── router: a settled reading reaches the session the engine reads ───────────
+
+
+class _Conn:
+    """asyncpg stand-in: one session row whose metadata we can inspect."""
+
+    def __init__(self, metadata):
+        self.metadata = dict(metadata)
+        self.inserted = []
+
+    async def fetchrow(self, sql, *args):
+        if "INSERT INTO spo2_readings" in sql:
+            from uuid import uuid4
+            self.inserted.append(args)
+            return {"id": uuid4()}
+        return {"metadata": dict(self.metadata)}
+
+    async def execute(self, sql, *args):
+        self.metadata = dict(args[1])
+
+
+class _Spo2Service:
+    async def fetch_reading(self, timeout_seconds=None):
+        from datetime import datetime, timezone
+        from app.services.pulse_oximeter import Spo2Reading
+        return Spo2Reading(spo2=91, pulse_bpm=104, measured_at=datetime.now(timezone.utc))
+
+
+async def test_fetch_merges_spo2_and_pulse_into_session_vitals_with_provenance():
+    """The criteria's SpO2 rules read ``metadata.vitals.spo2`` via
+    turn_context; the SBAR/nurse view read ``sources``. Both must land."""
+    from types import SimpleNamespace
+    from uuid import uuid4
+
+    from app.routers.pulse_oximeter import fetch_spo2
+    from app.schemas import Spo2FetchRequest
+
+    conn = _Conn({"vitals": {"systolic": 120, "diastolic": 80, "sources": {"systolic": "device"}}})
+    request = SimpleNamespace(app=SimpleNamespace(state=SimpleNamespace(spo2_service=_Spo2Service())))
+    out = await fetch_spo2(request, Spo2FetchRequest(session_id=uuid4()), conn)
+
+    assert out.status == "ok" and out.spo2 == 91 and out.pulse_bpm == 104
+    vitals = conn.metadata["vitals"]
+    assert vitals["spo2"] == 91 and vitals["pulse_bpm"] == 104
+    assert vitals["sources"]["spo2"] == "device"
+    assert vitals["sources"]["pulse_bpm"] == "device"
+    assert vitals["sources"]["systolic"] == "device"   # earlier provenance kept
+    assert vitals["systolic"] == 120                     # earlier vitals kept
+    assert conn.inserted, "durable spo2_readings row written"

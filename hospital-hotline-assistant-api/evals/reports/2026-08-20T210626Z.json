@@ -1,0 +1,1361 @@
+{
+  "meta": {
+    "dry_run": false,
+    "rag": true,
+    "criteria_mode": "seed",
+    "model_label": "screening:vertexai:gemini-3.1-flash-lite",
+    "language_filter": null,
+    "generated_utc": "2026-08-20T21:01:47.153872+00:00"
+  },
+  "aggregates": {
+    "vignettes": 12,
+    "passed": 12,
+    "undertriage_rate_pct": 0.0,
+    "undertriage_ci95": [
+      0.0,
+      52.2
+    ],
+    "undertriage_misses": [],
+    "critical_vignettes": 5,
+    "level_exact_pct": 100.0,
+    "level_within_1_pct": 100.0,
+    "qwk": 1.0,
+    "category_pct": 100.0,
+    "department_pct": 100.0,
+    "leak_count": 0,
+    "explain_calls": 12,
+    "explain_template_fallbacks": 0,
+    "explain_grounded": 7,
+    "oracle_disagreements": [],
+    "avg_turns": 7.8,
+    "total_wall_time_s": 278.9,
+    "by_language": {
+      "th": {
+        "vignettes": 6,
+        "passed": 6,
+        "undertriage_rate_pct": 0.0,
+        "undertriage_ci95": [
+          0.0,
+          70.8
+        ],
+        "undertriage_misses": [],
+        "critical_vignettes": 3,
+        "level_exact_pct": 100.0,
+        "level_within_1_pct": 100.0,
+        "qwk": 1.0,
+        "category_pct": 100.0,
+        "department_pct": 100.0,
+        "leak_count": 0,
+        "explain_calls": 6,
+        "explain_template_fallbacks": 0,
+        "explain_grounded": 3,
+        "oracle_disagreements": [],
+        "avg_turns": 7.2,
+        "total_wall_time_s": 126.0
+      },
+      "en": {
+        "vignettes": 6,
+        "passed": 6,
+        "undertriage_rate_pct": 0.0,
+        "undertriage_ci95": [
+          0.0,
+          84.2
+        ],
+        "undertriage_misses": [],
+        "critical_vignettes": 2,
+        "level_exact_pct": 100.0,
+        "level_within_1_pct": 100.0,
+        "qwk": 1.0,
+        "category_pct": 100.0,
+        "department_pct": 100.0,
+        "leak_count": 0,
+        "explain_calls": 6,
+        "explain_template_fallbacks": 0,
+        "explain_grounded": 4,
+        "oracle_disagreements": [],
+        "avg_turns": 8.5,
+        "total_wall_time_s": 152.9
+      }
+    }
+  },
+  "results": [
+    {
+      "id": "cp_en_crushing",
+      "language": "en",
+      "description": "Crushing chest pressure + diaphoresis, 58yo — classic ACS, must dispose emergency on turn 1",
+      "category_expected": [
+        "chest_pain"
+      ],
+      "category_actual": "chest_pain",
+      "category_ok": true,
+      "level_expected": [
+        1,
+        2
+      ],
+      "level_actual": 2,
+      "level_ok": true,
+      "within_1": true,
+      "undertriage_expected": true,
+      "undertriage_critical_fail": false,
+      "department_expected": [
+        "emergency"
+      ],
+      "department_actual": "emergency",
+      "department_ok": true,
+      "must_ask_missing": [],
+      "must_not_ask_hit": [],
+      "oracle": null,
+      "oracle_ok": true,
+      "explain_ok": true,
+      "grounded": false,
+      "grounding_reason": "emergency",
+      "leaks": [],
+      "turns": 3,
+      "wall_time_s": 9.31,
+      "passed": true,
+      "fail_reasons": [],
+      "transcript": [
+        {
+          "turn": 1,
+          "patient": "I've got this crushing pressure in my chest, like someone's sitting on it. It started about half an hour ago and I'm sweating buckets.",
+          "question_id": "confirm_chest_pain",
+          "reply": "I am sorry you are feeling that way. Just to make sure I understood — do you have this right now: Chest pain / tightness?",
+          "awaiting_measurement": null,
+          "classified": false
+        },
+        {
+          "turn": 2,
+          "patient": "yes, that's right",
+          "question_id": "confirm_diaphoresis",
+          "reply": "I understand you are experiencing that right now. Just to make sure I understood — do you have this right now: Sweating heavily / cold sweat with symptoms?",
+          "awaiting_measurement": null,
+          "classified": false
+        },
+        {
+          "turn": 3,
+          "patient": "yes, that's right",
+          "question_id": null,
+          "reply": "I am so sorry you are feeling that pressure in your chest. Please head straight into the Emergency Department right now, as our team is already expecting you and ready to help. We are going to take very good care of you. I truly hope you feel better soon.",
+          "awaiting_measurement": null,
+          "classified": true
+        }
+      ]
+    },
+    {
+      "id": "cp_th_crushing",
+      "language": "th",
+      "description": "แน่นหน้าอกเหมือนช้างเหยียบ + เหงื่อแตก — ACS ต้องได้ฉุกเฉินตั้งแต่เทิร์นแรก",
+      "category_expected": [
+        "chest_pain"
+      ],
+      "category_actual": "chest_pain",
+      "category_ok": true,
+      "level_expected": [
+        1,
+        2
+      ],
+      "level_actual": 2,
+      "level_ok": true,
+      "within_1": true,
+      "undertriage_expected": true,
+      "undertriage_critical_fail": false,
+      "department_expected": [
+        "emergency"
+      ],
+      "department_actual": "emergency",
+      "department_ok": true,
+      "must_ask_missing": [],
+      "must_not_ask_hit": [],
+      "oracle": null,
+      "oracle_ok": true,
+      "explain_ok": true,
+      "grounded": false,
+      "grounding_reason": "emergency",
+      "leaks": [],
+      "turns": 3,
+      "wall_time_s": 8.49,
+      "passed": true,
+      "fail_reasons": [],
+      "transcript": [
+        {
+          "turn": 1,
+          "patient": "แน่นหน้าอกเหมือนช้างเหยียบเลยค่ะ เป็นมาสักครึ่งชั่วโมงแล้ว เหงื่อแตกท่วมตัวเลย",
+          "question_id": "confirm_chest_pain",
+          "reply": "เข้าใจแล้วค่ะ ขอให้คุณใจเย็นๆ นะคะ ขอยืนยันให้แน่ใจนะคะ ตอนนี้คุณมีอาการนี้ใช่ไหมคะ: เจ็บแน่นหน้าอก",
+          "awaiting_measurement": null,
+          "classified": false
+        },
+        {
+          "turn": 2,
+          "patient": "ใช่ค่ะ",
+          "question_id": "confirm_diaphoresis",
+          "reply": "รับทราบค่ะ ขอให้คุณใจเย็นๆ นะคะ ขอยืนยันให้แน่ใจนะคะ ตอนนี้คุณมีอาการนี้ใช่ไหมคะ: เหงื่อออกมาก เหงื่อแตก",
+          "awaiting_measurement": null,
+          "classified": false
+        },
+        {
+          "turn": 3,
+          "patient": "ใช่ค่ะ",
+          "question_id": null,
+          "reply": "ฟังดูแล้วคุณคงรู้สึกอึดอัดและทรมานมากเลยนะคะ ขอให้คุณรีบไปที่ห้องฉุกเฉินทันทีเลยค่ะ เจ้าหน้าที่ของเราได้รับแจ้งและเตรียมพร้อมดูแลคุณแล้วนะคะ ขอให้คุณปลอดภัยและหายไว ๆ นะคะ",
+          "awaiting_measurement": null,
+          "classified": true
+        }
+      ]
+    },
+    {
+      "id": "dc_th_severe",
+      "language": "th",
+      "description": "หอบเหนื่อยหนัก พูดเป็นคำๆ ผู้สูงอายุ — ต้องฉุกเฉินทันที",
+      "category_expected": [
+        "dyspnea_cough"
+      ],
+      "category_actual": "dyspnea_cough",
+      "category_ok": true,
+      "level_expected": [
+        1,
+        2
+      ],
+      "level_actual": 1,
+      "level_ok": true,
+      "within_1": true,
+      "undertriage_expected": true,
+      "undertriage_critical_fail": false,
+      "department_expected": [
+        "emergency"
+      ],
+      "department_actual": "emergency",
+      "department_ok": true,
+      "must_ask_missing": [],
+      "must_not_ask_hit": [],
+      "oracle": null,
+      "oracle_ok": true,
+      "explain_ok": true,
+      "grounded": false,
+      "grounding_reason": "emergency",
+      "leaks": [],
+      "turns": 3,
+      "wall_time_s": 8.96,
+      "passed": true,
+      "fail_reasons": [],
+      "transcript": [
+        {
+          "turn": 1,
+          "patient": "หายใจไม่ทันเลยค่ะ เหนื่อยมาก พูดยาวๆ ไม่ไหว ต้องหยุดหายใจเป็นพักๆ",
+          "question_id": "confirm_apnea",
+          "reply": "เข้าใจแล้วค่ะ ขอให้คุณค่อยๆ หายใจนะคะ ขอยืนยันให้แน่ใจนะคะ ตอนนี้คุณมีอาการนี้ใช่ไหมคะ: หยุดหายใจ",
+          "awaiting_measurement": null,
+          "classified": false
+        },
+        {
+          "turn": 2,
+          "patient": "ไม่มีค่ะ",
+          "question_id": "confirm_severe_respiratory_distress",
+          "reply": "รับทราบค่ะ ขอให้คุณค่อยๆ หายใจนะคะ ขอยืนยันให้แน่ใจนะคะ ตอนนี้คุณมีอาการนี้ใช่ไหมคะ: หายใจลำบากรุนแรง พูดเป็นประโยคไม่ได้ ต้องลุกนั่งหายใจ",
+          "awaiting_measurement": null,
+          "classified": false
+        },
+        {
+          "turn": 3,
+          "patient": "ใช่ค่ะ",
+          "question_id": null,
+          "reply": "ฟังดูแล้วคุณเหนื่อยมากเลยนะคะ เดี๋ยวพยาบาลจะพาไปที่ห้องฉุกเฉินเดี๋ยวนี้เลยค่ะ เนื่องจากอาการของคุณค่อนข้างเร่งด่วน รบกวนรีบไปที่นั่นทันทีนะคะ ตอนนี้เจ้าหน้าที่ได้รับแจ้งและเตรียมพร้อมรอรับคุณอยู่แล้วค่ะ ขอให้คุณปลอดภัยและอาการดีขึ้นโดยเร็วนะคะ",
+          "awaiting_measurement": null,
+          "classified": true
+        }
+      ]
+    },
+    {
+      "id": "fv_en_child_ok",
+      "language": "en",
+      "description": "6-year-old, fever two days, eating and playing — pediatrics routine",
+      "category_expected": [
+        "fever"
+      ],
+      "category_actual": "fever",
+      "category_ok": true,
+      "level_expected": [
+        3,
+        4
+      ],
+      "level_actual": 4,
+      "level_ok": true,
+      "within_1": true,
+      "undertriage_expected": false,
+      "undertriage_critical_fail": false,
+      "department_expected": [
+        "opd_pediatrics"
+      ],
+      "department_actual": "opd_pediatrics",
+      "department_ok": true,
+      "must_ask_missing": [],
+      "must_not_ask_hit": [],
+      "oracle": null,
+      "oracle_ok": true,
+      "explain_ok": true,
+      "grounded": true,
+      "grounding_reason": null,
+      "leaks": [],
+      "turns": 11,
+      "wall_time_s": 32.85,
+      "passed": true,
+      "fail_reasons": [],
+      "transcript": [
+        {
+          "turn": 1,
+          "patient": "My daughter is six. She's had a fever for two days but she's still eating and playing like normal.",
+          "question_id": "uq_breathing",
+          "reply": "I am glad to hear she is still active. Right now, are you having any trouble breathing?",
+          "awaiting_measurement": null,
+          "classified": false
+        },
+        {
+          "turn": 2,
+          "patient": "she breathes fine",
+          "question_id": "uq_gender",
+          "reply": "That is good to hear. May I ask your sex — male or female? It helps me ask only the questions that apply to you. You may skip this if you prefer.",
+          "awaiting_measurement": null,
+          "classified": false
+        },
+        {
+          "turn": 3,
+          "patient": "no",
+          "question_id": "fv_danger",
+          "reply": "I understand. Any confusion, trouble breathing, or stiff neck with the fever?",
+          "awaiting_measurement": null,
+          "classified": false
+        },
+        {
+          "turn": 4,
+          "patient": "no, she's alert and drinking fine",
+          "question_id": "fv_chemo",
+          "reply": "That is reassuring to hear. Are you currently receiving chemotherapy?",
+          "awaiting_measurement": null,
+          "classified": false
+        },
+        {
+          "turn": 5,
+          "patient": "no",
+          "question_id": "fv_rash",
+          "reply": "I am glad to hear that. Do you have any rash or blisters, especially on palms, soles, or around the mouth?",
+          "awaiting_measurement": null,
+          "classified": false
+        },
+        {
+          "turn": 6,
+          "patient": "no rash",
+          "question_id": "fv_temp",
+          "reply": "That is good to know. Please measure your temperature at the booth and enter it in °C.",
+          "awaiting_measurement": "temp",
+          "classified": false
+        },
+        {
+          "turn": 7,
+          "patient": "okay, measured",
+          "question_id": "fv_bp",
+          "reply": "Thank you for doing that. Please measure your blood pressure now — you can use the machine beside you or type the numbers.",
+          "awaiting_measurement": "sbp",
+          "classified": false
+        },
+        {
+          "turn": 8,
+          "patient": "okay, measured",
+          "question_id": "fv_onset",
+          "reply": "I appreciate you getting those numbers for me. When did you first notice your fever starting?",
+          "awaiting_measurement": null,
+          "classified": false
+        },
+        {
+          "turn": 9,
+          "patient": "two days ago",
+          "question_id": "fv_associated",
+          "reply": "Thank you for letting me know. Are you having any other symptoms like a cough, sore throat, or stomach trouble?",
+          "awaiting_measurement": null,
+          "classified": false
+        },
+        {
+          "turn": 10,
+          "patient": "a bit of a runny nose, that's all",
+          "question_id": "pd_weight_height",
+          "reply": "I understand, thank you for sharing that with me. Please enter your weight and height so we can complete your chart.",
+          "awaiting_measurement": "weight",
+          "classified": false
+        },
+        {
+          "turn": 11,
+          "patient": "okay, measured",
+          "question_id": null,
+          "reply": "I understand you have been dealing with a fever for the past two days. Please head over to the OPD Pediatrics department. They are ready to see you there. Before you go — is there anything you'd like to ask or tell the doctor? I'll note it for them.",
+          "awaiting_measurement": null,
+          "classified": true
+        },
+        {
+          "turn": 12,
+          "patient": "no, that's all, thank you",
+          "reply": "Alright — please proceed to OPD Pediatrics. Take care.",
+          "post_disposition": true
+        }
+      ]
+    },
+    {
+      "id": "ws_th_unwell_fever_no_selfharm",
+      "language": "th",
+      "description": "เปิดด้วยคำพูดกว้าง ๆ (generic) แล้วระบุไข้ในเทิร์นถัดไป — ต้องอัปเกรดเป็น fever และห้ามถามเรื่องฆ่าตัวตาย",
+      "category_expected": [
+        "fever",
+        "generic"
+      ],
+      "category_actual": "fever",
+      "category_ok": true,
+      "level_expected": [
+        4,
+        5
+      ],
+      "level_actual": 4,
+      "level_ok": true,
+      "within_1": true,
+      "undertriage_expected": false,
+      "undertriage_critical_fail": false,
+      "department_expected": [
+        "opd_general"
+      ],
+      "department_actual": "opd_general",
+      "department_ok": true,
+      "must_ask_missing": [],
+      "must_not_ask_hit": [],
+      "oracle": {
+        "level": 4,
+        "department_code": "opd_general"
+      },
+      "oracle_ok": true,
+      "explain_ok": true,
+      "grounded": true,
+      "grounding_reason": null,
+      "leaks": [],
+      "turns": 12,
+      "wall_time_s": 36.54,
+      "passed": true,
+      "fail_reasons": [],
+      "transcript": [
+        {
+          "turn": 1,
+          "patient": "ไม่ค่อยสบายค่ะ รู้สึกไม่มีแรง",
+          "question_id": "uq_breathing",
+          "reply": "เข้าใจแล้วค่ะ ดูคุณดูเพลียมากเลยนะคะ ตอนนี้คุณหายใจลำบากหรือหายใจเหนื่อยไหมคะ",
+          "awaiting_measurement": null,
+          "classified": false
+        },
+        {
+          "turn": 2,
+          "patient": "มีไข้มาสองวันแล้วค่ะ",
+          "question_id": "uq_breathing",
+          "reply": "เข้าใจแล้วค่ะ มีไข้มาสองวันแล้วนะคะ ตอนนี้คุณหายใจลำบากหรือหายใจเหนื่อยไหมคะ",
+          "awaiting_measurement": null,
+          "classified": false
+        },
+        {
+          "turn": 3,
+          "patient": "หายใจปกติค่ะ",
+          "question_id": "uq_gender",
+          "reply": "ดีแล้วค่ะที่หายใจได้ปกติ ขออนุญาตสอบถามเพศของคุณ เป็นเพศชายหรือเพศหญิงคะ เพื่อให้ถามเฉพาะคำถามที่เกี่ยวข้องกับคุณ หากไม่สะดวกตอบ ข้ามได้ค่ะ",
+          "awaiting_measurement": null,
+          "classified": false
+        },
+        {
+          "turn": 4,
+          "patient": "ไม่มีค่ะ",
+          "question_id": "fv_danger",
+          "reply": "รับทราบค่ะ ขอบคุณที่แจ้งข้อมูลนะคะ มีซึมสับสน หายใจเหนื่อย หรือคอแข็งร่วมกับไข้ไหมคะ",
+          "awaiting_measurement": null,
+          "classified": false
+        },
+        {
+          "turn": 5,
+          "patient": "ไม่มีค่ะ",
+          "question_id": "fv_chemo",
+          "reply": "เข้าใจแล้วค่ะ ขอบคุณที่แจ้งให้ทราบนะคะ ตอนนี้กำลังได้รับยาเคมีบำบัดอยู่ไหมคะ",
+          "awaiting_measurement": null,
+          "classified": false
+        },
+        {
+          "turn": 6,
+          "patient": "ไม่มีค่ะ",
+          "question_id": "fv_rash",
+          "reply": "รับทราบค่ะ ขอบคุณที่แจ้งข้อมูลให้ทราบนะคะ มีผื่นหรือตุ่มน้ำตามตัว โดยเฉพาะฝ่ามือ ฝ่าเท้า หรือรอบปากไหมคะ",
+          "awaiting_measurement": null,
+          "classified": false
+        },
+        {
+          "turn": 7,
+          "patient": "ไม่มีค่ะ",
+          "question_id": "fv_temp",
+          "reply": "รับทราบค่ะ ขอบคุณที่แจ้งข้อมูลให้ทราบนะคะ กรุณาวัดอุณหภูมิที่จุดคัดกรองแล้วกรอกค่าเป็นองศาเซลเซียสค่ะ",
+          "awaiting_measurement": "temp",
+          "classified": false
+        },
+        {
+          "turn": 8,
+          "patient": "วัดแล้วค่ะ",
+          "question_id": "fv_bp",
+          "reply": "ขอบคุณที่ให้ความร่วมมือวัดอุณหภูมินะคะ กรุณาวัดความดันโลหิตตอนนี้ — ใช้เครื่องข้างตัวคุณหรือพิมพ์ตัวเลขก็ได้",
+          "awaiting_measurement": "sbp",
+          "classified": false
+        },
+        {
+          "turn": 9,
+          "patient": "วัดแล้วค่ะ",
+          "question_id": "fv_onset",
+          "reply": "รับทราบค่ะ ขอบคุณที่แจ้งข้อมูลนะคะ คุณเริ่มมีอาการไข้มานานกี่วันแล้วคะ",
+          "awaiting_measurement": null,
+          "classified": false
+        },
+        {
+          "turn": 10,
+          "patient": "ไม่มีค่ะ",
+          "question_id": "fv_associated",
+          "reply": "เข้าใจแล้วค่ะ ขอบคุณที่แจ้งให้ทราบนะคะ คุณมีอาการไอ เจ็บคอ มีน้ำมูก ถ่ายเหลว หรือปัสสาวะแสบขัดบ้างไหมคะ",
+          "awaiting_measurement": null,
+          "classified": false
+        },
+        {
+          "turn": 11,
+          "patient": "ไม่มีค่ะ",
+          "question_id": "pd_weight_height",
+          "reply": "รับทราบค่ะ ขอบคุณที่แจ้งข้อมูลนะคะ กรุณากรอกน้ำหนักและส่วนสูงเพื่อให้ข้อมูลในบัตรครบถ้วน",
+          "awaiting_measurement": "weight",
+          "classified": false
+        },
+        {
+          "turn": 12,
+          "patient": "วัดแล้วค่ะ",
+          "question_id": null,
+          "reply": "เข้าใจแล้วค่ะว่ารู้สึกไม่มีแรงและไม่สบายมาสองวันนะคะ เดี๋ยวรบกวนคุณไปติดต่อที่แผนกเวชปฏิบัติทั่วไป เพื่อให้คุณหมอตรวจดูอาการอย่างละเอียดอีกครั้งนะคะ ก่อนไปนะคะ มีอะไรอยากถามหรืออยากบอกคุณหมอไหมคะ ดิฉันจะจดไว้ให้ค่ะ",
+          "awaiting_measurement": null,
+          "classified": true
+        },
+        {
+          "turn": 13,
+          "patient": "ไม่มีแล้วค่ะ ขอบคุณค่ะ",
+          "reply": "ได้ค่ะ กรุณาไปที่OPD เวชปฏิบัติทั่วไปนะคะ ดูแลตัวเองด้วยนะคะ",
+          "post_disposition": true
+        }
+      ]
+    },
+    {
+      "id": "ws_en_unwell_fever_no_selfharm",
+      "language": "en",
+      "description": "Vague opener (generic) then an explicit fever on turn 2 — must upgrade to fever and never ask the self-harm screen",
+      "category_expected": [
+        "fever",
+        "generic"
+      ],
+      "category_actual": "fever",
+      "category_ok": true,
+      "level_expected": [
+        4,
+        5
+      ],
+      "level_actual": 4,
+      "level_ok": true,
+      "within_1": true,
+      "undertriage_expected": false,
+      "undertriage_critical_fail": false,
+      "department_expected": [
+        "opd_general"
+      ],
+      "department_actual": "opd_general",
+      "department_ok": true,
+      "must_ask_missing": [],
+      "must_not_ask_hit": [],
+      "oracle": {
+        "level": 4,
+        "department_code": "opd_general"
+      },
+      "oracle_ok": true,
+      "explain_ok": true,
+      "grounded": true,
+      "grounding_reason": null,
+      "leaks": [],
+      "turns": 12,
+      "wall_time_s": 36.16,
+      "passed": true,
+      "fail_reasons": [],
+      "transcript": [
+        {
+          "turn": 1,
+          "patient": "I just don't feel well, kind of run down.",
+          "question_id": "uq_breathing",
+          "reply": "I am sorry to hear you are feeling so poorly. Right now, are you having any trouble breathing?",
+          "awaiting_measurement": null,
+          "classified": false
+        },
+        {
+          "turn": 2,
+          "patient": "I've had a fever for two days.",
+          "question_id": "uq_breathing",
+          "reply": "I am sorry to hear you have been dealing with that fever. Right now, are you having any trouble breathing?",
+          "awaiting_measurement": null,
+          "classified": false
+        },
+        {
+          "turn": 3,
+          "patient": "breathing is fine",
+          "question_id": "uq_gender",
+          "reply": "I am glad to hear your breathing is okay. May I ask your sex — male or female? It helps me ask only the questions that apply to you. You may skip this if you prefer.",
+          "awaiting_measurement": null,
+          "classified": false
+        },
+        {
+          "turn": 4,
+          "patient": "no",
+          "question_id": "fv_danger",
+          "reply": "I understand you are feeling quite run down. Any confusion, trouble breathing, or stiff neck with the fever?",
+          "awaiting_measurement": null,
+          "classified": false
+        },
+        {
+          "turn": 5,
+          "patient": "no",
+          "question_id": "fv_chemo",
+          "reply": "I appreciate you letting me know. Are you currently receiving chemotherapy?",
+          "awaiting_measurement": null,
+          "classified": false
+        },
+        {
+          "turn": 6,
+          "patient": "no",
+          "question_id": "fv_rash",
+          "reply": "Thank you for clarifying that for me. Do you have any rash or blisters, especially on palms, soles, or around the mouth?",
+          "awaiting_measurement": null,
+          "classified": false
+        },
+        {
+          "turn": 7,
+          "patient": "no",
+          "question_id": "fv_temp",
+          "reply": "I understand you are feeling quite run down. Please measure your temperature at the booth and enter it in °C.",
+          "awaiting_measurement": "temp",
+          "classified": false
+        },
+        {
+          "turn": 8,
+          "patient": "okay, measured",
+          "question_id": "fv_bp",
+          "reply": "Thank you for checking that for me. Please measure your blood pressure now — you can use the machine beside you or type the numbers.",
+          "awaiting_measurement": "sbp",
+          "classified": false
+        },
+        {
+          "turn": 9,
+          "patient": "okay, measured",
+          "question_id": "fv_onset",
+          "reply": "I appreciate you getting those readings for me. When did you first notice the fever starting?",
+          "awaiting_measurement": null,
+          "classified": false
+        },
+        {
+          "turn": 10,
+          "patient": "no",
+          "question_id": "fv_associated",
+          "reply": "I understand you are feeling quite run down. Are you having any other symptoms like a cough, sore throat, or stomach trouble?",
+          "awaiting_measurement": null,
+          "classified": false
+        },
+        {
+          "turn": 11,
+          "patient": "no",
+          "question_id": "pd_weight_height",
+          "reply": "I hear you, and I am sorry you are feeling poorly. Please enter your weight and height so we can complete your chart.",
+          "awaiting_measurement": "weight",
+          "classified": false
+        },
+        {
+          "turn": 12,
+          "patient": "okay, measured",
+          "question_id": null,
+          "reply": "I understand that you have been feeling quite run down lately. I would like you to head over to the General Practice clinic so a doctor can take a look at you. They are ready to see you there now. Before you go — is there anything you'd like to ask or tell the doctor? I'll note it for them.",
+          "awaiting_measurement": null,
+          "classified": true
+        },
+        {
+          "turn": 13,
+          "patient": "no, that's all, thank you",
+          "reply": "Alright — please proceed to OPD General Practice. Take care.",
+          "post_disposition": true
+        }
+      ]
+    },
+    {
+      "id": "ws_th_stress_asks_selfharm",
+      "language": "th",
+      "description": "เครียด นอนไม่หลับ — mental_health ต้องถาม mh_suicide เสมอ; ปฏิเสธ → จิตเวชผู้ป่วยนอก",
+      "category_expected": [
+        "mental_health"
+      ],
+      "category_actual": "mental_health",
+      "category_ok": true,
+      "level_expected": [
+        3,
+        4
+      ],
+      "level_actual": 4,
+      "level_ok": true,
+      "within_1": true,
+      "undertriage_expected": false,
+      "undertriage_critical_fail": false,
+      "department_expected": [
+        "opd_psychiatry",
+        "opd_internal_medicine"
+      ],
+      "department_actual": "opd_psychiatry",
+      "department_ok": true,
+      "must_ask_missing": [],
+      "must_not_ask_hit": [],
+      "oracle": {
+        "level": 4,
+        "department_code": "opd_psychiatry"
+      },
+      "oracle_ok": true,
+      "explain_ok": true,
+      "grounded": true,
+      "grounding_reason": null,
+      "leaks": [],
+      "turns": 9,
+      "wall_time_s": 25.06,
+      "passed": true,
+      "fail_reasons": [],
+      "transcript": [
+        {
+          "turn": 1,
+          "patient": "เครียดมากค่ะ นอนไม่หลับมาหลายอาทิตย์ ร้องไห้บ่อย",
+          "question_id": "uq_breathing",
+          "reply": "เข้าใจเลยค่ะว่าช่วงนี้คุณรู้สึกเหนื่อยและลำบากใจมาก ตอนนี้คุณหายใจลำบากหรือหายใจเหนื่อยไหมคะ",
+          "awaiting_measurement": null,
+          "classified": false
+        },
+        {
+          "turn": 2,
+          "patient": "ปกติค่ะ",
+          "question_id": "uq_gender",
+          "reply": "รับทราบค่ะ ขอบคุณที่แบ่งปันเรื่องราวให้ฟังนะคะ ขออนุญาตสอบถามเพศของคุณ เป็นเพศชายหรือเพศหญิงคะ เพื่อให้ถามเฉพาะคำถามที่เกี่ยวข้องกับคุณ หากไม่สะดวกตอบ ข้ามได้ค่ะ",
+          "awaiting_measurement": null,
+          "classified": false
+        },
+        {
+          "turn": 3,
+          "patient": "ไม่มีค่ะ",
+          "question_id": "mh_suicide",
+          "reply": "เข้าใจเลยค่ะว่าคุณกำลังผ่านช่วงเวลาที่ยากลำบากมาก มีความคิดอยากทำร้ายตัวเองหรืออยากตายไหมคะ",
+          "awaiting_measurement": null,
+          "classified": false
+        },
+        {
+          "turn": 4,
+          "patient": "ไม่มีค่ะ ไม่เคยคิดแบบนั้น",
+          "question_id": "mh_temp",
+          "reply": "ดีใจที่คุณไม่มีความคิดเหล่านั้นนะคะ กรุณาวัดอุณหภูมิที่จุดคัดกรองแล้วกรอกค่าเป็นองศาเซลเซียสค่ะ",
+          "awaiting_measurement": "temp",
+          "classified": false
+        },
+        {
+          "turn": 5,
+          "patient": "วัดแล้วค่ะ",
+          "question_id": "mh_bp",
+          "reply": "รับทราบค่ะ ขอบคุณที่ให้ความร่วมมือนะคะ กรุณาวัดความดันโลหิตตอนนี้ — ใช้เครื่องข้างตัวคุณหรือพิมพ์ตัวเลขก็ได้",
+          "awaiting_measurement": "sbp",
+          "classified": false
+        },
+        {
+          "turn": 6,
+          "patient": "วัดแล้วค่ะ",
+          "question_id": "mh_onset",
+          "reply": "เข้าใจเลยค่ะว่าช่วงนี้คุณคงรู้สึกเหนื่อยและลำบากใจมาก อาการที่รู้สึกไม่สบายใจและนอนไม่หลับแบบนี้ เริ่มเป็นมานานแค่ไหนแล้วคะ",
+          "awaiting_measurement": null,
+          "classified": false
+        },
+        {
+          "turn": 7,
+          "patient": "ไม่มีค่ะ",
+          "question_id": "mh_psychosis",
+          "reply": "เข้าใจเลยค่ะว่าคุณกำลังเผชิญกับความรู้สึกที่ยากลำบากอยู่ บางครั้งคุณรู้สึกเหมือนได้ยินเสียงคนพูด หรือเห็นสิ่งที่คนอื่นไม่เห็น หรือรู้สึกระแวงว่าจะมีคนมาทำร้ายบ้างไหมคะ",
+          "awaiting_measurement": null,
+          "classified": false
+        },
+        {
+          "turn": 8,
+          "patient": "ไม่มีค่ะ",
+          "question_id": "pd_weight_height",
+          "reply": "รับทราบค่ะ ขอบคุณที่แบ่งปันข้อมูลให้พยาบาลฟังนะคะ กรุณากรอกน้ำหนักและส่วนสูงเพื่อให้ข้อมูลในบัตรครบถ้วน",
+          "awaiting_measurement": "weight",
+          "classified": false
+        },
+        {
+          "turn": 9,
+          "patient": "วัดแล้วค่ะ",
+          "question_id": null,
+          "reply": "เข้าใจเลยค่ะว่าช่วงนี้คุณรู้สึกเหนื่อยและหนักใจมากนะคะ เพื่อให้คุณได้รับการดูแลที่เหมาะสม รบกวนไปพบคุณหมอที่แผนกจิตเวชได้เลยค่ะ เจ้าหน้าที่จะรอรับคุณอยู่ที่นั่นนะคะ ก่อนไปนะคะ มีอะไรอยากถามหรืออยากบอกคุณหมอไหมคะ ดิฉันจะจดไว้ให้ค่ะ",
+          "awaiting_measurement": null,
+          "classified": true
+        },
+        {
+          "turn": 10,
+          "patient": "ไม่มีแล้วค่ะ ขอบคุณค่ะ",
+          "reply": "ได้ค่ะ กรุณาไปที่OPD จิตเวชนะคะ ดูแลตัวเองด้วยนะคะ",
+          "post_disposition": true
+        }
+      ]
+    },
+    {
+      "id": "ws_en_stress_asks_selfharm",
+      "language": "en",
+      "description": "Stress + insomnia — mental_health must always ask mh_suicide; denial → outpatient psychiatry",
+      "category_expected": [
+        "mental_health"
+      ],
+      "category_actual": "mental_health",
+      "category_ok": true,
+      "level_expected": [
+        3,
+        4
+      ],
+      "level_actual": 4,
+      "level_ok": true,
+      "within_1": true,
+      "undertriage_expected": false,
+      "undertriage_critical_fail": false,
+      "department_expected": [
+        "opd_psychiatry",
+        "opd_internal_medicine"
+      ],
+      "department_actual": "opd_psychiatry",
+      "department_ok": true,
+      "must_ask_missing": [],
+      "must_not_ask_hit": [],
+      "oracle": {
+        "level": 4,
+        "department_code": "opd_psychiatry"
+      },
+      "oracle_ok": true,
+      "explain_ok": true,
+      "grounded": true,
+      "grounding_reason": null,
+      "leaks": [],
+      "turns": 9,
+      "wall_time_s": 26.14,
+      "passed": true,
+      "fail_reasons": [],
+      "transcript": [
+        {
+          "turn": 1,
+          "patient": "I've been really stressed and can't sleep for weeks, crying a lot.",
+          "question_id": "uq_breathing",
+          "reply": "I am so sorry you have been going through that. Right now, are you having any trouble breathing?",
+          "awaiting_measurement": null,
+          "classified": false
+        },
+        {
+          "turn": 2,
+          "patient": "normal",
+          "question_id": "uq_gender",
+          "reply": "I am glad to hear that is normal. May I ask your sex — male or female? It helps me ask only the questions that apply to you. You may skip this if you prefer.",
+          "awaiting_measurement": null,
+          "classified": false
+        },
+        {
+          "turn": 3,
+          "patient": "no",
+          "question_id": "mh_suicide",
+          "reply": "I understand, thank you for sharing that with me. Have you had thoughts of hurting yourself or ending your life?",
+          "awaiting_measurement": null,
+          "classified": false
+        },
+        {
+          "turn": 4,
+          "patient": "no, never thought about that",
+          "question_id": "mh_temp",
+          "reply": "I am glad to hear that you are safe. Please measure your temperature at the booth and enter it in °C.",
+          "awaiting_measurement": "temp",
+          "classified": false
+        },
+        {
+          "turn": 5,
+          "patient": "okay, measured",
+          "question_id": "mh_bp",
+          "reply": "Thank you for getting that done. Please measure your blood pressure now — you can use the machine beside you or type the numbers.",
+          "awaiting_measurement": "sbp",
+          "classified": false
+        },
+        {
+          "turn": 6,
+          "patient": "okay, measured",
+          "question_id": "mh_onset",
+          "reply": "I appreciate you sharing that with me. When did you first start feeling this way?",
+          "awaiting_measurement": null,
+          "classified": false
+        },
+        {
+          "turn": 7,
+          "patient": "no",
+          "question_id": "mh_psychosis",
+          "reply": "I understand that you have been going through a difficult time. Do you ever see or hear things that others do not, or feel like someone is trying to hurt you?",
+          "awaiting_measurement": null,
+          "classified": false
+        },
+        {
+          "turn": 8,
+          "patient": "no",
+          "question_id": "pd_weight_height",
+          "reply": "I hear you, and I am here to help. Please enter your weight and height so we can complete your chart.",
+          "awaiting_measurement": "weight",
+          "classified": false
+        },
+        {
+          "turn": 9,
+          "patient": "okay, measured",
+          "question_id": null,
+          "reply": "I am sorry to hear that you have been going through such a difficult time lately. I would like to have you speak with our specialists in the psychiatry clinic so they can provide you with the right support. Before you go — is there anything you'd like to ask or tell the doctor? I'll note it for them.",
+          "awaiting_measurement": null,
+          "classified": true
+        },
+        {
+          "turn": 10,
+          "patient": "no, that's all, thank you",
+          "reply": "Alright — please proceed to OPD Psychiatry. Take care.",
+          "post_disposition": true
+        }
+      ]
+    },
+    {
+      "id": "ws_th_dyspnea_spo2_88",
+      "language": "th",
+      "description": "หายใจเหนื่อย → ต้องขอวัด SpO2 (uq_spo2); เครื่องอ่าน 88% → ระดับ 1 ฉุกเฉิน",
+      "category_expected": [
+        "dyspnea_cough"
+      ],
+      "category_actual": "dyspnea_cough",
+      "category_ok": true,
+      "level_expected": [
+        1,
+        2
+      ],
+      "level_actual": 1,
+      "level_ok": true,
+      "within_1": true,
+      "undertriage_expected": true,
+      "undertriage_critical_fail": false,
+      "department_expected": [
+        "emergency"
+      ],
+      "department_actual": "emergency",
+      "department_ok": true,
+      "must_ask_missing": [],
+      "must_not_ask_hit": [],
+      "oracle": {
+        "level": 1,
+        "department_code": "emergency"
+      },
+      "oracle_ok": true,
+      "explain_ok": true,
+      "grounded": false,
+      "grounding_reason": "emergency",
+      "leaks": [],
+      "turns": 5,
+      "wall_time_s": 13.74,
+      "passed": true,
+      "fail_reasons": [],
+      "transcript": [
+        {
+          "turn": 1,
+          "patient": "หายใจไม่อิ่มค่ะ เหนื่อยเวลาเดิน มาสองวันแล้ว",
+          "question_id": "uq_breathing",
+          "reply": "เข้าใจแล้วค่ะ ฟังดูน่าจะเหนื่อยมากเลยนะคะ ตอนนี้คุณหายใจลำบากหรือหายใจเหนื่อยไหมคะ",
+          "awaiting_measurement": null,
+          "classified": false
+        },
+        {
+          "turn": 2,
+          "patient": "หายใจลำบากค่ะ",
+          "question_id": "uq_breathing",
+          "reply": "รับทราบค่ะ เข้าใจเลยว่ารู้สึกอึดอัดมาก ตอนนี้คุณหายใจลำบากหรือหายใจเหนื่อยไหมคะ",
+          "awaiting_measurement": null,
+          "classified": false
+        },
+        {
+          "turn": 3,
+          "patient": "หายใจลำบากค่ะ",
+          "question_id": "uq_gender",
+          "reply": "รับทราบค่ะ เข้าใจเลยว่ารู้สึกอึดอัดมากนะคะ ขออนุญาตสอบถามเพศของคุณ เป็นเพศชายหรือเพศหญิงคะ เพื่อให้ถามเฉพาะคำถามที่เกี่ยวข้องกับคุณ หากไม่สะดวกตอบ ข้ามได้ค่ะ",
+          "awaiting_measurement": null,
+          "classified": false
+        },
+        {
+          "turn": 4,
+          "patient": "ไม่มีค่ะ",
+          "question_id": "uq_spo2",
+          "reply": "รับทราบค่ะ เข้าใจเลยว่าคุณรู้สึกไม่สบายตัวนะคะ เนื่องจากคุณหายใจเหนื่อย รบกวนวางนิ้วบนเครื่องวัดออกซิเจนปลายนิ้วที่จุดคัดกรองเพื่อตรวจระดับออกซิเจนนะคะ",
+          "awaiting_measurement": "spo2",
+          "classified": false
+        },
+        {
+          "turn": 5,
+          "patient": "วัดแล้วค่ะ",
+          "question_id": null,
+          "reply": "เข้าใจแล้วค่ะว่ารู้สึกเหนื่อยและหายใจไม่สะดวกมาสองวันแล้วนะคะ เพื่อความปลอดภัยของคุณ รบกวนให้รีบไปที่ห้องฉุกเฉินทันทีเลยค่ะ ทางเจ้าหน้าที่ได้รับแจ้งข้อมูลของคุณเรียบร้อยแล้วนะคะ ขอให้คุณเดินทางไปถึงอย่างปลอดภัยและได้รับการดูแลโดยเร็วที่สุดค่ะ",
+          "awaiting_measurement": null,
+          "classified": true
+        }
+      ]
+    },
+    {
+      "id": "ws_en_dyspnea_spo2_88",
+      "language": "en",
+      "description": "Breathing difficulty → the booth must request SpO2 (uq_spo2); oximeter reads 88% → level 1",
+      "category_expected": [
+        "dyspnea_cough"
+      ],
+      "category_actual": "dyspnea_cough",
+      "category_ok": true,
+      "level_expected": [
+        1,
+        2
+      ],
+      "level_actual": 1,
+      "level_ok": true,
+      "within_1": true,
+      "undertriage_expected": true,
+      "undertriage_critical_fail": false,
+      "department_expected": [
+        "emergency"
+      ],
+      "department_actual": "emergency",
+      "department_ok": true,
+      "must_ask_missing": [],
+      "must_not_ask_hit": [],
+      "oracle": {
+        "level": 1,
+        "department_code": "emergency"
+      },
+      "oracle_ok": true,
+      "explain_ok": true,
+      "grounded": false,
+      "grounding_reason": "emergency",
+      "leaks": [],
+      "turns": 5,
+      "wall_time_s": 13.83,
+      "passed": true,
+      "fail_reasons": [],
+      "transcript": [
+        {
+          "turn": 1,
+          "patient": "I can't seem to get enough air, I get breathless walking. Two days now.",
+          "question_id": "uq_breathing",
+          "reply": "I am sorry to hear you have been feeling this way. Right now, are you having any trouble breathing?",
+          "awaiting_measurement": null,
+          "classified": false
+        },
+        {
+          "turn": 2,
+          "patient": "yes, it's hard to breathe",
+          "question_id": "uq_breathing",
+          "reply": "I understand how frightening that must feel. Right now, are you having any trouble breathing?",
+          "awaiting_measurement": null,
+          "classified": false
+        },
+        {
+          "turn": 3,
+          "patient": "yes, it's hard to breathe",
+          "question_id": "uq_gender",
+          "reply": "I am here to help you with that. May I ask your sex — male or female? It helps me ask only the questions that apply to you. You may skip this if you prefer.",
+          "awaiting_measurement": null,
+          "classified": false
+        },
+        {
+          "turn": 4,
+          "patient": "no",
+          "question_id": "uq_spo2",
+          "reply": "I understand, thank you for letting me know. Since you mentioned breathing difficulty, please put your finger in the pulse oximeter at the booth so I can check your oxygen level.",
+          "awaiting_measurement": "spo2",
+          "classified": false
+        },
+        {
+          "turn": 5,
+          "patient": "okay, measured",
+          "question_id": null,
+          "reply": "I am sorry to hear that you have been struggling to catch your breath. Please head straight to the Emergency Department right now, as our team is already expecting you and ready to help. We will take good care of you once you arrive. I truly hope you feel better very soon.",
+          "awaiting_measurement": null,
+          "classified": true
+        }
+      ]
+    },
+    {
+      "id": "ws_th_fever_no_spo2",
+      "language": "th",
+      "description": "ไข้ธรรมดา ไม่มีอาการหายใจเหนื่อย → ห้ามขอวัด SpO2",
+      "category_expected": [
+        "fever"
+      ],
+      "category_actual": "fever",
+      "category_ok": true,
+      "level_expected": [
+        4,
+        5
+      ],
+      "level_actual": 4,
+      "level_ok": true,
+      "within_1": true,
+      "undertriage_expected": false,
+      "undertriage_critical_fail": false,
+      "department_expected": [
+        "opd_general"
+      ],
+      "department_actual": "opd_general",
+      "department_ok": true,
+      "must_ask_missing": [],
+      "must_not_ask_hit": [],
+      "oracle": {
+        "level": 4,
+        "department_code": "opd_general"
+      },
+      "oracle_ok": true,
+      "explain_ok": true,
+      "grounded": true,
+      "grounding_reason": null,
+      "leaks": [],
+      "turns": 11,
+      "wall_time_s": 33.17,
+      "passed": true,
+      "fail_reasons": [],
+      "transcript": [
+        {
+          "turn": 1,
+          "patient": "มีไข้ ปวดเมื่อยตัว มาสองวันค่ะ",
+          "question_id": "uq_breathing",
+          "reply": "เข้าใจแล้วค่ะ ขอบคุณที่แจ้งให้ทราบนะคะ ตอนนี้คุณหายใจลำบากหรือหายใจเหนื่อยไหมคะ",
+          "awaiting_measurement": null,
+          "classified": false
+        },
+        {
+          "turn": 2,
+          "patient": "หายใจปกติค่ะ",
+          "question_id": "uq_gender",
+          "reply": "ดีแล้วค่ะที่คุณหายใจได้เป็นปกติ ขออนุญาตสอบถามเพศของคุณ เป็นเพศชายหรือเพศหญิงคะ เพื่อให้ถามเฉพาะคำถามที่เกี่ยวข้องกับคุณ หากไม่สะดวกตอบ ข้ามได้ค่ะ",
+          "awaiting_measurement": null,
+          "classified": false
+        },
+        {
+          "turn": 3,
+          "patient": "ไม่มีค่ะ",
+          "question_id": "fv_danger",
+          "reply": "รับทราบข้อมูลเรื่องเพศของคุณแล้วค่ะ มีซึมสับสน หายใจเหนื่อย หรือคอแข็งร่วมกับไข้ไหมคะ",
+          "awaiting_measurement": null,
+          "classified": false
+        },
+        {
+          "turn": 4,
+          "patient": "ไม่มีค่ะ",
+          "question_id": "fv_chemo",
+          "reply": "เข้าใจแล้วค่ะ ขอบคุณที่แจ้งให้ทราบนะคะ ตอนนี้กำลังได้รับยาเคมีบำบัดอยู่ไหมคะ",
+          "awaiting_measurement": null,
+          "classified": false
+        },
+        {
+          "turn": 5,
+          "patient": "ไม่มีค่ะ",
+          "question_id": "fv_rash",
+          "reply": "รับทราบค่ะ ขอบคุณที่ให้ข้อมูลเพิ่มเติมนะคะ มีผื่นหรือตุ่มน้ำตามตัว โดยเฉพาะฝ่ามือ ฝ่าเท้า หรือรอบปากไหมคะ",
+          "awaiting_measurement": null,
+          "classified": false
+        },
+        {
+          "turn": 6,
+          "patient": "ไม่มีค่ะ",
+          "question_id": "fv_temp",
+          "reply": "รับทราบค่ะ ขอบคุณที่แจ้งให้ทราบนะคะ กรุณาวัดอุณหภูมิที่จุดคัดกรองแล้วกรอกค่าเป็นองศาเซลเซียสค่ะ",
+          "awaiting_measurement": "temp",
+          "classified": false
+        },
+        {
+          "turn": 7,
+          "patient": "วัดแล้วค่ะ",
+          "question_id": "fv_bp",
+          "reply": "ขอบคุณที่ให้ความร่วมมือวัดอุณหภูมินะคะ กรุณาวัดความดันโลหิตตอนนี้ — ใช้เครื่องข้างตัวคุณหรือพิมพ์ตัวเลขก็ได้",
+          "awaiting_measurement": "sbp",
+          "classified": false
+        },
+        {
+          "turn": 8,
+          "patient": "วัดแล้วค่ะ",
+          "question_id": "fv_onset",
+          "reply": "ขอบคุณที่แจ้งข้อมูลความดันโลหิตนะคะ ไม่ทราบว่าคุณเริ่มมีอาการไข้มานานกี่วันแล้วคะ",
+          "awaiting_measurement": null,
+          "classified": false
+        },
+        {
+          "turn": 9,
+          "patient": "ไม่มีค่ะ",
+          "question_id": "fv_associated",
+          "reply": "รับทราบค่ะว่าไม่มีไข้ นอกจากอาการปวดเมื่อยแล้ว มีอาการไอ เจ็บคอ มีน้ำมูก หรือถ่ายเหลวบ้างไหมคะ",
+          "awaiting_measurement": null,
+          "classified": false
+        },
+        {
+          "turn": 10,
+          "patient": "ไม่มีค่ะ",
+          "question_id": "pd_weight_height",
+          "reply": "เข้าใจแล้วค่ะว่าไม่มีอาการอื่นร่วมด้วย กรุณากรอกน้ำหนักและส่วนสูงเพื่อให้ข้อมูลในบัตรครบถ้วน",
+          "awaiting_measurement": "weight",
+          "classified": false
+        },
+        {
+          "turn": 11,
+          "patient": "วัดแล้วค่ะ",
+          "question_id": null,
+          "reply": "เข้าใจแล้วค่ะว่ามีไข้และปวดเมื่อยตัวมาสองวันนะคะ เดี๋ยวรบกวนคุณไปติดต่อที่แผนกเวชปฏิบัติทั่วไปได้เลยค่ะ เจ้าหน้าที่ที่นั่นจะรอรับดูแลคุณต่อเองนะคะ ก่อนไปนะคะ มีอะไรอยากถามหรืออยากบอกคุณหมอไหมคะ ดิฉันจะจดไว้ให้ค่ะ",
+          "awaiting_measurement": null,
+          "classified": true
+        },
+        {
+          "turn": 12,
+          "patient": "ไม่มีแล้วค่ะ ขอบคุณค่ะ",
+          "reply": "ได้ค่ะ กรุณาไปที่OPD เวชปฏิบัติทั่วไปนะคะ ดูแลตัวเองด้วยนะคะ",
+          "post_disposition": true
+        }
+      ]
+    },
+    {
+      "id": "ws_en_fever_no_spo2",
+      "language": "en",
+      "description": "Plain fever, no breathing trouble → SpO2 must not be requested",
+      "category_expected": [
+        "fever"
+      ],
+      "category_actual": "fever",
+      "category_ok": true,
+      "level_expected": [
+        4,
+        5
+      ],
+      "level_actual": 4,
+      "level_ok": true,
+      "within_1": true,
+      "undertriage_expected": false,
+      "undertriage_critical_fail": false,
+      "department_expected": [
+        "opd_general"
+      ],
+      "department_actual": "opd_general",
+      "department_ok": true,
+      "must_ask_missing": [],
+      "must_not_ask_hit": [],
+      "oracle": {
+        "level": 4,
+        "department_code": "opd_general"
+      },
+      "oracle_ok": true,
+      "explain_ok": true,
+      "grounded": true,
+      "grounding_reason": null,
+      "leaks": [],
+      "turns": 11,
+      "wall_time_s": 34.66,
+      "passed": true,
+      "fail_reasons": [],
+      "transcript": [
+        {
+          "turn": 1,
+          "patient": "Fever and body aches for two days.",
+          "question_id": "uq_breathing",
+          "reply": "I am sorry to hear you have been feeling so unwell. Right now, are you having any trouble breathing?",
+          "awaiting_measurement": null,
+          "classified": false
+        },
+        {
+          "turn": 2,
+          "patient": "breathing is normal",
+          "question_id": "uq_gender",
+          "reply": "I am glad to hear your breathing is normal. May I ask your sex — male or female? It helps me ask only the questions that apply to you. You may skip this if you prefer.",
+          "awaiting_measurement": null,
+          "classified": false
+        },
+        {
+          "turn": 3,
+          "patient": "no",
+          "question_id": "fv_danger",
+          "reply": "I understand. Any confusion, trouble breathing, or stiff neck with the fever?",
+          "awaiting_measurement": null,
+          "classified": false
+        },
+        {
+          "turn": 4,
+          "patient": "no",
+          "question_id": "fv_chemo",
+          "reply": "I am glad to hear you are not having those symptoms. Are you currently receiving chemotherapy?",
+          "awaiting_measurement": null,
+          "classified": false
+        },
+        {
+          "turn": 5,
+          "patient": "no",
+          "question_id": "fv_rash",
+          "reply": "That is good to know. Do you have any rash or blisters, especially on palms, soles, or around the mouth?",
+          "awaiting_measurement": null,
+          "classified": false
+        },
+        {
+          "turn": 6,
+          "patient": "no",
+          "question_id": "fv_temp",
+          "reply": "I appreciate you letting me know. Please measure your temperature at the booth and enter it in °C.",
+          "awaiting_measurement": "temp",
+          "classified": false
+        },
+        {
+          "turn": 7,
+          "patient": "okay, measured",
+          "question_id": "fv_bp",
+          "reply": "Thank you for checking that for me. Please measure your blood pressure now — you can use the machine beside you or type the numbers.",
+          "awaiting_measurement": "sbp",
+          "classified": false
+        },
+        {
+          "turn": 8,
+          "patient": "okay, measured",
+          "question_id": "fv_onset",
+          "reply": "Thank you for getting those numbers for me. When did you first notice the fever starting?",
+          "awaiting_measurement": null,
+          "classified": false
+        },
+        {
+          "turn": 9,
+          "patient": "no",
+          "question_id": "fv_associated",
+          "reply": "I understand. Are you having any other symptoms like a cough, sore throat, or stomach trouble?",
+          "awaiting_measurement": null,
+          "classified": false
+        },
+        {
+          "turn": 10,
+          "patient": "no",
+          "question_id": "pd_weight_height",
+          "reply": "I appreciate you letting me know. Please enter your weight and height so we can complete your chart.",
+          "awaiting_measurement": "weight",
+          "classified": false
+        },
+        {
+          "turn": 11,
+          "patient": "okay, measured",
+          "question_id": null,
+          "reply": "I understand you have been feeling feverish and achy for the past two days. I would like you to head over to the General Practice clinic for your care today. Please follow the signs to that department. Before you go — is there anything you'd like to ask or tell the doctor? I'll note it for them.",
+          "awaiting_measurement": null,
+          "classified": true
+        },
+        {
+          "turn": 12,
+          "patient": "no, that's all, thank you",
+          "reply": "Alright — please proceed to OPD General Practice. Take care.",
+          "post_disposition": true
+        }
+      ]
+    }
+  ]
+}

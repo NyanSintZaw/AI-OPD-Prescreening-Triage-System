@@ -724,7 +724,7 @@
   "/api/v1/patient-assignments": {
    "post": {
     "summary": "Create Patient Assignment",
-    "description": "Send a registered visit to a destination service point.\n\nMirrors the hospital's real iMed contract\n(``docs/imed-patient-assignment-api.md``) — same envelope, same error\ncodes, same idempotency rule. Replaces the retired\n``PUT /api/visits/{id}/routing``.\n\nTwo deliberate divergences, both flagged for the hospital meeting:\n\n* A repeated ``request_id`` returns **200 with the original result**\n  rather than a bare 409. That is our *change request 7* — an\n  idempotency key is useless if a retry after a timeout cannot tell us\n  the queue number. Implemented here so the proposal is runnable.\n* ``confirmed_by`` is left NULL and a reroute cannot be marked as such:\n  iMed derives the sender from the access token and has no reroute\n  flag (change requests 3 and 4). The empty column is the demo.",
+    "description": "Send a registered visit to a destination *department*.\n\nData Requirements V1 §2.2/§4.4: we send only ``base_department_id``;\nthe hospital resolves the actual service point / examination room\nitself (this mock picks the department's first service point). Same\niMed envelope, error codes and idempotency rule as before.\n\nDeliberate behaviors flagged for the hospital meeting:\n\n* A repeated ``request_id`` returns **200 with the original result**\n  rather than a bare 409. That is our *change request 7* — an\n  idempotency key is useless if a retry after a timeout cannot tell us\n  the queue number. Implemented here so the proposal is runnable.\n* ``confirmed_by`` is left NULL on the staging row: iMed derives the\n  sender from the access token. The confirmer we do know rides inside\n  ``mfu_prescreen`` (change requests 1, 2 and 4).",
     "operationId": "create_patient_assignment_api_v1_patient_assignments_post",
     "parameters": [
      {
@@ -766,70 +766,6 @@
       "application/json": {
        "schema": {
         "$ref": "#/components/schemas/AssignmentIn"
-       }
-      }
-     }
-    },
-    "responses": {
-     "200": {
-      "description": "Successful Response",
-      "content": {
-       "application/json": {
-        "schema": {}
-       }
-      }
-     },
-     "422": {
-      "description": "Validation Error",
-      "content": {
-       "application/json": {
-        "schema": {
-         "$ref": "#/components/schemas/HTTPValidationError"
-        }
-       }
-      }
-     }
-    }
-   }
-  },
-  "/api/visits/{visit_id}/follow-up": {
-   "put": {
-    "summary": "Update Follow Up",
-    "description": "Record the patient's own follow-up question/concern from the booth.\n\nWritten as soon as the patient states it (end of the booth flow) —\nunlike the nurse narrative it needs no human sign-off, it IS the\npatient's verbatim words for the doctor.",
-    "operationId": "update_follow_up_api_visits__visit_id__follow_up_put",
-    "parameters": [
-     {
-      "name": "visit_id",
-      "in": "path",
-      "required": true,
-      "schema": {
-       "type": "string",
-       "title": "Visit Id"
-      }
-     },
-     {
-      "name": "x-api-key",
-      "in": "header",
-      "required": false,
-      "schema": {
-       "anyOf": [
-        {
-         "type": "string"
-        },
-        {
-         "type": "null"
-        }
-       ],
-       "title": "X-Api-Key"
-      }
-     }
-    ],
-    "requestBody": {
-     "required": true,
-     "content": {
-      "application/json": {
-       "schema": {
-        "$ref": "#/components/schemas/FollowUpIn"
        }
       }
      }
@@ -1199,14 +1135,17 @@
       "title": "Request Id"
      },
      "visit_id": {
-      "type": "string",
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
       "title": "Visit Id"
      },
-     "assign_spid": {
-      "type": "string",
-      "title": "Assign Spid"
-     },
-     "assign_eid": {
+     "hn": {
       "anyOf": [
        {
         "type": "string"
@@ -1215,29 +1154,11 @@
         "type": "null"
        }
       ],
-      "title": "Assign Eid"
+      "title": "Hn"
      },
      "base_department_id": {
-      "anyOf": [
-       {
-        "type": "string"
-       },
-       {
-        "type": "null"
-       }
-      ],
+      "type": "string",
       "title": "Base Department Id"
-     },
-     "queue_number": {
-      "anyOf": [
-       {
-        "type": "string"
-       },
-       {
-        "type": "null"
-       }
-      ],
-      "title": "Queue Number"
      },
      "sbar": {
       "anyOf": [
@@ -1248,29 +1169,27 @@
         "type": "null"
        }
       ]
+     },
+     "mfu_prescreen": {
+      "anyOf": [
+       {
+        "additionalProperties": true,
+        "type": "object"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Mfu Prescreen"
      }
     },
     "type": "object",
     "required": [
      "request_id",
-     "visit_id",
-     "assign_spid"
+     "base_department_id"
     ],
     "title": "AssignmentIn",
-    "description": "Body of POST /api/v1/patient-assignments — mirrors the hospital's iMed\ncontract (docs/imed-patient-assignment-api.md).\n\nWe never send patient_id / fix_visit_type_id / any timestamp: iMed derives\nthose from the visit and from the access-token identity."
-   },
-   "FollowUpIn": {
-    "properties": {
-     "follow_up": {
-      "type": "string",
-      "title": "Follow Up"
-     }
-    },
-    "type": "object",
-    "required": [
-     "follow_up"
-    ],
-    "title": "FollowUpIn"
+    "description": "Body of POST /api/v1/patient-assignments — the hospital's Data\nRequirements V1 shape (§2.2/§4.4).\n\nWe route at *department* granularity only (``base_department_id``); the\nhospital assigns the actual service point / examination room itself.\n``visit_id`` may be absent — the booth flow is HN-first, so when no VN\npassthrough is available the mock resolves the HN's newest visit.\n``mfu_prescreen`` is our screening block (triage level, vitals with\nprovenance, confirmer, source refs), stored verbatim."
    },
    "HTTPValidationError": {
     "properties": {
@@ -1304,7 +1223,7 @@
    },
    "PatientHistoryIn": {
     "properties": {
-     "smoking_alcohol": {
+     "smoking": {
       "anyOf": [
        {
         "type": "string"
@@ -1313,7 +1232,18 @@
         "type": "null"
        }
       ],
-      "title": "Smoking Alcohol"
+      "title": "Smoking"
+     },
+     "alcohol": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Alcohol"
      },
      "allergies": {
       "anyOf": [
@@ -1337,7 +1267,7 @@
       ],
       "title": "Chronic Conditions"
      },
-     "past_surgeries": {
+     "post_surgeries": {
       "anyOf": [
        {
         "type": "string"
@@ -1346,7 +1276,7 @@
         "type": "null"
        }
       ],
-      "title": "Past Surgeries"
+      "title": "Post Surgeries"
      },
      "family_history": {
       "anyOf": [
@@ -1366,7 +1296,14 @@
    "PatientPrescreenIn": {
     "properties": {
      "visit_id": {
-      "type": "string",
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
       "title": "Visit Id"
      },
      "hn": {
@@ -1439,11 +1376,8 @@
      }
     },
     "type": "object",
-    "required": [
-     "visit_id"
-    ],
     "title": "PatientPrescreenIn",
-    "description": "Body of POST /api/v1/patient-prescreens (our change request 14).\n\nNote what is absent: no ``recommended_department``, no triage level, no\nreasoning. That is the point — this marks the patient pre-screened and\nawaiting confirmation, carrying only what an instrument measured. The\nclinical decision arrives later, at POST /api/v1/patient-assignments,\nafter a nurse has signed it off."
+    "description": "Body of POST /api/v1/patient-prescreens (Data Requirements V1 §2.1/§4.3).\n\nNote what is absent: no ``recommended_department``, no triage level, no\nreasoning. That is the point — this marks the patient pre-screened and\nawaiting confirmation, carrying only what an instrument measured. The\nclinical decision arrives later, at POST /api/v1/patient-assignments,\nafter a nurse has signed it off."
    },
    "PatientVitalsIn": {
     "properties": {

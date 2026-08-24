@@ -74,24 +74,27 @@ class SbarIn(BaseModel):
 
 
 class AssignmentIn(BaseModel):
-    """Body of POST /api/v1/patient-assignments — mirrors the hospital's iMed
-    contract (docs/imed-patient-assignment-api.md).
+    """Body of POST /api/v1/patient-assignments — the hospital's Data
+    Requirements V1 shape (§2.2/§4.4).
 
-    We never send patient_id / fix_visit_type_id / any timestamp: iMed derives
-    those from the visit and from the access-token identity.
+    We route at *department* granularity only (``base_department_id``); the
+    hospital assigns the actual service point / examination room itself.
+    ``visit_id`` may be absent — the booth flow is HN-first, so when no VN
+    passthrough is available the mock resolves the HN's newest visit.
+    ``mfu_prescreen`` is our screening block (triage level, vitals with
+    provenance, confirmer, source refs), stored verbatim.
     """
 
     request_id: str
-    visit_id: str
-    assign_spid: str
-    assign_eid: str | None = None
-    base_department_id: str | None = None
-    queue_number: str | None = None
+    visit_id: str | None = None
+    hn: str | None = None
+    base_department_id: str
     sbar: SbarIn | None = None
+    mfu_prescreen: dict[str, Any] | None = None
 
 
 class PatientPrescreenIn(BaseModel):
-    """Body of POST /api/v1/patient-prescreens (our change request 14).
+    """Body of POST /api/v1/patient-prescreens (Data Requirements V1 §2.1/§4.3).
 
     Note what is absent: no ``recommended_department``, no triage level, no
     reasoning. That is the point — this marks the patient pre-screened and
@@ -100,9 +103,9 @@ class PatientPrescreenIn(BaseModel):
     after a nurse has signed it off.
     """
 
-    visit_id: str
-    # Sent alongside visit_id so we can cross-check the two agree before
-    # writing anything — a mismatch means something went wrong upstream.
+    # HN-first: the booth identifies the patient by HN; the VN rides along
+    # when known, else the mock resolves the HN's newest visit.
+    visit_id: str | None = None
     hn: str | None = None
     session_ref: str | None = None
     slip_code: str | None = None
@@ -111,12 +114,6 @@ class PatientPrescreenIn(BaseModel):
     first_location: dict[str, Any] | None = None
     measured_at: str | None = None
     vitals: dict[str, Any] | None = None
-
-
-class FollowUpIn(BaseModel):
-    # Patient's own follow-up question/concern captured at the booth,
-    # recorded for the destination doctor/nurse to address.
-    follow_up: str
 
 
 class ResetIn(BaseModel):
@@ -136,10 +133,13 @@ class PatientGenderIn(BaseModel):
 
 
 class PatientHistoryIn(BaseModel):
-    smoking_alcohol: str | None = None
+    # Data Requirements V1 §1.3: six free-text fields, smoking and alcohol
+    # separate, surgery history spelled post_surgeries.
+    smoking: str | None = None
+    alcohol: str | None = None
     allergies: str | None = None
     chronic_conditions: str | None = None
-    past_surgeries: str | None = None
+    post_surgeries: str | None = None
     family_history: str | None = None
 
 
@@ -165,7 +165,7 @@ _RESET_SET_CLAUSE = ", ".join(f"{col} = NULL" for col in _RESET_COLUMNS)
 # Patient (HN) history/last-vitals columns cleared by ``reset_history=True`` —
 # puts a patient back into "first-time" state (``history_recorded_at`` NULL).
 _PATIENT_RESET_COLUMNS = (
-    "smoking_alcohol", "allergies", "chronic_conditions", "past_surgeries",
+    "smoking", "alcohol", "allergies", "chronic_conditions", "post_surgeries",
     "family_history", "history_recorded_at", "last_weight", "last_height",
     "vitals_measured_at",
 )
@@ -184,7 +184,9 @@ def _vitals_to_columns(vitals: dict[str, Any] | None) -> dict[str, Any]:
     diastolic = v.get("diastolic")
     pressure = f"{systolic}/{diastolic}" if systolic and diastolic else None
     weight = v.get("weight_kg")
-    height = v.get("height_cm")
+    # Data Requirements V1 spells it ``hight_cm``; accept the plain
+    # spelling too for older callers.
+    height = v.get("hight_cm", v.get("height_cm"))
     # Prefer the bmi the booth sent; recompute only for older callers that
     # still omit it, so the export column is filled either way.
     bmi = v.get("bmi")
@@ -348,7 +350,28 @@ def build_app(db_path: str | Path | None = None) -> FastAPI:
     def fetch_patient(db: sqlite3.Connection, hn: str) -> sqlite3.Row | None:
         return db.execute("SELECT * FROM patients WHERE hn = ?", (hn,)).fetchone()
 
-    def patient_payload(row: sqlite3.Row) -> dict[str, Any]:
+    def current_visit_for(db: sqlite3.Connection, hn: str) -> dict[str, Any] | None:
+        """The HN's newest routable visit — the VN passthrough for an HN-first
+        booth flow (our extension beyond Data Requirements V1, which has no
+        by-HN visit resolution)."""
+        row = db.execute(
+            """
+            SELECT visit_id, appointment FROM visits
+            WHERE hnx = ?
+              AND (visit_lock_status IS NULL
+                   OR visit_lock_status NOT IN ('LOCKED', 'FINANCIAL_DISCHARGE'))
+            ORDER BY visit_id DESC LIMIT 1
+            """,
+            (hn,),
+        ).fetchone()
+        if row is None:
+            return None
+        return {"visit_id": row["visit_id"], "appointment": bool(row["appointment"])}
+
+    def patient_payload(row: sqlite3.Row, db: sqlite3.Connection) -> dict[str, Any]:
+        """Data Requirements V1 §1.2–1.4 / §4.2 shape. ``last_vitals.hight``
+        keeps the hospital's own spelling. ``gender`` and ``current_visit``
+        are our extensions beyond the document."""
         return {
             "hn": row["hn"],
             "patient_name": row["patient_name"],
@@ -360,18 +383,20 @@ def build_app(db_path: str | Path | None = None) -> FastAPI:
             # booth should collect it before the symptom interview.
             "is_first_time": row["history_recorded_at"] is None,
             "history": {
-                "smoking_alcohol": row["smoking_alcohol"],
+                "smoking": row["smoking"],
+                "alcohol": row["alcohol"],
                 "allergies": row["allergies"],
                 "chronic_conditions": row["chronic_conditions"],
-                "past_surgeries": row["past_surgeries"],
+                "post_surgeries": row["post_surgeries"],
                 "family_history": row["family_history"],
                 "recorded_at": row["history_recorded_at"],
             },
             "last_vitals": {
                 "weight": row["last_weight"],
-                "height": row["last_height"],
+                "hight": row["last_height"],
                 "measured_at": row["vitals_measured_at"],
             },
+            "current_visit": current_visit_for(db, row["hn"]),
         }
 
     def visit_payload(row: sqlite3.Row, db: sqlite3.Connection) -> dict[str, Any]:
@@ -392,7 +417,7 @@ def build_app(db_path: str | Path | None = None) -> FastAPI:
             # GET gives the triage app everything it needs in one round
             # trip; null when the HN is entirely unknown (shouldn't happen
             # once backfill_patients_from_visits has run).
-            "patient": patient_payload(patient_row) if patient_row else None,
+            "patient": patient_payload(patient_row, db) if patient_row else None,
             # Vitals as the export carries them (raw pressure) plus a parsed
             # split for convenience.
             "vitals": {
@@ -435,6 +460,23 @@ def build_app(db_path: str | Path | None = None) -> FastAPI:
             raise HTTPException(status_code=404, detail="Visit not found")
         return row
 
+    def resolve_visit_row(
+        db: sqlite3.Connection, visit_id: str | None, hn: str | None
+    ) -> sqlite3.Row | None:
+        """HN-first write-back resolution: prefer the explicit VN passthrough,
+        else the HN's newest visit (any lock state — the 403 lock gate stays
+        meaningful). None when neither identifier resolves."""
+        if visit_id:
+            return db.execute(
+                "SELECT * FROM visits WHERE visit_id = ?", (visit_id,)
+            ).fetchone()
+        if hn:
+            return db.execute(
+                "SELECT * FROM visits WHERE hnx = ? ORDER BY visit_id DESC LIMIT 1",
+                (hn,),
+            ).fetchone()
+        return None
+
     def prescreen_payload(row: sqlite3.Row) -> dict[str, Any]:
         return {
             "visit_id": row["visit_id"],
@@ -445,6 +487,7 @@ def build_app(db_path: str | Path | None = None) -> FastAPI:
             "reason": row["reason"],
             "vitals": json.loads(row["vitals"]) if row["vitals"] else None,
             "reasons": json.loads(row["reasons"]) if row["reasons"] else [],
+            "measured_at": row["measured_at"],
             "status": row["status"],
             "confirmed_department": row["confirmed_department"],
             "confirmed_by": row["confirmed_by"],
@@ -629,7 +672,7 @@ def build_app(db_path: str | Path | None = None) -> FastAPI:
         row = fetch_patient(db, hn)
         if row is None:
             raise HTTPException(status_code=404, detail="Patient not found")
-        return patient_payload(row)
+        return patient_payload(row, db)
 
     @app.put("/api/v1/patients/{hn}/history", dependencies=[Depends(require_imed_token)])
     def imed_patient_history_write(
@@ -646,19 +689,19 @@ def build_app(db_path: str | Path | None = None) -> FastAPI:
                 "hn": hn,
                 "written": False,
                 "reason": "history already on file — we never overwrite",
-                "patient": patient_payload(row),
+                "patient": patient_payload(row, db),
             }
         db.execute(
             """
             UPDATE patients SET
-                smoking_alcohol = ?, allergies = ?, chronic_conditions = ?,
-                past_surgeries = ?, family_history = ?,
+                smoking = ?, alcohol = ?, allergies = ?, chronic_conditions = ?,
+                post_surgeries = ?, family_history = ?,
                 history_recorded_at = datetime('now')
             WHERE hn = ?
             """,
             (
-                payload.smoking_alcohol, payload.allergies,
-                payload.chronic_conditions, payload.past_surgeries,
+                payload.smoking, payload.alcohol, payload.allergies,
+                payload.chronic_conditions, payload.post_surgeries,
                 payload.family_history, hn,
             ),
         )
@@ -666,7 +709,7 @@ def build_app(db_path: str | Path | None = None) -> FastAPI:
         return {
             "hn": hn,
             "written": True,
-            "patient": patient_payload(fetch_patient(db, hn)),
+            "patient": patient_payload(fetch_patient(db, hn), db),
         }
 
     @app.put("/api/v1/patients/{hn}/gender", dependencies=[Depends(require_imed_token)])
@@ -684,14 +727,14 @@ def build_app(db_path: str | Path | None = None) -> FastAPI:
                 "hn": hn,
                 "written": False,
                 "reason": "gender already on file — we never overwrite",
-                "patient": patient_payload(row),
+                "patient": patient_payload(row, db),
             }
         db.execute("UPDATE patients SET gender = ? WHERE hn = ?", (payload.gender, hn))
         db.commit()
         return {
             "hn": hn,
             "written": True,
-            "patient": patient_payload(fetch_patient(db, hn)),
+            "patient": patient_payload(fetch_patient(db, hn), db),
         }
 
     @app.post("/api/v1/patient-prescreens", dependencies=[Depends(require_imed_token)])
@@ -705,20 +748,19 @@ def build_app(db_path: str | Path | None = None) -> FastAPI:
         clinician could act on lands here, which is what keeps the
         nurse-confirm step at POST /patient-assignments meaningful.
         """
-        visit = db.execute(
-            "SELECT * FROM visits WHERE visit_id = ?", (payload.visit_id,)
-        ).fetchone()
+        visit = resolve_visit_row(db, payload.visit_id, payload.hn)
         if visit is None:
             return _imed_error(
                 400, payload.session_ref or "", "invalid_request", "ไม่พบ visit ที่ระบุ"
             )
-        # Cross-check the two identifiers. Catching a mismatch here is the
-        # whole reason for accepting the HN we do not strictly need.
+        # Cross-check the two identifiers when both were sent. Catching a
+        # mismatch here is the whole reason for accepting both.
         if payload.hn and visit["hnx"] and payload.hn != visit["hnx"]:
             return _imed_error(
                 400, payload.session_ref or "", "invalid_request",
                 "HN ไม่ตรงกับ visit ที่ระบุ",
             )
+        visit_id = visit["visit_id"]
         loc = payload.first_location or {}
         booth_id = loc.get("id") or AI_BOOTH_LOCATION["id"]
         booth_name = loc.get("name") or AI_BOOTH_LOCATION["name"]
@@ -733,7 +775,7 @@ def build_app(db_path: str | Path | None = None) -> FastAPI:
                 measure_spid = ?, measure_name = ?, measure_department = ?,
                 first_location_id = ?, first_location_name = ?,
                 first_location_department = ?,
-                modify_time = datetime('now')
+                modify_time = COALESCE(?, datetime('now'))
             WHERE visit_id = ?
             """,
             (
@@ -741,18 +783,47 @@ def build_app(db_path: str | Path | None = None) -> FastAPI:
                 cols["temperature"], cols["bmi"],
                 booth_id, booth_name, booth_dept,
                 booth_id, booth_name, booth_dept,
-                payload.visit_id,
+                payload.measured_at,
+                visit_id,
+            ),
+        )
+        # Staging row: the full vitals object as sent (incl. per-vital
+        # ``sources`` and ``bmi``) plus when it was actually measured. Still
+        # no clinical judgement — recommended_department stays NULL here.
+        db.execute(
+            """
+            INSERT INTO prescreen_results
+                (visit_id, session_ref, slip_code, vitals, measured_at, status)
+            VALUES (?, ?, ?, ?, ?, 'pending')
+            ON CONFLICT(visit_id) DO UPDATE SET
+                session_ref = excluded.session_ref,
+                slip_code = excluded.slip_code,
+                vitals = excluded.vitals,
+                measured_at = excluded.measured_at,
+                status = 'pending',
+                confirmed_department = NULL,
+                confirmed_by = NULL,
+                updated_at = datetime('now')
+            """,
+            (
+                visit_id,
+                payload.session_ref,
+                payload.slip_code,
+                json.dumps(payload.vitals, ensure_ascii=False)
+                if payload.vitals is not None else None,
+                payload.measured_at,
             ),
         )
         db.commit()
         return _imed_ok(
             payload.session_ref or "",
             {
-                "visit_id": payload.visit_id,
+                "visit_id": visit_id,
                 "prescreen_status": "AWAITING_CONFIRMATION",
-                "measured_at": db.execute(
+                "measured_at": payload.measured_at
+                or db.execute(
                     "SELECT modify_time FROM visits WHERE visit_id = ?",
-                    (payload.visit_id,),
+                    (visit_id,),
                 ).fetchone()[0],
             },
         )
@@ -779,6 +850,8 @@ def build_app(db_path: str | Path | None = None) -> FastAPI:
         result = _queue_result(row)
         if row["sbar"]:
             result["sbar"] = json.loads(row["sbar"])
+        if row["mfu_prescreen"]:
+            result["mfu_prescreen"] = json.loads(row["mfu_prescreen"])
         return _imed_ok(request_id, result)
 
     @app.post(
@@ -789,31 +862,34 @@ def build_app(db_path: str | Path | None = None) -> FastAPI:
         payload: AssignmentIn,
         db: sqlite3.Connection = Depends(get_db),
     ):
-        """Send a registered visit to a destination service point.
+        """Send a registered visit to a destination *department*.
 
-        Mirrors the hospital's real iMed contract
-        (``docs/imed-patient-assignment-api.md``) — same envelope, same error
-        codes, same idempotency rule. Replaces the retired
-        ``PUT /api/visits/{id}/routing``.
+        Data Requirements V1 §2.2/§4.4: we send only ``base_department_id``;
+        the hospital resolves the actual service point / examination room
+        itself (this mock picks the department's first service point). Same
+        iMed envelope, error codes and idempotency rule as before.
 
-        Two deliberate divergences, both flagged for the hospital meeting:
+        Deliberate behaviors flagged for the hospital meeting:
 
         * A repeated ``request_id`` returns **200 with the original result**
           rather than a bare 409. That is our *change request 7* — an
           idempotency key is useless if a retry after a timeout cannot tell us
           the queue number. Implemented here so the proposal is runnable.
-        * ``confirmed_by`` is left NULL and a reroute cannot be marked as such:
-          iMed derives the sender from the access token and has no reroute
-          flag (change requests 3 and 4). The empty column is the demo.
+        * ``confirmed_by`` is left NULL on the staging row: iMed derives the
+          sender from the access token. The confirmer we do know rides inside
+          ``mfu_prescreen`` (change requests 1, 2 and 4).
         """
         rid = payload.request_id
-        visit = db.execute(
-            "SELECT * FROM visits WHERE visit_id = ?", (payload.visit_id,)
-        ).fetchone()
+        visit = resolve_visit_row(db, payload.visit_id, payload.hn)
         if visit is None:
             # The contract lists no 404 for this endpoint; an unknown visit is
             # bad data from the third party.
             return _imed_error(400, rid, "invalid_request", "ไม่พบ visit ที่ระบุ")
+        if payload.hn and visit["hnx"] and payload.hn != visit["hnx"]:
+            return _imed_error(
+                400, rid, "invalid_request", "HN ไม่ตรงกับ visit ที่ระบุ"
+            )
+        visit_id = visit["visit_id"]
 
         # Idempotent replay, checked BEFORE the lock/service-point gates so a
         # retry still yields the queue number even if the SP has since closed.
@@ -831,12 +907,15 @@ def build_app(db_path: str | Path | None = None) -> FastAPI:
                 "visit ถูกล็อกหรือจำหน่ายทางการเงินแล้ว",
             )
 
+        # The hospital owns service-point selection; the mock stands in with
+        # the department's first (lowest-spid) service point.
         sp = db.execute(
-            "SELECT * FROM service_points WHERE spid = ?", (payload.assign_spid,)
+            "SELECT * FROM service_points WHERE department_id = ? ORDER BY spid LIMIT 1",
+            (payload.base_department_id,),
         ).fetchone()
         if sp is None:
             return _imed_error(
-                400, rid, "invalid_request", "ไม่รู้จักจุดบริการปลายทางที่ระบุ"
+                400, rid, "invalid_request", "ไม่รู้จักแผนกปลายทางที่ระบุ"
             )
         if not sp["is_open"]:
             return _imed_error(
@@ -852,7 +931,7 @@ def build_app(db_path: str | Path | None = None) -> FastAPI:
             WHERE visit_id = ? AND next_location_spid = ?
               AND queue_status IN ('WAITING', 'NOT_SEND')
             """,
-            (payload.visit_id, payload.assign_spid),
+            (visit_id, sp["spid"]),
         ).fetchone()
         if duplicate is not None:
             return _imed_error(
@@ -869,10 +948,10 @@ def build_app(db_path: str | Path | None = None) -> FastAPI:
             UPDATE visit_queue SET queue_status = 'CANCELLED'
             WHERE visit_id = ? AND queue_status IN ('WAITING', 'NOT_SEND')
             """,
-            (payload.visit_id,),
+            (visit_id,),
         )
 
-        queue_number = payload.queue_number or _next_queue_number(db, sp)
+        queue_number = _next_queue_number(db, sp)
         visit_queue_id = f"VQ-{uuid.uuid4().hex[:10].upper()}"
         sbar = payload.sbar.model_dump() if payload.sbar else None
         sbar_id = f"SBAR-{uuid.uuid4().hex[:6].upper()}" if sbar else None
@@ -880,20 +959,21 @@ def build_app(db_path: str | Path | None = None) -> FastAPI:
             """
             INSERT INTO visit_queue (
                 visit_queue_id, request_id, visit_id, next_location_spid,
-                next_department_id, next_operate_eid, queue_number,
-                queue_status, sbar, sbar_id
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, 'WAITING', ?, ?)
+                next_department_id, queue_number,
+                queue_status, sbar, sbar_id, mfu_prescreen
+            ) VALUES (?, ?, ?, ?, ?, ?, 'WAITING', ?, ?, ?)
             """,
             (
                 visit_queue_id,
                 rid,
-                payload.visit_id,
-                payload.assign_spid,
-                payload.base_department_id or sp["department_id"],
-                payload.assign_eid,
+                visit_id,
+                sp["spid"],
+                payload.base_department_id,
                 queue_number,
                 json.dumps(sbar, ensure_ascii=False) if sbar else None,
                 sbar_id,
+                json.dumps(payload.mfu_prescreen, ensure_ascii=False)
+                if payload.mfu_prescreen is not None else None,
             ),
         )
 
@@ -917,7 +997,7 @@ def build_app(db_path: str | Path | None = None) -> FastAPI:
                 sp["name"],
                 chief_complaint,
                 illness,
-                payload.visit_id,
+                visit_id,
             ),
         )
         # Our own staging row, when there is one. An assignment must NOT depend
@@ -929,7 +1009,7 @@ def build_app(db_path: str | Path | None = None) -> FastAPI:
                 updated_at = datetime('now')
             WHERE visit_id = ?
             """,
-            (sp["name"], payload.visit_id),
+            (sp["name"], visit_id),
         )
         db.commit()
 
@@ -937,31 +1017,6 @@ def build_app(db_path: str | Path | None = None) -> FastAPI:
             "SELECT * FROM visit_queue WHERE visit_queue_id = ?", (visit_queue_id,)
         ).fetchone()
         return _imed_ok(rid, _queue_result(row))
-
-    @app.put(
-        "/api/visits/{visit_id}/follow-up",
-        dependencies=[Depends(require_api_key)],
-    )
-    def update_follow_up(
-        visit_id: str,
-        payload: FollowUpIn,
-        db: sqlite3.Connection = Depends(get_db),
-    ):
-        """Record the patient's own follow-up question/concern from the booth.
-
-        Written as soon as the patient states it (end of the booth flow) —
-        unlike the nurse narrative it needs no human sign-off, it IS the
-        patient's verbatim words for the doctor."""
-        fetch_visit(db, visit_id)
-        db.execute(
-            """
-            UPDATE visits SET follow_up = ?, modify_time = datetime('now')
-            WHERE visit_id = ?
-            """,
-            (payload.follow_up.strip() or None, visit_id),
-        )
-        db.commit()
-        return visit_payload(fetch_visit(db, visit_id), db)
 
     @app.get(
         "/api/visits/{visit_id}/prescreen",
@@ -987,7 +1042,7 @@ def build_app(db_path: str | Path | None = None) -> FastAPI:
         )
         return {
             "patients": [
-                {**patient_payload(r), "visit_count": counts.get(r["hn"], 0)}
+                {**patient_payload(r, db), "visit_count": counts.get(r["hn"], 0)}
                 for r in rows
             ]
         }
@@ -1003,7 +1058,7 @@ def build_app(db_path: str | Path | None = None) -> FastAPI:
         row = fetch_patient(db, hn)
         if row is None:
             raise HTTPException(status_code=404, detail="Patient not found")
-        return patient_payload(row)
+        return patient_payload(row, db)
 
     @app.put(
         "/api/patients/{hn}/history",
@@ -1025,22 +1080,23 @@ def build_app(db_path: str | Path | None = None) -> FastAPI:
         db.execute(
             """
             UPDATE patients SET
-                smoking_alcohol = ?, allergies = ?, chronic_conditions = ?,
-                past_surgeries = ?, family_history = ?,
+                smoking = ?, alcohol = ?, allergies = ?, chronic_conditions = ?,
+                post_surgeries = ?, family_history = ?,
                 history_recorded_at = datetime('now')
             WHERE hn = ?
             """,
             (
-                payload.smoking_alcohol,
+                payload.smoking,
+                payload.alcohol,
                 payload.allergies,
                 payload.chronic_conditions,
-                payload.past_surgeries,
+                payload.post_surgeries,
                 payload.family_history,
                 hn,
             ),
         )
         db.commit()
-        return patient_payload(fetch_patient(db, hn))
+        return patient_payload(fetch_patient(db, hn), db)
 
     @app.put(
         "/api/patients/{hn}/vitals",
@@ -1065,7 +1121,7 @@ def build_app(db_path: str | Path | None = None) -> FastAPI:
             (payload.weight_kg, payload.height_cm, hn),
         )
         db.commit()
-        return patient_payload(fetch_patient(db, hn))
+        return patient_payload(fetch_patient(db, hn), db)
 
     @app.post("/api/admin/reset", dependencies=[Depends(require_api_key)])
     def reset_visits(

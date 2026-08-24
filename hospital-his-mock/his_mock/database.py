@@ -8,10 +8,12 @@ The ``visits`` table mirrors the real MFU ``Prescreen`` export
 column-for-column, so the hospital IT team sees literally their own
 screening table. The ``patients`` table is the HN (hospital number)
 master record: one row per patient, holding demographics plus the
-patient-history fields our booth collects on a first visit
-(smoking/alcohol, allergies, chronic conditions, surgeries, family
-history) and the most recent weight/height measurement — a visit's
-``hnx`` column links it to its patient.
+patient-history fields our booth collects on a first visit (smoking,
+alcohol, allergies, chronic conditions, post surgeries, family
+history — field names per the hospital's Data Requirements V1) and the
+most recent weight/height measurement — a visit's ``hnx`` column links
+it to its patient. HN is the identity patients enter at the booth; a
+VN only rides along as write-back plumbing.
 
 Demo model — a visit starts in its *post-registration, pre-screening*
 state: only ``visit_id``/``hnx``/``birthdate``/``appointment`` are filled;
@@ -69,10 +71,14 @@ CREATE TABLE IF NOT EXISTS patients (
     -- lacks it (the booth may then ask and fill it, never overwrite).
     gender               TEXT,
     -- Patient history collected at the AI booth on a first visit.
-    smoking_alcohol      TEXT,
+    -- Field names follow the hospital's Data Requirements V1 (2026-08-11):
+    -- smoking and alcohol are separate free-text fields; surgery history
+    -- is spelled post_surgeries.
+    smoking              TEXT,
+    alcohol              TEXT,
     allergies            TEXT,
     chronic_conditions   TEXT,
-    past_surgeries       TEXT,
+    post_surgeries       TEXT,
     family_history       TEXT,
     history_recorded_at  TEXT,
     -- Most recent booth measurement, so weight/height can be skipped
@@ -91,6 +97,9 @@ CREATE TABLE IF NOT EXISTS prescreen_results (
     reason                 TEXT,
     vitals                 TEXT,
     reasons                TEXT,
+    -- When the booth actually took the measurements (payload measured_at);
+    -- created_at/updated_at are only when this row was written.
+    measured_at            TEXT,
     status                 TEXT NOT NULL DEFAULT 'pending'
                            CHECK (status IN ('pending', 'confirmed', 'rerouted')),
     confirmed_department   TEXT,
@@ -123,13 +132,16 @@ CREATE TABLE IF NOT EXISTS visit_queue (
     queue_status       TEXT NOT NULL DEFAULT 'WAITING',
     sbar               TEXT,
     sbar_id            TEXT,
+    -- The AI system's own screening block (triage level, vitals with
+    -- provenance, confirmer, source refs) — stored verbatim as JSON.
+    mfu_prescreen      TEXT,
     created_at         TEXT NOT NULL DEFAULT (datetime('now'))
 );
 """
 
 # ⚠️ PLACEHOLDER MASTER DATA — INVENTED BY US, NOT CONFIRMED BY THE HOSPITAL.
 # Shaped like the contract's samples (SP_ER_01 / DEPT_ER). Must stay in lockstep
-# with CODE_TO_SPID in the backend's screening/his/department_map.py. Replace
+# with CODE_TO_DEPT_ID in the backend's screening/his/department_map.py. Replace
 # every spid/department_id here with iMed's real codes before any UAT call.
 # Source table: docs/imed-integration-plan.md §Department master data.
 SERVICE_POINTS = (
@@ -177,8 +189,19 @@ def connect(db_path: str | Path) -> sqlite3.Connection:
         if column not in existing:
             conn.execute(f"ALTER TABLE visits ADD COLUMN {column} TEXT")
     existing_patients = {r["name"] for r in conn.execute("PRAGMA table_info(patients)")}
-    if "gender" not in existing_patients:
+    if "smoking_alcohol" in existing_patients:
+        # Pre-Data-Requirements-V1 file (combined smoking_alcohol column):
+        # disposable seed data, so rebuild the table rather than migrate —
+        # build_app reseeds it because it comes back empty.
+        conn.execute("DROP TABLE patients")
+        conn.executescript(SCHEMA)
+    elif "gender" not in existing_patients:
         conn.execute("ALTER TABLE patients ADD COLUMN gender TEXT")
+    for table, column in (("prescreen_results", "measured_at"),
+                          ("visit_queue", "mfu_prescreen")):
+        cols = {r["name"] for r in conn.execute(f"PRAGMA table_info({table})")}
+        if column not in cols:
+            conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} TEXT")
     conn.commit()
     return conn
 
@@ -299,20 +322,21 @@ def seed_patients_from_csv(conn: sqlite3.Connection, csv_path: str | Path) -> in
             conn.execute(
                 """
                 INSERT OR REPLACE INTO patients (
-                    hn, patient_name, birthdate, gender, smoking_alcohol, allergies,
-                    chronic_conditions, past_surgeries, family_history,
+                    hn, patient_name, birthdate, gender, smoking, alcohol, allergies,
+                    chronic_conditions, post_surgeries, family_history,
                     history_recorded_at, last_weight, last_height, vitals_measured_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     hn,
                     _str(row.get("patient_name")),
                     _str(row.get("birthdate")),
                     _str(row.get("gender")),
-                    _str(row.get("smoking_alcohol")),
+                    _str(row.get("smoking")),
+                    _str(row.get("alcohol")),
                     _str(row.get("allergies")),
                     _str(row.get("chronic_conditions")),
-                    _str(row.get("past_surgeries")),
+                    _str(row.get("post_surgeries")),
                     _str(row.get("family_history")),
                     _str(row.get("history_recorded_at")),
                     _float(row.get("last_weight")),

@@ -91,7 +91,17 @@ def _is_resolved(question: QuestionTemplate, inputs: InterviewInputs) -> bool:
         states = [inputs.findings.get(fid) for fid in question.finding_ids]
         if all(s is not None for s in states):
             return True
-        return _ask_count(question, inputs) >= 2
+        asked = _ask_count(question, inputs)
+        # The patient answered THIS question with a yes ("trouble breathing?"
+        # → dyspnea present): asking the identical words again cannot gain
+        # anything (measured 2026-08-21: "หายใจลำบากไหม" echoed twice). The
+        # severity grade / sibling finding it left unknown is the job of the
+        # follow-on scale, measurement or confirm question, not a repeat.
+        # A finding present BEFORE the first ask (volunteered) still asks —
+        # that is the wound-infection case above.
+        if asked >= 1 and any(s == "present" for s in states):
+            return True
+        return asked >= 2
     if question.kind == "measurement":
         # Checked BEFORE the asked-once rule so a reading that never arrived —
         # or arrived physiologically impossible and was rejected — gets exactly
@@ -134,11 +144,57 @@ def _is_resolved(question: QuestionTemplate, inputs: InterviewInputs) -> bool:
     return all(fid in inputs.findings for fid in question.finding_ids)
 
 
+def _secondary_red_flags(
+    criteria: ScreeningCriteria, template: ComplaintTemplate, inputs: InterviewInputs
+) -> list[QuestionTemplate]:
+    """Red-flag questions of every OTHER template whose anchor finding the
+    patient reported — a fever patient who adds "แน่นหน้าอกด้วย" gets the
+    chest screen without the interview abandoning fever (measured 2026-08-22:
+    the added chest pain was recorded and then ignored, because only the
+    session template's questions were ever eligible). Red flags only; the
+    second complaint's OLDCARTS stay out, the budget is the cap."""
+
+    present = {fid for fid, st in inputs.findings.items() if st == "present"}
+    # A finding the session template already accounts for (its associated
+    # symptoms, or anything its own questions check — fever under urinary,
+    # abdominal pain under gynecology) is not a second complaint: the
+    # template's author planned for it. Measured 2026-08-22: without this,
+    # a febrile UTI drew the whole fever screen on top and spent the budget
+    # before its own slots (ur_th_flank_fever: level 3 → 4).
+    covered = set(template.associated_finding_ids)
+    for question in template.questions:
+        covered.update(question.finding_ids)
+    present -= covered
+    seen = {q.id for q in template.questions}
+    extra: list[QuestionTemplate] = []
+    for other in criteria.complaint_templates:
+        if other.category == template.category or not (set(other.anchor_finding_ids) & present):
+            continue
+        for question in other.questions:
+            if question.kind == "red_flag" and question.id not in seen:
+                seen.add(question.id)
+                extra.append(question)
+    return sorted(extra, key=lambda q: q.priority)
+
+
 def _ordered_questions(
-    criteria: ScreeningCriteria, template: ComplaintTemplate
+    criteria: ScreeningCriteria, template: ComplaintTemplate, inputs: InterviewInputs
 ) -> Iterable[QuestionTemplate]:
     yield from sorted(criteria.universal_questions, key=lambda q: q.priority)
-    yield from sorted(template.questions, key=lambda q: q.priority)
+    own = sorted(template.questions, key=lambda q: q.priority)
+    # The template's own order is the nurse's (some interleave a scale
+    # between red flags); a second complaint's red flags slot in right after
+    # the template's last red flag, so a safety screen never waits behind
+    # OLDCARTS.
+    last_red_flag = max(
+        (i for i, q in enumerate(own) if q.kind == "red_flag"), default=-1
+    )
+    if last_red_flag < 0:
+        yield from _secondary_red_flags(criteria, template, inputs)
+    for i, question in enumerate(own):
+        yield question
+        if i == last_red_flag:
+            yield from _secondary_red_flags(criteria, template, inputs)
     # Universal wrap-up questions (booth measurements like weight/height)
     # deliberately come after every complaint-specific question.
     yield from sorted(criteria.pre_disposition_questions, key=lambda q: q.priority)
@@ -168,7 +224,7 @@ def next_question(
                 return question
         return None
     template = get_template(criteria, inputs.complaint_category)
-    for question in _ordered_questions(criteria, template):
+    for question in _ordered_questions(criteria, template, inputs):
         if not _is_resolved(question, inputs):
             return question
     return None
@@ -178,7 +234,7 @@ def red_flags_resolved(criteria: ScreeningCriteria, inputs: InterviewInputs) -> 
     template = get_template(criteria, inputs.complaint_category)
     return all(
         _is_resolved(q, inputs)
-        for q in _ordered_questions(criteria, template)
+        for q in _ordered_questions(criteria, template, inputs)
         if q.kind == "red_flag"
     )
 
@@ -256,6 +312,10 @@ def confirm_question_for(
         id=f"confirm_{finding_id}",
         kind="red_flag",
         finding_ids=[finding_id],
-        text_en=f"Just to make sure I understood — do you have this right now: {label_en}?",
-        text_th=f"ขอยืนยันให้แน่ใจนะคะ ตอนนี้คุณมีอาการนี้ใช่ไหมคะ: {label_th}",
+        # An authored sentence when the catalog has one; the label-in-a-
+        # sentence fallback otherwise (reads like a form — author them).
+        text_en=(entry.confirm_en if entry and entry.confirm_en else
+                 f"Just to make sure I understood — do you have this right now: {label_en}?"),
+        text_th=(entry.confirm_th if entry and entry.confirm_th else
+                 f"ขอยืนยันให้แน่ใจนะคะ ตอนนี้คุณมีอาการนี้ใช่ไหมคะ: {label_th}"),
     )

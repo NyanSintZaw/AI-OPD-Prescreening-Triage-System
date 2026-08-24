@@ -3,10 +3,11 @@ import { useTranslation } from 'react-i18next';
 import { motion } from 'framer-motion';
 
 export interface HistoryIntakeValues {
-  smoking_alcohol: string;
+  smoking: string;
+  alcohol: string;
   allergies: string;
   chronic_conditions: string;
-  past_surgeries: string;
+  post_surgeries: string;
   family_history: string;
 }
 
@@ -18,16 +19,18 @@ interface HistoryIntakeStepProps {
 }
 
 const EMPTY: HistoryIntakeValues = {
-  smoking_alcohol: '',
+  smoking: '',
+  alcohol: '',
   allergies: '',
   chronic_conditions: '',
-  past_surgeries: '',
+  post_surgeries: '',
   family_history: '',
 };
 
 /**
- * First-time patient structured history (smoking/alcohol, allergies,
- * chronic conditions, surgeries, family history) before the symptom interview.
+ * First-time patient structured history before the symptom interview.
+ * Fields per Data Requirements V1 §1.3 — smoking and alcohol are separate
+ * questions so each answer lands in its own HIS column.
  */
 export function HistoryIntakeStep({
   busy = false,
@@ -44,9 +47,14 @@ export function HistoryIntakeStep({
 
   const fields: Array<{ key: keyof HistoryIntakeValues; labelKey: string; placeholderKey: string }> = [
     {
-      key: 'smoking_alcohol',
-      labelKey: 'kioskHistorySmokingAlcohol',
-      placeholderKey: 'kioskHistorySmokingAlcoholPh',
+      key: 'smoking',
+      labelKey: 'kioskHistorySmoking',
+      placeholderKey: 'kioskHistorySmokingPh',
+    },
+    {
+      key: 'alcohol',
+      labelKey: 'kioskHistoryAlcohol',
+      placeholderKey: 'kioskHistoryAlcoholPh',
     },
     {
       key: 'allergies',
@@ -59,7 +67,7 @@ export function HistoryIntakeStep({
       placeholderKey: 'kioskHistoryChronicPh',
     },
     {
-      key: 'past_surgeries',
+      key: 'post_surgeries',
       labelKey: 'kioskHistorySurgeries',
       placeholderKey: 'kioskHistorySurgeriesPh',
     },

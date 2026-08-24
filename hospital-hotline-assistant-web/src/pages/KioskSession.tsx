@@ -7,7 +7,7 @@ import { api } from '../api';
 import { KioskFrame } from '../components/kiosk/KioskFrame';
 import { Stepper, type KioskStep } from '../components/kiosk/Stepper';
 import { LanguageSelect } from '../components/kiosk/LanguageSelect';
-import { VisitIdCapture } from '../components/kiosk/VisitIdCapture';
+import { HnCapture } from '../components/kiosk/HnCapture';
 import { ConfirmNameStep } from '../components/kiosk/ConfirmNameStep';
 import { HistoryIntakeStep, type HistoryIntakeValues } from '../components/kiosk/HistoryIntakeStep';
 import { ConversationStage } from '../components/kiosk/ConversationStage';
@@ -27,7 +27,7 @@ import type { AppLanguage } from '../i18n/resources';
 
 type Phase =
   | 'language'
-  | 'visit'
+  | 'hn'
   | 'resume'
   | 'finished'
   | 'confirm'
@@ -37,7 +37,7 @@ type Phase =
   | 'result';
 
 interface ResumeOffer {
-  visitId: string;
+  hn: string;
   sessionId: string;
   /** 'active' → continue or start over; 'completed' → start over / reprint. */
   status: string;
@@ -58,12 +58,13 @@ const phaseTransition = {
 
 /**
  * The kiosk patient journey:
- * choose language → enter visit ID → (resume if same VN still active) OR
- * personal greeting → AI symptom conversation → routing result → auto-reset.
+ * choose language → enter HN → (resume if a recent session for the same HN
+ * is still active) OR personal greeting → AI symptom conversation →
+ * routing result → auto-reset.
  *
- * The session is created only AFTER a VN is confirmed as new (or the patient
- * skips VN), so abandoned language screens don't leave orphan sessions and
- * hang-ups can resume via GET /sessions/by-visit/{vn}.
+ * The session is created only AFTER an HN is confirmed as new (or the
+ * patient skips), so abandoned language screens don't leave orphan sessions
+ * and hang-ups can resume via GET /sessions/by-hn/{hn}.
  */
 export function KioskSession() {
   const { t } = useTranslation();
@@ -111,7 +112,7 @@ export function KioskSession() {
   // sit in localStorage (tab closed at the slip screen, reload) — reusing it
   // would leak the previous patient's identity into an anonymous run, so a
   // run only ever uses a session it created itself or one explicitly
-  // resumed via GET /sessions/by-visit.
+  // resumed via GET /sessions/by-hn.
   const runSessionRef = useRef<string | null>(null);
 
   // Neutralize any stale stored session/name from an earlier run on entry.
@@ -122,7 +123,7 @@ export function KioskSession() {
   }, []);
 
   // Warm the 3D avatar while the patient is still picking a language /
-  // entering their VN: pull the three.js modules and the ~15 MB VRM model
+  // entering their HN: pull the three.js modules and the ~15 MB VRM model
   // (shared in-memory buffer) so the conversation-phase mount is
   // near-instant instead of showing the loading orb.
   useEffect(() => {
@@ -185,7 +186,7 @@ export function KioskSession() {
           setResumeOffer(null);
         }
         setResumeIdentityConfirmed(false);
-        setPhase('visit');
+        setPhase('hn');
         return;
       }
       // Confirmed: the same call keeps going — the resume question (chooser
@@ -225,11 +226,11 @@ export function KioskSession() {
     },
   });
 
-  // ── Language phase: pin UI language only — session is created at visit ──
+  // ── Language phase: pin UI language only — session is created at HN ─────
   const handleLanguageSelect = useCallback(
     (lang: AppLanguage) => {
       setLanguage(lang);
-      setPhase('visit');
+      setPhase('hn');
     },
     [setLanguage],
   );
@@ -278,16 +279,16 @@ export function KioskSession() {
     [setLanguage, setSessionId, voiceCall.supported],
   );
 
-  // Create a fresh session and link the VN (first run or "start over").
+  // Create a fresh session and link the HN (first run or "start over").
   const createAndLink = useCallback(
-    async (visitId: string) => {
+    async (hn: string) => {
       const id = await ensureSession();
       // Start-over within the same walk-up: the link itself carries the
       // already-spoken identity confirmation — atomic, no REST race with
       // the call opening (a late confirm once let the gate re-arm).
       const preconfirmed = preconfirmRef.current;
       preconfirmRef.current = false;
-      const res = await api.linkVisit(id, visitId, preconfirmed);
+      const res = await api.linkPatient(id, hn, preconfirmed);
       if (res.linked) {
         setNeedsHistory(Boolean(res.is_first_time));
         if (res.patient_name) {
@@ -303,7 +304,7 @@ export function KioskSession() {
           setPhase(res.is_first_time ? 'history' : 'hello');
         }
       } else {
-        // Clean HIS response: this visit ID genuinely isn't registered.
+        // Clean HIS response: this HN genuinely isn't registered.
         setNotFound(true);
       }
     },
@@ -311,22 +312,22 @@ export function KioskSession() {
     [ensureSession, voiceCall.supported],
   );
 
-  // ── Visit phase: offer resume when a same-day session exists ────────────
-  const handleVisitSubmit = useCallback(
-    async (visitId: string) => {
+  // ── HN phase: offer resume when a recent session exists for this HN ─────
+  const handleHnSubmit = useCallback(
+    async (hn: string) => {
       setLinking(true);
       setNotFound(false);
       setLinkError(false);
       setIdentityRejected(false);
       try {
-        const existing = await api.getSessionByVisit(visitId);
+        const existing = await api.getSessionByHn(hn);
         if (existing.found && existing.session) {
-          const visitMeta = existing.session.metadata?.visit as
+          const patientMeta = existing.session.metadata?.patient as
             | { patient_name?: unknown }
             | undefined;
           const name =
             existing.patient_name ||
-            (typeof visitMeta?.patient_name === 'string' ? visitMeta.patient_name : null);
+            (typeof patientMeta?.patient_name === 'string' ? patientMeta.patient_name : null);
           const offerStatus = existing.status || existing.session.status || 'active';
           if (offerStatus === 'completed') {
             // Finished prescreening cannot be redone. No session adoption,
@@ -346,7 +347,7 @@ export function KioskSession() {
           setResumeIdentityConfirmed(false);
           setResumeChoiceBusy(false);
           setResumeOffer({
-            visitId,
+            hn,
             sessionId: existing.session.id,
             status: offerStatus,
             patientName: name,
@@ -362,7 +363,7 @@ export function KioskSession() {
           return;
         }
 
-        await createAndLink(visitId);
+        await createAndLink(hn);
       } catch {
         // Thrown exception: couldn't even check (network/server failure) —
         // distinct from "not found" so the patient isn't told to re-enter
@@ -389,7 +390,7 @@ export function KioskSession() {
 
   const handleResumeStartOver = useCallback(async () => {
     if (!resumeOffer || linking) return;
-    const { visitId, sessionId: oldSessionId, status } = resumeOffer;
+    const { hn, sessionId: oldSessionId, status } = resumeOffer;
     setLinking(true);
     void voiceCall.end();
     startedRef.current = false;
@@ -410,10 +411,10 @@ export function KioskSession() {
           .updateSession(oldSessionId, { status: 'reset' })
           .catch(() => undefined);
       }
-      await createAndLink(visitId);
+      await createAndLink(hn);
     } catch {
       setLinkError(true);
-      setPhase('visit');
+      setPhase('hn');
     } finally {
       setLinking(false);
     }
@@ -441,7 +442,7 @@ export function KioskSession() {
       setConfirmBusy(true);
       setConfirmUnclear(false);
       try {
-        const res = await api.confirmVisitName(sessionId, payload);
+        const res = await api.confirmPatientName(sessionId, payload);
         if (res.decision === 'yes') {
           setPhase(needsHistory ? 'history' : 'conversation');
           return;
@@ -450,7 +451,7 @@ export function KioskSession() {
           setPatientName(null);
           setStoredPatientName(null);
           setNeedsHistory(false);
-          setPhase('visit');
+          setPhase('hn');
           return;
         }
         // uncertain / other — stay on confirm and ask again
@@ -508,7 +509,7 @@ export function KioskSession() {
   // ── Finished notice: auto-return to VN entry after a short dwell ────────
   useEffect(() => {
     if (phase !== 'finished') return;
-    const timer = setTimeout(() => setPhase('visit'), 15000);
+    const timer = setTimeout(() => setPhase('hn'), 15000);
     return () => clearTimeout(timer);
   }, [phase]);
 
@@ -517,7 +518,7 @@ export function KioskSession() {
   // instead of hanging on "connecting".
   useEffect(() => {
     // `linking` gate: during start-over the phase is already 'conversation'
-    // when the fresh session id lands, but the visit (and its carried
+    // when the fresh session id lands, but the patient link (and its carried
     // identity confirmation) isn't linked yet — starting the call then
     // would open an anonymous interview.
     if (phase !== 'conversation' || !sessionId || startedRef.current || linking) return;
@@ -618,7 +619,7 @@ export function KioskSession() {
 
   // ── Render ───────────────────────────────────────────────────────────────
   const step: KioskStep | null =
-    phase === 'visit' || phase === 'resume'
+    phase === 'hn' || phase === 'resume'
       ? 0
       : phase === 'confirm' || phase === 'history' || phase === 'hello' || phase === 'conversation'
         ? 1
@@ -653,11 +654,11 @@ export function KioskSession() {
           </motion.div>
         )}
 
-        {phase === 'visit' && (
-          <motion.div key="visit" {...phaseTransition} style={{ width: '100%', display: 'flex', justifyContent: 'center' }}>
-            <VisitIdCapture
+        {phase === 'hn' && (
+          <motion.div key="hn" {...phaseTransition} style={{ width: '100%', display: 'flex', justifyContent: 'center' }}>
+            <HnCapture
               language={language}
-              onSubmit={handleVisitSubmit}
+              onSubmit={handleHnSubmit}
               onSkip={() => void handleSkip()}
               linking={linking}
               notFound={notFound}
@@ -773,7 +774,7 @@ export function KioskSession() {
                 startedRef.current = false;
                 runSessionRef.current = null;
                 setResumeOffer(null);
-                setPhase('visit');
+                setPhase('hn');
               }}
               disabled={linking}
             >
@@ -802,7 +803,7 @@ export function KioskSession() {
             <button
               type="button"
               className="k-btn primary xl"
-              onClick={() => setPhase('visit')}
+              onClick={() => setPhase('hn')}
             >
               {t('kioskResumeBack')}
             </button>
@@ -850,7 +851,7 @@ export function KioskSession() {
             </motion.span>
             <h2 className="k-hello-name">
               {patientName
-                ? t('kioskVisitLinkedHello', { name: patientName })
+                ? t('kioskHnLinkedHello', { name: patientName })
                 : t('kioskWelcome')}
             </h2>
             <p className="k-hello-lead">{t('kioskHelloLead')}</p>

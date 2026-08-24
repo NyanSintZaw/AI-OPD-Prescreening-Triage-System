@@ -66,13 +66,16 @@ def test_every_routing_category_has_template_or_generic(criteria):
 def test_generic_red_flag_coverage(criteria):
     # Universal red-flag questions are asked before every template's own
     # questions, so generic-path coverage = universal red flags + the generic
-    # template's red flags (>= 5 total).
+    # template's red flags (>= 4 total). The self-harm screen deliberately
+    # lives only in the mental_health template (2026-08-20): an unclassified
+    # "unwell" walk-in must not be asked about ending their life as question
+    # three; spontaneous mentions still reach the confirm-before-fire gate.
     universal_rf = [q for q in criteria.universal_questions if q.kind == "red_flag"]
     generic = next(t for t in criteria.complaint_templates if t.category == "generic")
     generic_rf = [q for q in generic.questions if q.kind == "red_flag"]
     assert len(universal_rf) >= 1
-    assert len(generic_rf) >= 4
-    assert len(universal_rf) + len(generic_rf) >= 5
+    assert len(generic_rf) >= 3
+    assert len(universal_rf) + len(generic_rf) >= 4
     # the generic red flags lead with MOPH and reference the ESI handbook
     for q in generic_rf:
         assert q.citation.startswith("MOPH ED Triage (5-level)"), q.id
@@ -86,9 +89,11 @@ def test_all_templates_fully_bilingual(criteria):
         # Measurement questions are booth actions, not interview turns (BP is
         # a standard vital in every template; temp only fires once fever is
         # reported), so they don't count. Runtime length is bounded
-        # separately by question_budget.
+        # separately by question_budget. Cap is 10: dyspnea_cough carries a
+        # fifth red flag (dc_retraction) because the MOPH SpO2 90–94% danger
+        # band is gated on retraction and nothing else asks it.
         asked = [q for q in template.questions if q.kind != "measurement"]
-        assert 1 <= len(asked) <= 9, template.category
+        assert 1 <= len(asked) <= 10, template.category
         for q in template.questions:
             assert q.text_en.strip(), q.id
             assert q.text_th.strip(), q.id
@@ -158,3 +163,44 @@ def test_bp_bounds_admit_a_real_hypertensive_crisis(criteria):
     rules exist to catch (dv_adult_bp_crisis fires above 180/110)."""
     assert criteria.vital_bounds["sbp"].contains(250)
     assert criteria.vital_bounds["dbp"].contains(140)
+
+
+def test_unknown_department_code_is_rejected_at_validation(criteria):
+    """A typo'd department used to pass validation and surface only as a
+    silently dropped recommendation at runtime; now it fails at approval."""
+    import pytest
+    from app.services.screening.rules.criteria_models import parse_criteria
+
+    payload = criteria.model_dump(mode="json")
+    payload["routing_table"][0]["department_code"] = "opd_typo"
+    with pytest.raises(ValueError, match="unknown department 'opd_typo'"):
+        parse_criteria(payload)
+
+    payload = criteria.model_dump(mode="json")
+    payload["routing_table"][0]["fallback_department_code"] = "opd_nope"
+    with pytest.raises(ValueError, match="unknown department 'opd_nope'"):
+        parse_criteria(payload)
+
+    payload = criteria.model_dump(mode="json")
+    payload["department_rules"][0]["department_code"] = "er"
+    with pytest.raises(ValueError, match="unknown department 'er'"):
+        parse_criteria(payload)
+
+
+def test_anchor_findings_exist_and_are_validated(criteria):
+    """A template's anchor finding(s) drive the mid-interview category switch
+    and the second-complaint red-flag screen; a typo must fail the deploy."""
+    from app.services.screening.rules.criteria_models import parse_criteria
+
+    anchored = [t for t in criteria.complaint_templates if t.anchor_finding_ids]
+    assert {t.category for t in anchored} >= {
+        "chest_pain", "abdominal_pain", "fever", "headache", "dyspnea_cough",
+    }
+    for template in anchored:
+        for fid in template.anchor_finding_ids:
+            assert fid in criteria.finding_catalog, f"{template.category}: {fid}"
+
+    payload = criteria.model_dump(mode="json")
+    payload["complaint_templates"][1]["anchor_finding_ids"] = ["chest_pian"]
+    with pytest.raises(ValueError, match="unknown finding 'chest_pian'"):
+        parse_criteria(payload)

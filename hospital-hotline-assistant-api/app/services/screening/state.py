@@ -15,6 +15,8 @@ Phase = Literal[
 ]
 
 
+RECENT_TURNS_MAX = 4  # two patient + two assistant lines
+
 OLDCARTS_SLOTS = (
     "onset", "location", "duration", "character",
     "aggravating", "relieving", "timing", "severity",
@@ -65,6 +67,10 @@ class ScreeningState(BaseModel):
     patient_name: str | None = None  # HIS-recorded name from the linked visit
     chief_complaint: str | None = None
     complaint_category: str | None = None
+    # Complaints the patient replaced mid-interview ("พูดผิด ไม่ได้ปวดท้อง
+    # เจ็บหน้าอก"): [{turn, category, chief_complaint}] before each switch,
+    # newest last. Nurse-facing provenance; never read by the rules.
+    complaint_history: list[dict[str, Any]] = Field(default_factory=list)
     slots: dict[str, str] = Field(default_factory=dict)  # OLDCARTS slot -> answer text
     findings: dict[str, Finding] = Field(default_factory=dict)
     vitals: dict[str, float] = Field(default_factory=dict)
@@ -94,6 +100,13 @@ class ScreeningState(BaseModel):
     # disposition; the question node serves their confirm questions first.
     # Recomputed every turn by the red-flag gate — derived state, not history.
     pending_confirm: list[str] = Field(default_factory=list)
+    # Critical findings the patient just retracted in free text after having
+    # confirmed them ("ไม่ได้เหงื่อออกแล้ว" after a chip-tap yes). Set by
+    # ingest for ONE routing decision: the graph asks the verbatim confirm
+    # once before the retraction cancels a level-1/2 rule — the mirror of
+    # confirm-before-fire, so an STT mis-hear can't silently stand down an
+    # emergency. Cleared every turn.
+    pending_retraction: list[str] = Field(default_factory=list)
     awaiting_measurement: str | None = None  # vital the booth must measure next
     extraction_failures: int = 0
 
@@ -102,6 +115,11 @@ class ScreeningState(BaseModel):
 
     # Verbatim patient note captured in the post-disposition follow-up phase.
     patient_follow_up: str | None = None
+    # The last two exchanges verbatim ({"role": "patient"|"assistant", "text"}),
+    # so the question renderer can acknowledge what was just said instead of
+    # firing each question in isolation (the "reading a template" feel).
+    # Capped at RECENT_TURNS_MAX; never read by the rules engine.
+    recent_turns: list[dict[str, str]] = Field(default_factory=list)
 
     criteria_version_id: str | None = None
     prompt_version: str = "v1"
