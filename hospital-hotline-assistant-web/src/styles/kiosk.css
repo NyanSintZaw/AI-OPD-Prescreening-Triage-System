@@ -2120,6 +2120,16 @@
   -webkit-tap-highlight-color: transparent;
 }
 
+/* Stage for the attract loop's rings and petals — centred on the mark, and
+   overflowing it so the bursts are not clipped. */
+.k-attract-mark {
+  position: relative;
+  display: grid;
+  place-items: center;
+  flex: none;
+  overflow: visible;
+}
+
 .k-attract-head {
   display: flex;
   align-items: center;
@@ -2256,7 +2266,7 @@
 
   /* The poster was crushed into the middle third with ~570px dead at each end;
      it never got the fill treatment the welcome screen did. */
-  .k-attract > svg    { width: 300px; height: 300px; }
+  .k-attract-mark > svg { width: 300px; height: 300px; }
   .k-attract-title    { font-size: clamp(62px, 9vmin, 104px); }
   .k-attract-cta      { font-size: clamp(28px, 3vmin, 36px); }
   .k-stat-line-text   { font-size: clamp(28px, 3vmin, 36px); }

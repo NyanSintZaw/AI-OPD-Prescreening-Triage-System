@@ -651,7 +651,7 @@ export function NursePage() {
                             <TriageBadge level={review.triage_level} />
                           </td>
                           <td>
-                            <code className="slip-code">{slipCode(review.session_id)}</code>
+                            <code className="code-chip">{slipCode(review.session_id)}</code>
                           </td>
                           <td title={review.patient_name ?? undefined}>
                             {review.patient_name || '—'}
@@ -702,7 +702,7 @@ export function NursePage() {
                     {selectedReview.patient_name || t('nurseHnNotLinked')}
                   </h2>
                   <p className="dialog-identity-meta">
-                    <code className="slip-code">{slipCode(selectedReview.session_id)}</code>
+                    <code className="code-chip">{slipCode(selectedReview.session_id)}</code>
                     {selectedReview.patient_hn ? (
                       <span>
                         {t('nurseHnLabel')} <code>{selectedReview.patient_hn}</code>

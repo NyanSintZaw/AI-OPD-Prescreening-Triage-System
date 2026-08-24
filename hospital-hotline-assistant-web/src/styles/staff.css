@@ -53,7 +53,7 @@ body:has(.app-main-sidebar) .app-shell {
    the header runs edge to edge and its padding lines up with the rail. */
 body:has(.app-main-sidebar) .header-inner {
   max-width: none;
-  padding-inline: var(--space-5);
+  padding-inline: var(--space-9);
 }
 
 /* ── Side nav ────────────────────────────────────────────────────────────────
@@ -76,11 +76,31 @@ body:has(.app-main-sidebar) .header-inner {
 }
 
 /* Only the nav list scrolls, so the account block stays pinned at the foot
-   however many sections a portal has. */
+   however many sections a portal has.
+
+   `overflow-x` must be stated: setting only overflow-y makes the other axis
+   compute to `auto`, and the collapsed badge's 3px overhang was enough to
+   raise a horizontal scrollbar (scrollWidth 47 vs clientWidth 44). */
 .staff-nav > nav {
   flex: 1;
   min-block-size: 0;
   overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
+}
+
+.staff-nav > nav::-webkit-scrollbar {
+  inline-size: 6px;
+}
+
+.staff-nav > nav::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: var(--radius-full);
+}
+
+.staff-nav > nav::-webkit-scrollbar-track {
+  background: transparent;
 }
 
 .staff-nav.is-collapsed {
@@ -121,6 +141,7 @@ body:has(.app-main-sidebar) .header-inner {
 .staff-nav-collapse {
   display: grid;
   place-items: center;
+  font: inherit;
   inline-size: 2rem;
   block-size: 2rem;
   flex: none;
@@ -223,12 +244,12 @@ body:has(.app-main-sidebar) .header-inner {
 
 .staff-nav.is-collapsed .staff-nav-badge {
   position: absolute;
-  inset-block-start: -3px;
-  inset-inline-end: -3px;
-  min-inline-size: 1.05rem;
+  inset-block-start: 1px;
+  inset-inline-end: 1px;
+  min-inline-size: 1rem;
   padding: 0 3px;
   font-size: 10px;
-  line-height: 1.05rem;
+  line-height: 1rem;
   box-shadow: 0 0 0 2px var(--surface-card);
 }
 
@@ -584,7 +605,9 @@ body:has(.app-main-sidebar) .header-inner {
   }
 }
 
-.slip-code {
+/* Named distinctly on purpose: `.slip-code` already belongs to the patient
+   slip page, where it is a 1.8rem bare monospace code. */
+.code-chip {
   padding: 2px var(--space-2);
   border-radius: var(--radius-sm);
   background: var(--surface-muted);
@@ -1500,6 +1523,7 @@ body:has(.app-main-sidebar) .header-inner {
 .staff-nav-logout {
   display: grid;
   place-items: center;
+  font: inherit;
   inline-size: 2.25rem;
   block-size: 2.25rem;
   flex: none;

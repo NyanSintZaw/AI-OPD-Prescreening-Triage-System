@@ -7,7 +7,6 @@ import {
   ChartBar,
   Buildings,
   ChatsCircle,
-  ListChecks,
   Stethoscope,
   UsersThree,
 } from '@phosphor-icons/react';
@@ -25,7 +24,6 @@ import { Spo2DeviceManager } from '../components/Spo2DeviceManager';
 import { TriageDashboard } from '../components/TriageDashboard';
 import { StaffNav, type StaffNavItem } from '../components/staff/StaffNav';
 import { TriageManualUpload } from '../components/TriageManualUpload';
-import { CriteriaManager } from '../components/CriteriaManager';
 import { CriteriaBook } from '../components/CriteriaBook';
 import { HospitalDbPanel } from '../components/HospitalDbPanel';
 import { UserManagementPanel } from '../components/UserManagementPanel';
@@ -36,7 +34,6 @@ type AdminTab =
   | 'sessions'
   | 'dashboard'
   | 'triage-manual'
-  | 'criteria'
   | 'criteria-book'
   | 'bp-device'
   | 'hospital-db'
@@ -256,7 +253,6 @@ export function AdminPage() {
     { id: 'sessions', label: t('adminTitle'), icon: ChatsCircle },
     { id: 'dashboard', label: t('dashTab'), icon: ChartBar },
     { id: 'triage-manual', label: t('triageManualTab'), icon: Book },
-    { id: 'criteria', label: t('criteriaTab'), icon: ListChecks },
     { id: 'criteria-book', label: t('criteriaBookTab'), icon: BookOpen },
     { id: 'bp-device', label: t('bpdevTab'), icon: Stethoscope },
     { id: 'hospital-db', label: t('hospitalDbTab'), icon: Buildings },
@@ -271,7 +267,6 @@ export function AdminPage() {
     sessions: { title: t('adminTitle'), subtitle: t('adminSubtitle') },
     dashboard: { title: t('dashTab'), subtitle: t('dashSubtitle') },
     'triage-manual': { title: t('triageManualTab'), subtitle: t('triageManualSubtitle') },
-    criteria: { title: t('criteriaTab'), subtitle: t('criteriaSubtitle') },
     'criteria-book': { title: t('criteriaBookTitle'), subtitle: t('criteriaBookSubtitle') },
     'bp-device': { title: t('bpdevTab'), subtitle: t('bpdevSubtitle') },
     'hospital-db': { title: t('hospitalDbTab'), subtitle: t('hospitalDbSubtitle') },
@@ -332,7 +327,6 @@ export function AdminPage() {
 
         {activeTab === 'dashboard' && <TriageDashboard scope="admin" />}
         {activeTab === 'triage-manual' && <TriageManualUpload />}
-        {activeTab === 'criteria' && <CriteriaManager />}
         {activeTab === 'criteria-book' && <CriteriaBook />}
         {activeTab === 'bp-device' && (
           <>

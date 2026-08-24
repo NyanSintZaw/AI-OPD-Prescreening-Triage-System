@@ -65,11 +65,6 @@ import type {
   TriageStatsOut,
   SymptomEntryCreate,
   TriageManualUploadOut,
-  AiMetricsOut,
-  CriteriaDiffOut,
-  CriteriaEditResponse,
-  CriteriaVersionDetail,
-  CriteriaVersionSummary,
   VitalBoundsOut,
 } from './types';
 
@@ -468,48 +463,6 @@ export const api = {
   getActiveCriteria: () => request<CriteriaActiveView>('/admin/criteria/active'),
 
   // ── Screening criteria governance (engine v2) ─────────────────────────────
-  listCriteriaVersions: () =>
-    request<CriteriaVersionSummary[]>('/admin/criteria/versions'),
-
-  getCriteriaVersion: (versionId: string) =>
-    request<CriteriaVersionDetail>(`/admin/criteria/versions/${versionId}`),
-
-  getCriteriaDiff: (versionId: string, against?: string) =>
-    request<CriteriaDiffOut>(
-      `/admin/criteria/versions/${versionId}/diff${against ? `?against=${against}` : ''}`,
-    ),
-
-  updateCriteriaVersion: (versionId: string, criteria: Record<string, unknown>) =>
-    request<CriteriaEditResponse>(`/admin/criteria/versions/${versionId}`, {
-      method: 'PUT',
-      body: JSON.stringify(criteria),
-    }),
-
-  submitCriteriaVersion: (versionId: string) =>
-    request<{ id: string; status: string }>(
-      `/admin/criteria/versions/${versionId}/submit`,
-      { method: 'POST' },
-    ),
-
-  approveCriteriaVersion: (versionId: string) =>
-    request<{ id: string; status: string }>(
-      `/admin/criteria/versions/${versionId}/approve`,
-      { method: 'POST' },
-    ),
-
-  activateCriteriaVersion: (versionId: string) =>
-    request<{ id: string; status: string }>(
-      `/admin/criteria/versions/${versionId}/activate`,
-      { method: 'POST' },
-    ),
-
-  getAiMetrics: (params: { from?: string; to?: string } = {}) => {
-    const query = new URLSearchParams();
-    if (params.from) query.set('from', params.from);
-    if (params.to) query.set('to', params.to);
-    const suffix = query.toString();
-    return request<AiMetricsOut>(`/admin/ai-metrics${suffix ? `?${suffix}` : ''}`);
-  },
 };
 
-export type { CriteriaActiveView, MessageOut, SessionOut, ConversationSummaryOut, DepartmentOut, SurveillanceSummaryOut, TriageStatsOut, TriageManualUploadOut, AiMetricsOut, CriteriaDiffOut, CriteriaVersionDetail, CriteriaVersionSummary, LinkPatientResponse, HisVisitSummary, HisVisitDetail, KioskStats };
+export type { CriteriaActiveView, MessageOut, SessionOut, ConversationSummaryOut, DepartmentOut, SurveillanceSummaryOut, TriageStatsOut, TriageManualUploadOut, LinkPatientResponse, HisVisitSummary, HisVisitDetail, KioskStats };

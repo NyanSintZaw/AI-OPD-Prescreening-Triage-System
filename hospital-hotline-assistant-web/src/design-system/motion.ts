@@ -25,7 +25,9 @@ export type MarkMotion =
   | 'nongRise'
   | 'nongWave'
   | 'nongBloom'
-  | 'nongRiseSway';
+  | 'nongRiseSway'
+  | 'nongExplode'
+  | 'nongHeartbeat';
 
 /** Which mark each motion belongs to — `Mark` (bud) or `NongMali`. */
 export const MARK_MOTIONS: Record<MarkMotion, { mark: 'bud' | 'nong'; role: string }> = {
@@ -37,7 +39,15 @@ export const MARK_MOTIONS: Record<MarkMotion, { mark: 'bud' | 'nong'; role: stri
   nongWave: { mark: 'nong', role: 'greeting' },
   nongBloom: { mark: 'nong', role: 'welcome' },
   nongRiseSway: { mark: 'nong', role: 'idle loop' },
+  nongExplode: { mark: 'nong', role: 'attract loop — fly apart & snap' },
+  nongHeartbeat: { mark: 'nong', role: 'attract loop — heartbeat burst' },
 };
+
+/** Motions that spawn ring/petal effects around the mark and loop forever. */
+export const ATTRACT_MOTIONS: MarkMotion[] = ['nongExplode', 'nongHeartbeat'];
+
+/** Centre of the Nong Mali viewBox (0 0 1254 1254). */
+const NONG_CENTRE = 627;
 
 /* nongRiseSway timing. The rise finishes once its last-staggered part lands;
    the sway then runs whole cycles before she rises again. */
@@ -52,6 +62,13 @@ const RISE_SWAY_PERIOD = RISE_TOTAL + SWAY_DUR * SWAY_CYCLES;
 export interface PlayOptions {
   /** Run even when the viewer prefers reduced motion. Default false. */
   force?: boolean;
+  /**
+   * Where the attract motions draw their rings and petals. Defaults to the
+   * mark's parent. The effects are centred on the mark and sit behind it, so
+   * the stage wants to be at least twice the mark's size; a `static` stage is
+   * temporarily made `relative` and restored on cancel.
+   */
+  stage?: HTMLElement | null;
 }
 
 export interface MotionHandle {
@@ -148,16 +165,143 @@ export function playMark(
   if (prefersReduced() && !options.force) return noop;
 
   const running: Animation[] = [];
+  const timers: ReturnType<typeof setTimeout>[] = [];
+  const fx: HTMLElement[] = [];
+  let restoreStage: (() => void) | undefined;
   let repeat: ReturnType<typeof setTimeout> | undefined;
+
   const track = (a: Animation) => {
     running.push(a);
     return a;
   };
+  const later = (fn: () => void, ms: number) => {
+    const t = setTimeout(fn, ms);
+    timers.push(t);
+    return t;
+  };
   const handle: MotionHandle = {
     cancel: () => {
       if (repeat !== undefined) clearTimeout(repeat);
-      running.forEach((a) => a.cancel());
+      timers.forEach(clearTimeout);
+      running.forEach((a) => {
+        try {
+          a.cancel();
+        } catch {
+          /* already gone */
+        }
+      });
+      fx.forEach((el) => el.remove());
+      fx.length = 0;
+      restoreStage?.();
     },
+  };
+
+  /* ── stage effects (attract motions only) ───────────────────────────────
+     Rings and petals are DOM nodes drawn around the mark, not SVG parts, so
+     they need a positioned host. */
+  const getStage = (): HTMLElement | null => {
+    const st = options.stage ?? (root.parentElement as HTMLElement | null);
+    if (!st) return null;
+    if (getComputedStyle(st).position === 'static') {
+      const prev = st.style.position;
+      st.style.position = 'relative';
+      restoreStage = () => {
+        st.style.position = prev;
+      };
+    }
+    return st;
+  };
+
+  const spawn = (stage: HTMLElement, style: Partial<CSSStyleDeclaration>) => {
+    const d = document.createElement('div');
+    Object.assign(d.style, { position: 'absolute', pointerEvents: 'none', zIndex: '0' }, style);
+    stage.appendChild(d);
+    fx.push(d);
+    return d;
+  };
+
+  /** A teal ring expanding out of the mark and fading. */
+  const burstRing = (stage: HTMLElement, delay: number, size = 340) => {
+    const r = spawn(stage, {
+      left: '50%',
+      top: '50%',
+      width: `${size}px`,
+      height: `${size}px`,
+      margin: `${-size / 2}px 0 0 ${-size / 2}px`,
+      border: '3px solid rgba(88,161,157,0.5)',
+      borderRadius: '50%',
+      opacity: '0',
+    });
+    const dur = 950;
+    track(
+      r.animate(
+        [
+          { transform: 'scale(0.55)', opacity: 0.75 },
+          { transform: 'scale(2.1)', opacity: 0 },
+        ],
+        { duration: dur, delay, fill: 'forwards', easing: 'ease-out' },
+      ),
+    );
+    later(() => r.remove(), delay + dur + 80);
+  };
+
+  /** A scatter of jasmine petals thrown outward — every third one gold. */
+  const petalBurst = (
+    stage: HTMLElement,
+    delay: number,
+    cx: string,
+    cy: string,
+    count: number,
+    dist: number,
+  ) => {
+    for (let k = 0; k < count; k += 1) {
+      const a = (Math.PI * 2 * k) / count + Math.random() * 0.6;
+      const d = dist + Math.random() * 70;
+      const petal = spawn(stage, {
+        left: cx,
+        top: cy,
+        width: '15px',
+        height: '15px',
+        margin: '-8px 0 0 -8px',
+        background: k % 3 === 2 ? 'rgba(216,164,88,0.85)' : 'rgba(88,161,157,0.8)',
+        borderRadius: '50% 50% 50% 0',
+        opacity: '0',
+      });
+      const dur = 1000;
+      track(
+        petal.animate(
+          [
+            { transform: 'translate(0,0) rotate(45deg) scale(0.35)', opacity: 0.95 },
+            {
+              transform: `translate(${Math.cos(a) * d}px,${Math.sin(a) * d}px) rotate(300deg) scale(1)`,
+              opacity: 0,
+            },
+          ],
+          { duration: dur, delay, fill: 'forwards', easing: 'cubic-bezier(.17,.67,.35,1)' },
+        ),
+      );
+      later(() => petal.remove(), delay + dur + 80);
+    }
+  };
+
+  /** Each part's angle and distance from the mark's centre, for radial motion. */
+  const partGeo = () => {
+    const geo: { p: SVGGeometryElement; ang: number; dist: number; i: number; bot: number }[] = [];
+    [...root.querySelectorAll<SVGGeometryElement>('path,circle,ellipse')].forEach((p, i) => {
+      let bb: DOMRect;
+      try {
+        bb = p.getBBox();
+      } catch {
+        return;
+      }
+      const dx = bb.x + bb.width / 2 - NONG_CENTRE;
+      const dy = bb.y + bb.height / 2 - NONG_CENTRE;
+      const st = p.style as CSSStyleDeclaration & { transformBox?: string };
+      st.transformBox = 'fill-box';
+      st.transformOrigin = 'center';
+      geo.push({ p, ang: Math.atan2(dy, dx), dist: Math.hypot(dx, dy), i, bot: bb.y + bb.height });
+    });
+    return geo;
   };
 
   const allParts = [...root.querySelectorAll<SVGGeometryElement>('path, circle')];
@@ -431,6 +575,147 @@ export function playMark(
         { duration: 900, delay: 650, easing: 'ease-in-out' },
       ),
     );
+    return handle;
+  }
+
+  if (motion === 'nongExplode' || motion === 'nongHeartbeat') {
+    /* Attract loops: built to pull eyes from across a lobby, so they are
+       bigger and more theatrical than the in-app set, they throw off rings and
+       petals around the mark, and they run forever without a tap. */
+    const stage = getStage();
+    root.style.overflow = 'visible';
+    root.style.transformOrigin = '50% 50%';
+
+    if (motion === 'nongHeartbeat') {
+      // Lub-dub: two beats per cycle, each shedding rings and a petal scatter.
+      track(
+        root.animate(
+          [
+            { transform: 'scale(0)', opacity: 0 },
+            { transform: 'scale(1.07)', opacity: 1, offset: 0.7 },
+            { transform: 'scale(1)', opacity: 1 },
+          ],
+          { duration: 550, fill: 'backwards', easing: SPRING },
+        ),
+      );
+      const beat = () => {
+        track(
+          root.animate(
+            [
+              { transform: 'scale(1)' },
+              { transform: 'scale(1.09)', offset: 0.16 },
+              { transform: 'scale(0.985)', offset: 0.34 },
+              { transform: 'scale(1.16)', offset: 0.54 },
+              { transform: 'scale(1)' },
+            ],
+            { duration: 680, easing: 'ease-in-out' },
+          ),
+        );
+        if (stage) {
+          burstRing(stage, 160);
+          burstRing(stage, 360, 300);
+          petalBurst(stage, 240, '50%', '50%', 8, 165);
+        }
+        later(beat, 1600);
+      };
+      later(beat, 700);
+      return handle;
+    }
+
+    // nongExplode — she breaks into her parts, they drift out and hover,
+    // then snap back together with a ring burst and a petal splash.
+    track(
+      root.animate(
+        [
+          { transform: 'scale(0.7)', opacity: 0 },
+          { transform: 'scale(1)', opacity: 1 },
+        ],
+        { duration: 600, fill: 'backwards', easing: GLIDE },
+      ),
+    );
+    let cyc: Animation[] = [];
+    const tr = (a: Animation) => {
+      cyc.push(a);
+      return track(a);
+    };
+    const cycle = () => {
+      cyc.forEach((a) => {
+        try {
+          a.cancel();
+        } catch {
+          /* already gone */
+        }
+      });
+      cyc = [];
+      const geo = partGeo();
+      if (geo.length === 0) {
+        requestAnimationFrame(cycle);
+        return;
+      }
+      const out = 800;
+      const hold = 1600;
+      const back = 650;
+      const n = geo.length;
+      const maxBot = Math.max(...geo.map((g) => g.bot));
+      geo.forEach(({ p, ang, dist, i, bot }) => {
+        const d = dist * 1.2 + 160 + (i % 5) * 26;
+        const tx = Math.cos(ang) * d;
+        const ty = Math.sin(ang) * d;
+        // the part sitting lowest is her base — it stays upright
+        const spin = bot === maxBot ? 0 : (i % 2 ? 1 : -1) * (24 + ((i * 13) % 40));
+        const delay = i * 16;
+        tr(
+          p.animate(
+            [
+              { transform: 'translate(0,0) rotate(0deg) scale(1)' },
+              { transform: `translate(${tx}px,${ty}px) rotate(${spin}deg) scale(1.05)` },
+            ],
+            { duration: out, delay, fill: 'forwards', easing: 'cubic-bezier(.3,1.35,.5,1)' },
+          ),
+        );
+        tr(
+          p.animate(
+            [
+              { transform: 'translate(0,0)' },
+              { transform: `translate(0,${-(12 + ((i * 7) % 16))}px)` },
+              { transform: 'translate(0,0)' },
+            ],
+            { duration: hold, delay: out + delay, composite: 'add', easing: 'ease-in-out' },
+          ),
+        );
+        tr(
+          p.animate(
+            [
+              { transform: `translate(${tx}px,${ty}px) rotate(${spin}deg) scale(1.05)` },
+              { transform: 'translate(0,0) rotate(0deg) scale(1)' },
+            ],
+            {
+              duration: back,
+              delay: out + hold + (n - i) * 10,
+              fill: 'forwards',
+              easing: 'cubic-bezier(.4,0,.2,1.3)',
+            },
+          ),
+        );
+      });
+      const snap = out + hold + back + n * 10;
+      track(
+        root.animate(
+          [
+            { transform: 'scale(1)' },
+            { transform: 'scale(1.07)', offset: 0.4 },
+            { transform: 'scale(1)' },
+          ],
+          { duration: 460, delay: snap - 80, easing: 'ease-out' },
+        ),
+      );
+      if (stage) {
+        burstRing(stage, snap + 60);
+        petalBurst(stage, snap + 60, '50%', '50%', 9, 170);
+      }
+      later(cycle, snap + 1500);
+    };
+    later(cycle, 900);
     return handle;
   }
 

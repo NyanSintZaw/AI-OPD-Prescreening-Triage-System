@@ -155,7 +155,11 @@ export function KioskAttract() {
           find a target. Keyboard is irrelevant on this hardware, but the
           button element keeps it reachable for bench testing. */}
       <button type="button" className="k-attract" onClick={wake}>
-        <NongMali size={200} motion="nongRiseSway" />
+        {/* Own wrapper, sized to the mark: the attract loops draw their rings
+            and petals into the parent, and .k-attract is the whole canvas. */}
+        <span className="k-attract-mark">
+          <NongMali size={200} motion="nongExplode" />
+        </span>
 
         <div className="k-attract-head">
           <AnimatePresence mode="wait">

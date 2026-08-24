@@ -16,6 +16,25 @@ body {
   background: var(--surface-page);
 }
 
+/* Form controls do not inherit font-family, so every <button> that forgot an
+   explicit rule sat on the browser default — Arial — including the rule book's
+   accordion headers. DESIGN.md allows exactly one face, so inherit it here
+   once rather than per component. <code> otherwise falls back to the generic
+   `monospace` keyword instead of the token. */
+button,
+input,
+select,
+textarea {
+  font-family: inherit;
+}
+
+code,
+kbd,
+pre,
+samp {
+  font-family: var(--font-mono);
+}
+
 h1,
 h2,
 h3,
@@ -2012,10 +2031,13 @@ a:hover {
   border-bottom: 1px solid var(--border-default);
 }
 
+/* Edge to edge, like the staff header: capped at 1100px and centred, the
+   brand and the language switcher sat 410px in from each side on a 1920
+   screen instead of anchoring the corners they belong in. */
 .portal-header-inner {
-  max-width: 1100px;
-  margin: 0 auto;
-  padding: 1.25rem 1.5rem;
+  max-width: none;
+  margin: 0;
+  padding: 1.25rem var(--space-9);
   min-height: 110px;
   display: flex;
   align-items: center;
@@ -2468,7 +2490,7 @@ a:hover {
 .slip-code {
   font-size: 1.8rem;
   letter-spacing: 0.06em;
-  font-family: ui-monospace, monospace;
+  font-family: var(--font-mono);
 }
 
 .slip-label {
@@ -2812,16 +2834,6 @@ a:hover {
   background: var(--triage-1) !important;
 }
 
-/* ── Screening criteria governance (CriteriaManager) ────────────────────── */
-
-.cm-summary-cell {
-  max-width: 420px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: 0.85rem;
-}
-
 .cm-status-pill {
   display: inline-block;
   padding: 0.15rem 0.6rem;
@@ -2838,120 +2850,6 @@ a:hover {
   color: #35795a;
   border-color: #9fd4b8;
   background: #eaf5ef;
-}
-
-.cm-status-approved {
-  color: var(--status-info);
-  border-color: #a4c2de;
-  background: var(--blue-50);
-}
-
-.cm-status-pending_review {
-  color: var(--gold-700);
-  border-color: var(--gold-200);
-  background: var(--gold-50);
-}
-
-.cm-status-retired {
-  color: var(--text-muted);
-  text-decoration: line-through;
-}
-
-/* Criteria detail opens as a large modal (reuses .nurse-review-modal frame). */
-.cm-modal-card {
-  width: min(1280px, 100%);
-  height: min(880px, calc(100vh - 2.5rem));
-  max-height: min(880px, calc(100vh - 2.5rem));
-}
-
-.cm-modal-body {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 0.9rem;
-  padding: 1rem 1.25rem;
-}
-
-.cm-detail-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  flex-wrap: wrap;
-}
-
-.cm-detail-header h3 {
-  margin: 0;
-}
-
-.cm-detail-actions {
-  display: flex;
-  gap: 0.5rem;
-  flex-wrap: wrap;
-}
-
-.cm-validation-errors {
-  border: 1px solid #e5b3ab;
-  background: var(--triage-1-soft);
-  color: #a34335;
-  border-radius: 10px;
-  padding: 0.75rem 1rem;
-  font-size: 0.85rem;
-}
-
-.cm-validation-errors ul {
-  margin: 0.4rem 0 0;
-  padding-left: 1.2rem;
-}
-
-.cm-valid {
-  color: #35795a;
-  font-size: 0.88rem;
-  margin: 0;
-}
-
-.cm-diff h4,
-.cm-metrics-tables h4 {
-  margin: 0 0 0.5rem;
-  font-size: 0.95rem;
-}
-
-.cm-diff-table td {
-  font-size: 0.82rem;
-  word-break: break-word;
-}
-
-.cm-diff-added {
-  color: #35795a;
-}
-
-.cm-diff-removed {
-  color: #a34335;
-}
-
-.cm-diff-changed {
-  color: var(--gold-700);
-}
-
-.cm-editor {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-}
-
-.cm-editor-textarea {
-  width: 100%;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-size: 0.8rem;
-  line-height: 1.45;
-  border: 1px solid var(--border-default);
-  border-radius: 10px;
-  padding: 0.75rem;
-  background: var(--surface-page);
-  color: var(--text-body);
-  resize: vertical;
 }
 
 /* ── Criteria readable viewer ── */
@@ -3166,7 +3064,7 @@ a.cm-source-link:hover {
 
 .cm-kind-badge {
   flex-shrink: 0;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-family: var(--font-mono);
   font-size: 0.68rem;
   font-weight: 700;
   text-transform: uppercase;
@@ -3177,11 +3075,6 @@ a.cm-source-link:hover {
   color: var(--text-muted);
   background: var(--surface-card);
   margin-top: 0.1rem;
-}
-
-.cm-kind-red_flag {
-  color: var(--triage-1);
-  border-color: color-mix(in srgb, var(--triage-1) 45%, transparent);
 }
 
 .cm-q-text {
@@ -3199,49 +3092,6 @@ a.cm-source-link:hover {
 
 .cm-q-chips {
   margin-top: 0.3rem;
-}
-
-.cm-metrics {
-  margin-top: 2rem;
-  border-top: 1px solid var(--border-default);
-  padding-top: 1.25rem;
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-}
-
-.cm-metrics-filter {
-  display: flex;
-  align-items: flex-end;
-  gap: 0.75rem;
-  flex-wrap: wrap;
-}
-
-.cm-metrics-filter label {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-  font-size: 0.82rem;
-  color: var(--text-muted);
-}
-
-.cm-metrics-filter input[type='date'] {
-  border: 1px solid var(--border-default);
-  border-radius: 8px;
-  padding: 0.35rem 0.5rem;
-  background: var(--surface-card);
-  color: var(--text-body);
-}
-
-.cm-metrics-kpis {
-  margin-bottom: 0.5rem;
-}
-
-.cm-metrics-tables {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-  gap: 1.25rem;
-  align-items: start;
 }
 /* ── Vitals gate (blood pressure kiosk) ─────────────────────────────── */
 .vitals-card {
@@ -4125,30 +3975,9 @@ body:has(.hdb-modal-backdrop) .reviews-fab { display: none; }
   text-align: left;
 }
 
-/* ── Criteria rule book (read-only active criteria) ─────────────────────── */
-
-.cm-book-head {
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-  flex-wrap: wrap;
-  font-size: 0.86rem;
-  margin-bottom: 0.4rem;
-}
-
 .cm-book-summary {
   font-size: 0.84rem;
   color: var(--text-body);
-}
-
-.cm-book-warn {
-  margin: 0.5rem 0 0;
-  padding: 0.5rem 0.75rem;
-  border: 1px solid var(--gold-200);
-  background: var(--gold-50);
-  color: var(--gold-700);
-  border-radius: 8px;
-  font-size: 0.84rem;
 }
 
 .cm-flag {

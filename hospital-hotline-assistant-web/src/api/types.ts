@@ -931,25 +931,6 @@ export type CriteriaVersionStatus =
   | 'active'
   | 'retired';
 
-export interface CriteriaVersionSummary {
-  id: string;
-  version_no: number;
-  status: CriteriaVersionStatus;
-  change_summary: string;
-  /** true while background rule extraction is still running */
-  processing: boolean;
-  uploaded_by: string | null;
-  reviewed_by: string | null;
-  created_at: string | null;
-  reviewed_at: string | null;
-  activated_at: string | null;
-}
-
-export interface CriteriaVersionDetail extends CriteriaVersionSummary {
-  criteria: Record<string, unknown>;
-  validation_errors: string[];
-}
-
 // ── Read-only nurse view of the ACTIVE criteria (GET /admin/criteria/active) ──
 // The server renders every condition AST to text, so nothing here is an AST.
 
@@ -1035,49 +1016,3 @@ export interface CriteriaSectionDiff {
   changed: string[];
 }
 
-export interface CriteriaDiffOut {
-  version_id: string;
-  against: string;
-  diff: Record<string, CriteriaSectionDiff>;
-}
-
-export interface CriteriaEditResponse {
-  id: string;
-  saved: boolean;
-  validation_errors: string[];
-}
-
-export interface AiMetricsCallSite {
-  call_site: string;
-  calls: number;
-  ok_calls: number;
-  ok_rate: number | null;
-  avg_latency_ms: number | null;
-}
-
-export interface AiMetricsDisposition {
-  level: number | null;
-  department_code: string | null;
-  count: number;
-}
-
-export interface AiMetricsOut {
-  from: string | null;
-  to: string | null;
-  totals: {
-    sessions?: number;
-    escalations?: number;
-    extraction_failures?: number;
-    dispositions?: number;
-  };
-  call_sites: AiMetricsCallSite[];
-  dispositions: AiMetricsDisposition[];
-  validator_violations: Array<{ violation: string; count: number }>;
-  /** How often the explanation drew on the uploaded triage manual. */
-  grounding?: {
-    explanations: number;
-    grounded: number;
-    grounded_rate: number | null;
-    ungrounded_reasons: Array<{ reason: string; count: number }>;
-  };
-}
