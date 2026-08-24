@@ -1,0 +1,10 @@
+/* MALI design system — vendored from @notuning/mali-ds (~/Projects/mali-design-system).
+   Keep that package the source of truth: edit there, re-copy here. */
+@import './tokens/colors.css';
+@import './tokens/typography.css';
+@import './tokens/spacing.css';
+@import './tokens/radii.css';
+@import './tokens/shadows.css';
+@import './tokens/effects.css';
+@import './aliases.css';
+@import './mali-components.css';

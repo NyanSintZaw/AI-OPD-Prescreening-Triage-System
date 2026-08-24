@@ -1,0 +1,51 @@
+/* Legacy aliases — the old MFU/MCH token names, re-pointed at MALI Brand v1.0.
+   Existing CSS repaints without a sweep; new code should use the MALI tokens directly. */
+:root {
+  /* Old brand palette → Mali Teal / Stamen Gold */
+  --mch-gold: var(--gold-500);
+  --mch-gold-dark: var(--gold-700);
+  --mch-gold-light: var(--gold-400);
+  --mch-cyan: var(--teal-500);
+  --mch-cyan-light: var(--teal-400);
+  --mch-navy: var(--teal-700);
+  --mch-navy-dark: var(--ink-800);
+  /* Emergency red stays loud — triage level 1 crimson, not the softer UI danger */
+  --mch-red: var(--triage-1);
+  --mch-red-dark: #a80d26;
+  --mch-red-accent: var(--triage-1);
+
+  /* Surfaces & text */
+  --color-bg: var(--surface-page);
+  --color-bg-alt: var(--surface-sunken);
+  --color-surface: var(--surface-card);
+  --color-text: var(--text-body);
+  --color-text-heading: var(--text-heading);
+  --color-muted: var(--text-muted);
+  --color-border: var(--border-default);
+  --color-border-strong: var(--border-strong);
+
+  /* Semantic mapping (old names) */
+  --color-primary-dark: var(--teal-700);
+  --color-emergency: var(--triage-1);
+  --color-emergency-bg: var(--triage-1-soft);
+  --color-emergency-border: #f5c2cb;
+
+  /* Chat bubbles (transcript captions) */
+  --color-user-bubble: var(--teal-50);
+  --color-assistant-bubble: var(--surface-sunken);
+
+  /* Typography */
+  --font-body: var(--font-sans);
+  --font-heading: var(--font-sans);
+
+  /* Shape & elevation (old names → new scale) */
+  --radius: var(--radius-md);
+  --shadow: var(--shadow-md);
+  --shadow-card: var(--shadow-lg);
+
+  /* Layout (unchanged) */
+  --header-nav-height: 48px;
+  --header-top-min-height: 110px;
+  --header-inner-max-width: min(1400px, 96vw);
+  --content-max-width: 1140px;
+}

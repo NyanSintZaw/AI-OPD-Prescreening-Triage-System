@@ -1,0 +1,12 @@
+/* Motion: arriving things decelerate hard; leaving things accelerate away and take less time. */
+:root {
+  --ease-enter: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-exit: cubic-bezier(0.4, 0, 1, 1);
+  --ease-press: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-move: cubic-bezier(0.77, 0, 0.175, 1);
+  --dur-press: 140ms; --dur-color: 160ms; --dur-exit: 200ms; --dur-enter: 300ms; --dur-breathe: 2400ms;
+  --press-scale: 0.97;
+}
+@media (prefers-reduced-motion: reduce) {
+  :root { --dur-press: 0ms; --dur-exit: 0ms; --dur-enter: 0ms; --dur-breathe: 0ms; }
+}

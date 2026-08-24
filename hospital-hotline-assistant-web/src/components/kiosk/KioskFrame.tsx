@@ -2,7 +2,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { X } from '@phosphor-icons/react';
 import type { AppLanguage } from '../../i18n/resources';
-import mfuMonogram from '../../assets/mfu-monogram.png';
+import { Wordmark } from '../../design-system/components/Mark';
 
 interface KioskFrameProps {
   language: AppLanguage;
@@ -54,12 +54,11 @@ export function KioskFrame({
 
       <header className="kiosk-topbar">
         <div className="k-topbar-left">
-          {/* Official hospital lockup (matches the legacy system header):
-              royal monogram · red rule · bilingual name. The lockup is a
-              fixed brand mark, so both lines always show regardless of the
+          {/* MALI lockup + the hospital's bilingual name. The name is a fixed
+              operational mark, so both lines always show regardless of the
               selected UI language. */}
           <div className="k-brand">
-            <img className="k-brand-emblem" src={mfuMonogram} alt="" />
+            <Wordmark height={26} />
             <span className="k-brand-rule" aria-hidden="true" />
             <span className="k-brand-text">
               <span className="k-brand-name">โรงพยาบาลศูนย์การแพทย์มหาวิทยาลัยแม่ฟ้าหลวง</span>

@@ -16,51 +16,51 @@
 
 .kiosk-root {
   /* ── Tokens ─────────────────────────────────────────────────────────── */
-  /* Neutrals — soft periwinkle canvas (from the reference infographic) */
-  --k-bg: #e9edf9;
-  --k-bg-2: #dee4f4;
+  /* Neutrals — MALI paper with a whisper of teal (Brand v1.0) */
+  --k-bg: #faf9f5;
+  --k-bg-2: #f0f7f6;
   --k-surface: #ffffff;
-  --k-surface-tint: #eef1fa;
-  --k-border: #d3d9ec;
-  --k-border-strong: #b9c1de;
-  /* Ink — deep indigo family */
-  --k-ink: #35406f;
-  --k-ink-2: #4d5878;
-  --k-ink-3: #7d87a6;
-  /* Primary — deep indigo (reference badge/frame color): navigation & primary
-     actions ONLY. State colors below stay deliberately distinct so
+  --k-surface-tint: #f0f7f6;
+  --k-border: #e4e2da;
+  --k-border-strong: #bbdad7;
+  /* Ink — deep leaf family */
+  --k-ink: #1f3b38;
+  --k-ink-2: #333d3a;
+  --k-ink-3: #8a9290;
+  /* Primary — Mali Teal (the logo colour): navigation & primary actions ONLY.
+     State colors below stay deliberately distinct so
      normal/success/warning/danger/disabled never look uniform. */
-  --k-primary: #3f4e87;
-  --k-primary-strong: #364375;
-  --k-primary-deep: #2d3963;
-  --k-primary-tint: #dfe4f6;
-  --k-primary-tint-border: #b9c3e6;
+  --k-primary: #58a19d;
+  --k-primary-strong: #46867f;
+  --k-primary-deep: #386b66;
+  --k-primary-tint: #ddecea;
+  --k-primary-tint-border: #bbdad7;
   /* Success — confirmations, completed steps, "mic live" */
-  --k-success: #1e8a5a;
-  --k-success-strong: #197a4f;
-  --k-success-tint: #e6f6ee;
-  --k-success-tint-border: #b8e4cd;
+  --k-success: #3f8f6b;
+  --k-success-strong: #35795a;
+  --k-success-tint: #eaf5ef;
+  --k-success-tint-border: #bfe0cf;
   /* Warning — countdowns, thinking/processing */
-  --k-warning: #b97d10;
-  --k-warning-text: #8f610c;
-  --k-warning-tint: #fdf3e0;
-  --k-warning-tint-border: #f0d9a8;
+  --k-warning: #b98f3e;
+  --k-warning-text: #93702c;
+  --k-warning-tint: #f9f2e3;
+  --k-warning-tint-border: #ebd49d;
   /* Danger — destructive/end actions, errors */
-  --k-danger: #c2413b;
-  --k-danger-tint: #fbeeed;
+  --k-danger: #c05b4d;
+  --k-danger-tint: #faedeb;
   /* Data accent (stat tiles only) */
-  --k-violet: #6d5bb8;
-  --k-violet-tint: #efecf9;
+  --k-violet: #4a7fb5;
+  --k-violet-tint: #edf3f9;
   /* Disabled — flat gray, unmistakably inactive */
-  --k-disabled-bg: #e9edf2;
-  --k-disabled-text: #9aa6b5;
+  --k-disabled-bg: #f0eee6;
+  --k-disabled-text: #8a9290;
   /* Shape & depth */
   --k-r-sm: 14px;
   --k-r-md: 20px;
   --k-r-lg: 28px;
-  --k-shadow-sm: 0 1px 2px rgba(16, 35, 52, 0.05), 0 1px 3px rgba(16, 35, 52, 0.06);
-  --k-shadow-md: 0 2px 4px rgba(16, 35, 52, 0.04), 0 10px 24px -8px rgba(16, 35, 52, 0.12);
-  --k-shadow-lg: 0 4px 10px rgba(16, 35, 52, 0.05), 0 22px 48px -14px rgba(16, 35, 52, 0.18);
+  --k-shadow-sm: 0 1px 2px rgba(31, 59, 56, 0.05), 0 1px 3px rgba(31, 59, 56, 0.06);
+  --k-shadow-md: 0 2px 4px rgba(31, 59, 56, 0.04), 0 10px 24px -8px rgba(31, 59, 56, 0.12);
+  --k-shadow-lg: 0 4px 10px rgba(31, 59, 56, 0.05), 0 22px 48px -14px rgba(31, 59, 56, 0.18);
   /* Type scale */
   --k-font: 'Anuphan Variable', 'Anuphan', 'Noto Sans Thai', system-ui, sans-serif;
   --k-fs-display: clamp(42px, 4.6vw, 66px);
@@ -97,8 +97,8 @@
   z-index: 0;
   pointer-events: none;
   background:
-    radial-gradient(640px 640px at 8% 18%, rgba(63, 78, 135, 0.1), transparent 70%),
-    radial-gradient(720px 720px at 96% 88%, rgba(63, 78, 135, 0.08), transparent 70%);
+    radial-gradient(640px 640px at 8% 18%, rgba(88, 161, 157, 0.08), transparent 70%),
+    radial-gradient(720px 720px at 96% 88%, rgba(88, 161, 157, 0.06), transparent 70%);
   animation: k-aurora-drift 36s ease-in-out infinite alternate;
 }
 
@@ -113,7 +113,7 @@
 
 /* Focus visibility — kiosk may get a keyboard/scanner attached. */
 .kiosk-root :focus-visible {
-  outline: 3px solid rgba(63, 78, 135, 0.5);
+  outline: 3px solid rgba(88, 161, 157, 0.55);
   outline-offset: 2px;
   border-radius: 8px;
 }
@@ -163,19 +163,12 @@
   min-width: 0;
 }
 
-/* Official lockup: monogram · red rule · bilingual wordmark (legacy header). */
-.k-brand-emblem {
-  height: clamp(40px, 5.6vh, 54px);
-  width: auto;
-  flex-shrink: 0;
-}
-
+/* MALI lockup · quiet rule · bilingual hospital name. */
 .k-brand-rule {
-  width: 3px;
+  width: 1px;
   align-self: stretch;
   min-height: 44px;
-  background: #d03030;
-  border-radius: 1px;
+  background: var(--border-default);
   flex-shrink: 0;
 }
 
@@ -342,7 +335,7 @@
 .k-btn.primary {
   background: var(--k-primary);
   color: #fff;
-  box-shadow: 0 10px 24px -10px rgba(63, 78, 135, 0.5), var(--k-shadow-sm);
+  box-shadow: 0 10px 24px -10px rgba(88, 161, 157, 0.55), var(--k-shadow-sm);
 }
 
 .k-btn.primary:hover {
@@ -353,7 +346,7 @@
 .k-btn.success {
   background: var(--k-success);
   color: #fff;
-  box-shadow: 0 10px 24px -10px rgba(30, 138, 90, 0.5), var(--k-shadow-sm);
+  box-shadow: 0 10px 24px -10px rgba(63, 143, 107, 0.5), var(--k-shadow-sm);
 }
 
 .k-btn.success:hover {
@@ -393,13 +386,13 @@
 }
 
 .k-btn.ghost:hover {
-  background: rgba(18, 42, 62, 0.05);
+  background: rgba(31, 59, 56, 0.05);
   color: var(--k-ink-2);
 }
 
 .k-btn.danger-ghost {
   background: var(--k-surface);
-  border-color: rgba(194, 65, 59, 0.35);
+  border-color: rgba(192, 91, 77, 0.35);
   color: var(--k-danger);
   box-shadow: var(--k-shadow-sm);
 }
@@ -641,7 +634,7 @@
   gap: 8px;
   padding: 10px 14px;
   border-radius: 12px;
-  background: rgba(63, 78, 135, 0.08);
+  background: rgba(88, 161, 157, 0.06);
   font-size: var(--k-fs-caption);
   font-weight: 700;
   color: var(--k-ink-2);
@@ -669,12 +662,12 @@
    pulse ring and nudging arrow come from framer-motion in KioskHome. */
 .k-cta-row .k-cta-start {
   min-height: clamp(88px, 11vh, 104px);
-  background: linear-gradient(180deg, #4a5a99 0%, var(--k-primary) 45%, var(--k-primary-deep) 100%);
+  background: var(--k-primary);
   box-shadow: var(--k-shadow-lg);
 }
 
 .k-cta-row .k-cta-start:hover {
-  background: linear-gradient(180deg, #4a5a99 0%, var(--k-primary-strong) 45%, var(--k-primary-deep) 100%);
+  background: var(--k-primary-strong);
 }
 
 .k-cta-hint {
@@ -1057,7 +1050,7 @@
   border-radius: 12px;
   overflow: hidden;
   box-shadow: var(--k-shadow-sm);
-  border: 1px solid rgba(30, 44, 64, 0.12);
+  border: 1px solid rgba(31, 59, 56, 0.12);
   line-height: 0;
   margin-bottom: 6px;
 }
@@ -1269,7 +1262,7 @@
   border: none;
   color: #fff;
   background: var(--k-primary);
-  box-shadow: 0 12px 30px -10px rgba(63, 78, 135, 0.5);
+  box-shadow: 0 12px 30px -10px rgba(88, 161, 157, 0.55);
   transition: background var(--k-t-fast) var(--k-ease), transform var(--k-t-fast) var(--k-ease);
 }
 
@@ -1279,17 +1272,17 @@
 
 .k-mic-btn.recording {
   background: var(--k-danger);
-  box-shadow: 0 12px 30px -10px rgba(194, 65, 59, 0.55);
+  box-shadow: 0 12px 30px -10px rgba(192, 91, 77, 0.55);
   animation: k-rec-pulse 1.6s ease-in-out infinite;
 }
 
 @keyframes k-rec-pulse {
   0%,
   100% {
-    box-shadow: 0 12px 30px -10px rgba(194, 65, 59, 0.55), 0 0 0 0 rgba(194, 65, 59, 0.25);
+    box-shadow: 0 12px 30px -10px rgba(192, 91, 77, 0.55), 0 0 0 0 rgba(192, 91, 77, 0.25);
   }
   50% {
-    box-shadow: 0 12px 30px -10px rgba(194, 65, 59, 0.55), 0 0 0 16px rgba(194, 65, 59, 0);
+    box-shadow: 0 12px 30px -10px rgba(192, 91, 77, 0.55), 0 0 0 16px rgba(192, 91, 77, 0);
   }
 }
 
@@ -1320,7 +1313,7 @@
 .k-error {
   color: var(--k-danger);
   background: var(--k-danger-tint);
-  border: 1px solid rgba(194, 65, 59, 0.25);
+  border: 1px solid rgba(192, 91, 77, 0.25);
   border-radius: var(--k-r-sm);
   padding: 12px 18px;
   font-size: var(--k-fs-body);
@@ -1350,7 +1343,7 @@
 .k-error-badge {
   background: var(--k-danger-tint);
   color: var(--k-danger);
-  border-color: rgba(194, 65, 59, 0.3);
+  border-color: rgba(192, 91, 77, 0.3);
 }
 
 .k-hello-name {
@@ -1674,7 +1667,7 @@
   z-index: 40;
   display: grid;
   place-items: center;
-  background: rgba(18, 42, 62, 0.4);
+  background: rgba(31, 59, 56, 0.4);
   backdrop-filter: blur(5px);
 }
 
