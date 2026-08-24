@@ -1655,32 +1655,42 @@
     width: min(1600px, 94vw);
   }
 
+  /* Left column carries the reading; the right carries what you get and the
+     decision. The facts row used to sit under the sub-line, which stacked four
+     blocks on the left against two buttons on the right with dead space
+     beneath them. */
   .k-home > .k-hero-hello  { grid-column: 1; grid-row: 1; margin: 0; }
   .k-home > .k-home-title  { grid-column: 1; grid-row: 2; margin: 0; }
   .k-home > .k-hero-sub    { grid-column: 1; grid-row: 3; margin: 0; }
-  .k-home > .k-facts       { grid-column: 1; grid-row: 4; margin: 0; justify-content: flex-start; }
-  /* The action sits beside the reading it follows from, centred against it. */
+  .k-home > .k-facts {
+    grid-column: 2;
+    grid-row: 1;
+    margin: 0;
+    justify-content: flex-start;
+    align-self: end;
+  }
   .k-home > .k-cta-row {
     grid-column: 2;
-    grid-row: 1 / 5;
+    grid-row: 2 / 4;
     align-self: center;
-    justify-self: center;
-    width: min(560px, 100%);
+    justify-self: stretch;
+    width: 100%;
     margin: 0;
   }
   .k-home > .k-how {
     grid-column: 1 / -1;
-    grid-row: 5;
-    justify-self: center;
+    grid-row: 4;
+    justify-self: stretch;
     margin-top: clamp(18px, 3vh, 40px);
   }
   .k-home > .k-home-footer {
     grid-column: 1 / -1;
-    grid-row: 6;
+    grid-row: 5;
     justify-self: center;
     text-align: center;
     margin-top: clamp(10px, 1.6vh, 20px);
   }
+
 
 
   /* Wrappers become real columns: pitch left, action (buttons) right. */
@@ -2317,3 +2327,46 @@
    sub-line directly above them, so the two blocks blended. */
 .k-fact { color: var(--k-ink-3); font-weight: 500; }
 .k-how-name { color: var(--k-ink-2); }
+
+/* How-it-works entrance. Seen once per patient, and its job is to convey a
+   sequence — so the steps arrive in order rather than all at once. Short
+   stagger (70ms), strong ease-out, 260ms each, from an 10px rise and never
+   from scale(0). It runs after the mark's bloom so the screen has one
+   entrance, not scattered effects. */
+@keyframes k-how-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+}
+
+@keyframes k-how-in-still {
+  from { opacity: 0; }
+}
+
+.k-how-step {
+  animation: k-how-in 260ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.k-how-step--1 { animation-delay: 240ms; }
+.k-how-step--2 { animation-delay: 310ms; }
+.k-how-step--3 { animation-delay: 380ms; }
+
+@media (prefers-reduced-motion: reduce) {
+  /* Gentler, not none: the sequence still reads, the movement goes. */
+  .k-how-step { animation-name: k-how-in-still; }
+}
+
+/* Landscape card is ~1600px wide, so the steps read left to right as a
+   process. Portrait's 780px measure cannot hold three Thai labels side by
+   side, so they stack there. Declared after the base rule — inside the
+   landscape block above it lost on source order at equal specificity. */
+@media (orientation: landscape) and (min-width: 900px) {
+  .k-how-steps {
+    flex-direction: row;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: clamp(20px, 2.6vw, 48px);
+  }
+  .k-how-step { flex: 1 1 0; }
+}

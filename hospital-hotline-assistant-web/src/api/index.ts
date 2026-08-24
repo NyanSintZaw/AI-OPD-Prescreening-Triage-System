@@ -26,12 +26,6 @@ import type {
   CriteriaActiveView,
   DepartmentOut,
   DepartmentRecommendationCreate,
-  DoctorCreate,
-  DoctorOut,
-  DoctorScheduleCreate,
-  DoctorScheduleOut,
-  DoctorUpdate,
-  DoctorWithSchedulesOut,
   EmergencyEventOut,
   EmergencyEventCreate,
   EmergencyTriggerOut,
@@ -68,6 +62,7 @@ import type {
   SeverityAssessmentCreate,
   SttResponsePayload,
   SurveillanceSummaryOut,
+  TriageStatsOut,
   SymptomEntryCreate,
   TriageManualUploadOut,
   AiMetricsOut,
@@ -295,41 +290,6 @@ export const api = {
   stt: (audio: Blob, language: LanguageCode, filename?: string) =>
     sttRequest({ audio, language, filename }),
 
-  // ── Doctor schedules ──────────────────────────────────────────────────────
-  listDoctors: (activeOnly = true) =>
-    request<DoctorOut[]>(`/doctors?active_only=${activeOnly}`),
-
-  createDoctor: (payload: DoctorCreate) =>
-    request<DoctorOut>('/doctors', { method: 'POST', body: JSON.stringify(payload) }),
-
-  updateDoctor: (doctorId: string, payload: DoctorUpdate) =>
-    request<DoctorOut>(`/doctors/${doctorId}`, { method: 'PATCH', body: JSON.stringify(payload) }),
-
-  getDoctor: (doctorId: string) =>
-    request<DoctorWithSchedulesOut>(`/doctors/${doctorId}`),
-
-  listDoctorSchedules: (doctorId: string, fromDate?: string) =>
-    request<DoctorScheduleOut[]>(`/doctors/${doctorId}/schedules${fromDate ? `?from_date=${fromDate}` : ''}`),
-
-  addDoctorSchedule: (doctorId: string, payload: DoctorScheduleCreate) =>
-    request<DoctorScheduleOut>(`/doctors/${doctorId}/schedules`, {
-      method: 'POST',
-      body: JSON.stringify(payload),
-    }),
-
-  updateDoctorSchedule: (doctorId: string, scheduleId: string, payload: DoctorScheduleCreate) =>
-    request<DoctorScheduleOut>(`/doctors/${doctorId}/schedules/${scheduleId}`, {
-      method: 'PATCH',
-      body: JSON.stringify(payload),
-    }),
-
-  deleteDoctorSchedule: (doctorId: string, scheduleId: string) =>
-    request<void>(`/doctors/${doctorId}/schedules/${scheduleId}`, { method: 'DELETE' }),
-
-  getAvailableDoctors: (scheduleDate?: string) =>
-    request<DoctorWithSchedulesOut[]>(
-      `/schedules/available${scheduleDate ? `?schedule_date=${scheduleDate}` : ''}`,
-    ),
 
   // ── Vitals (blood pressure kiosk) ──────────────────────────────────────────
   fetchBloodPressure: (sessionId?: string | null) =>
@@ -436,6 +396,11 @@ export const api = {
   // ── Disease Surveillance ───────────────────────────────────────────────────
   getSurveillanceSummary: (days = 7) =>
     request<SurveillanceSummaryOut>(`/admin/surveillance?days=${days}`),
+
+  /** Queue pressure, acuity mix, department load and nurse-vs-engine
+   *  agreement — one round trip behind every dashboard panel. */
+  getTriageStats: (days = 7) =>
+    request<TriageStatsOut>(`/admin/triage-stats?days=${days}`),
 
   // ── Hospital DB (mock HIS) read-only view ──────────────────────────────────
   getHisVisits: () => request<HisVisitsResponse>('/admin/his/visits'),
@@ -546,4 +511,4 @@ export const api = {
   },
 };
 
-export type { CriteriaActiveView, MessageOut, SessionOut, ConversationSummaryOut, DepartmentOut, DoctorOut, DoctorWithSchedulesOut, DoctorScheduleOut, SurveillanceSummaryOut, TriageManualUploadOut, AiMetricsOut, CriteriaDiffOut, CriteriaVersionDetail, CriteriaVersionSummary, LinkPatientResponse, HisVisitSummary, HisVisitDetail, KioskStats };
+export type { CriteriaActiveView, MessageOut, SessionOut, ConversationSummaryOut, DepartmentOut, SurveillanceSummaryOut, TriageStatsOut, TriageManualUploadOut, AiMetricsOut, CriteriaDiffOut, CriteriaVersionDetail, CriteriaVersionSummary, LinkPatientResponse, HisVisitSummary, HisVisitDetail, KioskStats };
