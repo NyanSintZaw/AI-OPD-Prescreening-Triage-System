@@ -14,6 +14,9 @@ interface LayoutProps {
   navTitle?: string;
   staffEmail?: string | null;
   onStaffLogout?: () => void;
+  /** Staff portals render their section nav here; `app-main` becomes a
+   *  two-column grid. Omitted on any page without one. */
+  sidebar?: React.ReactNode;
 }
 
 export function Layout({
@@ -24,6 +27,7 @@ export function Layout({
   navTitle,
   staffEmail,
   onStaffLogout,
+  sidebar,
 }: LayoutProps) {
   const { t } = useTranslation();
 
@@ -64,7 +68,10 @@ export function Layout({
           </div>
         </div>
       </header>
-      <main className="app-main">{children}</main>
+      <main className={`app-main ${sidebar ? 'app-main-sidebar' : ''}`}>
+        {sidebar}
+        {sidebar ? <div className="staff-content">{children}</div> : children}
+      </main>
       {/* Staff shortcut to the triage review queue; renders itself only for
           signed-in staff who are not already on that screen. */}
       <ReviewsFab />

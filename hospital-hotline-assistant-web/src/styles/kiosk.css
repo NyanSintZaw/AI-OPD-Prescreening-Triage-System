@@ -624,7 +624,8 @@
   font-size: 19px;
   font-weight: 800;
   flex-shrink: 0;
-  transition: all 450ms var(--k-ease);
+  transition: background-color 200ms var(--k-ease), border-color 200ms var(--k-ease),
+    color 200ms var(--k-ease);
 }
 
 
@@ -1659,7 +1660,17 @@
      decision. The facts row used to sit under the sub-line, which stacked four
      blocks on the left against two buttons on the right with dead space
      beneath them. */
-  .k-home > .k-hero-hello  { grid-column: 1; grid-row: 1; margin: 0; }
+  .k-home > .k-hero-hello {
+    grid-column: 1;
+    grid-row: 1;
+    margin: 0;
+    /* Stacked, so the greeting line starts on the same left edge as the
+       headline. Inline, the mark pushed its text to x=293 while the headline
+       began at x=162 — a ragged edge on the one column that is left-aligned. */
+    flex-direction: column;
+    align-items: flex-start;
+    gap: clamp(8px, 1.2vh, 16px);
+  }
   .k-home > .k-home-title  { grid-column: 1; grid-row: 2; margin: 0; }
   .k-home > .k-hero-sub    { grid-column: 1; grid-row: 3; margin: 0; }
   .k-home > .k-facts {
@@ -2100,23 +2111,42 @@
 
 /* Facts, not controls: no fill, no border, no radius — nothing that reads as
    selectable. Same reasoning as the how-it-works rows below. */
+/* One container, not three floating items. Free-standing they blended into the
+   paper and their right edge fell short of the buttons below; as separate
+   chips they read as tappable. A single strip with hairline-divided cells
+   contains them, spans the column so both edges align with the CTA, and never
+   looks pressable. */
 .k-facts {
   display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 10px clamp(20px, 3vw, 40px);
+  width: 100%;
+  align-items: stretch;
+  gap: 0;
   margin: 0;
   padding: 0;
   list-style: none;
+  background: var(--k-surface);
+  border: 1px solid var(--k-border);
+  border-radius: var(--k-r-md);
+  overflow: hidden;
 }
 
 .k-fact {
+  flex: 1 1 0;
+  min-width: 0;
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 9px;
+  padding: clamp(12px, 1.6vh, 18px) clamp(8px, 1vw, 16px);
+  border-left: 1px solid var(--k-border);
   font-size: var(--k-fs-caption);
   font-weight: 600;
   color: var(--k-ink-2);
+  text-align: center;
+}
+
+.k-fact:first-child {
+  border-left: none;
 }
 
 .k-fact-ico {
@@ -2369,4 +2399,53 @@
     gap: clamp(20px, 2.6vw, 48px);
   }
   .k-how-step { flex: 1 1 0; }
+}
+
+/* How-it-works walkthrough. The steps are demonstrated, not tracked: a soft
+   highlight travels 1 -> 2 -> 3 and returns to the start, so it reads as an
+   explainer looping rather than a progress bar claiming the patient has begun.
+   Nothing is ever marked "done" — no checkmarks, no completed state — which is
+   what would make it read as their progress. 2s per step, 6s cycle. */
+@keyframes k-how-walk-dot {
+  0%, 4% {
+    background-color: var(--k-surface-tint);
+    border-color: var(--k-border-strong);
+    color: var(--k-ink-3);
+  }
+  10%, 26% {
+    background-color: var(--k-primary);
+    border-color: var(--k-primary);
+    color: #fff;
+  }
+  32%, 100% {
+    background-color: var(--k-surface-tint);
+    border-color: var(--k-border-strong);
+    color: var(--k-ink-3);
+  }
+}
+
+@keyframes k-how-walk-row {
+  0%, 4%    { color: var(--k-ink-2); }
+  10%, 26%  { color: var(--k-ink); }
+  32%, 100% { color: var(--k-ink-2); }
+}
+
+.k-how-step .k-how-dot {
+  animation: k-how-walk-dot 6s var(--k-ease) infinite;
+}
+
+.k-how-step .k-how-name {
+  animation: k-how-walk-row 6s var(--k-ease) infinite;
+}
+
+.k-how-step--1 .k-how-dot, .k-how-step--1 .k-how-name { animation-delay: 0.9s; }
+.k-how-step--2 .k-how-dot, .k-how-step--2 .k-how-name { animation-delay: 2.9s; }
+.k-how-step--3 .k-how-dot, .k-how-step--3 .k-how-name { animation-delay: 4.9s; }
+
+@media (prefers-reduced-motion: reduce) {
+  /* The steps are all legible at rest, so the travelling highlight simply stops. */
+  .k-how-step .k-how-dot,
+  .k-how-step .k-how-name {
+    animation: none;
+  }
 }

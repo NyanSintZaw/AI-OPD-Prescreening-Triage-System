@@ -1,6 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import {
+  Book,
+  BookOpen,
+  ChartBar,
+  Buildings,
+  ListChecks,
+  Stethoscope,
+  UsersThree,
+} from '@phosphor-icons/react';
 import {
   api,
   type ConversationSummaryOut,
@@ -12,7 +21,8 @@ import { MessageBubble } from '../components/MessageBubble';
 import { BpDeviceManager } from '../components/BpDeviceManager';
 import { TempDeviceManager } from '../components/TempDeviceManager';
 import { Spo2DeviceManager } from '../components/Spo2DeviceManager';
-import { OutbreakSurveillance } from '../components/OutbreakSurveillance';
+import { TriageDashboard } from '../components/TriageDashboard';
+import { StaffNav, type StaffNavItem } from '../components/staff/StaffNav';
 import { TriageManualUpload } from '../components/TriageManualUpload';
 import { CriteriaManager } from '../components/CriteriaManager';
 import { CriteriaBook } from '../components/CriteriaBook';
@@ -23,7 +33,7 @@ import type { SessionStatus, SeverityLevel } from '../api/types';
 
 type AdminTab =
   | 'sessions'
-  | 'surveillance'
+  | 'dashboard'
   | 'triage-manual'
   | 'criteria'
   | 'criteria-book'
@@ -225,20 +235,6 @@ export function AdminPage() {
     });
   }, [sessions, severityFilter, languageFilter, statusFilter, search]);
 
-  const stats = useMemo(() => {
-    let emergency = 0;
-    let urgent = 0;
-    let alerted = 0;
-    let active = 0;
-    for (const row of sessions) {
-      if (row.severity === 'emergency') emergency += 1;
-      if (row.severity === 'urgent') urgent += 1;
-      if (row.has_alert) alerted += 1;
-      if (row.status === 'active') active += 1;
-    }
-    return { total: sessions.length, emergency, urgent, alerted, active };
-  }, [sessions]);
-
   const selectedSession = useMemo(
     () => sessions.find((row) => row.session_id === selectedSessionId) ?? null,
     [sessions, selectedSessionId],
@@ -254,6 +250,34 @@ export function AdminPage() {
     setSearch('');
   };
 
+  const navItems: Array<StaffNavItem<AdminTab>> = [
+    { id: 'sessions', label: t('adminTitle'), icon: ListChecks },
+    { id: 'dashboard', label: t('dashTab'), icon: ChartBar },
+    { id: 'triage-manual', label: t('triageManualTab'), icon: Book },
+    { id: 'criteria', label: t('criteriaTab'), icon: ListChecks },
+    { id: 'criteria-book', label: t('criteriaBookTab'), icon: BookOpen },
+    { id: 'bp-device', label: t('bpdevTab'), icon: Stethoscope },
+    { id: 'hospital-db', label: t('hospitalDbTab'), icon: Buildings },
+    ...(getAdminRole() === 'super_admin'
+      ? [{ id: 'users' as const, label: t('usersTab'), icon: UsersThree }]
+      : []),
+  ];
+
+  // The header used to say "100 latest sessions" on every tab, including the
+  // dashboard — it described the sessions list wherever you were.
+  const SECTION_TEXT: Record<AdminTab, { title: string; subtitle: string }> = {
+    sessions: { title: t('adminTitle'), subtitle: t('adminSubtitle') },
+    dashboard: { title: t('dashTab'), subtitle: t('dashSubtitle') },
+    'triage-manual': { title: t('triageManualTab'), subtitle: t('triageManualSubtitle') },
+    criteria: { title: t('criteriaTab'), subtitle: t('criteriaSubtitle') },
+    'criteria-book': { title: t('criteriaBookTitle'), subtitle: t('criteriaBookSubtitle') },
+    'bp-device': { title: t('bpdevTab'), subtitle: t('bpdevSubtitle') },
+    'hospital-db': { title: t('hospitalDbTab'), subtitle: t('hospitalDbSubtitle') },
+    users: { title: t('usersTab'), subtitle: t('usersSubtitle') },
+  };
+  const sectionTitle = SECTION_TEXT[activeTab].title;
+  const sectionSubtitle = SECTION_TEXT[activeTab].subtitle;
+
   return (
     <Layout
       language={language}
@@ -262,136 +286,49 @@ export function AdminPage() {
       navTitle={t('adminPortalTitle')}
       staffEmail={staffEmail}
       onStaffLogout={handleLogout}
+      sidebar={
+        <StaffNav
+          items={navItems}
+          active={activeTab}
+          onSelect={setActiveTab}
+          title={t('adminPortalTitle')}
+        />
+      }
     >
-      <section className="admin-page">
-        <header className="admin-header">
-          <div className="admin-heading">
-            <h1>{t('adminTitle')}</h1>
-            <p className="muted">{t('adminSubtitle')}</p>
+      <section className="staff-page">
+        <header className="staff-page-head">
+          <div>
+            <h1>{sectionTitle}</h1>
+            <p className="muted">{sectionSubtitle}</p>
           </div>
-          <div className="admin-header-actions">
-            <label className="admin-toggle">
-              <input
-                type="checkbox"
-                checked={autoRefresh}
-                onChange={(e) => setAutoRefresh(e.target.checked)}
-              />
-              <span>{t('adminAutoRefresh')}</span>
-            </label>
-            <button
-              type="button"
-              className="secondary-btn admin-refresh-btn"
-              onClick={() => void loadSummary()}
-              disabled={isRefreshing || isLoading}
-            >
-              <span aria-hidden="true" className={`refresh-glyph ${isRefreshing ? 'spinning' : ''}`}>
-                {'\u21BB'}
-              </span>
-              {t('adminRefresh')}
-            </button>
-            <Link to="/patient" className="back-link">
-              {t('loginPatientAccess')}
-            </Link>
-          </div>
+          {activeTab === 'sessions' && (
+            <div className="staff-head-actions">
+              <label className="staff-toggle">
+                <input
+                  type="checkbox"
+                  checked={autoRefresh}
+                  onChange={(e) => setAutoRefresh(e.target.checked)}
+                />
+                <span>{t('adminAutoRefresh')}</span>
+              </label>
+              <button
+                type="button"
+                className="secondary-btn"
+                onClick={() => void loadSummary()}
+                disabled={isRefreshing || isLoading}
+              >
+                {t('adminRefresh')}
+              </button>
+              {lastRefreshed ? (
+                <span className="muted staff-head-note">
+                  {t('adminLastRefreshed')}: {lastRefreshedLabel(lastRefreshed)}
+                </span>
+              ) : null}
+            </div>
+          )}
         </header>
 
-        {lastRefreshed && (
-          <p className="admin-last-refreshed muted">
-            {t('adminLastRefreshed')}: {lastRefreshedLabel(lastRefreshed)}
-          </p>
-        )}
-
-        {/* Tab bar */}
-        <div className="admin-tab-bar" role="tablist">
-          <button
-            type="button"
-            role="tab"
-            aria-selected={activeTab === 'sessions'}
-            className={`admin-tab-btn ${activeTab === 'sessions' ? 'active' : ''}`}
-            onClick={() => setActiveTab('sessions')}
-          >
-            {t('adminTitle')}
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={activeTab === 'surveillance'}
-            className={`admin-tab-btn ${activeTab === 'surveillance' ? 'active' : ''}`}
-            onClick={() => setActiveTab('surveillance')}
-          >
-            ⚕ {t('surveillanceTab')}
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={activeTab === 'triage-manual'}
-            className={`admin-tab-btn ${activeTab === 'triage-manual' ? 'active' : ''}`}
-            onClick={() => setActiveTab('triage-manual')}
-          >
-            📋 {t('triageManualTab')}
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={activeTab === 'criteria'}
-            className={`admin-tab-btn ${activeTab === 'criteria' ? 'active' : ''}`}
-            onClick={() => setActiveTab('criteria')}
-          >
-            🧾 {t('criteriaTab')}
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={activeTab === 'criteria-book'}
-            className={`admin-tab-btn ${activeTab === 'criteria-book' ? 'active' : ''}`}
-            onClick={() => setActiveTab('criteria-book')}
-          >
-            📖 {t('criteriaBookTab')}
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={activeTab === 'bp-device'}
-            className={`admin-tab-btn ${activeTab === 'bp-device' ? 'active' : ''}`}
-            onClick={() => setActiveTab('bp-device')}
-          >
-            🩺 {t('bpdevTab')}
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={activeTab === 'hospital-db'}
-            className={`admin-tab-btn ${activeTab === 'hospital-db' ? 'active' : ''}`}
-            onClick={() => setActiveTab('hospital-db')}
-          >
-            🏥 {t('hospitalDbTab')}
-          </button>
-          {getAdminRole() === 'super_admin' && (
-            <button
-              type="button"
-              role="tab"
-              aria-selected={activeTab === 'users'}
-              className={`admin-tab-btn ${activeTab === 'users' ? 'active' : ''}`}
-              onClick={() => setActiveTab('users')}
-            >
-              👥 {t('usersTab')}
-            </button>
-          )}
-        </div>
-
-        {activeTab === 'surveillance' && (
-          <>
-            {/* Overview cards live on the Dashboard tab only. */}
-            <div className="kpi-grid">
-              <KpiCard label={t('adminKpiTotal')} value={stats.total} tone="neutral" />
-              <KpiCard label={t('adminKpiEmergency')} value={stats.emergency} tone="emergency" />
-              <KpiCard label={t('adminKpiUrgent')} value={stats.urgent} tone="urgent" />
-              <KpiCard label={t('adminKpiAlertsSent')} value={stats.alerted} tone="alert" />
-              <KpiCard label={t('adminKpiActive')} value={stats.active} tone="active" />
-            </div>
-            <OutbreakSurveillance />
-          </>
-        )}
+        {activeTab === 'dashboard' && <TriageDashboard scope="admin" />}
         {activeTab === 'triage-manual' && <TriageManualUpload />}
         {activeTab === 'criteria' && <CriteriaManager />}
         {activeTab === 'criteria-book' && <CriteriaBook />}
@@ -690,17 +627,4 @@ export function AdminPage() {
   );
 }
 
-interface KpiCardProps {
-  label: string;
-  value: number;
-  tone: 'neutral' | 'emergency' | 'urgent' | 'alert' | 'active';
-}
 
-function KpiCard({ label, value, tone }: KpiCardProps) {
-  return (
-    <div className={`kpi-card tone-${tone}`}>
-      <span className="kpi-label">{label}</span>
-      <span className="kpi-value">{value}</span>
-    </div>
-  );
-}

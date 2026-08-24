@@ -173,6 +173,12 @@ export interface AssessmentReviewOut {
   patient_contact_phone: string | null;
   patient_contact_preferred_time: string | null;
   patient_contact_relation: string | null;
+  /** The engine's MOPH 5-level decision. Staff surfaces only — the queue is
+   *  sorted and coloured by this, and a patient must never see it.
+   *  Null on interview turns, before the engine has disposed. */
+  triage_level?: number | null;
+  triage_label?: string | null;
+  triage_response_time?: string | null;
   /** Screening engine v2: fired rule ids + manual citations behind the routing. */
   disposition_reasons?: Array<{
     rule_id: string;
@@ -384,65 +390,6 @@ export interface ApiError {
   detail: string;
 }
 
-// ── Doctor schedules ─────────────────────────────────────────────────────────
-
-export interface DoctorScheduleCreate {
-  schedule_date: string;
-  start_time: string;
-  end_time: string;
-  break_start?: string | null;
-  break_end?: string | null;
-  room?: string | null;
-  slot_label?: string | null;
-  is_available: boolean;
-  notes?: string | null;
-}
-
-export interface DoctorScheduleOut extends DoctorScheduleCreate {
-  id: string;
-  doctor_id: string;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface DoctorCreate {
-  full_name: string;
-  title?: string;
-  specialization?: string | null;
-  department_id?: string | null;
-  phone_ext?: string | null;
-  notes?: string | null;
-  is_active?: boolean;
-}
-
-export interface DoctorUpdate {
-  full_name?: string;
-  title?: string;
-  specialization?: string | null;
-  department_id?: string | null;
-  phone_ext?: string | null;
-  notes?: string | null;
-  is_active?: boolean;
-}
-
-export interface DoctorOut {
-  id: string;
-  full_name: string;
-  title: string;
-  specialization: string | null;
-  department_id: string | null;
-  department_name_en: string | null;
-  department_name_th: string | null;
-  phone_ext: string | null;
-  notes: string | null;
-  is_active: boolean;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface DoctorWithSchedulesOut extends DoctorOut {
-  schedules: DoctorScheduleOut[];
-}
 
 // ── Vitals (blood pressure kiosk) ─────────────────────────────────────────────
 
@@ -900,6 +847,51 @@ export interface OutbreakAlert {
   recent_count: number;
   previous_count: number;
   increase_pct: number;
+}
+
+export interface AcuityCount {
+  /** MOPH triage level 1-5; null for rows the engine never classified. */
+  level: number | null;
+  count: number;
+}
+
+export interface HourCount {
+  hour: number;
+  count: number;
+}
+
+export interface DepartmentLoad {
+  code: string;
+  name_en: string;
+  name_th: string | null;
+  count: number;
+}
+
+export interface DailyVolume {
+  date: string;
+  sessions: number;
+  screened: number;
+}
+
+export interface TriageStatsOut {
+  days: number;
+  pending_reviews: number;
+  oldest_pending_minutes: number | null;
+  acuity: AcuityCount[];
+  /** Dense 0-23 — an hour with no patients arrives as an explicit zero. */
+  hourly_today: HourCount[];
+  departments: DepartmentLoad[];
+  agreement: {
+    reviewed: number;
+    confirmed: number;
+    rerouted: number;
+    /** null when nothing was reviewed — an empty queue is not 0% agreement. */
+    agreement_rate: number | null;
+    avg_review_minutes: number | null;
+  };
+  /** Dense across the whole window, so gaps read as zero rather than as a
+   *  straight line between the two days that happened to have data. */
+  daily: DailyVolume[];
 }
 
 export interface SurveillanceSummaryOut {
