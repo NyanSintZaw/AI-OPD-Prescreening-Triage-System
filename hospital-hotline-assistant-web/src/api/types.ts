@@ -784,8 +784,12 @@ export interface TempPairResponse {
   message: string | null;
 }
 
+// The oximeter adds 'unstable': a finger was detected but the values never
+// held steady long enough to trust (movement, cold finger, poor perfusion).
+export type Spo2FetchStatus = TemperatureFetchStatus | 'unstable';
+
 export interface Spo2FetchResponse {
-  status: TemperatureFetchStatus;
+  status: Spo2FetchStatus;
   spo2: number | null;
   pulse_bpm: number | null;
   measured_at: string | null;

@@ -47,13 +47,15 @@ export function PulseOximeterMeasurement({ language, onSubmit, onCancel, disable
     setDevicePulse(null);
     cancelRef.current = false;
     try {
-      const result = await api.fetchSpo2(sessionId, 45);
+      const result = await api.fetchSpo2(sessionId);
       if (cancelRef.current) return;
       if (result.status === 'ok' && result.spo2 != null) {
         setDeviceSpo2(result.spo2);
         setDevicePulse(result.pulse_bpm ?? null);
       } else if (result.status === 'timeout') {
         setErrorKey('measureSpo2DeviceTimeout');
+      } else if (result.status === 'unstable') {
+        setErrorKey('measureSpo2DeviceUnstable');
       } else {
         setErrorKey('measureSpo2DeviceError');
       }

@@ -412,10 +412,11 @@ export const api = {
       body: JSON.stringify(payload),
     }),
 
-  /** Take one settled SpO2/pulse reading from the fingertip oximeter:
-   *  resolves once the finger is in and the value stabilizes, or with
-   *  status 'timeout' after timeoutSeconds. */
-  fetchSpo2: (sessionId?: string | null, timeoutSeconds = 45) =>
+  /** Take one stable SpO2/pulse reading from the fingertip oximeter:
+   *  resolves once the values hold steady for the stability window (the
+   *  device needs ~30-60 s to settle after finger insertion), or with
+   *  status 'timeout' (no finger) / 'unstable' (never steadied). */
+  fetchSpo2: (sessionId?: string | null, timeoutSeconds = 75) =>
     request<Spo2FetchResponse>('/vitals/spo2/fetch', {
       method: 'POST',
       body: JSON.stringify({ session_id: sessionId ?? null, timeout_seconds: timeoutSeconds }),

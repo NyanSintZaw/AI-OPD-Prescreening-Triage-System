@@ -304,7 +304,9 @@ class Spo2FetchRequest(BaseModel):
 
 class Spo2FetchResponse(BaseModel):
     """Result of a kiosk-side pulse-oximeter fetch. ``status`` is always
-    set; the reading fields are only present when ``status == "ok"``."""
+    set; the reading fields are only present when ``status == "ok"``.
+    ``timeout`` = no finger was ever detected; ``unstable`` = a finger was
+    seen but the values never held steady long enough to trust."""
 
     status: Literal[
         "ok",
@@ -313,6 +315,7 @@ class Spo2FetchResponse(BaseModel):
         "device_not_found",
         "wrong_device",
         "timeout",
+        "unstable",
         "error",
     ]
     spo2: int | None = None
