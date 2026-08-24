@@ -97,7 +97,7 @@ export function KioskHome() {
 
       <div className="k-home">
         <div className="k-hero-hello">
-          <NongMali size={168} className="mali-nong--bloom" />
+          <NongMali size={168} motion="nongBloom" />
           <span className="k-hero-hello-text">{t('kioskHeroHello')}</span>
         </div>
 

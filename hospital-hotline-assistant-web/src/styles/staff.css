@@ -27,9 +27,19 @@
    in a 1140px column with 390px of dead paper either side. A queue and a
    dashboard want the whole screen. */
 
+/* Nothing about the rail may depend on page scroll, so the page does not
+   scroll: the shell is exactly one viewport and the content column is the
+   only scroller. The rail is a static sibling of it, so no amount of content
+   below can move, clip, or offset the nav. */
+body:has(.app-main-sidebar) .app-shell {
+  block-size: 100vh;
+  overflow: hidden;
+}
+
 .app-main.app-main-sidebar {
   max-width: none;
   inline-size: 100%;
+  min-block-size: 0;
   margin: 0;
   padding: 0;
   display: grid;
@@ -39,6 +49,8 @@
 
 .staff-content {
   min-inline-size: 0; /* lets tables scroll instead of stretching the grid */
+  block-size: 100%;
+  overflow-y: auto;
   padding: var(--space-7) var(--space-8);
 }
 
@@ -56,14 +68,10 @@ body:has(.app-main-sidebar) .header-nav-inner {
    not a floating card sitting in the content flow. */
 
 .staff-nav {
-  position: sticky;
-  /* The sticky header is BOTH bars — the brand row and the teal nav row — so
-     the offset is their combined height, not just the nav row. At 48px the
-     rail slid 111px up underneath the header on every scroll, and its height
-     overflowed the viewport by the same amount. */
-  top: var(--staff-header-h);
-  align-self: start;
-  block-size: calc(100vh - var(--staff-header-h));
+  /* Static, and full height of the shell's one non-scrolling row. Sticky was
+     always a workaround: it inherited the header's height as an offset and
+     died at the end of its container. */
+  block-size: 100%;
   inline-size: var(--sidebar-w, 260px);
   display: flex;
   flex-direction: column;
@@ -175,7 +183,7 @@ body:has(.app-main-sidebar) .header-nav-inner {
 
 .staff-nav-item.active {
   background: var(--color-primary-soft);
-  color: var(--teal-800);
+  color: var(--teal-700);
   font-weight: var(--fw-semibold);
 }
 
@@ -500,7 +508,7 @@ body:has(.app-main-sidebar) .header-nav-inner {
   top: 0;
   z-index: 1;
   padding: var(--space-3) var(--space-4);
-  background: var(--teal-800);
+  background: var(--teal-700);
   color: var(--color-on-primary);
   font-size: var(--text-xs);
   font-weight: var(--fw-semibold);
@@ -576,7 +584,7 @@ body:has(.app-main-sidebar) .header-nav-inner {
   padding: 2px var(--space-2);
   border-radius: var(--radius-sm);
   background: var(--surface-muted);
-  color: var(--teal-800);
+  color: var(--teal-700);
   font-family: var(--font-mono);
   font-size: var(--text-xs);
   white-space: nowrap;
@@ -1326,13 +1334,22 @@ body:has(.app-main-sidebar) .header-nav-inner {
 /* ── Responsive ──────────────────────────────────────────────────────────── */
 
 @media (max-width: 900px) {
+  body:has(.app-main-sidebar) .app-shell {
+    block-size: auto;
+    overflow: visible;
+  }
+
   .app-main.app-main-sidebar {
     grid-template-columns: minmax(0, 1fr);
   }
 
+  .staff-content {
+    block-size: auto;
+    overflow-y: visible;
+  }
+
   .staff-nav,
   .staff-nav.is-collapsed {
-    position: static;
     inline-size: 100%;
     block-size: auto;
     align-items: stretch;

@@ -1,5 +1,7 @@
+import { useEffect, useRef } from 'react';
 import type { SVGProps } from 'react';
 import { NongMali } from './NongMali';
+import { playMark, type MarkMotion } from '../motion';
 
 export interface MarkProps extends Omit<SVGProps<SVGSVGElement>, 'children'> {
   /** Pixel size of the square mark. */
@@ -8,15 +10,25 @@ export interface MarkProps extends Omit<SVGProps<SVGSVGElement>, 'children'> {
   stage?: 0 | 1 | 3;
   /** `teal` (default) on light surfaces; `gold` is the signature cut for dark teal surfaces. */
   tone?: 'teal' | 'gold';
+  /** Play one of the bud's approved motions on mount: draw (loading), filled
+   *  (reveal), hand (signature sketch) or grow (step complete). Skipped under
+   *  prefers-reduced-motion. */
+  motion?: Extract<MarkMotion, 'budDraw' | 'budFilled' | 'budHand' | 'budGrow'>;
 }
 
 /**
  * The bud — MALI's secondary mark. Progress, loading, favicons, anywhere smaller than 40px.
  * Fixed brand palette (teal body, cream petal, gold stamens) — never recolour.
  */
-export function Mark({ size = 24, stage = 3, tone = 'teal', ...rest }: MarkProps) {
+export function Mark({ size = 24, stage = 3, tone = 'teal', motion, ...rest }: MarkProps) {
+  const ref = useRef<SVGSVGElement>(null);
+  useEffect(() => {
+    if (!motion) return;
+    const h = playMark(ref.current, motion);
+    return () => h.cancel();
+  }, [motion, stage, tone]);
   return (
-    <svg width={size} height={size} viewBox="-40 -39 304 296" aria-hidden="true" {...rest}>
+    <svg ref={ref} width={size} height={size} viewBox="-40 -39 304 296" aria-hidden="true" {...rest}>
       <path d={PETAL} fill="#DDE8DF" fillRule="evenodd" />
       <path d={BODY} fill={tone === 'gold' ? '#E5B25D' : '#58A19D'} fillRule="evenodd" />
       {stage >= 1 && (

@@ -102,7 +102,7 @@ export function LoginPage() {
   };
 
   return (
-    <div className="portal-shell">
+    <div className="portal-shell mali-texture-petals">
       <header className="portal-header">
         <div className="portal-header-inner">
           <div className="portal-brand">

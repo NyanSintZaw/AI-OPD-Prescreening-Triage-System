@@ -1,8 +1,13 @@
+import { useEffect, useRef } from 'react';
 import type { SVGProps } from 'react';
+import { playMark, type MarkMotion } from '../motion';
 
 export interface NongMaliProps extends Omit<SVGProps<SVGSVGElement>, 'children'> {
   /** Pixel size of the square mark. */
   size?: number;
+  /** Play one of her approved motions on mount: bloom (welcome), rise (quiet
+   *  entrance) or wave (greeting). Skipped under prefers-reduced-motion. */
+  motion?: Extract<MarkMotion, 'nongBloom' | 'nongRise' | 'nongWave'>;
 }
 
 /**
@@ -10,9 +15,15 @@ export interface NongMaliProps extends Omit<SVGProps<SVGSVGElement>, 'children'>
  * Use once per session as a greeting, never as looping decoration; below 40px use the bud (`Mark`).
  * Fixed brand palette — never recolour.
  */
-export function NongMali({ size = 120, ...rest }: NongMaliProps) {
+export function NongMali({ size = 120, motion, ...rest }: NongMaliProps) {
+  const ref = useRef<SVGSVGElement>(null);
+  useEffect(() => {
+    if (!motion) return;
+    const h = playMark(ref.current, motion);
+    return () => h.cancel();
+  }, [motion]);
   return (
-    <svg width={size} height={size} viewBox="0 0 1254 1254" aria-hidden="true" {...rest}
+    <svg ref={ref} width={size} height={size} viewBox="0 0 1254 1254" aria-hidden="true" {...rest}
       dangerouslySetInnerHTML={{ __html: NONG_PATHS }} />
   );
 }

@@ -187,14 +187,10 @@
 .mali-kq__q { font-size: var(--text-kiosk-question); font-weight: var(--fw-medium); line-height: var(--leading-snug); color: var(--text-heading); letter-spacing: var(--tracking-tight); text-wrap: balance; max-width: 22ch; margin: 0; }
 .mali-kq__caption { font-size: var(--text-kiosk-body); color: var(--text-muted); max-width: 40ch; margin: 0; }
 
-/* ───────── Brand motion (approved logo motions) ───────── */
-.mali-mark--grow { animation: mali-bud-grow var(--dur-enter) var(--ease-enter); } /* Bud · step complete */
-.mali-nong--bloom { animation: mali-nong-bloom 600ms var(--ease-enter); }        /* Nong Mali · welcome, once per session */
-@keyframes mali-bud-grow { from { opacity: 0; transform: scale(0.6); } }
-@keyframes mali-nong-bloom { from { opacity: 0; transform: scale(0.82); } }
-@media (prefers-reduced-motion: reduce) {
-  .mali-mark--grow, .mali-nong--bloom { animation: none; }
-}
+/* Brand motion lives in JS, not here: the seven approved logo animations run
+   over the SVG's own paths (stroke drawing, clip-path wipes, per-path spring
+   stagger), which CSS keyframes cannot express. Use the `motion` prop on
+   <Mark> / <NongMali>, or playMark(el, name). See docs/Motion.md. */
 
 /* ───────── Background texture — sparse screens only (welcome, waiting, loading, empty).
    Never behind a question, a form or a table body. If you notice it, it is too strong. ───────── */

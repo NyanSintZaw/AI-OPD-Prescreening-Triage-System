@@ -98,7 +98,7 @@ a:hover {
 }
 
 .header-nav {
-  background: var(--teal-800);
+  background: var(--teal-700);
 }
 
 .header-nav-inner {
@@ -301,35 +301,6 @@ a:hover {
   padding: 1.5rem 1.25rem;
 }
 
-/* Footer — MFU cyan footer */
-.app-footer {
-  background: var(--color-primary);
-  color: #ffffff;
-  padding: 1.25rem;
-  font-size: 0.9rem;
-}
-
-.app-footer-inner {
-  max-width: var(--content-max-width);
-  margin: 0 auto;
-}
-
-.app-footer p {
-  margin: 0 0 0.5rem;
-  opacity: 0.95;
-}
-
-.footer-hospital {
-  font-family: var(--font-sans);
-  font-weight: 600;
-  font-size: 1rem;
-  margin-bottom: 0.35rem;
-}
-
-.footer-disclaimer {
-  font-size: 0.85rem;
-  opacity: 0.9;
-}
 
 /* Landing */
 .landing {
@@ -1440,7 +1411,7 @@ a:hover {
 }
 
 .admin-table thead {
-  background: var(--teal-800);
+  background: var(--teal-700);
 }
 
 .admin-table th {
@@ -1568,7 +1539,7 @@ a:hover {
 
 .status-pill.status-completed {
   background: var(--teal-100);
-  color: var(--teal-800);
+  color: var(--teal-700);
 }
 
 .status-pill.status-reset {
@@ -2077,13 +2048,13 @@ a:hover {
 /* MFU-style staff portal login */
 .portal-shell {
   min-height: 100vh;
-  background: var(--surface-sunken);
+  background-color: var(--surface-page);
   display: flex;
   flex-direction: column;
 }
 
 .portal-header {
-  background: #ffffff;
+  background: var(--surface-card);
   border-bottom: 1px solid var(--border-default);
 }
 
@@ -2116,9 +2087,10 @@ a:hover {
 
 .portal-card {
   width: min(420px, 100%);
-  background: #ffffff;
-  border-radius: 2px;
-  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.08);
+  background: var(--surface-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
   padding: 2rem 2rem 1.75rem;
 }
 
@@ -2129,14 +2101,14 @@ a:hover {
   margin-bottom: 1.25rem;
   padding: 0.25rem;
   background: var(--surface-sunken);
-  border-radius: 999px;
+  border-radius: var(--radius-full);
 }
 
 .portal-tab {
   border: none;
   background: transparent;
   padding: 0.55rem 0.75rem;
-  border-radius: 999px;
+  border-radius: var(--radius-full);
   font-family: var(--font-sans);
   font-size: 0.9rem;
   color: var(--text-muted);
@@ -2144,9 +2116,9 @@ a:hover {
 }
 
 .portal-tab.active {
-  background: #ffffff;
+  background: var(--surface-card);
   color: var(--teal-700);
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+  box-shadow: var(--shadow-xs);
   font-weight: 600;
 }
 
@@ -2177,15 +2149,20 @@ a:hover {
 .portal-field input {
   width: 100%;
   border: 1px solid var(--border-default);
-  border-radius: 2px;
+  border-radius: var(--radius-sm);
   padding: 0.7rem 0.75rem;
   font: inherit;
-  background: #ffffff;
+  background: var(--surface-card);
+  transition: border-color var(--dur-color) var(--ease-move);
 }
 
-.portal-field input:focus {
-  outline: 2px solid rgba(214, 57, 51, 0.2);
-  border-color: var(--triage-1);
+/* This focused RED — outline rgba(214,57,51) over --triage-1, the emergency
+   colour — a leftover from the retired MFU palette. A password field is not
+   an emergency. */
+.portal-field input:focus-visible {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: var(--focus-ring);
 }
 
 .portal-password-wrap {
@@ -2226,8 +2203,8 @@ a:hover {
   width: 100%;
   border: 1px solid var(--color-primary);
   background: var(--color-primary);
-  color: #ffffff;
-  border-radius: 999px;
+  color: var(--color-on-primary);
+  border-radius: var(--radius-full);
   padding: 0.75rem 1rem;
   font: inherit;
   font-weight: 600;
@@ -2252,15 +2229,17 @@ a:hover {
   text-decoration: none;
   border: 1px solid var(--color-primary);
   color: var(--color-primary);
-  border-radius: 999px;
+  border-radius: var(--radius-full);
   padding: 0.7rem 1rem;
   font-weight: 600;
   transition: background 0.2s ease, color 0.2s ease;
 }
 
-.portal-patient-btn:hover {
-  background: var(--color-primary);
-  color: #ffffff;
+@media (hover: hover) and (pointer: fine) {
+  .portal-patient-btn:hover {
+    background: var(--color-primary);
+    color: var(--color-on-primary);
+  }
 }
 
 .portal-patient-note {
@@ -4097,7 +4076,7 @@ a.cm-source-link:hover {
   min-height: 56px;
   min-width: 56px;
   padding: 0 1.15rem;
-  border: 1px solid var(--teal-800);
+  border: 1px solid var(--teal-700);
   border-radius: 999px;
   background: var(--teal-700);
   color: #ffffff;
@@ -4111,7 +4090,7 @@ a.cm-source-link:hover {
 }
 
 .reviews-fab:hover {
-  background: var(--teal-800);
+  background: var(--teal-700);
   transform: translateY(-2px);
   box-shadow: rgba(0, 0, 0, 0.18) -4px 12px 28px -6px;
 }

@@ -75,12 +75,6 @@ export function Layout({
       {/* Staff shortcut to the triage review queue; renders itself only for
           signed-in staff who are not already on that screen. */}
       <ReviewsFab />
-      <footer className="app-footer">
-        <div className="app-footer-inner">
-          <p className="footer-hospital">{t('hospitalName')}</p>
-          <p className="footer-disclaimer">{t('disclaimer')}</p>
-        </div>
-      </footer>
     </div>
   );
 }
