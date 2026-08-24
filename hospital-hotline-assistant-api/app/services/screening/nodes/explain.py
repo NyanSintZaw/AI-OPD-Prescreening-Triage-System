@@ -8,6 +8,7 @@ booth flow has no post-assessment contact step.
 from __future__ import annotations
 
 import asyncio
+from typing import Any
 import logging
 from time import perf_counter
 
@@ -16,18 +17,17 @@ from langchain_core.messages import HumanMessage
 from .. import templates
 from ..state import TurnOutput
 from ..validator import validate_reply
+from ..persona import persona_block
 from .base import GraphDeps, GraphState, ainvoke_with_timeout
 
 logger = logging.getLogger(__name__)
 
 _EXPLAIN_PROMPT = {
     "en": (
-        "You are a warm, calm hospital screening assistant speaking English. The clinical "
-        "rules engine has decided where this patient should go — your ONLY job is to "
-        "explain it kindly in 2–4 short sentences.\n"
-        "STRICT RULES: never mention triage levels, colors, scores, or classifications; "
-        "never diagnose or name a suspected disease; never recommend medication; do not "
-        "name any other department.\n"
+        "{persona}\n"
+        "The clinical rules engine has decided where this patient should go — your ONLY "
+        "job is to explain it kindly in 2–4 short sentences. Do not name any other "
+        "department.\n"
         "Patient's reported symptoms: {summary}\n"
         "Send the patient to: {department}\n"
         "{name_line}"
@@ -36,10 +36,9 @@ _EXPLAIN_PROMPT = {
         "{closing_line}"
     ),
     "th": (
-        "คุณเป็นผู้ช่วยคัดกรองของโรงพยาบาล พูดภาษาไทยอย่างอบอุ่นและใจเย็น "
-        "ระบบเกณฑ์ทางคลินิกได้ตัดสินใจแล้วว่าผู้ป่วยควรไปที่แผนกใด หน้าที่ของคุณคืออธิบายอย่างสุภาพใน 2-4 ประโยคสั้น ๆ เท่านั้น\n"
-        "ข้อห้ามเด็ดขาด: ห้ามพูดถึงระดับการคัดกรอง สี คะแนน หรือการจัดประเภท "
-        "ห้ามวินิจฉัยหรือระบุชื่อโรคที่สงสัย ห้ามแนะนำยา และห้ามพูดถึงแผนกอื่น\n"
+        "{persona}\n"
+        "ระบบเกณฑ์ทางคลินิกได้ตัดสินใจแล้วว่าผู้ป่วยควรไปที่แผนกใด หน้าที่ของคุณคืออธิบายอย่างสุภาพใน 2-4 ประโยคสั้น ๆ เท่านั้น "
+        "ห้ามพูดถึงแผนกอื่น\n"
         "อาการที่ผู้ป่วยเล่า: {summary}\n"
         "ให้ผู้ป่วยไปที่: {department}\n"
         "{name_line}"
@@ -76,6 +75,12 @@ _CLOSING_NON_EMERGENCY = {
     ),
 }
 
+# Retrieval budget: top-3 passages average ~3,000 chars; 1,200 used to throw
+# most of it away. Separate from settings.rag_query_timeout_seconds (the
+# index's own cap) — this is the whole-turn wall clock the explain node allows.
+_RAG_TIMEOUT_S = 1.5
+_RAG_MAX_CHARS = 2400
+
 _REFERENCE_LINE = {
     "en": "Approved hospital guidance you may draw phrasing from (do not quote levels):\n{passages}\n",
     "th": "ข้อมูลอ้างอิงจากคู่มือโรงพยาบาลที่ใช้ประกอบได้ (ห้ามอ้างถึงระดับ):\n{passages}\n",
@@ -100,7 +105,8 @@ _NAME_LINE = {
     "th": (
         "เรียกผู้ป่วยหนึ่งครั้งอย่างเป็นธรรมชาติ โดยเขียนโทเคน "
         f"{NAME_PLACEHOLDER} ตรงตำแหน่งที่ควรเป็นชื่อ "
-        "(ห้ามแต่งชื่อขึ้นเอง และห้ามแปลโทเคนนี้)\n"
+        "(โทเคนนี้มีคำว่า 'คุณ' อยู่แล้ว อย่าเขียน 'คุณ' นำหน้าซ้ำ "
+        "ห้ามแต่งชื่อขึ้นเอง และห้ามแปลโทเคนนี้)\n"
     ),
 }
 
@@ -138,23 +144,51 @@ def make_explain_node(deps: GraphDeps):
         reply = fallback_explanation(state, deps)
         if deps.model is not None:
             reference = ""
+            # Grounding record for the audit trail + nurse view: was the
+            # uploaded manual actually used, and if not, why not. Emergency
+            # explanations never use it (fixed wording, no RAG by design).
+            rag: dict[str, Any] = {
+                "used": False,
+                "reason": "emergency" if is_emergency else (
+                    "no_retriever" if deps.rag_search is None else None
+                ),
+                "hits": [],
+                "chars": 0,
+                "latency_ms": 0,
+            }
             if deps.rag_search is not None and not is_emergency:
+                rag_started = perf_counter()
                 try:
-                    passages = await asyncio.wait_for(
-                        deps.rag_search(classification.get("symptoms_summary") or ""),
-                        timeout=1.5,
+                    status = await asyncio.wait_for(
+                        deps.rag_search(
+                            classification.get("symptoms_summary") or "", language
+                        ),
+                        timeout=_RAG_TIMEOUT_S,
                     )
-                    if passages and passages.strip():
+                    passages = str((status or {}).get("passages") or "").strip()
+                    if (status or {}).get("available") and passages:
                         reference = _REFERENCE_LINE[language].format(
-                            passages=passages.strip()[:1200]
+                            passages=passages[:_RAG_MAX_CHARS]
                         )
+                        rag.update(
+                            used=True,
+                            hits=list((status or {}).get("hits") or [])[:5],
+                            chars=min(len(passages), _RAG_MAX_CHARS),
+                        )
+                    else:
+                        rag["reason"] = (status or {}).get("fallback_reason") or "empty"
+                except asyncio.TimeoutError:
+                    rag["reason"] = "timeout"
                 except Exception:
                     logger.debug("rag grounding unavailable; explaining without it")
+                    rag["reason"] = "error"
+                rag["latency_ms"] = int((perf_counter() - rag_started) * 1000)
             polite = templates.polite_name(state.patient_name, language)
             closing = (
                 _CLOSING_EMERGENCY if is_emergency else _CLOSING_NON_EMERGENCY
             )
             prompt = _EXPLAIN_PROMPT[language].format(
+                persona=persona_block(language),
                 summary=classification.get("symptoms_summary") or "-",
                 department=department,
                 name_line=_NAME_LINE[language] if polite else "",
@@ -200,6 +234,8 @@ def make_explain_node(deps: GraphDeps):
                 "latency_ms": int((perf_counter() - started) * 1000),
                 "ok": ok,
                 "violations": violations_seen,
+                # persisted into ai_inference_audit.rules_trace → /trace
+                "rag": rag,
             })
             # Put the real name back. Unconditional, so a stray token can
             # never reach the patient: no name on file means the placeholder
@@ -207,6 +243,9 @@ def make_explain_node(deps: GraphDeps):
             reply = " ".join(
                 reply.replace(NAME_PLACEHOLDER, polite or "").split()
             )
+            # "คุณ [NAME]" + "คุณมาลี" → "คุณ คุณมาลี" (seen live); the
+            # honorific lives in polite_name, so a doubled one is always noise.
+            reply = reply.replace("คุณ คุณ", "คุณ").replace("คุณคุณ", "คุณ")
 
         # Non-emergency: append the follow-up offer and stay open for one more
         # turn. Emergency (level ≤ 2) skips follow-up — flow is complete now.

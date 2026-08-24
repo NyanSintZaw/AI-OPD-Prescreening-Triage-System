@@ -114,6 +114,19 @@ function formatNumber(value?: number | null, digits = 0): string {
   return digits > 0 ? value.toFixed(digits) : String(value);
 }
 
+/** Where a vital came from — a device reading and a patient-typed number
+ *  must not look identical to the nurse. HIS-carried values show no tag. */
+function VitalSource({ sources, keys }: { sources?: Record<string, string> | null; keys: string[] }) {
+  const { t } = useTranslation();
+  const src = keys.map((k) => sources?.[k]).find(Boolean);
+  if (!src) return null;
+  if (src === 'device') return <span className="nurse-vital-source device">{t('nurseSourceDevice')}</span>;
+  if (src === 'patient_input' || src === 'manual') {
+    return <span className="nurse-vital-source patient">{t('nurseSourcePatient')}</span>;
+  }
+  return null;
+}
+
 /**
  * Flagged stand-in for a vital the engine refused as physiologically
  * impossible. A blank "—" would read as "never measured", which is a very
@@ -189,6 +202,8 @@ export function NursePage() {
   const [editNote, setEditNote] = useState('');
   const [editDeptId, setEditDeptId] = useState('');
   const [editReason, setEditReason] = useState('');
+  // Nurse-entered VN, shown only when the linked HN has no visit passthrough.
+  const [editVisitId, setEditVisitId] = useState('');
   const [editScore, setEditScore] = useState('');
   // Confirm-before-publish: assigning moves a real patient in the hospital's
   // live queue and clears their previous one, so it gets its own step.
@@ -293,6 +308,7 @@ export function NursePage() {
 
   const handleCloseConfirm = () => {
     setConfirmOpen(false);
+    setEditVisitId('');
     setSbarDraft(null);
     setConfirmError(null);
     setAssignResult(null);
@@ -308,6 +324,7 @@ export function NursePage() {
       chief_complaint: editComplaint.trim() || null,
       illness_note: editNote.trim() || null,
       sbar: sbarDraft,
+      visit_id: editVisitId.trim() || null,
     };
     const rerouted = isReroute(review);
     try {
@@ -564,9 +581,9 @@ export function NursePage() {
                       </span>
                     </div>
                     <div className="nurse-card-meta-item">
-                      <span className="nurse-card-dept-label">{t('nurseVisitLabel')}</span>
+                      <span className="nurse-card-dept-label">{t('nurseHnLabel')}</span>
                       <span className="nurse-card-dept-value">
-                        {review.visit_id ? <code>{review.visit_id}</code> : t('nurseVisitNotLinked')}
+                        {review.patient_hn ? <code>{review.patient_hn}</code> : t('nurseHnNotLinked')}
                       </span>
                     </div>
                     {review.his_routing_status ? (
@@ -697,9 +714,28 @@ export function NursePage() {
                           .join(', ')}
                       </p>
                     )}
+                    {selectedReview.rag_grounding ? (
+                      <p className={`nurse-grounding ${selectedReview.rag_grounding.used ? 'grounded' : 'ungrounded'}`}>
+                        {selectedReview.rag_grounding.used
+                          ? t('nurseGrounded', {
+                              pages: Array.from(
+                                new Set(
+                                  (selectedReview.rag_grounding.hits ?? [])
+                                    .map((h) => h.page)
+                                    .filter((p) => p !== null && p !== undefined && p !== ''),
+                                ),
+                              ).join(', ') || '—',
+                            })
+                          : t('nurseUngrounded', {
+                              reason: t(`nurseUngroundedReason_${selectedReview.rag_grounding.reason ?? 'unknown'}`, {
+                                defaultValue: selectedReview.rag_grounding.reason ?? '',
+                              }),
+                            })}
+                      </p>
+                    ) : null}
                     <div className="nurse-vitals-grid">
                       <div className="nurse-vital-item">
-                        <span className="nurse-card-dept-label">{t('nurseVitalBp')}</span>
+                        <span className="nurse-card-dept-label">{t('nurseVitalBp')}<VitalSource sources={selectedReview.vitals?.sources} keys={['systolic', 'diastolic']} /></span>
                         <RejectedVitalValue
                           rejected={selectedReview.rejected_vitals}
                           vitals={['sbp', 'dbp']}
@@ -711,7 +747,7 @@ export function NursePage() {
                         />
                       </div>
                       <div className="nurse-vital-item">
-                        <span className="nurse-card-dept-label">{t('nurseVitalPulse')}</span>
+                        <span className="nurse-card-dept-label">{t('nurseVitalPulse')}<VitalSource sources={selectedReview.vitals?.sources} keys={['pulse_bpm']} /></span>
                         <RejectedVitalValue
                           rejected={selectedReview.rejected_vitals}
                           vitals={['hr']}
@@ -719,7 +755,7 @@ export function NursePage() {
                         />
                       </div>
                       <div className="nurse-vital-item">
-                        <span className="nurse-card-dept-label">{t('nurseVitalWeight')}</span>
+                        <span className="nurse-card-dept-label">{t('nurseVitalWeight')}<VitalSource sources={selectedReview.vitals?.sources} keys={['weight_kg']} /></span>
                         <RejectedVitalValue
                           rejected={selectedReview.rejected_vitals}
                           vitals={['weight']}
@@ -727,7 +763,7 @@ export function NursePage() {
                         />
                       </div>
                       <div className="nurse-vital-item">
-                        <span className="nurse-card-dept-label">{t('nurseVitalHeight')}</span>
+                        <span className="nurse-card-dept-label">{t('nurseVitalHeight')}<VitalSource sources={selectedReview.vitals?.sources} keys={['height_cm']} /></span>
                         <RejectedVitalValue
                           rejected={selectedReview.rejected_vitals}
                           vitals={['height']}
@@ -741,7 +777,7 @@ export function NursePage() {
                         </strong>
                       </div>
                       <div className="nurse-vital-item">
-                        <span className="nurse-card-dept-label">{t('nurseVitalTemp')}</span>
+                        <span className="nurse-card-dept-label">{t('nurseVitalTemp')}<VitalSource sources={selectedReview.vitals?.sources} keys={['temperature']} /></span>
                         <RejectedVitalValue
                           rejected={selectedReview.rejected_vitals}
                           vitals={['temp']}
@@ -749,7 +785,7 @@ export function NursePage() {
                         />
                       </div>
                       <div className="nurse-vital-item">
-                        <span className="nurse-card-dept-label">{t('nurseVitalSpo2')}</span>
+                        <span className="nurse-card-dept-label">{t('nurseVitalSpo2')}<VitalSource sources={selectedReview.vitals?.sources} keys={['spo2']} /></span>
                         <RejectedVitalValue
                           rejected={selectedReview.rejected_vitals}
                           vitals={['spo2']}
@@ -761,15 +797,21 @@ export function NursePage() {
                         <strong>{selectedReview.patient_name || '—'}</strong>
                       </div>
                       <div className="nurse-vital-item">
-                        <span className="nurse-card-dept-label">{t('nurseVisitLabel')}</span>
+                        <span className="nurse-card-dept-label">{t('nurseHnLabel')}</span>
                         <strong>
-                          {selectedReview.visit_id ? (
-                            <code>{selectedReview.visit_id}</code>
+                          {selectedReview.patient_hn ? (
+                            <code>{selectedReview.patient_hn}</code>
                           ) : (
-                            t('nurseVisitNotLinked')
+                            t('nurseHnNotLinked')
                           )}
                         </strong>
                       </div>
+                      {selectedReview.visit_id ? (
+                        <div className="nurse-vital-item">
+                          <span className="nurse-card-dept-label">{t('nurseVisitLabel')}</span>
+                          <strong><code>{selectedReview.visit_id}</code></strong>
+                        </div>
+                      ) : null}
                     </div>
 
                     <p className="nurse-review-section-title">{t('nursePatientFollowUp')}</p>
@@ -952,13 +994,17 @@ export function NursePage() {
                       <div className="nurse-review-facts">
                         {selectedReview.patient_hn ? (
                           <div>
-                            <span className="nurse-card-dept-label">HN</span>
+                            <span className="nurse-card-dept-label">{t('nurseHnLabel')}</span>
                             <strong><code>{selectedReview.patient_hn}</code></strong>
                           </div>
                         ) : null}
                         <div>
-                          <span className="nurse-card-dept-label">{t('hdbSmokingAlcohol')}</span>
-                          <strong>{selectedReview.patient_history.smoking_alcohol || '—'}</strong>
+                          <span className="nurse-card-dept-label">{t('hdbSmoking')}</span>
+                          <strong>{selectedReview.patient_history.smoking || '—'}</strong>
+                        </div>
+                        <div>
+                          <span className="nurse-card-dept-label">{t('hdbAlcohol')}</span>
+                          <strong>{selectedReview.patient_history.alcohol || '—'}</strong>
                         </div>
                         <div>
                           <span className="nurse-card-dept-label">{t('hdbAllergies')}</span>
@@ -969,8 +1015,8 @@ export function NursePage() {
                           <strong>{selectedReview.patient_history.chronic_conditions || '—'}</strong>
                         </div>
                         <div>
-                          <span className="nurse-card-dept-label">{t('hdbPastSurgeries')}</span>
-                          <strong>{selectedReview.patient_history.past_surgeries || '—'}</strong>
+                          <span className="nurse-card-dept-label">{t('hdbPostSurgeries')}</span>
+                          <strong>{selectedReview.patient_history.post_surgeries || '—'}</strong>
                         </div>
                         <div>
                           <span className="nurse-card-dept-label">{t('hdbFamilyHistory')}</span>
@@ -1049,8 +1095,22 @@ export function NursePage() {
                 <p className="nurse-sbar-dept">
                   {departmentLabel(editDeptId || selectedReview.proposed_department_id)}
                   {selectedReview.patient_name ? ` · ${selectedReview.patient_name}` : ''}
+                  {selectedReview.patient_hn ? ` · HN ${selectedReview.patient_hn}` : ''}
                   {selectedReview.visit_id ? ` · VN ${selectedReview.visit_id}` : ''}
                 </p>
+                {selectedReview.patient_hn && !selectedReview.visit_id ? (
+                  <label className="nurse-review-section-title">
+                    {t('nurseVnMissingLabel')}
+                    <input
+                      type="text"
+                      className="nurse-reason-input"
+                      value={editVisitId}
+                      onChange={(e) => setEditVisitId(e.target.value)}
+                      placeholder={t('nurseVnMissingPh')}
+                      maxLength={64}
+                    />
+                  </label>
+                ) : null}
 
                 <p className="nurse-sbar-hint">{t('nurseSbarHint')}</p>
                 {sbarLoading ? (

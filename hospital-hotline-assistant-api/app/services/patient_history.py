@@ -16,11 +16,14 @@ import asyncpg
 
 logger = logging.getLogger(__name__)
 
+# Data Requirements V1 §1.3 field names: smoking and alcohol separate,
+# surgery history spelled post_surgeries.
 HISTORY_FIELDS = (
-    "smoking_alcohol",
+    "smoking",
+    "alcohol",
     "allergies",
     "chronic_conditions",
-    "past_surgeries",
+    "post_surgeries",
     "family_history",
 )
 
@@ -45,8 +48,8 @@ async def store_patient_history(
         raise ValueError("Session not found")
 
     metadata = dict(session_row["metadata"] or {})
-    visit = dict(metadata.get("visit") or {})
-    hn = visit.get("hn") if isinstance(visit.get("hn"), str) else None
+    patient = dict(metadata.get("patient") or {})
+    hn = patient.get("hn") if isinstance(patient.get("hn"), str) else None
 
     # Drop empty strings so HIS "none" semantics stay clean.
     history_payload = {

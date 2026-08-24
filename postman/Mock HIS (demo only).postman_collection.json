@@ -1,0 +1,333 @@
+{
+  "info": {
+    "_postman_id": "080a3a97-e191-516d-b736-d7707cefedc8",
+    "name": "Mock HIS (demo only)",
+    "description": "Demo-only routes of `hospital-his-mock` (`/api/*`): seeded visits/patients, vitals push, `POST /api/admin/reset`. Scaffolding for the before/after demo — absent at go-live.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "GET /api/visits",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "X-API-Key",
+            "value": "{{HIS_API_KEY}}"
+          }
+        ],
+        "url": {
+          "raw": "{{HIS_BASE_URL}}/api/visits",
+          "host": [
+            "{{HIS_BASE_URL}}"
+          ],
+          "path": [
+            "api",
+            "visits"
+          ]
+        },
+        "description": "List all visits with their before/after screening status — powers\nthe admin dashboard's 'Hospital DB' view.",
+        "auth": {
+          "type": "noauth"
+        }
+      }
+    },
+    {
+      "name": "GET /api/visits/{visit_id}",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "X-API-Key",
+            "value": "{{HIS_API_KEY}}"
+          }
+        ],
+        "url": {
+          "raw": "{{HIS_BASE_URL}}/api/visits/{{visit_id}}",
+          "host": [
+            "{{HIS_BASE_URL}}"
+          ],
+          "path": [
+            "api",
+            "visits",
+            "{{visit_id}}"
+          ]
+        },
+        "description": "Get Visit",
+        "auth": {
+          "type": "noauth"
+        }
+      }
+    },
+    {
+      "name": "POST /api/visits/{visit_id}/prescreen",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "X-API-Key",
+            "value": "{{HIS_API_KEY}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{HIS_BASE_URL}}/api/visits/{{visit_id}}/prescreen",
+          "host": [
+            "{{HIS_BASE_URL}}"
+          ],
+          "path": [
+            "api",
+            "visits",
+            "{{visit_id}}",
+            "prescreen"
+          ]
+        },
+        "description": "Stage 1 write-back — objective booth data only.\n\nWrites the measurements taken at our booth + the booth as\nfirst_location/measure onto the visit row. The clinical narrative\n(complaint summary, reason) and the recommended department are HELD\nin prescreen_results (pending) and NOT published to the visit row\nuntil a nurse confirms at the destination (Stage 2).",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"session_ref\": \"string\",\n  \"slip_code\": \"string\",\n  \"recommended_department\": \"string\",\n  \"complaint\": \"string\",\n  \"reason\": \"string\",\n  \"vitals\": {},\n  \"reasons\": [\n    \"string\"\n  ]\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "auth": {
+          "type": "noauth"
+        }
+      }
+    },
+    {
+      "name": "GET /api/visits/{visit_id}/prescreen",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "X-API-Key",
+            "value": "{{HIS_API_KEY}}"
+          }
+        ],
+        "url": {
+          "raw": "{{HIS_BASE_URL}}/api/visits/{{visit_id}}/prescreen",
+          "host": [
+            "{{HIS_BASE_URL}}"
+          ],
+          "path": [
+            "api",
+            "visits",
+            "{{visit_id}}",
+            "prescreen"
+          ]
+        },
+        "description": "Get Prescreen",
+        "auth": {
+          "type": "noauth"
+        }
+      }
+    },
+    {
+      "name": "GET /api/patients",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "X-API-Key",
+            "value": "{{HIS_API_KEY}}"
+          }
+        ],
+        "url": {
+          "raw": "{{HIS_BASE_URL}}/api/patients",
+          "host": [
+            "{{HIS_BASE_URL}}"
+          ],
+          "path": [
+            "api",
+            "patients"
+          ]
+        },
+        "description": "List all HN master records with their visit counts — powers the\nadmin dashboard's 'Hospital DB' HN tab.",
+        "auth": {
+          "type": "noauth"
+        }
+      }
+    },
+    {
+      "name": "GET /api/patients/{hn}",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "X-API-Key",
+            "value": "{{HIS_API_KEY}}"
+          }
+        ],
+        "url": {
+          "raw": "{{HIS_BASE_URL}}/api/patients/{{hn}}",
+          "host": [
+            "{{HIS_BASE_URL}}"
+          ],
+          "path": [
+            "api",
+            "patients",
+            "{{hn}}"
+          ]
+        },
+        "description": "HN master record: demographics + history + last-known vitals.\n\n``is_first_time`` is ``true`` iff ``history_recorded_at`` is NULL —\nthe signal the booth uses to decide whether to run the first-time\npatient history intake.",
+        "auth": {
+          "type": "noauth"
+        }
+      }
+    },
+    {
+      "name": "PUT /api/patients/{hn}/history",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "X-API-Key",
+            "value": "{{HIS_API_KEY}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{HIS_BASE_URL}}/api/patients/{{hn}}/history",
+          "host": [
+            "{{HIS_BASE_URL}}"
+          ],
+          "path": [
+            "api",
+            "patients",
+            "{{hn}}",
+            "history"
+          ]
+        },
+        "description": "Record first-time-patient history collected at the booth.\n\nUpserts the full history (no partial-field merge, matching this\nservice's other write-back endpoints) and stamps\n``history_recorded_at`` — from this point on the patient is no\nlonger first-time, on this visit and any future one.",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"smoking\": \"string\",\n  \"alcohol\": \"string\",\n  \"allergies\": \"string\",\n  \"chronic_conditions\": \"string\",\n  \"post_surgeries\": \"string\",\n  \"family_history\": \"string\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "auth": {
+          "type": "noauth"
+        }
+      }
+    },
+    {
+      "name": "PUT /api/patients/{hn}/vitals",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "X-API-Key",
+            "value": "{{HIS_API_KEY}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{HIS_BASE_URL}}/api/patients/{{hn}}/vitals",
+          "host": [
+            "{{HIS_BASE_URL}}"
+          ],
+          "path": [
+            "api",
+            "patients",
+            "{{hn}}",
+            "vitals"
+          ]
+        },
+        "description": "Record the most recent booth weight/height for this HN, so a\nfuture visit's booth can decide to skip re-asking within the\nrecency window.",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"weight_kg\": 0.0,\n  \"height_cm\": 0.0\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "auth": {
+          "type": "noauth"
+        }
+      }
+    },
+    {
+      "name": "POST /api/admin/reset",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "X-API-Key",
+            "value": "{{HIS_API_KEY}}"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{HIS_BASE_URL}}/api/admin/reset",
+          "host": [
+            "{{HIS_BASE_URL}}"
+          ],
+          "path": [
+            "api",
+            "admin",
+            "reset"
+          ]
+        },
+        "description": "Testing convenience: return visits to their pre-registration\n(\"registered\") state so a demo can be re-run against the same visit\nIDs. Clears the held prescreen results and NULLs every screening\ncolumn our system writes back (booth measurements, first/second\nlocation, nurse narrative). Pre-registration fields\n(visit_id / hnx / birthdate / appointment) are untouched.\n\nWith ``visit_ids`` it resets only those; otherwise it resets every\nvisit. Note: against a completed real export (``HIS_MOCK_DATA_PATH``)\nthis also clears the export's screening fields — it is a demo/test tool.\n\nPatient (HN) history is left alone by default, since it's meant to\ncarry across visits — pass ``reset_history: true`` to also wipe the\naffected patients' history/last-vitals back to \"first-time\" so that\nflow can be re-demoed against the same synthetic HNs.",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"visit_ids\": [\n    \"string\"\n  ],\n  \"reset_history\": false\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "auth": {
+          "type": "noauth"
+        }
+      }
+    },
+    {
+      "name": "GET /api/departments",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "X-API-Key",
+            "value": "{{HIS_API_KEY}}"
+          }
+        ],
+        "url": {
+          "raw": "{{HIS_BASE_URL}}/api/departments",
+          "host": [
+            "{{HIS_BASE_URL}}"
+          ],
+          "path": [
+            "api",
+            "departments"
+          ]
+        },
+        "description": "List Departments",
+        "auth": {
+          "type": "noauth"
+        }
+      }
+    }
+  ]
+}

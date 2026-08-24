@@ -321,8 +321,39 @@ def test_breathing_scale_fires_when_dyspnea_present(criteria):
         "blue_lips": "absent", "hemoptysis": "absent", "chest_pain": "absent",
         "fever": "absent", "high_fever": "absent",
     }
+    # Breathing difficulty confirmed → the booth measures SpO2 before any
+    # template question (universal, gated on dyspnea) …
     q = next_question(criteria, inputs(category="dyspnea_cough", findings=findings))
+    assert q is not None and q.id == "uq_spo2"
+    # … and once measured, the distress scale follows as before.
+    q = next_question(criteria, inputs(
+        category="dyspnea_cough", findings=findings, measured_vitals={"spo2"},
+    ))
     assert q is not None and q.id == "dc_distress_scale"
+
+
+def test_spo2_never_requested_without_dyspnea(criteria):
+    """The oximeter ask is gated: an unknown or absent dyspnea finding never
+    triggers it, in any category."""
+    for category in ("fever", "generic", "abdominal_pain"):
+        seen: set[str] = set()
+        for _ in range(25):
+            q = next_question(criteria, inputs(
+                category=category, findings={"dyspnea": "absent"}, asked=seen,
+                measured_vitals={"sbp", "temp", "weight"},
+            ))
+            if q is None:
+                break
+            assert q.id != "uq_spo2", category
+            seen.add(q.id)
+
+
+def test_spo2_requested_for_any_category_once_dyspnea_present(criteria):
+    q = next_question(criteria, inputs(
+        category="fever",
+        findings={"dyspnea": "present", "severe_respiratory_distress": "absent"},
+    ))
+    assert q is not None and q.id == "uq_spo2" and q.vital == "spo2"
 
 
 def test_temp_measurement_asked_for_every_patient(criteria):
@@ -527,3 +558,18 @@ def test_confirm_question_never_borrowed_from_another_template(criteria):
     own = confirm_question_for(criteria, "foreign_body_ent_24h", "ear")
     assert own.id == "ear_fb"
     assert own.text_th == "มีสิ่งแปลกปลอมเข้าไปติดในหูไหมคะ"
+
+
+def test_red_flag_answered_yes_is_not_echoed(criteria):
+    """uq_breathing covers dyspnea + severe_respiratory_distress. A patient who
+    answers it with "yes, trouble breathing" has answered; the identical words
+    must not be asked again — the severity is for the follow-on questions.
+    A present finding that predates the ask (volunteered) still asks once."""
+    volunteered = inputs(category="dyspnea_cough", findings={"dyspnea": "present"})
+    answered = inputs(
+        category="dyspnea_cough", findings={"dyspnea": "present"},
+        asked=["uq_breathing"], ask_counts={"uq_breathing": 1},
+    )
+    assert next_question(criteria, volunteered).id == "uq_breathing"
+    nxt = next_question(criteria, answered)
+    assert nxt is None or nxt.id != "uq_breathing"

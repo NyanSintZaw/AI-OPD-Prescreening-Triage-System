@@ -1,8 +1,0 @@
-$kind: collection
-description: |
-  The hospital's `POST /patient-assignments`, split by
-  status: what your contract already defines, and what we are asking you to add.
-
-  **These are our payloads, not a transcription of your contract** — that is
-  `docs/imed-patient-assignment-api.md`, left exactly as you issued it.
-order: 1000

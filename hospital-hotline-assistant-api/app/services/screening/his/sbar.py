@@ -67,9 +67,10 @@ def _history_line(history: dict[str, Any]) -> str | None:
     labels = (
         ("chronic_conditions", "โรคประจำตัว"),
         ("allergies", "แพ้ยา/แพ้สาร"),
-        ("past_surgeries", "เคยผ่าตัด"),
+        ("post_surgeries", "เคยผ่าตัด"),
         ("family_history", "ประวัติครอบครัว"),
-        ("smoking_alcohol", "สูบบุหรี่/ดื่มสุรา"),
+        ("smoking", "สูบบุหรี่"),
+        ("alcohol", "ดื่มสุรา"),
     )
     parts = [f"{label}: {v}" for key, label in labels if (v := _clean(history.get(key)))]
     if history.get("is_first_time"):
@@ -98,11 +99,11 @@ def build_sbar(
     """
     classification = metadata.get("triage_classification") or {}
     history = metadata.get("patient_history") or {}
-    visit = metadata.get("visit") or {}
+    patient = metadata.get("patient") or {}
 
     # S — what is happening now. Our chief complaint.
     situation = _clean(chief_complaint) or _clean(classification.get("symptoms_summary"))
-    age = visit.get("age_years")
+    age = patient.get("age_years")
     if situation and age:
         situation = f"{situation} (อายุ {age} ปี)"
 
@@ -161,4 +162,38 @@ def build_sbar(
         "assessment_equipment": None,
         "recommend": recommend,
         "documentation": documentation,
+    }
+
+
+def build_mfu_prescreen(
+    metadata: dict[str, Any],
+    *,
+    confirmed_by: str | None,
+    rerouted: bool,
+    session_id: str,
+) -> dict[str, Any]:
+    """The ``mfu_prescreen`` block of a Stage-2 assignment (Data Requirements
+    V1 §4.4): our screening result as structured data — triage level on the
+    MOPH-5 scale, the vitals ONCE as numbers with per-vital provenance (never
+    restated as prose in the SBAR), who confirmed, and the source refs that
+    tie the hospital row back to our session and slip."""
+    from .http_adapter import pdf_vitals
+
+    classification = metadata.get("triage_classification") or {}
+    raw_vitals = metadata.get("vitals") or {}
+    vitals = pdf_vitals(raw_vitals)
+    measured = raw_vitals.get("measured_at") or raw_vitals.get("recorded_at")
+    if vitals and measured:
+        vitals["measured_at"] = measured
+    return {
+        "triage_level": classification.get("level"),
+        "triage_scale": "MOPH-5",
+        "triage_label": _clean(classification.get("label")),
+        "vitals": vitals or None,
+        "confirmed_by": confirmed_by,
+        "source_ref": {
+            "slip_code": metadata.get("slip_code"),
+            "session_ref": str(session_id),
+        },
+        "rerouted": rerouted,
     }

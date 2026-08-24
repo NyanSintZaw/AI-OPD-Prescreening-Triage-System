@@ -41,7 +41,6 @@ export function RecommendationCard({ assessment, autoOpenMap = false }: Recommen
     const normalized = codeOrId.toLowerCase().replace('dept_', '').replace('opd_', '');
     if (normalized.includes('emergency') || normalized === 'er') return 'emergency';
     if (normalized.includes('cardio')) return 'cardiology';
-    if (normalized.includes('neuro')) return 'neurology';
     if (normalized.includes('pediatric') || normalized.includes('paediatric')) return 'pediatrics';
     return 'opd';
   };

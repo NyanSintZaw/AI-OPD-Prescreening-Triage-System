@@ -234,10 +234,11 @@ def record_rejections(state, rejections: list[Rejection], source: str) -> None:
         }
 
 
-# Vitals a triage nurse expects before trusting a disposition. The kiosk only
-# measures BP (+pulse via cuff) and temperature, so hr/rr/spo2 are routinely
-# absent — surfaced as an explicit "not measured" caution in nurse review so
-# missing data never reads as reassuring (undertriage guard).
+# Vitals a triage nurse expects before trusting a disposition. The kiosk
+# measures BP (+pulse via cuff), temperature, and SpO2 (+pulse via the
+# oximeter — asked only once breathing difficulty is present), so rr is always
+# absent and hr/spo2 often are — surfaced as an explicit "not measured" caution
+# in nurse review so missing data never reads as reassuring (undertriage guard).
 CORE_TRIAGE_VITALS = ("hr", "rr", "spo2", "temp", "sbp")
 
 

@@ -179,25 +179,25 @@ class TurnVoiceService:
         metadata = row["metadata"] or {}
         if isinstance(metadata, str):
             metadata = json.loads(metadata)
-        visit_meta = metadata.get("visit") or {}
-        patient_name = visit_meta.get("patient_name")
+        patient_meta = metadata.get("patient") or {}
+        patient_name = patient_meta.get("patient_name")
 
         is_resume_call = resume_prompt in ("active", "completed")
         self._sessions[session_id] = {
             "language": language,
-            # From the linked HIS visit; personalizes the spoken greeting.
+            # From the linked HIS patient; personalizes the spoken greeting.
             "patient_name": patient_name,
             # Spoken identity gate: a linked, not-yet-confirmed name means the
             # call opens with "you are {name}, right?" and no clinical turn
             # runs until the patient confirms (or the kiosk falls back).
             # A resume call ALWAYS re-confirms, even though the previous call
-            # stamped name_confirmed — someone else may have typed the VN.
+            # stamped name_confirmed — someone else may have typed the HN.
             "awaiting_identity": bool(patient_name)
-            and (is_resume_call or not bool(visit_meta.get("name_confirmed"))),
+            and (is_resume_call or not bool(patient_meta.get("name_confirmed"))),
             "identity_attempts": 0,
             # Re-confirming on a resumed session: a "no" must NOT unlink or
             # strip the real patient's session — the wrong person is simply
-            # sent back to VN entry.
+            # sent back to HN entry.
             "resume_reconfirm": is_resume_call,
             "needs_history": needs_history_intake(metadata),
             "identity_cb": identity_callback,
@@ -900,7 +900,7 @@ class TurnVoiceService:
         interview an unverified identity).
         """
         from app.services.screening.nlu_yesno import classify_yes_no
-        from app.services.visit_confirm import NoVisitLinkedError
+        from app.services.visit_confirm import NoPatientLinkedError
 
         language = session["language"]
         decision = classify_yes_no(transcript)
@@ -933,7 +933,7 @@ class TurnVoiceService:
                 outcome = await self._apply_identity_decision(
                     session, session_id, decision
                 )
-            except NoVisitLinkedError:
+            except NoPatientLinkedError:
                 # Link vanished mid-confirm (e.g. REST unlink raced us) — treat
                 # as rejected so the kiosk returns to VN entry.
                 outcome = None

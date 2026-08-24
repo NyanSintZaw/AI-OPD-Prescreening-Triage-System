@@ -190,10 +190,11 @@ export interface AssessmentReviewOut {
    *  by the first-time booth intake. Null for anonymous sessions. */
   patient_history?: {
     is_first_time?: boolean | null;
-    smoking_alcohol?: string | null;
+    smoking?: string | null;
+    alcohol?: string | null;
     allergies?: string | null;
     chronic_conditions?: string | null;
-    past_surgeries?: string | null;
+    post_surgeries?: string | null;
     family_history?: string | null;
     recorded_at?: string | null;
     last_weight_kg?: number | null;
@@ -209,6 +210,8 @@ export interface AssessmentReviewOut {
     temperature?: number | null;
     spo2?: number | null;
     source?: string | null;
+    /** Per-vital provenance stamped at capture: device | patient_input | manual | his(_recent). */
+    sources?: Record<string, string> | null;
   } | null;
   /** Core vitals (hr/rr/spo2/temp/sbp) never instrument-measured this
    *  session — shown as an undertriage caution. Null for non-disposed rows. */
@@ -238,6 +241,15 @@ export interface AssessmentReviewOut {
   /** The hospital's own Thai wording; show this, never the English enum. */
   his_routing_message_th?: string | null;
   his_request_id?: string | null;
+  /** Whether the patient-facing explanation drew on the uploaded triage
+   *  manual; null before the explain step ran. */
+  rag_grounding?: {
+    used: boolean;
+    reason?: string | null;
+    hits?: Array<{ title?: string | null; page?: number | string | null; chars?: number }>;
+    chars?: number;
+    latency_ms?: number;
+  } | null;
   reviewed_at: string | null;
   created_at: string;
   updated_at: string;
@@ -263,6 +275,8 @@ export interface SbarPreviewRequest {
 
 export interface AssessmentReviewApproveRequest {
   notes?: string | null;
+  /** Nurse-entered VN when the HIS had no current visit at link time. */
+  visit_id?: string | null;
   ai_assessment_score?: number | null;
   chief_complaint?: string | null;
   illness_note?: string | null;
@@ -272,6 +286,7 @@ export interface AssessmentReviewApproveRequest {
 export interface AssessmentReviewCorrectRequest {
   confirmed_department_id: string;
   reason?: string | null;
+  visit_id?: string | null;
   ai_assessment_score?: number | null;
   chief_complaint?: string | null;
   illness_note?: string | null;
@@ -468,7 +483,6 @@ export interface BpRestStatusOut {
   seconds_remaining: number;
   reason: string | null;
   hn: string | null;
-  visit_id: string | null;
 }
 
 /** One value refused as physiologically impossible. `value` is what was
@@ -512,8 +526,8 @@ export interface SessionVitalsUpdate {
   reading_id?: string | null;
 }
 
-export interface LinkVisitRequest {
-  visit_id: string;
+export interface LinkPatientRequest {
+  hn: string;
   /** Identity already spoken-confirmed in this kiosk run (start-over relink)
    *  — the fresh session must not re-ask "are you {name}?". */
   preconfirmed?: boolean;
@@ -576,18 +590,22 @@ export interface HisPatientSummary {
   birthdate: string | null;
   is_first_time: boolean;
   history: {
-    smoking_alcohol: string | null;
+    smoking: string | null;
+    alcohol: string | null;
     allergies: string | null;
     chronic_conditions: string | null;
-    past_surgeries: string | null;
+    post_surgeries: string | null;
     family_history: string | null;
     recorded_at: string | null;
   };
   last_vitals: {
     weight: number | null;
-    height: number | null;
+    /** The hospital contract's own spelling. */
+    hight: number | null;
     measured_at: string | null;
   };
+  /** HN-first extension: the newest routable visit, or null. */
+  current_visit?: { visit_id: string; appointment: boolean } | null;
   visit_count: number;
 }
 
@@ -637,20 +655,20 @@ export interface AdminUserUpdateRequest {
   is_active?: boolean;
 }
 
-export interface LinkVisitResponse {
+export interface LinkPatientResponse {
   linked: boolean;
-  visit_id: string;
+  hn: string;
   patient_name?: string | null;
   age_years?: number | null;
-  appointment?: boolean;
-  has_his_vitals?: boolean;
+  /** null when the HIS knows no open visit for this HN. */
+  appointment?: boolean | null;
   is_first_time?: boolean;
 }
 
-/** Lookup an in-progress session already linked to this hospital visit (VN). */
-export interface SessionByVisitOut {
+/** Lookup an in-progress session already linked to this patient (HN). */
+export interface SessionByHnOut {
   found: boolean;
-  visit_id: string;
+  hn: string;
   session?: SessionOut | null;
   /** 'active' → offer continue/start-over; 'completed' → start-over/reprint. */
   status?: string | null;
@@ -659,23 +677,25 @@ export interface SessionByVisitOut {
   needs_history_intake?: boolean;
 }
 
-export interface ConfirmVisitNameRequest {
+export interface ConfirmPatientNameRequest {
   confirmed?: boolean | null;
   text?: string | null;
 }
 
-export interface ConfirmVisitNameResponse {
+export interface ConfirmPatientNameResponse {
   decision: 'yes' | 'no' | 'uncertain' | 'other';
   name_confirmed: boolean;
   unlinked: boolean;
   patient_name?: string | null;
 }
 
+/** Data Requirements V1 §1.3 field names: smoking/alcohol split, post_surgeries. */
 export interface PatientHistoryIntakeRequest {
-  smoking_alcohol?: string | null;
+  smoking?: string | null;
+  alcohol?: string | null;
   allergies?: string | null;
   chronic_conditions?: string | null;
-  past_surgeries?: string | null;
+  post_surgeries?: string | null;
   family_history?: string | null;
 }
 
@@ -764,8 +784,12 @@ export interface TempPairResponse {
   message: string | null;
 }
 
+// The oximeter adds 'unstable': a finger was detected but the values never
+// held steady long enough to trust (movement, cold finger, poor perfusion).
+export type Spo2FetchStatus = TemperatureFetchStatus | 'unstable';
+
 export interface Spo2FetchResponse {
-  status: TemperatureFetchStatus;
+  status: Spo2FetchStatus;
   spo2: number | null;
   pulse_bpm: number | null;
   measured_at: string | null;
@@ -1057,4 +1081,11 @@ export interface AiMetricsOut {
   call_sites: AiMetricsCallSite[];
   dispositions: AiMetricsDisposition[];
   validator_violations: Array<{ violation: string; count: number }>;
+  /** How often the explanation drew on the uploaded triage manual. */
+  grounding?: {
+    explanations: number;
+    grounded: number;
+    grounded_rate: number | null;
+    ungrounded_reasons: Array<{ reason: string; count: number }>;
+  };
 }

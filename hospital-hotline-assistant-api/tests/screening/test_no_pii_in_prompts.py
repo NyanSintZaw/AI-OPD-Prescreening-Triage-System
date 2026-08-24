@@ -23,8 +23,9 @@ import pytest
 from app.services.screening.extraction import build_extraction_prompt
 from app.services.screening.nlu_backstop import _PROMPTS
 from app.services.screening.nodes.explain import _EXPLAIN_PROMPT, _NAME_LINE
-from app.services.screening.nodes.question import _PARAPHRASE_PROMPT
+from app.services.screening.nodes.question import _PARAPHRASE_PROMPT, _REPHRASE_INSTRUCTION
 from app.services.screening.persistence import load_seed_criteria
+from app.services.screening.persona import persona_block
 from app.services.screening.state import ScreeningState
 
 # Distinctive on purpose: a substring check must not match ordinary Thai or
@@ -69,6 +70,7 @@ def test_explain_prompt_carries_no_identifier(language):
     """The greeting survives as a placeholder — the name is substituted into
     the finished reply, after the model has answered."""
     prompt = _EXPLAIN_PROMPT[language].format(
+        persona=persona_block(language),
         summary="แน่นหน้าอกมา 2 ชั่วโมง",
         department="แผนก OPD MED (อายุรกรรม)",
         name_line=_NAME_LINE[language],
@@ -83,8 +85,13 @@ def test_explain_prompt_carries_no_identifier(language):
 @pytest.mark.parametrize("language", ["th", "en"])
 def test_paraphrase_prompt_carries_no_identifier(language):
     prompt = _PARAPHRASE_PROMPT[language].format(
+        persona=persona_block(language),
+        # The recent exchange is symptom speech — it must never carry a name
+        # or number either (the identity gate takes no name at all).
+        recent="ผู้ป่วย: แน่นหน้าอกมา 2 ชั่วโมง",
         context="แน่นหน้าอกมา 2 ชั่วโมง",
         known="อายุ 58 ปี",
+        instruction=_REPHRASE_INSTRUCTION[language],
         question="อาการเจ็บหน้าอกร้าวไปที่แขนหรือไม่",
     )
     _assert_clean(prompt, "paraphrase")
@@ -125,3 +132,56 @@ def test_no_call_site_passes_an_identifier_as_gate_context():
                 continue
             hit = [b for b in banned if b in line]
             assert not hit, f"{module.__name__} passes {hit} as gate context: {line}"
+
+
+@pytest.mark.parametrize("language", ["th", "en"])
+def test_recent_turns_mask_our_own_use_of_the_name(language):
+    """The assistant's own lines (greeting, explain after [NAME] substitution,
+    follow-up ack) carry the real name; recent_turns feeds them back into the
+    question prompt. engine._remember is the one choke point — it must mask."""
+    from app.services.screening.engine import _remember
+    from app.services.screening.nodes.question import recent_exchange_lines
+    from app.services.screening import templates
+
+    state = _loaded_state(language)
+    polite = templates.polite_name(NAME_TH, language)
+    _remember(state, "assistant", f"สวัสดีค่ะ {polite} วันนี้เป็นอะไรมาคะ")
+    _remember(state, "assistant", f"{NAME_TH} คะ ไปที่แผนก OPD ได้เลยค่ะ")
+    _remember(state, "user", "แน่นหน้าอกมา 2 ชั่วโมง")
+    recent = recent_exchange_lines(state, language)
+    prompt = _PARAPHRASE_PROMPT[language].format(
+        persona=persona_block(language), recent=recent,
+        context="แน่นหน้าอกมา 2 ชั่วโมง", known="",
+        instruction=_REPHRASE_INSTRUCTION[language],
+        question="อาการเจ็บหน้าอกร้าวไปที่แขนหรือไม่",
+    )
+    _assert_clean(prompt, "paraphrase+recent_turns")
+    assert "[NAME]" in recent
+
+
+@pytest.mark.parametrize("language", ["th", "en"])
+def test_surveillance_prompt_carries_no_identifier(language):
+    from app.services.surveillance_extractor import (
+        _EXTRACTION_PROMPT, screening_summary_text,
+    )
+
+    state = _loaded_state(language)
+    prompt = _EXTRACTION_PROMPT.format(messages=screening_summary_text(state))
+    _assert_clean(prompt, "surveillance")
+
+
+def test_openai_compatible_requires_a_local_base_url():
+    """Unset base URL must fail at startup — never drift to api.openai.com."""
+    from types import SimpleNamespace
+
+    from app.services.screening.model_adapter import build_chat_model
+
+    settings = SimpleNamespace(
+        screening_model_provider="openai_compatible", screening_model_name="qwen",
+        screening_openai_base_url=None, screening_openai_api_key=None,
+    )
+    with pytest.raises(ValueError, match="SCREENING_OPENAI_BASE_URL"):
+        build_chat_model(settings)
+    settings.screening_openai_base_url = "http://192.168.10.5:8000/v1"
+    model = build_chat_model(settings)
+    assert "192.168.10.5" in str(model.openai_api_base)

@@ -49,10 +49,10 @@ import type {
   AdminManagedUser,
   AdminUserCreateRequest,
   AdminUserUpdateRequest,
-  LinkVisitRequest,
-  LinkVisitResponse,
-  ConfirmVisitNameRequest,
-  ConfirmVisitNameResponse,
+  LinkPatientRequest,
+  LinkPatientResponse,
+  ConfirmPatientNameRequest,
+  ConfirmPatientNameResponse,
   PatientHistoryIntakeRequest,
   PatientHistoryIntakeResponse,
   KioskStats,
@@ -60,7 +60,7 @@ import type {
   RoutingFeedbackOut,
   SbarFields,
   SbarPreviewRequest,
-  SessionByVisitOut,
+  SessionByHnOut,
   SessionCreate,
   SessionOut,
   SessionUpdate,
@@ -153,23 +153,23 @@ export const api = {
 
   getSession: (sessionId: string) => request<SessionOut>(`/sessions/${sessionId}`),
 
-  /** Most recent active session linked to this hospital visit (VN), if any. */
-  getSessionByVisit: (visitId: string) =>
-    request<SessionByVisitOut>(`/sessions/by-visit/${encodeURIComponent(visitId)}`),
+  /** Most recent recent-window session linked to this patient (HN), if any. */
+  getSessionByHn: (hn: string) =>
+    request<SessionByHnOut>(`/sessions/by-hn/${encodeURIComponent(hn)}`),
 
-  linkVisit: (sessionId: string, visitId: string, preconfirmed = false) =>
-    request<LinkVisitResponse>(`/sessions/${sessionId}/link-visit`, {
+  linkPatient: (sessionId: string, hn: string, preconfirmed = false) =>
+    request<LinkPatientResponse>(`/sessions/${sessionId}/link-patient`, {
       method: 'POST',
-      body: JSON.stringify({ visit_id: visitId, preconfirmed } satisfies LinkVisitRequest),
+      body: JSON.stringify({ hn, preconfirmed } satisfies LinkPatientRequest),
     }),
 
-  unlinkVisit: (sessionId: string) =>
-    request<SessionOut>(`/sessions/${sessionId}/link-visit`, {
+  unlinkPatient: (sessionId: string) =>
+    request<SessionOut>(`/sessions/${sessionId}/link-patient`, {
       method: 'DELETE',
     }),
 
-  confirmVisitName: (sessionId: string, payload: ConfirmVisitNameRequest) =>
-    request<ConfirmVisitNameResponse>(`/sessions/${sessionId}/confirm-visit-name`, {
+  confirmPatientName: (sessionId: string, payload: ConfirmPatientNameRequest) =>
+    request<ConfirmPatientNameResponse>(`/sessions/${sessionId}/confirm-patient-name`, {
       method: 'POST',
       body: JSON.stringify(payload),
     }),
@@ -412,10 +412,11 @@ export const api = {
       body: JSON.stringify(payload),
     }),
 
-  /** Take one settled SpO2/pulse reading from the fingertip oximeter:
-   *  resolves once the finger is in and the value stabilizes, or with
-   *  status 'timeout' after timeoutSeconds. */
-  fetchSpo2: (sessionId?: string | null, timeoutSeconds = 45) =>
+  /** Take one stable SpO2/pulse reading from the fingertip oximeter:
+   *  resolves once the values hold steady for the stability window (the
+   *  device needs ~30-60 s to settle after finger insertion), or with
+   *  status 'timeout' (no finger) / 'unstable' (never steadied). */
+  fetchSpo2: (sessionId?: string | null, timeoutSeconds = 75) =>
     request<Spo2FetchResponse>('/vitals/spo2/fetch', {
       method: 'POST',
       body: JSON.stringify({ session_id: sessionId ?? null, timeout_seconds: timeoutSeconds }),
@@ -545,4 +546,4 @@ export const api = {
   },
 };
 
-export type { CriteriaActiveView, MessageOut, SessionOut, ConversationSummaryOut, DepartmentOut, DoctorOut, DoctorWithSchedulesOut, DoctorScheduleOut, SurveillanceSummaryOut, TriageManualUploadOut, AiMetricsOut, CriteriaDiffOut, CriteriaVersionDetail, CriteriaVersionSummary, LinkVisitResponse, HisVisitSummary, HisVisitDetail, KioskStats };
+export type { CriteriaActiveView, MessageOut, SessionOut, ConversationSummaryOut, DepartmentOut, DoctorOut, DoctorWithSchedulesOut, DoctorScheduleOut, SurveillanceSummaryOut, TriageManualUploadOut, AiMetricsOut, CriteriaDiffOut, CriteriaVersionDetail, CriteriaVersionSummary, LinkPatientResponse, HisVisitSummary, HisVisitDetail, KioskStats };

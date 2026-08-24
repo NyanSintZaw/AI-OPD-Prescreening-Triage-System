@@ -1,9 +1,9 @@
-"""Shared VN name-confirmation decision logic.
+"""Shared HN name-confirmation decision logic.
 
 Used by both the REST endpoint (kiosk button/typed fallback) and the voice
 bridge's spoken identity gate, so a "yes" always stamps
-``metadata.visit.name_confirmed`` and a "no" always unlinks the visit the
-same way, regardless of which channel the answer arrived on.
+``metadata.patient.name_confirmed`` and a "no" always unlinks the patient
+the same way, regardless of which channel the answer arrived on.
 """
 
 from __future__ import annotations
@@ -15,8 +15,8 @@ from uuid import UUID
 import asyncpg
 
 
-class NoVisitLinkedError(Exception):
-    """The session has no linked visit to confirm."""
+class NoPatientLinkedError(Exception):
+    """The session has no linked patient (HN) to confirm."""
 
 
 # Unclear identity answers allowed before the confirm fails closed (rejected).
@@ -35,10 +35,10 @@ class ConfirmOutcome:
 def strip_his_prefill(metadata: dict) -> None:
     """Drop HIS-derived artifacts from session metadata in place.
 
-    Called whenever a visit link is removed or replaced: the previous
+    Called whenever a patient link is removed or replaced: the previous
     patient's HN history and HIS-seeded vitals (source ``his``/``his_recent``)
     must never carry over to an anonymous continue or a different patient
-    (live E2E finding, July 22: rejected VN left the wrong patient's
+    (live E2E finding, July 22: a rejected link left the wrong patient's
     weight/height on the session). Cuff/manual readings (source ``device``/
     ``manual``) are real measurements of the person standing there — kept.
     """
@@ -63,10 +63,10 @@ async def apply_confirm_decision(
 ) -> ConfirmOutcome:
     """Apply a yes/no/uncertain identity decision to the session.
 
-    yes → ``metadata.visit.name_confirmed = True``; no → drop
-    ``metadata.visit`` entirely (the kiosk re-prompts for a VN);
+    yes → ``metadata.patient.name_confirmed = True``; no → drop
+    ``metadata.patient`` entirely (the kiosk re-prompts for an HN);
     uncertain/other → no change, caller re-asks.
-    Raises ``NoVisitLinkedError`` when no visit is linked and ``ValueError``
+    Raises ``NoPatientLinkedError`` when no patient is linked and ``ValueError``
     when the session doesn't exist.
     """
     session_row = await connection.fetchrow(
@@ -76,16 +76,16 @@ async def apply_confirm_decision(
         raise ValueError("Session not found")
 
     metadata = dict(session_row["metadata"] or {})
-    visit = dict(metadata.get("visit") or {})
-    if not visit.get("visit_id"):
-        raise NoVisitLinkedError
+    patient = dict(metadata.get("patient") or {})
+    if not patient.get("hn"):
+        raise NoPatientLinkedError
 
-    raw_name = visit.get("patient_name")
+    raw_name = patient.get("patient_name")
     patient_name = raw_name if isinstance(raw_name, str) else None
 
     if decision == "yes":
-        visit["name_confirmed"] = True
-        metadata["visit"] = visit
+        patient["name_confirmed"] = True
+        metadata["patient"] = patient
         await connection.execute(
             "UPDATE sessions SET metadata = $2::jsonb WHERE id = $1",
             session_id,
@@ -94,7 +94,7 @@ async def apply_confirm_decision(
         return ConfirmOutcome("yes", True, False, patient_name)
 
     if decision == "no":
-        metadata.pop("visit", None)
+        metadata.pop("patient", None)
         strip_his_prefill(metadata)
         await connection.execute(
             "UPDATE sessions SET metadata = $2::jsonb WHERE id = $1",

@@ -42,9 +42,15 @@ _COLOR_CONTEXT = re.compile(
 _DIAGNOSIS_PATTERNS = [
     # Declarative "you have X" is a diagnosis; interrogative "do you have X"
     # is legitimate history-taking (verbatim and paraphrased questions).
+    # "you have been experiencing / told me / mentioned / described / said"
+    # are empathic recaps of what the patient reported, not diagnoses —
+    # manual passages (RAG) induce exactly these openers, and flagging them
+    # doubled the template-fallback rate on English replies (measured
+    # 2026-08-12). Everything else after "you have" still counts.
     re.compile(
         r"(?<!\bdo )(?<!\bdid )(?<!\bif )(?<!\bwhen )"
-        r"\byou (?:likely |probably |definitely |may )?have\b(?!\s+to\b)",
+        r"\byou (?:likely |probably |definitely |may )?have\b"
+        r"(?!\s+(?:to|been|told|mentioned|described|said|reported|shared)\b)",
         re.IGNORECASE,
     ),
     re.compile(r"\bdiagnos(?:is|ed|e)\b", re.IGNORECASE),

@@ -18,8 +18,19 @@ from app.services.screening.extraction import ExtractionResult, build_extraction
 from app.services.screening.nlu_backstop import _PROMPTS as GATE_PROMPTS
 from app.services.screening.nlu_backstop import _SCHEMAS as GATE_SCHEMAS
 from app.services.screening.nodes.explain import _EXPLAIN_PROMPT, _NAME_LINE
-from app.services.screening.nodes.question import PhrasedQuestion, _PARAPHRASE_PROMPT
+from app.services.screening.nodes.question import (
+    PhrasedQuestion,
+    _PARAPHRASE_PROMPT,
+    _REPHRASE_INSTRUCTION,
+    recent_exchange_lines,
+)
+from app.services.screening.persona import persona_block
 from app.services.screening.state import ScreeningState
+from app.services.surveillance_extractor import (
+    _EXTRACTION_PROMPT as SURVEILLANCE_PROMPT,
+    SurveillanceKeywords,
+    screening_summary_text,
+)
 
 # What the session holds and the model must never see.
 WITHHELD = {
@@ -44,9 +55,20 @@ def _criteria():
 def _state(language: str = "th") -> ScreeningState:
     state = ScreeningState(session_id=WITHHELD["session_id"], language=language)
     state.patient_name = WITHHELD["patient_name"]
-    state.chief_complaint = "แน่นหน้าอกมา 2 ชั่วโมง"
+    th = language == "th"
+    state.chief_complaint = "แน่นหน้าอกมา 2 ชั่วโมง" if th else "chest tightness for 2 hours"
     state.age_years = 58
     state.vitals = {"systolic": 158, "diastolic": 94, "pulse_bpm": 96}
+    # The last exchange goes back into the question prompt. The assistant
+    # line is stored already masked by engine._remember — this is what a
+    # stored line looks like, name and all, after masking.
+    state.recent_turns = [
+        {"role": "user", "text": "เจ็บแน่นหน้าอกมาสองชั่วโมง ร้าวไปแขนซ้าย"},
+        {"role": "assistant", "text": "[NAME] คะ เข้าใจค่ะ ตอนนี้เหนื่อยหรือหายใจลำบากไหมคะ"},
+    ] if th else [
+        {"role": "user", "text": "My chest has been tight for two hours, it goes into my left arm"},
+        {"role": "assistant", "text": "[NAME], I understand. Are you short of breath right now?"},
+    ]
     return state
 
 
@@ -58,12 +80,13 @@ def _schema(model: Any) -> dict:
 # Which call sites have a genuinely different prompt per language, versus an
 # English instruction scaffold that is identical whatever the patient speaks.
 # Verified against the source, not assumed:
-#   extraction  — English scaffold (extraction.py); Thai enters only as the
-#                 patient's words and the catalog's bilingual labels
+#   extraction  — English scaffold (extraction.py), but the finding catalog
+#                 lists labels/synonyms in the session language only, so the
+#                 th and en prompts differ
 #   question    — bilingual (_PARAPHRASE_PROMPT has "en" and "th")
 #   explain     — bilingual (_EXPLAIN_PROMPT has "en" and "th")
 #   gate:*      — English only (_PROMPTS), carrying "Session language: th"
-BILINGUAL_CALLS = {"question", "explain"}
+BILINGUAL_CALLS = {"extraction", "question", "explain"}
 
 
 def calls(language: str = "th") -> list[dict[str, Any]]:
@@ -81,8 +104,12 @@ def calls(language: str = "th") -> list[dict[str, Any]]:
                 "engine decides what that means."
             ),
             "prompt": build_extraction_prompt(
-                criteria, state, "เจ็บแน่นหน้าอกมาสองชั่วโมง ร้าวไปแขนซ้าย ไม่มีไข้",
-                "คุณมีอาการเจ็บหน้าอกหรือไม่",
+                criteria, state,
+                *(
+                    ("เจ็บแน่นหน้าอกมาสองชั่วโมง ร้าวไปแขนซ้าย ไม่มีไข้", "คุณมีอาการเจ็บหน้าอกหรือไม่")
+                    if language == "th"
+                    else ("My chest has been tight for two hours, it goes into my left arm, no fever", "Do you have chest pain?")
+                ),
             ),
             "structured": True,
             "schema": _schema(ExtractionResult),
@@ -105,20 +132,27 @@ def calls(language: str = "th") -> list[dict[str, Any]]:
         },
         {
             "id": "question",
-            "title": "Paraphrase — reword one approved question",
+            "title": "Question — acknowledge, then ask the approved question",
             "when": (
-                "When the rules engine has picked the next question and it is "
-                "safe to reword. Red-flag and measurement questions are asked "
-                "verbatim from the criteria and never go near the model."
+                "Every interview turn, once the rules engine has picked the "
+                "next question. The model returns a short acknowledgement and "
+                "(only for history/associated-symptom questions) a rewording. "
+                "Red-flag, scale, measurement and confirm questions are sent "
+                "with a 'return it unchanged' instruction and the engine uses "
+                "the criteria text regardless of what comes back."
             ),
             "prompt": _PARAPHRASE_PROMPT[language].format(
+                persona=persona_block(language),
+                recent=recent_exchange_lines(state, language),
                 context=state.chief_complaint,
                 known="อายุ 58 ปี | ความดัน 158/94",
+                instruction=_REPHRASE_INSTRUCTION[language],
                 question="อาการเจ็บหน้าอกร้าวไปที่แขน คอ หรือกรามหรือไม่",
             ),
             "structured": True,
             "schema": _schema(PhrasedQuestion),
             "response": {
+                "ack": "เข้าใจค่ะ",
                 "question": "อาการเจ็บที่หน้าอก มีร้าวไปที่แขน คอ หรือกรามด้วยไหมคะ",
                 "options": ["ร้าวไปแขน", "ร้าวไปคอหรือกราม", "ไม่ร้าวไปไหน", "ไม่แน่ใจ"],
             },
@@ -131,6 +165,7 @@ def calls(language: str = "th") -> list[dict[str, Any]]:
                 "not something the model chooses."
             ),
             "prompt": _EXPLAIN_PROMPT[language].format(
+                persona=persona_block(language),
                 summary="แน่นหน้าอกมา 2 ชั่วโมง ร้าวไปแขนซ้าย",
                 department="แผนก OPD MED (อายุรกรรม)",
                 name_line=_NAME_LINE[language],
@@ -180,6 +215,71 @@ def calls(language: str = "th") -> list[dict[str, Any]]:
             }
             for kind in sorted(GATE_PROMPTS)
         ],
+        {
+            "id": "surveillance",
+            "title": "Surveillance — disease keywords for the outbreak dashboard",
+            "when": (
+                "Once, when the session is marked completed, in the background. "
+                "Input is the engine's own screening state (complaint, present "
+                "findings, slot answers) — never the transcript, never the "
+                "identity. Output feeds disease_surveillance only; nothing the "
+                "patient hears."
+            ),
+            "prompt": SURVEILLANCE_PROMPT.format(messages=screening_summary_text(_surv_state(language))),
+            "structured": True,
+            "schema": _schema(SurveillanceKeywords),
+            "response": {"keywords": ["chest pain", "arm pain"]},
+        },
+    ]
+
+
+def _surv_state(language: str) -> ScreeningState:
+    from app.services.screening.state import Finding
+
+    state = _state(language)
+    state.complaint_category = "chest_pain"
+    state.findings["chest_pain_radiating"] = Finding(state="present", value="ร้าวไปแขนซ้าย")
+    state.slots = {"onset": "2 ชั่วโมง", "location": "หน้าอก"}
+    return state
+
+
+# Speech: same workstation, OpenAI audio routes (speech_adapter.HttpSttClient /
+# HttpTtsClient). These are the two calls that unavoidably carry patient data
+# the LLM path withholds — raw voice and, in TTS input, the patient's name in
+# the greeting — which is why they are local too.
+def speech_calls() -> list[dict[str, Any]]:
+    return [
+        {
+            "id": "stt",
+            "title": "STT — POST {LLM_BASE_URL}/audio/transcriptions",
+            "when": "Every patient turn: the 16 kHz PCM of that turn, multipart.",
+            "carries": "raw patient audio (whatever they say, including a name)",
+            "request": {
+                "multipart": {
+                    "model": "{STT_MODEL}",
+                    "language": "th",
+                    "response_format": "json",
+                    "file": "<turn audio, audio/wav>",
+                }
+            },
+            "response": {"text": "เจ็บแน่นหน้าอกมาสองชั่วโมง"},
+        },
+        {
+            "id": "tts",
+            "title": "TTS — POST {LLM_BASE_URL}/audio/speech",
+            "when": "Every assistant line the patient hears.",
+            "carries": "the finished reply text — the greeting includes the patient's given name",
+            "request": {
+                "json": {
+                    "model": "{TTS_MODEL}",
+                    "input": "สวัสดีค่ะ คุณสมชาย วันนี้มีอาการอะไรให้ช่วยคะ",
+                    "voice": "{TTS_LOCAL_VOICE_TH}",
+                    "response_format": "wav",
+                    "sample_rate": 24000,
+                }
+            },
+            "response": "<audio/wav, LINEAR16 24 kHz>",
+        },
     ]
 
 

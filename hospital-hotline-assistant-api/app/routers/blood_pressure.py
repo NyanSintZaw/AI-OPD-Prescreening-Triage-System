@@ -130,11 +130,10 @@ async def update_session_vitals(
         raise HTTPException(status_code=404, detail="Session not found")
 
     metadata = dict(session_row["metadata"] or {})
-    visit = dict(metadata.get("visit") or {})
-    hn = visit.get("hn") if isinstance(visit.get("hn"), str) else None
-    visit_id = visit.get("visit_id") if isinstance(visit.get("visit_id"), str) else None
+    patient = dict(metadata.get("patient") or {})
+    hn = patient.get("hn") if isinstance(patient.get("hn"), str) else None
 
-    rest = await get_active_rest(connection, hn=hn, visit_id=visit_id)
+    rest = await get_active_rest(connection, hn=hn)
     if rest.resting:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -157,9 +156,7 @@ async def update_session_vitals(
     crisis = is_hypertensive_crisis(payload.systolic, payload.diastolic)
     recheck_pending = False
     rest_until = None
-    if crisis and (hn or visit_id) and not await has_prior_window(
-        connection, hn=hn, visit_id=visit_id
-    ):
+    if crisis and hn and not await has_prior_window(connection, hn=hn):
         recheck_pending = True
 
     # Preserve any patient-typed vitals from a prior call on this session.
@@ -174,23 +171,34 @@ async def update_session_vitals(
         "source": payload.source,
         "recorded_at": datetime.now(timezone.utc).isoformat(),
     }
+    # Per-vital provenance, same shape merge_session_vitals stamps: the BP
+    # trio carries the payload's source (device cuff vs manual entry); any
+    # extra values typed in the same call are the patient's own words. The
+    # HIS prescreen and the nurse review read this map.
+    sources = dict(vitals.get("sources") or {})
+    for key in ("systolic", "diastolic", "pulse_bpm"):
+        sources[key] = payload.source
     if recheck_pending:
         vitals["bp_recheck_pending"] = True
     if payload.weight_kg is not None:
         vitals["weight_kg"] = payload.weight_kg
+        sources["weight_kg"] = "patient_input"
     if payload.height_cm is not None:
         vitals["height_cm"] = payload.height_cm
+        sources["height_cm"] = "patient_input"
     if payload.temperature_c is not None:
         vitals["temperature"] = payload.temperature_c
+        sources["temperature"] = "patient_input"
+    vitals["sources"] = sources
     metadata["vitals"] = vitals
     await connection.execute(
         "UPDATE sessions SET metadata = $2::jsonb WHERE id = $1",
         session_id,
         metadata,
     )
-    if not recheck_pending and (hn or visit_id):
+    if not recheck_pending and hn:
         # Any reading outside a live window closes the recheck loop.
-        await resolve_windows_for(connection, hn=hn, visit_id=visit_id)
+        await resolve_windows_for(connection, hn=hn)
 
     # Keep the durable bp_readings row in sync: link the row created at
     # fetch time when we have its id, otherwise store this (e.g. manual)
@@ -217,7 +225,6 @@ async def update_session_vitals(
         rest_until = await open_rest_window(
             connection,
             hn=hn,
-            visit_id=visit_id,
             reading_id=reading_id,
         )
 
@@ -237,29 +244,23 @@ async def update_session_vitals(
 async def get_bp_rest_status(
     session_id: UUID | None = Query(default=None),
     hn: str | None = Query(default=None),
-    visit_id: str | None = Query(default=None),
     connection: asyncpg.Connection = Depends(get_connection),
 ):
     """Whether this patient must wait before another BP measurement."""
     from app.services.bp_rest import get_active_rest
 
     resolved_hn = hn
-    resolved_visit = visit_id
     if session_id is not None:
         session_row = await connection.fetchrow(
             "SELECT metadata FROM sessions WHERE id = $1", session_id
         )
         if session_row is None:
             raise HTTPException(status_code=404, detail="Session not found")
-        visit = (session_row["metadata"] or {}).get("visit") or {}
-        if not resolved_hn and isinstance(visit.get("hn"), str):
-            resolved_hn = visit["hn"]
-        if not resolved_visit and isinstance(visit.get("visit_id"), str):
-            resolved_visit = visit["visit_id"]
+        patient = (session_row["metadata"] or {}).get("patient") or {}
+        if not resolved_hn and isinstance(patient.get("hn"), str):
+            resolved_hn = patient["hn"]
 
-    status_out = await get_active_rest(
-        connection, hn=resolved_hn, visit_id=resolved_visit
-    )
+    status_out = await get_active_rest(connection, hn=resolved_hn)
     return BpRestStatusOut(**status_out.as_dict())
 
 
@@ -276,10 +277,9 @@ async def _session_rest_block(
     )
     if session_row is None:
         return None
-    visit = (session_row["metadata"] or {}).get("visit") or {}
-    hn = visit.get("hn") if isinstance(visit.get("hn"), str) else None
-    visit_id = visit.get("visit_id") if isinstance(visit.get("visit_id"), str) else None
-    rest = await get_active_rest(connection, hn=hn, visit_id=visit_id)
+    patient = (session_row["metadata"] or {}).get("patient") or {}
+    hn = patient.get("hn") if isinstance(patient.get("hn"), str) else None
+    rest = await get_active_rest(connection, hn=hn)
     if not rest.resting:
         return None
     mins = max(1, (rest.seconds_remaining + 59) // 60)

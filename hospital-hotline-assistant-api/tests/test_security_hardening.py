@@ -1,6 +1,6 @@
 """Security regressions: unauthenticated VN lookup, password hashing, rate limits.
 
-A — GET /sessions/by-visit/{vn} is unauthenticated and a VN is guessable, so
+A — GET /sessions/by-hn/{hn} is unauthenticated and an HN is guessable, so
     its response must carry nothing but what the kiosk resume screen renders.
 B — passwords are scrypt-hashed; legacy unsalted sha256 rows still verify and
     are upgraded on the next successful login.
@@ -13,7 +13,7 @@ from uuid import uuid4
 import pytest
 from fastapi import HTTPException
 
-from app.routers.sessions import get_session_by_visit
+from app.routers.sessions import get_session_by_hn
 from app.services.admin_auth import (
     hash_password,
     needs_rehash,
@@ -22,7 +22,7 @@ from app.services.admin_auth import (
 from app.services.rate_limit import rate_limit
 
 
-# ── A. unauthenticated by-visit lookup ─────────────────────────────────────
+# ── A. unauthenticated by-hn lookup ────────────────────────────────────────
 
 SENSITIVE_ROW = {
     "id": uuid4(),
@@ -33,10 +33,10 @@ SENSITIVE_ROW = {
     "user_agent": "Mozilla/5.0 kiosk-1",
     "ip_hash": "abc123",
     "metadata": {
-        "visit": {
+        "patient": {
+            "hn": "09900001",
             "visit_id": "990000000000000001",
             "patient_name": "สมชาย ใจดี",
-            "hn": "09900001",
             "birthdate": "1985-03-12",
             "name_confirmed": True,
         },
@@ -59,8 +59,8 @@ class _FakeConnection:
         return self.row
 
 
-async def test_by_visit_returns_only_kiosk_fields_no_health_data():
-    out = await get_session_by_visit("990000000000000001", _FakeConnection(SENSITIVE_ROW))
+async def test_by_hn_returns_only_kiosk_fields_no_health_data():
+    out = await get_session_by_hn("09900001", _FakeConnection(SENSITIVE_ROW))
 
     # What the kiosk needs to offer continue / start over.
     assert out.found is True
@@ -72,12 +72,15 @@ async def test_by_visit_returns_only_kiosk_fields_no_health_data():
     assert out.name_confirmed is True
 
     # Everything else is sensitive personal data under PDPA and must be gone.
+    # (The HN itself is echoed — the caller typed it, so it reveals nothing —
+    # but the VN passthrough, birthdate, history, vitals and slip must not
+    # leave an anonymous lookup.)
     assert out.session.metadata == {}
     assert out.session.user_agent is None
     assert out.session.ip_hash is None
     body = out.model_dump_json()
     for leaked in (
-        "09900001",
+        "990000000000000001",
         "1985-03-12",
         "Penicillin",
         "Hypertension",
@@ -87,8 +90,8 @@ async def test_by_visit_returns_only_kiosk_fields_no_health_data():
         assert leaked not in body, f"{leaked} leaked from an unauthenticated lookup"
 
 
-async def test_by_visit_not_found_is_empty():
-    out = await get_session_by_visit("990000000000000099", _FakeConnection(None))
+async def test_by_hn_not_found_is_empty():
+    out = await get_session_by_hn("09900099", _FakeConnection(None))
     assert out.found is False
     assert out.session is None
     assert out.patient_name is None
@@ -207,7 +210,7 @@ async def test_rate_limit_window_expires():
     await check(_request("10.0.0.3"))  # type: ignore[arg-type]
 
 
-def test_login_and_visit_endpoints_declare_rate_limits():
+def test_login_and_hn_endpoints_declare_rate_limits():
     """The limiter is only useful if it is actually wired to the routes."""
     from app.main import app
 
@@ -219,5 +222,5 @@ def test_login_and_visit_endpoints_declare_rate_limits():
             for dep in getattr(route, "dependencies", [])
         )
     }
-    assert {"/admin/login", "/sessions/by-visit/{visit_id}"} <= limited
-    assert "/sessions/{session_id}/link-visit" in limited
+    assert {"/admin/login", "/sessions/by-hn/{hn}"} <= limited
+    assert "/sessions/{session_id}/link-patient" in limited

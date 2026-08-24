@@ -6,7 +6,7 @@ import { WeightHeightMeasurement } from './WeightHeightMeasurement';
 
 export interface MeasurementCardProps {
   /** Vital the screening engine is asking the booth to measure right now
-   *  (``'temp' | 'sbp' | 'weight'`` — see ``VitalName`` on the backend). */
+   *  (``'temp' | 'sbp' | 'weight' | 'spo2'`` — see ``VitalName`` on the backend). */
   vital: string;
   language?: AppLanguage;
   /** Fired once the reading is saved on the session; receives a short

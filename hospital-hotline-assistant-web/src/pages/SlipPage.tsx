@@ -97,14 +97,13 @@ export function SlipPage() {
 
   const code = useMemo(() => (sessionId ? slipCode(sessionId) : ''), [sessionId]);
   const meta = (session?.metadata || {}) as Record<string, unknown>;
-  const visit = (meta.visit || {}) as Record<string, unknown>;
+  const patient = (meta.patient || {}) as Record<string, unknown>;
   const vitals = (meta.vitals || {}) as VitalsMeta;
   const patientName =
-    (typeof visit.patient_name === 'string' && visit.patient_name) ||
+    (typeof patient.patient_name === 'string' && patient.patient_name) ||
     getStoredPatientName() ||
     null;
-  const visitId =
-    (typeof visit.visit_id === 'string' && visit.visit_id) || null;
+  const hn = (typeof patient.hn === 'string' && patient.hn) || null;
   const stamped = session?.started_at
     ? new Date(session.started_at).toLocaleString(
         language === 'th' ? 'th-TH' : 'en-GB',
@@ -142,8 +141,8 @@ export function SlipPage() {
 
       <dl className="slip-fields">
         <div>
-          <dt>{t('slipVisitId')}</dt>
-          <dd>{visitId || '—'}</dd>
+          <dt>{t('slipHn')}</dt>
+          <dd>{hn || '—'}</dd>
         </div>
         <div>
           <dt>{t('slipPatientName')}</dt>

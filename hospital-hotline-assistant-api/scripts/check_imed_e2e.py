@@ -2,9 +2,9 @@
 
 Proves the whole chain actually joins up:
 
-    booth session → link visit → (disposition) → nurse SBAR preview →
-    nurse edits + approves → hospital assignment → queue number →
-    hospital visit row updated → re-approve is idempotent
+    booth session → link patient (HN) → (disposition) → nurse SBAR preview →
+    nurse edits + approves → hospital assignment (department-level) →
+    queue number → hospital visit row updated → re-approve is idempotent
 
 This is the join nothing else covers: the adapter has unit tests, the mock has
 its own suite, but until now nothing exercised `_push_his_routing` or proved a
@@ -41,7 +41,7 @@ HIS_KEY = os.getenv("HIS_API_KEY", "demo-his-key")
 DB = os.getenv(
     "DATABASE_URL", "postgresql://postgres:postgres@localhost:5432/hospital_hotline"
 )
-VISIT = os.getenv("E2E_VISIT_ID", "990000000000000001")
+HN = os.getenv("E2E_HN", "09900001")
 EMAIL = os.getenv("E2E_EMAIL", "opd.nurse@mfu.local")
 PASSWORD = os.getenv("E2E_PASSWORD", "nurse1234")
 
@@ -71,6 +71,9 @@ VITALS = {
     "systolic": 158, "diastolic": 94, "pulse_bpm": 96,
     "temperature": 36.8, "weight_kg": 72.5, "height_cm": 165,
     "source": "device",
+    "sources": {"systolic": "device", "diastolic": "device", "pulse_bpm": "device",
+                "temperature": "patient_input", "weight_kg": "patient_input",
+                "height_cm": "patient_input"},
 }
 
 _checks = 0
@@ -142,20 +145,25 @@ async def main() -> int:
     his_headers = {"X-API-Key": HIS_KEY}
 
     async with httpx.AsyncClient(timeout=20.0) as http:
-        print("1. reset the hospital visit")
+        print("1. resolve the HN's current visit, then reset it")
+        patient = (
+            await http.get(f"{HIS}/api/v1/patients/{HN}", headers=his_headers)
+        ).json()
+        visit_id = (patient.get("current_visit") or {}).get("visit_id")
+        check("HN has a current visit in the mock", bool(visit_id), str(visit_id))
         r = await http.post(
             f"{HIS}/api/admin/reset", headers=his_headers,
-            json={"visit_ids": [VISIT], "reset_history": False},
+            json={"visit_ids": [visit_id], "reset_history": False},
         )
         check("mock HIS reachable + reset", r.status_code == 200, f"HTTP {r.status_code}")
 
-        print("2. booth session linked to the visit")
+        print("2. booth session linked to the patient (HN-first)")
         session = (await http.post(f"{API}/sessions", json={"language": "th"})).json()
         session_id = session["id"]
         link = await http.post(
-            f"{API}/sessions/{session_id}/link-visit", json={"visit_id": VISIT}
+            f"{API}/sessions/{session_id}/link-patient", json={"hn": HN}
         )
-        check("link-visit validated against the HIS", link.json().get("linked") is True)
+        check("link-patient validated against the HIS", link.json().get("linked") is True)
 
         print("3. seed the disposition (no LLM)")
         conn = await asyncpg.connect(DB)
@@ -208,7 +216,7 @@ async def main() -> int:
         check("queue number returned to the nurse", bool(queue_number), str(queue_number))
 
         print("7. hospital side reflects the assignment")
-        visit = (await http.get(f"{HIS}/api/visits/{VISIT}", headers=his_headers)).json()
+        visit = (await http.get(f"{HIS}/api/visits/{visit_id}", headers=his_headers)).json()
         check("visit is routed", visit["screening_status"] == "routed")
         check(
             "destination service point recorded",

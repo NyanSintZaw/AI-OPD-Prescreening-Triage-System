@@ -1,9 +1,0 @@
-$kind: http-request
-name: GET /admin/users
-description: |-
-  Admin List Users
-
-  **Roles:** super_admin
-url: "{{baseUrl}}/admin/users"
-method: GET
-order: 1000

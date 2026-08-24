@@ -63,7 +63,7 @@ async def main(purge: bool) -> None:
                 result = await conn.execute(stmt)
                 print(f"  {stmt.split(' FROM ')[-1].split(' SET ')[0]:28} {result}")
         else:
-            # Retire completed sessions too: the by-visit lookup matches
+            # Retire completed sessions too: the by-hn lookup matches
             # ('active', 'completed'), so a leftover completed run kept
             # showing the "prescreening already complete" notice and blocked
             # re-testing that VN.

@@ -2,6 +2,7 @@
 - docs/api-reference.md          internal, everything incl. mock HIS
 - docs/api-reference-hospital.md hospital-IT-facing, our system only
 """
+from datetime import date
 from pathlib import Path
 
 S = Path(__file__).parent
@@ -55,10 +56,10 @@ schemas_md = (S / "generated_schemas.md").read_text()
 his_schemas_md = (S / "generated_his_schemas.md").read_text()
 
 # ── internal doc ──────────────────────────────────────────────────────────────
-internal_header = """# API Reference — AI OPD Prescreening & Triage System
+internal_header = f"""# API Reference — AI OPD Prescreening & Triage System
 
 **Generated from code** (FastAPI OpenAPI dump of `app/main.py` + `hospital-his-mock`),
-updated 2026-08-04. Nothing here is hand-invented; every path, field, type, and JSON
+updated {date.today().isoformat()}. Nothing here is hand-invented; every path, field, type, and JSON
 example comes from the running route definitions. Interactive testing: run the backend
 and open `http://localhost:8000/docs`, or import `http://localhost:8000/openapi.json`
 into Postman.
@@ -101,9 +102,9 @@ internal = (
 (DOCS / "api-reference.md").write_text(internal)
 
 # ── hospital-facing doc ───────────────────────────────────────────────────────
-hospital_header = """# AI OPD Prescreening & Triage System — API Reference
+hospital_header = f"""# AI OPD Prescreening & Triage System — API Reference
 
-Prepared for the MFU Medical Center hospital IT team · updated 2026-08-04
+Prepared for the MFU Medical Center hospital IT team · updated {date.today().isoformat()}
 
 This document describes the complete HTTP + WebSocket API surface of the AI OPD
 prescreening booth system (FastAPI backend). It is generated directly from the

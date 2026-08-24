@@ -108,19 +108,23 @@ def apply_history_findings(state, patient_history: Mapping[str, Any] | None) -> 
     if not patient_history:
         return
 
-    smoking_alcohol = patient_history.get("smoking_alcohol")
-    if _has_content(smoking_alcohol):
-        text = str(smoking_alcohol)
-        if _SMOKE_RE.search(text) and not _SMOKE_NEG_RE.search(text):
-            _set_present(state, "smoking", text)
-        if _ALCOHOL_RE.search(text) and not _ALCOHOL_NEG_RE.search(text):
-            _set_present(state, "alcohol_use", text)
+    # V1 splits smoking and alcohol into their own fields, so any non-"none"
+    # content in the field itself is a positive answer ("5 cigarettes/day"
+    # needs no keyword). The negation regexes still guard against
+    # "non-smoker"-style free text a HIS record may carry.
+    smoking = patient_history.get("smoking")
+    if _has_content(smoking) and not _SMOKE_NEG_RE.search(str(smoking)):
+        _set_present(state, "smoking", str(smoking))
+
+    alcohol = patient_history.get("alcohol")
+    if _has_content(alcohol) and not _ALCOHOL_NEG_RE.search(str(alcohol)):
+        _set_present(state, "alcohol_use", str(alcohol))
 
     allergies = patient_history.get("allergies")
     if _has_content(allergies) and not _ALLERGY_NEG_RE.search(str(allergies)):
         _set_present(state, "allergy_history", str(allergies))
 
-    past = patient_history.get("past_surgeries")
+    past = patient_history.get("post_surgeries")
     if _has_content(past):
         _set_present(state, "past_surgery_history", str(past))
 

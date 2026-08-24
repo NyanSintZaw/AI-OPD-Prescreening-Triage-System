@@ -194,3 +194,12 @@ def test_spoken_rejection_stays_in_engine_state_only():
     assert state.rejected_vitals["temp"]["value"] == 50
     assert "temp" not in state.vitals
     assert "temp" not in effective_vitals(state)
+
+
+def test_spo2_bounds_admit_hypoxia_but_reject_impossible(criteria):
+    """Home-oximeter numbers now arrive by speech too: 88 is a real emergency
+    that must reach the rules; 120 is not a saturation."""
+    accepted, rejected = check_vitals({"spo2": 88}, criteria)
+    assert accepted.get("spo2") == 88
+    accepted, rejected = check_vitals({"spo2": 120}, criteria)
+    assert "spo2" not in accepted and [r.vital for r in rejected] == ["spo2"]

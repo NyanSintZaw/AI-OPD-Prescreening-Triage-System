@@ -189,3 +189,38 @@ def test_measured_temperature_outranks_extraction():
     state2.vitals["temp"] = 36.9
     apply_objective_findings(state2)
     assert "fever" not in state2.findings
+
+
+# ── category upgrade: generic → specific on a later turn ────────────────────
+
+
+def test_generic_category_upgrades_to_specific_on_later_turn(criteria):
+    """Live finding (2026-08-20): a vague opener landed on `generic` and a
+    later explicit "มีไข้" was ignored, so the patient got generic's
+    catch-all red flags (incl. the self-harm screen) instead of the fever
+    screen. The first SPECIFIC category must win; generic is provisional."""
+    from app.services.screening.extraction import ExtractionResult
+    from app.services.screening.nodes.ingest import _apply
+    from app.services.screening.state import ScreeningState
+
+    state = ScreeningState(session_id="s")
+    _apply(state, criteria, ExtractionResult(complaint_category="generic"))
+    assert state.complaint_category == "generic"
+    _apply(state, criteria, ExtractionResult(complaint_category="fever"))
+    assert state.complaint_category == "fever"
+    # never specific → other specific, never specific → generic
+    _apply(state, criteria, ExtractionResult(complaint_category="dyspnea_cough"))
+    assert state.complaint_category == "fever"
+    _apply(state, criteria, ExtractionResult(complaint_category="generic"))
+    assert state.complaint_category == "fever"
+
+
+def test_generic_template_has_no_self_harm_screen(criteria):
+    """The self-harm screen lives only in mental_health; an unclassified
+    'unwell' walk-in must not be asked it as question three."""
+    by_cat = {t.category: t for t in criteria.complaint_templates}
+    generic_ids = {q.id for q in by_cat["generic"].questions}
+    assert "gen_self_harm" not in generic_ids
+    assert any(
+        "suicidal_ideation" in q.finding_ids for q in by_cat["mental_health"].questions
+    )

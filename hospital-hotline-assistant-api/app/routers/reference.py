@@ -76,7 +76,7 @@ async def kiosk_stats(connection: asyncpg.Connection = Depends(get_connection)) 
     """Public counters for the kiosk home / attract screen (no auth).
 
     Three "today" numbers the booth shows patients:
-      - ``booth_patients_today`` : distinct patients (by linked visit) who
+      - ``booth_patients_today`` : distinct patients (by linked HN) who
                               used this booth today. Counted from our own
                               sessions — deliberately NOT from the hospital:
                               this endpoint is unauthenticated, and asking the
@@ -109,10 +109,10 @@ async def kiosk_stats(connection: asyncpg.Connection = Depends(get_connection)) 
     try:
         booth_patients_today = await connection.fetchval(
             """
-            SELECT count(DISTINCT metadata->'visit'->>'visit_id')
+            SELECT count(DISTINCT metadata->'patient'->>'hn')
             FROM sessions
             WHERE started_at::date = CURRENT_DATE
-              AND metadata->'visit'->>'visit_id' IS NOT NULL
+              AND metadata->'patient'->>'hn' IS NOT NULL
             """
         )
     except Exception:  # pragma: no cover - defensive: never break the kiosk

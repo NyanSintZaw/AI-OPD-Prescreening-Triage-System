@@ -63,9 +63,17 @@ def build_chat_model(settings: Any) -> BaseChatModel:
     if provider == "openai_compatible":
         from langchain_openai import ChatOpenAI
 
+        base_url = getattr(settings, "screening_openai_base_url", None)
+        if not base_url:
+            # Never fall through to langchain-openai's default (api.openai.com):
+            # the whole point of this provider is that prompts stay on-prem.
+            raise ValueError(
+                "SCREENING_MODEL_PROVIDER=openai_compatible requires "
+                "SCREENING_OPENAI_BASE_URL (the local model server)"
+            )
         return ChatOpenAI(
             model=model_name,
-            base_url=settings.screening_openai_base_url,
+            base_url=base_url,
             api_key=settings.screening_openai_api_key or "not-needed",
             temperature=temperature,
             timeout=timeout_s,

@@ -37,10 +37,12 @@ async def fetch_spo2(
     payload: Spo2FetchRequest | None = None,
     connection: asyncpg.Connection = Depends(get_connection),
 ):
-    """Take one settled SpO2/pulse reading from the fingertip oximeter.
+    """Take one stable SpO2/pulse reading from the fingertip oximeter.
 
     Connects, waits for the patient's finger (up to ``timeout_seconds``),
-    lets the value settle, persists the reading to ``spo2_readings`` and —
+    accepts only once the values stop moving (stability window + median —
+    the settling overshoot is never reported), persists the reading to
+    ``spo2_readings`` and —
     when a session is given — merges it into the session vitals so the next
     screening turn carries it (the criteria's low-SpO2 rules read it).
     Always returns 200 with a ``status`` field the kiosk UI branches on.

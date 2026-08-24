@@ -1,9 +1,0 @@
-$kind: http-request
-name: GET /admin/his/visits/{visit_id}
-description: |-
-  Admin His Visit Detail
-
-  **Roles:** super_admin, nurse, viewer
-url: "{{baseUrl}}/admin/his/visits/{{visit_id}}"
-method: GET
-order: 5000

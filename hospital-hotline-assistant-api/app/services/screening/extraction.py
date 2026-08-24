@@ -37,6 +37,12 @@ class FindingUpdate(BaseModel):
 class ExtractionResult(BaseModel):
     """Structured reading of a single patient message."""
 
+    # Description deliberately unchanged from v1: measured 2026-08-22, a
+    # longer description here ("…or when they explicitly correct/replace
+    # their main problem…") flipped gemini-3.1-flash-lite's turn-1 category
+    # for epigastric pain (abdominal_pain -> gi, 4/4) and its finding
+    # (abdominal_pain -> chest_pain). The correction semantics live in the
+    # prompt rules, which measured clean.
     chief_complaint: str | None = Field(
         default=None,
         description="Patient's main problem in their own words, only when newly stated",
@@ -70,6 +76,11 @@ class ExtractionResult(BaseModel):
     temperature_c: float | None = Field(
         default=None, description="Body temperature in Celsius when stated"
     )
+    spo2_percent: float | None = Field(
+        default=None,
+        description="Blood oxygen saturation percentage when the patient states a "
+        "reading they measured themselves (e.g. a home pulse oximeter)",
+    )
     is_question_to_assistant: bool = Field(
         default=False,
         description="True when the message is a question to the assistant rather than "
@@ -102,6 +113,12 @@ def _catalog_lines(criteria: ScreeningCriteria, state: ScreeningState) -> list[s
     # substituted the nearest OFFERED id (a cold pale leg → the level-1
     # shock-skin finding). Criteria-derived, so new rules extend it for free.
     wanted.update(critical_finding_ids(criteria))
+    # Every template's anchor finding(s), always: a patient who replaces their
+    # complaint mid-interview ("that was my mother's fall — I'm here for a
+    # sore throat") must be able to name the new one, and retract the old
+    # one, in a vocabulary bounded to the current template. ~20 ids.
+    for other in criteria.complaint_templates:
+        wanted.update(other.anchor_finding_ids)
     # Turn 1 has no template yet, and the patient may open with ANY complaint.
     # A bounded vocabulary there is a chicken-and-egg: the finding that would
     # select the template is the one not offered. Measured 2026-08-10 — a Thai
@@ -122,13 +139,21 @@ def _catalog_lines(criteria: ScreeningCriteria, state: ScreeningState) -> list[s
         # patients lead with constantly.
         wanted.update({"headache", "ear_pain"})
 
+    # Labels in the session language only. The ids stay English (they are
+    # identifiers, so code-switched "มี fever" still lands); the prose the
+    # model matches against is the language the patient is speaking. Halves
+    # the catalog, which is prefill time on a local model and option-list
+    # noise for a small one. Measured 2026-08-21 (run_extraction_eval): no
+    # change in pass rate against the bilingual catalog.
+    thai = state.language == "th"
     lines = []
     for fid in sorted(wanted):
         entry = criteria.finding_catalog.get(fid)
         if entry is None:
             continue
-        synonyms = ", ".join([*entry.synonyms_en, *entry.synonyms_th][:6])
-        line = f"- {fid}: {entry.label_en} / {entry.label_th}"
+        label = entry.label_th if thai else entry.label_en
+        synonyms = ", ".join((entry.synonyms_th if thai else entry.synonyms_en)[:6])
+        line = f"- {fid}: {label}"
         if synonyms:
             line += f" (also: {synonyms})"
         lines.append(line)
@@ -179,15 +204,15 @@ def build_extraction_prompt(
             )
     context = "\n".join(context_lines) or "This is the first message."
 
+    # Static part first (instructions, categories, catalog, rules), per-turn
+    # part last: an OpenAI-compatible server with prefix caching (vLLM,
+    # Ollama) then reuses the ~90% that does not change between turns.
     return f"""You are a clinical intake scribe for a Thai hospital. Read ONE patient message
 (Thai or English) and extract ONLY what the patient actually said into the
 structured schema. Never guess, never diagnose, never infer findings that were
 not stated. If the message answers the assistant's pending question, record
 that answer (as finding updates with state "absent" when the patient denies,
 or slot/score updates).
-
-Context:
-{context}
 
 Allowed complaint categories (copy ONE id verbatim — never invent or combine ids): {categories}
 Pick the category from what the patient HAS, never from what they deny: "I have
@@ -208,6 +233,13 @@ Rules:
   -> fever "present" AND cough "absent"; "มีไข้ แต่ไม่ไอ ไม่เจ็บคอ" -> fever
   "present", cough "absent", sore_throat "absent". Never drop the negated
   finding just because the sentence also reports a positive one.
+- A correction: when the patient says an earlier symptom was a mistake, has gone
+  away, or was about someone else ("พูดผิด ไม่ได้ปวดท้อง", "หายแล้ว", "ไม่ได้เป็นแล้ว",
+  "that was my mother, not me", "I was wrong about the sweating") -> that finding
+  with state "absent", evidence = those words. If they replace their main problem
+  ("จริงๆ แล้วมาเรื่องผื่น", "I'm actually here for a sore throat") -> also fill
+  chief_complaint with the new problem and complaint_category with its category.
+  Do NOT fill chief_complaint when they only add a symptom to the one they have.
 - A bare affirmation ("yes", "ใช่", "มี") of a pending question that checks exactly
   ONE finding -> that finding id with state "present".
 - A bare affirmation of a pending question that checks SEVERAL findings:
@@ -229,6 +261,9 @@ Rules:
   sore throat + cough), pick the one matching the symptom they said first.
   Use null only when no category fits at all (e.g. a greeting or a question).
 - wants_human=true only when they explicitly ask for a person/nurse/staff.
+
+Context:
+{context}
 
 Patient message:
 {user_text}"""

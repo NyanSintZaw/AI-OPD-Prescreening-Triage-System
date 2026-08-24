@@ -354,6 +354,13 @@ class ComplaintTemplate(BaseModel):
     # minimum answered OLDCARTS slots per provisional level before disposing
     min_slots_by_level: dict[int, int] = Field(default_factory=lambda: {3: 4, 4: 4, 5: 3})
     associated_finding_ids: list[str] = Field(default_factory=list)
+    # The finding(s) that ARE this complaint (chest_pain -> chest_pain). Two
+    # uses, both deterministic: the category may move to another template
+    # once every anchor is absent (the patient retracted the complaint), and
+    # another template's red-flag questions join the interview while one of
+    # its anchors is present (a second complaint added mid-interview). Empty
+    # = neither happens for this template.
+    anchor_finding_ids: list[str] = Field(default_factory=list)
 
 
 class FindingDef(BaseModel):
@@ -363,6 +370,13 @@ class FindingDef(BaseModel):
     label_th: str
     synonyms_en: list[str] = Field(default_factory=list)
     synonyms_th: list[str] = Field(default_factory=list)
+    # Nurse-authored yes/no sentence used to confirm this finding before a
+    # level-1/2 rule fires on it ("Just to be sure — is your chest hurting or
+    # feeling tight right now?"). Without one the engine synthesizes
+    # "do you have this right now: <label>?". Must name the finding with a
+    # label/synonym word so the rewording guard can calibrate on it.
+    confirm_en: str | None = None
+    confirm_th: str | None = None
     is_risk_factor: bool = False
 
 
@@ -434,7 +448,7 @@ class ScreeningCriteria(BaseModel):
                 if fid not in known:
                     raise ValueError(f"tuple {tup.id!r} references unknown finding {fid!r}")
         for template in self.complaint_templates:
-            for fid in template.associated_finding_ids:
+            for fid in [*template.associated_finding_ids, *template.anchor_finding_ids]:
                 if fid not in known:
                     raise ValueError(
                         f"template {template.category!r} references unknown finding {fid!r}"
@@ -463,6 +477,24 @@ class ScreeningCriteria(BaseModel):
                         f"routing entry {entry.complaint_category!r} has no template "
                         "and no generic fallback template exists"
                     )
+        # Department codes must be ones the engine can name: a typo here used
+        # to pass validation and surface only as a silently dropped
+        # recommendation in TriageService. DEPARTMENT_NAMES is the canonical
+        # code set (engine, validator, rule book and eval all derive from it).
+        from ..templates import DEPARTMENT_NAMES
+
+        def check_dept(owner: str, code: str | None) -> None:
+            if code is not None and code not in DEPARTMENT_NAMES:
+                raise ValueError(f"{owner} references unknown department {code!r}")
+
+        for rule in [*self.department_rules, *self.fast_tracks]:
+            check_dept(f"rule {rule.id!r}", rule.department_code)
+        for entry in self.routing_table:
+            check_dept(f"routing entry {entry.complaint_category!r}", entry.department_code)
+            check_dept(
+                f"routing entry {entry.complaint_category!r} fallback",
+                entry.fallback_department_code,
+            )
         return self
 
 

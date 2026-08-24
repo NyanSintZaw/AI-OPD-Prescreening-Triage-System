@@ -3475,5 +3475,397 @@
    "must_ask": [],
    "must_not_leak": true
   }
+ },
+ {
+  "id": "ws_th_unwell_fever_no_selfharm",
+  "language": "th",
+  "description": "เปิดด้วยคำพูดกว้าง ๆ (generic) แล้วระบุไข้ในเทิร์นถัดไป — ต้องอัปเกรดเป็น fever และห้ามถามเรื่องฆ่าตัวตาย",
+  "opening": "ไม่ค่อยสบายค่ะ รู้สึกไม่มีแรง",
+  "present": [
+   "fever"
+  ],
+  "age": 35,
+  "gender": "female",
+  "utterances": [
+   "มีไข้มาสองวันแล้วค่ะ"
+  ],
+  "answers": [
+   {
+    "match": "uq_breathing",
+    "reply": "หายใจปกติค่ะ"
+   }
+  ],
+  "measurements": {
+   "temp": 38.2
+  },
+  "expected": {
+   "category": [
+    "fever",
+    "generic"
+   ],
+   "level": [
+    4,
+    5
+   ],
+   "department": "opd_general",
+   "department_name_th": "OPD เวชปฏิบัติทั่วไป",
+   "must_not_ask": [
+    "gen_self_harm",
+    "mh_suicide"
+   ],
+   "must_not_leak": true,
+   "oracle": true
+  },
+  "note": "Added 2026-08-20 with the natural-dialogue / SpO2 / wrong-question work (plan WS2/WS5/WS6)."
+ },
+ {
+  "id": "ws_en_unwell_fever_no_selfharm",
+  "language": "en",
+  "description": "Vague opener (generic) then an explicit fever on turn 2 — must upgrade to fever and never ask the self-harm screen",
+  "opening": "I just don't feel well, kind of run down.",
+  "present": [
+   "fever"
+  ],
+  "age": 35,
+  "gender": "male",
+  "utterances": [
+   "I've had a fever for two days."
+  ],
+  "answers": [
+   {
+    "match": "uq_breathing",
+    "reply": "breathing is fine"
+   }
+  ],
+  "measurements": {
+   "temp": 38.2
+  },
+  "expected": {
+   "category": [
+    "fever",
+    "generic"
+   ],
+   "level": [
+    4,
+    5
+   ],
+   "department": "opd_general",
+   "department_name_en": "OPD General Practice",
+   "must_not_ask": [
+    "gen_self_harm",
+    "mh_suicide"
+   ],
+   "must_not_leak": true,
+   "oracle": true
+  },
+  "note": "Added 2026-08-20 with the natural-dialogue / SpO2 / wrong-question work (plan WS2/WS5/WS6)."
+ },
+ {
+  "id": "ws_th_stress_asks_selfharm",
+  "language": "th",
+  "description": "เครียด นอนไม่หลับ — mental_health ต้องถาม mh_suicide เสมอ; ปฏิเสธ → จิตเวชผู้ป่วยนอก",
+  "opening": "เครียดมากค่ะ นอนไม่หลับมาหลายอาทิตย์ ร้องไห้บ่อย",
+  "present": [
+   "depression_symptoms"
+  ],
+  "age": 30,
+  "gender": "female",
+  "answers": [
+   {
+    "match": "mh_suicide",
+    "reply": "ไม่มีค่ะ ไม่เคยคิดแบบนั้น"
+   },
+   {
+    "match": "uq_breathing",
+    "reply": "ปกติค่ะ"
+   },
+   {
+    "match": "mh_psychosis",
+    "reply": "ไม่มีค่ะ"
+   }
+  ],
+  "expected": {
+   "category": "mental_health",
+   "level": [
+    3,
+    4
+   ],
+   "department": [
+    "opd_psychiatry",
+    "opd_internal_medicine"
+   ],
+   "must_ask": [
+    "mh_suicide"
+   ],
+   "must_not_leak": true,
+   "oracle": true
+  },
+  "note": "Added 2026-08-20 with the natural-dialogue / SpO2 / wrong-question work (plan WS2/WS5/WS6)."
+ },
+ {
+  "id": "ws_en_stress_asks_selfharm",
+  "language": "en",
+  "description": "Stress + insomnia — mental_health must always ask mh_suicide; denial → outpatient psychiatry",
+  "opening": "I've been really stressed and can't sleep for weeks, crying a lot.",
+  "present": [
+   "depression_symptoms"
+  ],
+  "age": 30,
+  "gender": "male",
+  "answers": [
+   {
+    "match": "mh_suicide",
+    "reply": "no, never thought about that"
+   },
+   {
+    "match": "uq_breathing",
+    "reply": "normal"
+   },
+   {
+    "match": "mh_psychosis",
+    "reply": "no"
+   }
+  ],
+  "expected": {
+   "category": "mental_health",
+   "level": [
+    3,
+    4
+   ],
+   "department": [
+    "opd_psychiatry",
+    "opd_internal_medicine"
+   ],
+   "must_ask": [
+    "mh_suicide"
+   ],
+   "must_not_leak": true,
+   "oracle": true
+  },
+  "note": "Added 2026-08-20 with the natural-dialogue / SpO2 / wrong-question work (plan WS2/WS5/WS6)."
+ },
+ {
+  "id": "ws_th_dyspnea_spo2_88",
+  "language": "th",
+  "description": "หายใจเหนื่อย → ต้องขอวัด SpO2 (uq_spo2); เครื่องอ่าน 88% → ระดับ 1 ฉุกเฉิน",
+  "opening": "หายใจไม่อิ่มค่ะ เหนื่อยเวลาเดิน มาสองวันแล้ว",
+  "present": [
+   "dyspnea"
+  ],
+  "age": 58,
+  "gender": "female",
+  "answers": [
+   {
+    "match": "uq_breathing",
+    "reply": "หายใจลำบากค่ะ"
+   }
+  ],
+  "measurements": {
+   "spo2": 88
+  },
+  "expected": {
+   "category": "dyspnea_cough",
+   "level": [
+    1,
+    2
+   ],
+   "department": "emergency",
+   "department_name_th": "ห้องฉุกเฉิน",
+   "undertriage_critical": true,
+   "must_ask": [
+    "uq_spo2"
+   ],
+   "must_not_leak": true,
+   "oracle": true
+  },
+  "note": "Added 2026-08-20 with the natural-dialogue / SpO2 / wrong-question work (plan WS2/WS5/WS6)."
+ },
+ {
+  "id": "ws_en_dyspnea_spo2_88",
+  "language": "en",
+  "description": "Breathing difficulty → the booth must request SpO2 (uq_spo2); oximeter reads 88% → level 1",
+  "opening": "I can't seem to get enough air, I get breathless walking. Two days now.",
+  "present": [
+   "dyspnea"
+  ],
+  "age": 58,
+  "gender": "male",
+  "answers": [
+   {
+    "match": "uq_breathing",
+    "reply": "yes, it's hard to breathe"
+   }
+  ],
+  "measurements": {
+   "spo2": 88
+  },
+  "expected": {
+   "category": "dyspnea_cough",
+   "level": [
+    1,
+    2
+   ],
+   "department": "emergency",
+   "department_name_en": "the Emergency Department",
+   "undertriage_critical": true,
+   "must_ask": [
+    "uq_spo2"
+   ],
+   "must_not_leak": true,
+   "oracle": true
+  },
+  "note": "Added 2026-08-20 with the natural-dialogue / SpO2 / wrong-question work (plan WS2/WS5/WS6)."
+ },
+ {
+  "id": "ws_th_dyspnea_spo2_92_retraction",
+  "language": "th",
+  "description": "หายใจเหนื่อย + SpO2 92% + อกบุ๋ม (dc_retraction) → ระดับ 2 (MOPH danger vital band)",
+  "opening": "หอบเหนื่อยค่ะ หายใจแล้วอกบุ๋ม",
+  "present": [
+   "dyspnea",
+   "retraction"
+  ],
+  "age": 45,
+  "gender": "female",
+  "answers": [
+   {
+    "match": "uq_breathing",
+    "reply": "หายใจลำบากค่ะ"
+   },
+   {
+    "match": "dc_retraction",
+    "reply": "มีค่ะ อกบุ๋มเลย"
+   }
+  ],
+  "measurements": {
+   "spo2": 92
+  },
+  "expected": {
+   "category": "dyspnea_cough",
+   "level": [
+    1,
+    2
+   ],
+   "department": "emergency",
+   "undertriage_critical": true,
+   "must_ask": [
+    "uq_spo2",
+    "dc_retraction"
+   ],
+   "must_not_leak": true,
+   "oracle": true
+  },
+  "note": "Added 2026-08-20 with the natural-dialogue / SpO2 / wrong-question work (plan WS2/WS5/WS6)."
+ },
+ {
+  "id": "ws_en_dyspnea_spo2_92_retraction",
+  "language": "en",
+  "description": "Dyspnea + SpO2 92% + retractions (dc_retraction) → level 2 (MOPH danger-vital band)",
+  "opening": "I'm short of breath and my ribs pull in when I breathe.",
+  "present": [
+   "dyspnea",
+   "retraction"
+  ],
+  "age": 45,
+  "gender": "male",
+  "answers": [
+   {
+    "match": "uq_breathing",
+    "reply": "yes, hard to breathe"
+   },
+   {
+    "match": "dc_retraction",
+    "reply": "yes they pull in"
+   }
+  ],
+  "measurements": {
+   "spo2": 92
+  },
+  "expected": {
+   "category": "dyspnea_cough",
+   "level": [
+    1,
+    2
+   ],
+   "department": "emergency",
+   "undertriage_critical": true,
+   "must_ask": [
+    "uq_spo2",
+    "dc_retraction"
+   ],
+   "must_not_leak": true,
+   "oracle": true
+  },
+  "note": "Added 2026-08-20 with the natural-dialogue / SpO2 / wrong-question work (plan WS2/WS5/WS6)."
+ },
+ {
+  "id": "ws_th_fever_no_spo2",
+  "language": "th",
+  "description": "ไข้ธรรมดา ไม่มีอาการหายใจเหนื่อย → ห้ามขอวัด SpO2",
+  "opening": "มีไข้ ปวดเมื่อยตัว มาสองวันค่ะ",
+  "present": [
+   "fever"
+  ],
+  "age": 28,
+  "gender": "female",
+  "answers": [
+   {
+    "match": "uq_breathing",
+    "reply": "หายใจปกติค่ะ"
+   }
+  ],
+  "measurements": {
+   "temp": 38.4
+  },
+  "expected": {
+   "category": "fever",
+   "level": [
+    4,
+    5
+   ],
+   "department": "opd_general",
+   "must_not_ask": [
+    "uq_spo2",
+    "gen_self_harm"
+   ],
+   "must_not_leak": true,
+   "oracle": true
+  },
+  "note": "Added 2026-08-20 with the natural-dialogue / SpO2 / wrong-question work (plan WS2/WS5/WS6)."
+ },
+ {
+  "id": "ws_en_fever_no_spo2",
+  "language": "en",
+  "description": "Plain fever, no breathing trouble → SpO2 must not be requested",
+  "opening": "Fever and body aches for two days.",
+  "present": [
+   "fever"
+  ],
+  "age": 28,
+  "gender": "male",
+  "answers": [
+   {
+    "match": "uq_breathing",
+    "reply": "breathing is normal"
+   }
+  ],
+  "measurements": {
+   "temp": 38.4
+  },
+  "expected": {
+   "category": "fever",
+   "level": [
+    4,
+    5
+   ],
+   "department": "opd_general",
+   "must_not_ask": [
+    "uq_spo2",
+    "gen_self_harm"
+   ],
+   "must_not_leak": true,
+   "oracle": true
+  },
+  "note": "Added 2026-08-20 with the natural-dialogue / SpO2 / wrong-question work (plan WS2/WS5/WS6)."
  }
 ]

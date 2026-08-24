@@ -123,9 +123,11 @@ export function Spo2DeviceManager() {
         ? 'spo2devTestNotFound'
         : testResult.status === 'timeout'
           ? 'spo2devTestTimeout'
-          : testResult.status === 'busy'
-            ? 'vitalsErrBusy'
-            : 'spo2devTestFailed'
+          : testResult.status === 'unstable'
+            ? 'spo2devTestUnstable'
+            : testResult.status === 'busy'
+              ? 'vitalsErrBusy'
+              : 'spo2devTestFailed'
       : null;
 
   return (

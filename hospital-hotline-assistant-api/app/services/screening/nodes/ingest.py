@@ -8,7 +8,8 @@ from time import perf_counter
 
 from ..extraction import ExtractionResult, build_extraction_prompt
 from ..nlu_yesno import BARE_AFFIRMATION, BARE_DENIAL, BARE_UNCERTAINTY, UNC_CORE_RE
-from ..rules.question_policy import get_template
+from ..rules.question_policy import GENERIC_CATEGORY, get_template
+from ..rules.red_flags import critical_finding_ids
 from ..state import OLDCARTS_SLOTS, Finding
 from ..vitals import (
     FEVER_TEMP_C,
@@ -211,28 +212,86 @@ def _normalize_for_evidence(text: str | None) -> str:
     return "".join((text or "").split()).casefold()
 
 
+def _known_category(criteria, raw: str | None) -> str | None:
+    if not raw:
+        return None
+    known = {t.category for t in criteria.complaint_templates}
+    # routing-only categories (no bespoke template) are also legal
+    known |= {e.complaint_category for e in criteria.routing_table}
+    return raw if raw in known else _closest_category(raw, known)
+
+
+def _anchors(criteria, category: str | None) -> set[str]:
+    for template in criteria.complaint_templates:
+        if template.category == category:
+            return set(template.anchor_finding_ids)
+    return set()
+
+
+def _apply_category(state, criteria, result: ExtractionResult, user_text: str,
+                    flipped_absent: set[str]) -> None:
+    """Which template the interview follows. Runs AFTER the findings merge so
+    it sees this turn's retractions."""
+
+    turn = state.turn_count
+    category = _known_category(criteria, result.complaint_category)
+    current = state.complaint_category
+    if current in (None, "", GENERIC_CATEGORY):
+        # First specific category wins; a vague opener ("ไม่สบาย") lands on
+        # generic and a later explicit complaint ("มีไข้") must be allowed to
+        # upgrade it — otherwise the patient gets generic's catch-all red
+        # flags instead of their complaint's screen (live finding: fever
+        # patient asked the generic self-harm question). Never specific →
+        # generic.
+        if category:
+            state.complaint_category = category
+        # Keyword net: a missing or generic category is upgraded when the
+        # utterance matches exactly one category's criteria keywords, so the
+        # specific red-flag screen (e.g. BEFAST) runs.
+        if user_text and state.complaint_category in (None, "", GENERIC_CATEGORY):
+            keyword_category = _keyword_category(user_text, criteria)
+            if keyword_category:
+                state.complaint_category = keyword_category
+        return
+
+    # Specific → other specific only on evidence the rules can see, never on
+    # the model's category pick alone (it re-picks every turn). Either the
+    # complaint the template is built on was retracted this turn ("พูดผิด
+    # ไม่ได้ปวดท้อง") and nothing of it remains, or the patient restated
+    # their main problem AND the new complaint's own finding is present.
+    # Measured 2026-08-22: extraction already returns exactly this — the
+    # old finding absent, the new one present, chief_complaint re-stated —
+    # and the write-once rule here was what discarded it (patient then heard
+    # "เข้าใจแล้วค่ะว่ามีอาการปวดท้อง" in the emergency reply for chest pain).
+    anchors = _anchors(criteria, current)
+    anchor_gone = bool(anchors & flipped_absent) and not any(
+        f.state == "present" for fid, f in state.findings.items() if fid in anchors
+    )
+    restated = bool(result.chief_complaint) and any(
+        f.state == "present"
+        for fid, f in state.findings.items()
+        if fid in _anchors(criteria, category)
+    )
+    if category and category not in (current, GENERIC_CATEGORY) and (anchor_gone or restated):
+        state.complaint_history.append(
+            {"turn": turn, "category": current, "chief_complaint": state.chief_complaint}
+        )
+        state.complaint_category = category
+        state.chief_complaint = result.chief_complaint or None
+    elif anchor_gone and result.chief_complaint and result.chief_complaint != state.chief_complaint:
+        # Same template, but the complaint text the nurse/HIS see was just
+        # retracted ("ไม่ได้ปวดท้องแล้ว แต่จุกๆ") — keep the summary honest.
+        state.complaint_history.append(
+            {"turn": turn, "category": current, "chief_complaint": state.chief_complaint}
+        )
+        state.chief_complaint = result.chief_complaint
+
+
 def _apply(state, criteria, result: ExtractionResult, user_text: str = "") -> None:
     turn = state.turn_count
+    state.pending_retraction = []
     if result.chief_complaint and not state.chief_complaint:
         state.chief_complaint = result.chief_complaint
-    if result.complaint_category:
-        known = {t.category for t in criteria.complaint_templates}
-        # routing-only categories (no bespoke template) are also legal
-        known |= {e.complaint_category for e in criteria.routing_table}
-        category = (
-            result.complaint_category
-            if result.complaint_category in known
-            else _closest_category(result.complaint_category, known)
-        )
-        if category and not state.complaint_category:
-            state.complaint_category = category
-    # Keyword net: a missing or generic category is upgraded when the
-    # utterance matches exactly one category's criteria keywords, so the
-    # specific red-flag screen (e.g. BEFAST) runs.
-    if user_text and state.complaint_category in (None, "", "generic"):
-        keyword_category = _keyword_category(user_text, criteria)
-        if keyword_category:
-            state.complaint_category = keyword_category
 
     measured_temp = effective_vitals(state).get("temp")
     # Findings the pending question explicitly checks: answering it (chip tap
@@ -241,6 +300,8 @@ def _apply(state, criteria, result: ExtractionResult, user_text: str = "") -> No
     pending = _pending_question(state, criteria)
     pending_fids = set(pending.finding_ids) if pending is not None else set()
     normalized_text = _normalize_for_evidence(user_text)
+    critical = critical_finding_ids(criteria)
+    flipped_absent: set[str] = set()  # present before this turn, absent now
     for update in result.finding_updates:
         if update.id in criteria.finding_catalog:
             if (
@@ -251,6 +312,17 @@ def _apply(state, criteria, result: ExtractionResult, user_text: str = "") -> No
             ):
                 continue  # the booth thermometer outranks chat extraction
             previous = state.findings.get(update.id)
+            if previous is not None and previous.state == "present" and update.state == "absent":
+                flipped_absent.add(update.id)
+                # A confirmed critical finding retracted in free text (not as
+                # the answer to its own question): the graph asks the verbatim
+                # confirm once before the retraction stands down a rule.
+                if (
+                    previous.confirmed
+                    and update.id not in pending_fids
+                    and update.id in critical
+                ):
+                    state.pending_retraction.append(update.id)
             evidence = (update.evidence or "").strip() or None
             state.findings[update.id] = Finding(
                 state=update.state, value=update.value, source_turn=turn,
@@ -270,6 +342,7 @@ def _apply(state, criteria, result: ExtractionResult, user_text: str = "") -> No
                     else None
                 ),
             )
+    _apply_category(state, criteria, result, user_text, flipped_absent)
     for slot, value in result.slot_updates.items():
         if slot in OLDCARTS_SLOTS and value and str(value).strip():
             state.slots[slot] = str(value).strip()
@@ -281,8 +354,9 @@ def _apply(state, criteria, result: ExtractionResult, user_text: str = "") -> No
         "pain_score": result.pain_score,
         "distress_score": result.distress_score,
         # A booth reading outranks speech, so don't even offer a spoken temp
-        # when the thermometer already spoke.
+        # (or a home-oximeter number) when the instrument already spoke.
         "temp": result.temperature_c if "temp" not in state.measured_vitals else None,
+        "spo2": result.spo2_percent if "spo2" not in state.measured_vitals else None,
     }
     accepted, rejected = check_vitals(
         {k: v for k, v in spoken.items() if v is not None}, criteria
@@ -300,7 +374,9 @@ def _apply(state, criteria, result: ExtractionResult, user_text: str = "") -> No
         state.vitals[name] = value
     for name in ("pain_score", "distress_score"):
         if name in accepted:
-            state.slots.setdefault("severity", str(int(accepted[name])))
+            # Assignment, not setdefault: "I meant 4, not 7" must replace the
+            # text the first answer left here, or the nurse summary keeps 7.
+            state.slots["severity"] = str(int(accepted[name]))
     apply_objective_findings(state)
 
 

@@ -1,6 +1,6 @@
 """Mock HIS adapter for development and demo environments.
 
-Accepts every visit and logs write-backs instead of sending them. Use
+Accepts every HN and logs write-backs instead of sending them. Use
 ``HttpHisAdapter`` (his_mode="http") to exercise the real integration
 against the hospital HIS or the standalone ``hospital-his-mock`` service.
 """
@@ -10,7 +10,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from .adapter import AssignmentResult, PatientHistory, VisitInfo
+from .adapter import AssignmentResult, PatientHistory, PatientInfo
 
 logger = logging.getLogger(__name__)
 
@@ -19,19 +19,19 @@ class MockHisAdapter:
     def __init__(self) -> None:
         self._queue_seq = 0
 
-    async def validate_visit(self, visit_id: str) -> VisitInfo | None:
-        if not visit_id.strip():
+    async def validate_patient(self, hn: str) -> PatientInfo | None:
+        if not hn.strip():
             return None
-        return VisitInfo(
-            visit_id=visit_id.strip(),
-            is_active=True,
+        return PatientInfo(
+            hn=hn.strip(),
             patient_name="Mock Patient",
             patient_history=PatientHistory(is_first_time=True),
+            current_visit=None,  # no VN passthrough — write-backs go HN-only
             raw={"source": "mock"},
         )
 
-    async def push_referral(self, referral: dict[str, Any]) -> bool:
-        logger.info("[MockHIS] stage-1 referral push: %s", referral)
+    async def push_prescreen(self, prescreen: dict[str, Any]) -> bool:
+        logger.info("[MockHIS] stage-1 prescreen push: %s", prescreen)
         return True
 
     async def push_patient_history(self, hn: str, history: dict[str, Any]) -> bool:
@@ -42,24 +42,20 @@ class MockHisAdapter:
         logger.info("[MockHIS] patient gender push hn=%s gender=%s", hn, gender)
         return True
 
-    async def push_follow_up(self, visit_id: str, follow_up: str) -> bool:
-        logger.info(
-            "[MockHIS] follow-up push visit=%s text=%s", visit_id, follow_up
-        )
-        return True
-
     async def confirm_routing(
         self,
-        visit_id: str,
+        visit_id: str | None,
         *,
         request_id: str,
-        assign_spid: str,
+        hn: str | None,
+        base_department_id: str,
         sbar: dict[str, str | None] | None = None,
+        mfu_prescreen: dict[str, Any] | None = None,
     ) -> AssignmentResult:
         self._queue_seq += 1
         logger.info(
-            "[MockHIS] assignment visit=%s spid=%s request_id=%s sbar=%s",
-            visit_id, assign_spid, request_id, bool(sbar),
+            "[MockHIS] assignment hn=%s visit=%s dept=%s request_id=%s sbar=%s mfu=%s",
+            hn, visit_id, base_department_id, request_id, bool(sbar), bool(mfu_prescreen),
         )
         # A plausible queue number so HIS_MODE=mock demos still show the nurse
         # something to hand the patient.

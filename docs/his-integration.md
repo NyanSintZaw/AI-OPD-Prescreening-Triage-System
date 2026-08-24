@@ -16,7 +16,24 @@ in `hospital-his-mock/sample_visits.csv`. All figures below are from that
 
 ---
 
+> Runnable form of every call below: `postman/HIS Integration (Data Requirements V1).postman_collection.json` (generated; MFU extensions tagged per request).
+
 ## 0. What we READ vs what/when we WRITE (the demo's core model)
+
+> **HN-first (2026-08-20).** The hospital's own *Data Requirements
+> Specification V1* (2026-08-11, repo-root PDF) is now the contract the mock
+> `/api/v1/*` family and `HttpHisAdapter` implement. The kiosk flow starts
+> from the patient's **HN** (Thai citizens keep a stable HN; foreigners get
+> a new HN each visit, so a VN can never be the entered identity):
+> `GET /api/v1/patients/{hn}` returns demographics, split history
+> (`smoking` / `alcohol`, `post_surgeries`), `last_vitals` (the contract's
+> own `hight` spelling) and a `current_visit` extension — the VN
+> passthrough both write-backs carry as data, never identity. Stage 2 sends
+> `base_department_id` (department granularity; the hospital picks the
+> service point itself) plus the structured `mfu_prescreen` block (triage
+> level on MOPH-5, vitals with per-vital provenance, confirmer, source
+> refs). `GET /api/v1/visits/{visit_id}` still exists but nothing in the
+> booth flow calls it.
 
 The mock hospital DB (`hospital-his-mock`, a faithful mirror of the
 `Prescreen` export) starts each visit in its **post-registration,
@@ -49,26 +66,28 @@ Status the demo shows on the admin **Hospital DB** tab: `registered` →
 
 ---
 
-## 0.1 HN (patient) master record — Phase 1 of the backend/AI plan
+## 0.1 HN (patient) master record — now the PRIMARY identity
 
 > See [`meeting-2026-07-17-backend-ai-plan.md`](meeting-2026-07-17-backend-ai-plan.md)
 > §4.1/§5 (Phase 1) for the full design; this is the short "what shipped"
 > note.
 
-The mock HIS's `patients` table (HN — hospital number) is now wired up
-alongside `visits` (VN — visit number). Every visit's `hnx` links to a
-`patients` row holding demographics, booth-collected history
-(smoking/alcohol, allergies, chronic conditions, past surgeries, family
-history), and the last-known weight/height — so a return visit's booth can
-skip re-asking for history/vitals it already has on file.
+The mock HIS's `patients` table (HN — hospital number) is the identity the
+patient enters at the booth; `visits` (VN) rows ride along as write-back
+plumbing. Every visit's `hnx` links to a `patients` row holding
+demographics, booth-collected history (smoking, alcohol, allergies, chronic
+conditions, post surgeries, family history — Data Requirements V1 §1.3
+field names), and the last-known weight/height — so a return visit's booth
+can skip re-asking for history/vitals it already has on file.
 
-- **`GET /api/visits/{visit_id}`** now also emits an `"hn"` key (an alias of
-  `"hnx"`, fixing the naming mismatch `HttpHisAdapter` used to read — the
-  real hospital HIS's field name is still an open question, see the backend/AI
-  plan §6 item 1) and a nested `"patient"` object with that HN's history/last
-  vitals, so one round trip gives the app everything it needs.
-- **`GET /api/patients/{hn}`**, **`PUT /api/patients/{hn}/history`**,
-  **`PUT /api/patients/{hn}/vitals`** — read/write the HN record directly.
+- **`GET /api/v1/patients/{hn}`** is the booth's single identity read
+  (`HttpHisAdapter.validate_patient`): demographics (birthdate → age,
+  gender — our extension, V1 has no gender field), split history,
+  `last_vitals` and `current_visit {visit_id, appointment} | null` (the
+  newest routable visit — our extension; V1's own lookup is by VN, which we
+  deliberately do not use). The real field name question is settled: `hn`.
+- **`PUT /api/v1/patients/{hn}/history`** (fill-only, never overwrites),
+  legacy **`GET/PUT /api/patients/{hn}/…`** — read/write the HN record.
   `is_first_time` is `true` iff `history_recorded_at IS NULL`.
 - `hospital-his-mock/sample_patients.csv` seeds 8 synthetic patients matching
   `sample_visits.csv`'s HNs — half first-time, half returning — so the demo
@@ -76,13 +95,16 @@ skip re-asking for history/vitals it already has on file.
   gets a bare first-time patient record auto-created on startup.
 - `POST /api/admin/reset` takes an optional `reset_history: true` to also
   wipe the affected patients back to first-time, for repeatable demos.
-- On the triage-app side, `HisAdapter.push_referral`'s Stage-1 write-back is
-  visit-scoped and unchanged. `VisitInfo` (`app/services/screening/his/adapter.py`)
-  gained an optional `patient_history: PatientHistory | None` field parsed
-  from the nested `"patient"` object, and adapters gained
-  `push_patient_history(hn, history)`. **This is plumbing only** — nothing
-  yet reads `patient_history` into session metadata or the screening engine;
-  that's a later phase (first-time-patient history intake) per the plan.
+- On the triage-app side, identity lives in `sessions.metadata.patient`
+  (`{hn, visit_id (nullable passthrough), patient_name, birthdate,
+  age_years, gender, appointment, linked_at, name_confirmed}`), written by
+  `POST /sessions/{id}/link-patient`; resume lookup is
+  `GET /sessions/by-hn/{hn}` (12h window, newest of possibly many sessions
+  per HN). Stage 1 = `HisAdapter.push_prescreen` (V1 §4.3 body; skips with
+  reason `no_bp` when the patient refused the cuff); Stage 2 =
+  `confirm_routing(visit_id|None, request_id, hn, base_department_id, sbar,
+  mfu_prescreen)`. The BP rest window (`bp_rest_windows`) is keyed by HN
+  only.
 
 ---
 

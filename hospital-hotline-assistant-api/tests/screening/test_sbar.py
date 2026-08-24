@@ -8,7 +8,7 @@ from app.services.screening.his.sbar import build_sbar, disposition_reason_texts
 
 METADATA = {
     "slip_code": "MCH-A1B2-C3D4",
-    "visit": {"visit_id": "VN-1", "age_years": 58},
+    "patient": {"hn": "09900001", "visit_id": "VN-1", "age_years": 58},
     "vitals": {
         "systolic": 158, "diastolic": 94, "pulse_bpm": 96,
         "temperature": 36.8, "weight_kg": 72.5, "height_cm": 165,

@@ -4,9 +4,15 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from .adapter import AssignmentResult, HisAdapter, PatientHistory, VisitInfo
-from .department_map import his_department_name, his_service_point
-from .http_adapter import HttpHisAdapter, his_auth_headers
+from .adapter import (
+    AssignmentResult,
+    CurrentVisit,
+    HisAdapter,
+    PatientHistory,
+    PatientInfo,
+)
+from .department_map import his_department_id, his_department_name
+from .http_adapter import HttpHisAdapter, his_auth_headers, pdf_vitals
 from .mock import MockHisAdapter
 
 if TYPE_CHECKING:
@@ -14,14 +20,16 @@ if TYPE_CHECKING:
 
 __all__ = [
     "AssignmentResult",
+    "CurrentVisit",
     "HisAdapter",
-    "VisitInfo",
+    "PatientInfo",
     "PatientHistory",
     "MockHisAdapter",
     "HttpHisAdapter",
     "his_auth_headers",
+    "his_department_id",
     "his_department_name",
-    "his_service_point",
+    "pdf_vitals",
     "build_his_adapter",
 ]
 

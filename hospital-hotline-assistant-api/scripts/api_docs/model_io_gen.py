@@ -10,12 +10,12 @@ import json
 from pathlib import Path
 from typing import Any
 
-from model_io import BILINGUAL_CALLS, WITHHELD, calls, openai_body, openai_response
+from model_io import BILINGUAL_CALLS, WITHHELD, calls, openai_body, openai_response, speech_calls
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 DOC_PATH = REPO_ROOT / "docs" / "ai-model-io.md"
 
-MODEL_NAME = "{{aiModelName}}"
+MODEL_NAME = "{{LLM_MODEL}}"
 
 HEADER = """# What we send to the AI model, and what comes back
 
@@ -52,36 +52,77 @@ identifier never leaves the building, and there is no third party holding a
 transcript. Redacting what we control is worth doing; it is not what makes
 this safe.
 
-## Where the model sits
+## Where the AI side sits
 
 ```
-kiosk ──audio──> booth backend ──HTTP──> model server (hospital workstation)
-                      │                  OpenAI-compatible /v1/chat/completions
-                      │                  vLLM or Ollama, weights on local disk
+kiosk ──audio──> booth backend ──HTTP──> AI workstation (hospital LAN)
+                      │                  /v1/chat/completions   LLM (vLLM / Ollama)
+                      │                  /v1/audio/transcriptions  STT (Whisper)
+                      │                  /v1/audio/speech          TTS
                       ├── rules engine   ← decides the triage level + department
+                      ├── pgvector       ← RAG embeddings, computed locally (no network)
                       └── Postgres       ← state, audit
 ```
 
-The model is reached through `model_adapter.py`, which is a config switch,
-not a code path: `SCREENING_MODEL_PROVIDER=openai_compatible` plus
-`SCREENING_OPENAI_BASE_URL=http://<workstation>:8000/v1`. Nothing in the
-engine knows which backend answered.
+Today the stack runs on Google (Gemini via Vertex, Cloud STT/TTS). The
+deployment target is the workstation above, and it is reached through
+config only — no code path changes:
+
+### The endpoint contract (`.env`)
+
+| Setting | Value on the workstation | Notes |
+|---|---|---|
+| `SCREENING_MODEL_PROVIDER` | `openai_compatible` | `vertexai` = Gemini (current) |
+| `SCREENING_OPENAI_BASE_URL` | `http://<workstation>:8000/v1` | **required** for this provider — startup fails rather than falling back to api.openai.com |
+| `SCREENING_OPENAI_API_KEY` | optional | sent as `Authorization: Bearer` if set |
+| `SCREENING_MODEL_NAME` | the served model id (e.g. `Qwen2.5-7B-Instruct`, `typhoon2-8b`) | default is a Gemini id — must be overridden |
+| `SCREENING_MODEL_TIMEOUT_S` | `30` | per call; every call is also wrapped in `ainvoke_with_timeout` |
+| `STT_PROVIDER` / `STT_BASE_URL` / `STT_MODEL` | `openai_compatible` / `http://<workstation>:8000/v1` / `whisper-large-v3` | `POST /audio/transcriptions`, multipart |
+| `TTS_PROVIDER` / `TTS_BASE_URL` / `TTS_MODEL` | `openai_compatible` / `http://<workstation>:8000/v1` / server's TTS model | `POST /audio/speech`, wants `wav` at 24 kHz |
+| `TTS_LOCAL_VOICE_TH` / `TTS_LOCAL_VOICE_EN` | voice ids the TTS server exposes | |
+| `SPEECH_HTTP_TIMEOUT_S` | `30` | |
+
+**What the LLM server must support:** the four chat calls are structured
+(`with_structured_output`), which on an OpenAI-compatible server means
+`response_format: {{type: json_schema}}` or tool calling. vLLM supports both;
+a bare Ollama `/v1` is less reliable — run the `AI Model (local inference)`
+Postman collection against the server before go-live; it sends the exact
+bodies below.
 
 **Requests carry no session id, no auth identity, and no cookies** — each
 call is a standalone completion. The server needs no state between turns and
 keeps nothing that could be joined back to a patient.
 
-## What is audited
+## What leaves the backend, per call
+
+| Call | What is sent | Identity class | Proven by |
+|---|---|---|---|
+| extraction | criteria catalog, pending question, chief complaint, **the utterance verbatim** | patient free text | `test_no_pii_in_prompts` |
+| question | persona, last 2 exchanges (our lines with the name masked to `[NAME]`), chief complaint, known answers, the approved question | patient free text | `test_no_pii_in_prompts::test_recent_turns_mask…` |
+| explain | persona, symptom summary, department, urgency, manual passages (RAG), `[NAME]` placeholder | patient free text | `test_no_pii_in_prompts` |
+| gate:* | one short utterance + session language | patient free text | `test_no_pii_in_prompts` |
+| surveillance | complaint category, present findings + values, slot answers — **not the transcript** | clinical findings only | `test_surveillance_extractor`, `test_no_pii_in_prompts` |
+| STT | the turn's audio | **raw voice** | — (inherent) |
+| TTS | the reply text, greeting includes the given name | **name** | — (inherent) |
+| RAG embeddings | symptom summary → local HuggingFace model | never leaves the process | `rag_query.py` |
+
+"Patient free text" means: whatever the patient chose to say. A name spoken
+aloud goes through. That is the residual that only local hosting removes.
+
+## What is stored
 
 `ai_inference_audit` records the call site, model name, prompt version,
-latency, whether it succeeded, the rules trace and any validator violations.
-**It does not store prompts or completions** — so the audit trail can be read
-by staff without exposing what a patient said.
+latency, whether it succeeded, the rules trace (finding ids, slot answers,
+rule ids, RAG page hits) and any validator violations. **It does not store
+prompts or completions.** The session state (`screening_sessions`) keeps the
+findings with their evidence quotes and the symptom summary — at rest in the
+hospital's own Postgres, shown to the nurse, never sent anywhere.
 
 ## The calls
 
-One turn makes one extraction call, then either a paraphrase or an
-explanation. Gates fire only when the deterministic classifier is unsure.
+One turn makes one extraction call, then either a question render or an
+explanation. Gates fire only when the deterministic classifier is unsure;
+surveillance runs once per completed session.
 Every call is bounded by `ainvoke_with_timeout`; a timeout falls back to
 deterministic behaviour rather than blocking the booth.
 
@@ -136,18 +177,27 @@ def build_markdown() -> str:
             parts.append(f"\n{call['post']}\n")
         parts.append("")
 
+    parts.append("## The speech calls\n")
+    for call in speech_calls():
+        parts.append(f"### {call['title']}\n")
+        parts.append(f"**When:** {call['when']}  \n**Carries:** {call['carries']}\n")
+        parts.append(_fence(call["request"]))
+        parts.append("\n**Reply:**\n")
+        parts.append(_fence(call["response"], "json" if isinstance(call["response"], dict) else "text"))
+        parts.append("")
+
     parts.append("## Running it against a workstation\n")
     parts.append(
         "The `AI Model (local inference)` Postman collection carries every "
-        "call above as a real `POST /v1/chat/completions`. Point "
-        "`aiModelBaseUrl` at the workstation and they run as-is — the same "
-        "bytes the booth sends.\n"
+        "call above as real requests. Set `LLM_BASE_URL` in the environment "
+        "to the workstation and they run as-is — the same bytes the booth "
+        "sends.\n"
     )
     return "\n".join(parts)
 
 
 def build_postman_items() -> list[dict[str, Any]]:
-    """Postman v2.1 items; the generator converts the collection to v3."""
+    """Postman v2.1 items for the AI Model collection."""
     from postman_gen import JSON_HDR, example_response, pm_url
 
     items = []
@@ -161,7 +211,7 @@ def build_postman_items() -> list[dict[str, Any]]:
         request = {
             "method": "POST",
             "header": JSON_HDR,
-            "url": pm_url("/chat/completions", "aiModelBaseUrl"),
+            "url": pm_url("/chat/completions", "LLM_BASE_URL"),
             "body": {
                 "mode": "raw",
                 "raw": json.dumps(body, ensure_ascii=False, indent=2),
@@ -185,5 +235,26 @@ def build_postman_items() -> list[dict[str, Any]]:
                     None,
                 )
             ],
+        })
+    for call in speech_calls():
+        path = "/audio/transcriptions" if call["id"] == "stt" else "/audio/speech"
+        req = call["request"]
+        if "multipart" in req:
+            body = {"mode": "formdata", "formdata": [
+                {"key": k, "value": v, "type": "file" if k == "file" else "text"}
+                for k, v in req["multipart"].items()
+            ]}
+            header = []
+        else:
+            body = {"mode": "raw", "raw": json.dumps(req["json"], ensure_ascii=False, indent=2),
+                    "options": {"raw": {"language": "json"}}}
+            header = JSON_HDR
+        items.append({
+            "name": call["id"],
+            "request": {
+                "method": "POST", "header": header,
+                "url": pm_url(path, "LLM_BASE_URL"), "body": body,
+                "description": f"**{call['title']}**\n\n{call['when']}\n\nCarries: {call['carries']}.",
+            },
         })
     return items

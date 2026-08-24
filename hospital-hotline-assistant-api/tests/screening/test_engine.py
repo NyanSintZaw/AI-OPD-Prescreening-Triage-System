@@ -136,6 +136,9 @@ async def test_cough_interview_loop_to_general_opd(criteria):
     r = await turn("no chest pain", ext(findings={"chest_pain": "absent"}))
     r = await turn("no fever", ext(findings={"fever": "absent", "high_fever": "absent"}))
     assert r["classification"] == {}
+    # dc_retraction: the SpO2 90–94% danger band is gated on it.
+    r = await turn("no, nothing pulls in", ext(findings={"retraction": "absent"}))
+    assert r["classification"] == {}
     # temp is a standard booth vital in every template (MFU manual: all
     # outpatients), requested even after a fever denial, before BP.
     assert r.get("awaiting_measurement") == "temp"

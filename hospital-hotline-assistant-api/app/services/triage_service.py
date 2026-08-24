@@ -106,14 +106,14 @@ def _turn_context(metadata: dict[str, Any]) -> dict[str, Any] | None:
     from app.services.screening.history_findings import history_dict_from_metadata
 
     ctx: dict[str, Any] = {}
-    visit = metadata.get("visit") or {}
-    age = visit.get("age_years")
+    patient = metadata.get("patient") or {}
+    age = patient.get("age_years")
     if isinstance(age, (int, float)) and age >= 0:
         ctx["age_years"] = age
-    patient_name = str(visit.get("patient_name") or "").strip()
+    patient_name = str(patient.get("patient_name") or "").strip()
     if patient_name:
         ctx["patient_name"] = patient_name
-    gender = visit.get("gender")
+    gender = patient.get("gender")
     if gender in ("male", "female"):
         ctx["gender"] = gender
     vitals = dict(metadata.get("vitals") or {})
@@ -359,19 +359,21 @@ class TriageService:
                     latency_ms,
                 )
 
+            # The turn holds a snapshot taken before the LLM call (seconds).
+            # A device reading (cuff / thermometer / oximeter) can land in
+            # that window, so merge at the DB and never write our stale copy
+            # of `vitals` — the turn only reads it, never changes it.
             existing_metadata = dict(prior_metadata)
             existing_metadata["triage_classification"] = classification
             if isinstance(patient_follow_up, str) and patient_follow_up.strip():
+                # Reaches the HIS inside sbar.documentation at nurse confirm
+                # (Stage 2) — never pushed on its own before sign-off.
                 existing_metadata["patient_follow_up"] = patient_follow_up.strip()
-                await self._maybe_push_follow_up(
-                    metadata=existing_metadata,
-                    text=patient_follow_up.strip(),
-                )
 
             await connection.execute(
                 """
                 UPDATE sessions
-                SET metadata = $2::jsonb
+                SET metadata = metadata || ($2::jsonb - 'vitals')
                 WHERE id = $1
                 """,
                 session_id,
@@ -636,12 +638,19 @@ class TriageService:
             existing_metadata["escalation_reason"] = (
                 severity_explanation or "Emergency triage match"
             )
+        # Was the explanation grounded in the uploaded triage manual? The
+        # explain node records it in its audit entry; copy it onto the
+        # session so the nurse review can say "grounded, manual p.12" vs
+        # "not grounded (no manual uploaded)" without reading the trace.
+        for entry in adk_result.get("audit") or []:
+            if entry.get("call_site") == "explain" and isinstance(entry.get("rag"), dict):
+                existing_metadata["rag_grounding"] = entry["rag"]
 
         # Stage-1 HIS write-back: once a linked visit reaches a terminal
         # disposition, push the pending pre-screening result to the hospital
         # (recommended dept, complaint, vitals, reasons). Best-effort — never
         # blocks or fails the patient turn; status recorded for the nurse view.
-        await self._maybe_push_referral(
+        await self._maybe_push_prescreen(
             metadata=existing_metadata,
             session_id=session_id,
             severity_level=severity_level,
@@ -659,7 +668,7 @@ class TriageService:
         await connection.execute(
             """
             UPDATE sessions
-            SET metadata = $2::jsonb
+            SET metadata = metadata || ($2::jsonb - 'vitals')
             WHERE id = $1
             """,
             session_id,
@@ -698,28 +707,6 @@ class TriageService:
         )
         return result, dict(msg_assistant)
 
-    async def _maybe_push_follow_up(
-        self,
-        *,
-        metadata: dict[str, Any],
-        text: str,
-    ) -> None:
-        """Best-effort HIS write-back of the patient's post-disposition note."""
-
-        visit = metadata.get("visit") or {}
-        visit_id = visit.get("visit_id")
-        if not visit_id or not text:
-            return
-        try:
-            ok = await self.his_adapter.push_follow_up(str(visit_id), text)
-            metadata["his_follow_up"] = {
-                "status": "pushed" if ok else "failed",
-                "text": text,
-            }
-        except Exception as exc:
-            logger.warning("HIS push_follow_up failed: %s", exc)
-            metadata["his_follow_up"] = {"status": "error", "text": text}
-
     async def _maybe_push_gender(
         self,
         *,
@@ -732,11 +719,11 @@ class TriageService:
         push can never overwrite hospital data. Best-effort like every other
         HIS write."""
 
-        visit = metadata.get("visit") or {}
-        hn = visit.get("hn")
+        patient = metadata.get("patient") or {}
+        hn = patient.get("hn")
         if not hn or gender not in ("male", "female"):
             return
-        if visit.get("gender") in ("male", "female"):
+        if patient.get("gender") in ("male", "female"):
             return  # the HIS already knows — nothing to fill
         try:
             ok = bool(await self.his_adapter.push_patient_gender(str(hn), gender))
@@ -744,10 +731,10 @@ class TriageService:
             logger.exception("HIS push_patient_gender failed hn=%s", hn)
             ok = False
         if ok:
-            # Remember it on the visit so later turns don't re-push.
-            metadata["visit"] = {**visit, "gender": gender}
+            # Remember it on the patient link so later turns don't re-push.
+            metadata["patient"] = {**patient, "gender": gender}
 
-    async def _maybe_push_referral(
+    async def _maybe_push_prescreen(
         self,
         *,
         metadata: dict[str, Any],
@@ -759,48 +746,59 @@ class TriageService:
     ) -> None:
         """Stage-1 HIS write-back (mutates ``metadata`` with the result).
 
-        Fires once per session, only when a visit is linked and the turn
-        produced a terminal disposition. Any HIS error is swallowed so the
-        patient flow is never affected; the recorded status lets a nurse
+        Fires once per session, only when a patient (HN) is linked and the
+        turn produced a terminal disposition. Any HIS error is swallowed so
+        the patient flow is never affected; the recorded status lets a nurse
         (or a later retry) see it did not sync.
+
+        The prescreen the adapter sends is objective data only (Data
+        Requirements V1 §4.3) — the department/complaint/reasons recorded
+        here stay in OUR metadata for the nurse review and never reach the
+        hospital until Stage 2.
         """
         from app.services.screening.his import his_department_name
 
-        visit = metadata.get("visit") or {}
-        visit_id = visit.get("visit_id")
-        if not visit_id:
+        patient = metadata.get("patient") or {}
+        hn = patient.get("hn")
+        if not hn:
             return
         if severity_level in (None, "unknown") or not department_code:
             return  # still interviewing — not a terminal disposition
-        already = metadata.get("his_referral") or {}
+        already = metadata.get("his_prescreen") or {}
         if already.get("status") == "pushed":
             return  # don't re-push on repeat/post-completion turns
 
-        reasons = _disposition_reason_texts(classification)
+        vitals = metadata.get("vitals") or {}
+        if vitals.get("systolic") is None and vitals.get("diastolic") is None:
+            # V1 marks BP required; a patient may refuse the cuff. Never fake
+            # numbers — record the skip so the nurse sees it did not sync.
+            metadata["his_prescreen"] = {
+                "status": "skipped",
+                "reason": "no_bp",
+                "department_code": department_code,
+                "pushed_at": datetime.now(timezone.utc).isoformat(),
+            }
+            return
+
         his_department = his_department_name(department_code) or department_code
-        referral = {
-            "visit_id": visit_id,
+        prescreen = {
+            # VN passthrough when the HIS gave us one at link time; the HIS
+            # resolves the HN's active visit itself otherwise.
+            "visit_id": patient.get("visit_id"),
+            "hn": hn,
             "session_ref": session_id,
-            # Sent with the VN so the hospital can cross-check the pair.
-            "hn": visit.get("hn"),
             "slip_code": metadata.get("slip_code"),
-            "recommended_department": his_department,
-            "complaint": symptoms_summary,
-            # The routing reason (key_reason); published to the hospital
-            # record only at Stage 2 (nurse confirm), held pending until then.
-            "reason": classification.get("key_reason"),
-            "vitals": metadata.get("vitals") or {},
-            "reasons": reasons,
+            "vitals": vitals,
         }
         status = "pushed"
         try:
-            ok = await self.his_adapter.push_referral(referral)
+            ok = await self.his_adapter.push_prescreen(prescreen)
             if not ok:
                 status = "failed"
         except Exception:  # pragma: no cover - defensive: HIS must never break triage
             logger.exception("[session=%s] HIS stage-1 push raised", session_id)
             status = "failed"
-        metadata["his_referral"] = {
+        metadata["his_prescreen"] = {
             "status": status,
             "department_code": department_code,
             "his_department": his_department,
@@ -894,6 +892,7 @@ class TriageService:
                     adk_result["flow_complete"] = bool(event.get("flow_complete"))
                     adk_result["post_disposition"] = bool(event.get("post_disposition"))
                     adk_result["patient_follow_up"] = event.get("patient_follow_up")
+                    adk_result["audit"] = event.get("audit") or []
         except Exception as exc:
             yield {"type": "error", "message": f"agent_stream_failed: {exc}"}
             return

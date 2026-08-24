@@ -1,9 +1,0 @@
-$kind: http-request
-name: POST /admin/criteria/versions/{version_id}/activate
-description: |-
-  Activate an approved version. Activating a retired version = rollback.
-
-  **Roles:** super_admin, nurse
-url: "{{baseUrl}}/admin/criteria/versions/{{version_id}}/activate"
-method: POST
-order: 8000
