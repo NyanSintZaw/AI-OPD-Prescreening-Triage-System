@@ -2119,34 +2119,33 @@
 .k-facts {
   display: flex;
   width: 100%;
-  align-items: stretch;
-  gap: 0;
+  align-items: center;
+  justify-content: space-around;
+  gap: clamp(8px, 1.4vw, 20px);
   margin: 0;
-  padding: 0;
+  padding: clamp(9px, 1.1vh, 14px) clamp(12px, 1.6vw, 22px);
   list-style: none;
-  background: var(--k-surface);
-  border: 1px solid var(--k-border);
+  /* A tinted band, not a bordered table. Three equal bordered cells read as a
+     segmented control (i.e. tappable tabs), forced "Printed guidance slip" to
+     wrap, and gave metadata more weight than the buttons under it. */
+  background: var(--k-surface-tint);
+  border: none;
   border-radius: var(--k-r-md);
-  overflow: hidden;
 }
 
 .k-fact {
-  flex: 1 1 0;
+  /* content-sized, so nothing wraps and the cells are not equal thirds */
+  flex: 0 1 auto;
   min-width: 0;
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  gap: 9px;
-  padding: clamp(12px, 1.6vh, 18px) clamp(8px, 1vw, 16px);
-  border-left: 1px solid var(--k-border);
+  gap: 8px;
+  padding: 0;
+  border: none;
   font-size: var(--k-fs-caption);
   font-weight: 600;
   color: var(--k-ink-2);
-  text-align: center;
-}
-
-.k-fact:first-child {
-  border-left: none;
+  white-space: nowrap;
 }
 
 .k-fact-ico {
@@ -2401,51 +2400,89 @@
   .k-how-step { flex: 1 1 0; }
 }
 
-/* How-it-works walkthrough. The steps are demonstrated, not tracked: a soft
-   highlight travels 1 -> 2 -> 3 and returns to the start, so it reads as an
-   explainer looping rather than a progress bar claiming the patient has begun.
-   Nothing is ever marked "done" — no checkmarks, no completed state — which is
-   what would make it read as their progress. 2s per step, 6s cycle. */
+/* How-it-works walkthrough. The whole row is the spotlight, not a badge tint:
+   it slides forward on a tinted ground, the number fills and grows, the icon
+   brightens and grows with it, and the label darkens. Four properties moving
+   together on one timeline is what makes it read as a step rather than a
+   colour change. 2s per step, 6s cycle, then back to the start.
+
+   It stays a demonstration, never a progress bar: nothing is marked done, no
+   checkmarks, no completed state — so it cannot be read as the patient's own
+   progress. */
+@keyframes k-how-walk-row {
+  0%, 4% {
+    background-color: transparent;
+    transform: translateX(0);
+  }
+  11%, 25% {
+    background-color: var(--k-primary-tint);
+    transform: translateX(10px);
+  }
+  33%, 100% {
+    background-color: transparent;
+    transform: translateX(0);
+  }
+}
+
 @keyframes k-how-walk-dot {
   0%, 4% {
     background-color: var(--k-surface-tint);
     border-color: var(--k-border-strong);
     color: var(--k-ink-3);
+    transform: scale(1);
   }
-  10%, 26% {
+  11%, 25% {
     background-color: var(--k-primary);
     border-color: var(--k-primary);
     color: #fff;
+    transform: scale(1.14);
   }
-  32%, 100% {
+  33%, 100% {
     background-color: var(--k-surface-tint);
     border-color: var(--k-border-strong);
     color: var(--k-ink-3);
+    transform: scale(1);
   }
 }
 
-@keyframes k-how-walk-row {
+@keyframes k-how-walk-ico {
+  0%, 4%    { color: var(--k-ink-3); transform: scale(1); }
+  11%, 25%  { color: var(--k-primary-on-light); transform: scale(1.18); }
+  33%, 100% { color: var(--k-ink-3); transform: scale(1); }
+}
+
+@keyframes k-how-walk-label {
   0%, 4%    { color: var(--k-ink-2); }
-  10%, 26%  { color: var(--k-ink); }
-  32%, 100% { color: var(--k-ink-2); }
+  11%, 25%  { color: var(--k-ink); }
+  33%, 100% { color: var(--k-ink-2); }
 }
 
-.k-how-step .k-how-dot {
-  animation: k-how-walk-dot 6s var(--k-ease) infinite;
+.k-how-step {
+  /* room for the tinted ground the row slides onto */
+  padding: clamp(6px, 0.8vh, 10px) clamp(10px, 1.2vw, 16px);
+  border-radius: var(--k-r-sm);
+  animation:
+    k-how-in 260ms cubic-bezier(0.16, 1, 0.3, 1) both,
+    k-how-walk-row 6s var(--k-ease) infinite;
 }
 
-.k-how-step .k-how-name {
-  animation: k-how-walk-row 6s var(--k-ease) infinite;
-}
+.k-how-step .k-how-dot      { animation: k-how-walk-dot 6s var(--k-ease) infinite; }
+.k-how-step .k-how-name-ico { animation: k-how-walk-ico 6s var(--k-ease) infinite; }
+.k-how-step .k-how-name     { animation: k-how-walk-label 6s var(--k-ease) infinite; }
 
-.k-how-step--1 .k-how-dot, .k-how-step--1 .k-how-name { animation-delay: 0.9s; }
-.k-how-step--2 .k-how-dot, .k-how-step--2 .k-how-name { animation-delay: 2.9s; }
-.k-how-step--3 .k-how-dot, .k-how-step--3 .k-how-name { animation-delay: 4.9s; }
+.k-how-step--1 { animation-delay: 240ms, 0.9s; }
+.k-how-step--2 { animation-delay: 310ms, 2.9s; }
+.k-how-step--3 { animation-delay: 380ms, 4.9s; }
+
+.k-how-step--1 .k-how-dot, .k-how-step--1 .k-how-name-ico, .k-how-step--1 .k-how-name { animation-delay: 0.9s; }
+.k-how-step--2 .k-how-dot, .k-how-step--2 .k-how-name-ico, .k-how-step--2 .k-how-name { animation-delay: 2.9s; }
+.k-how-step--3 .k-how-dot, .k-how-step--3 .k-how-name-ico, .k-how-step--3 .k-how-name { animation-delay: 4.9s; }
 
 @media (prefers-reduced-motion: reduce) {
-  /* The steps are all legible at rest, so the travelling highlight simply stops. */
+  /* Every step is legible at rest, so the spotlight simply stops; the entrance
+     keeps its fade so the sequence still reads. */
+  .k-how-step { animation: k-how-in-still 260ms both; }
   .k-how-step .k-how-dot,
-  .k-how-step .k-how-name {
-    animation: none;
-  }
+  .k-how-step .k-how-name-ico,
+  .k-how-step .k-how-name { animation: none; }
 }

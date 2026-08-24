@@ -372,26 +372,6 @@ a:hover {
   background: var(--teal-50);
 }
 
-.nurse-ai-reasoning {
-  margin-top: 0.6rem;
-  font-size: 0.9rem;
-}
-
-.nurse-ai-reasoning summary {
-  cursor: pointer;
-  font-weight: 600;
-  color: var(--teal-700);
-}
-
-.nurse-ai-reasoning ul {
-  margin: 0.4rem 0 0;
-  padding-left: 1.2rem;
-}
-
-.nurse-ai-reasoning li {
-  margin-bottom: 0.25rem;
-}
-
 .triage-alert-note {
   margin-top: 0.35rem;
   color: var(--triage-1-strong);
@@ -1336,21 +1316,6 @@ a:hover {
   border-color: var(--color-primary);
 }
 
-.nurse-dept-filter {
-  min-height: 42px;
-  max-width: 240px;
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius-sm);
-  padding: 0 0.85rem;
-  font: inherit;
-  background: var(--surface-page);
-}
-
-.nurse-dept-filter:focus {
-  outline: 2px solid var(--teal-400);
-  border-color: var(--color-primary);
-}
-
 .chip-group {
   display: inline-flex;
   align-items: center;
@@ -1851,85 +1816,6 @@ a:hover {
   padding: 0.6rem 0.85rem;
 }
 
-.admin-review-section,
-.admin-feedback-section {
-  background: var(--surface-card);
-  border: 2px solid var(--border-default);
-  border-radius: var(--radius-md);
-  padding: 1rem;
-  box-shadow: var(--shadow-md);
-}
-
-.admin-review-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 0.75rem;
-  margin-bottom: 0.75rem;
-}
-
-.admin-review-header h2,
-.admin-feedback-section h2 {
-  margin: 0;
-  font-size: 1.1rem;
-}
-
-.admin-auth-info {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-size: 0.85rem;
-}
-
-.admin-login-form {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 0.75rem;
-  align-items: end;
-}
-
-.admin-login-form label {
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
-  font-size: 0.85rem;
-}
-
-.admin-login-form input,
-.admin-review-actions input,
-.admin-review-actions select {
-  min-height: 40px;
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--border-strong);
-  padding: 0 0.65rem;
-  font: inherit;
-}
-
-.admin-review-list {
-  display: grid;
-  gap: 0.65rem;
-  margin-top: 0.75rem;
-}
-
-.admin-review-item {
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-sm);
-  padding: 0.75rem;
-}
-
-.admin-review-item-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.admin-review-actions {
-  display: grid;
-  grid-template-columns: 120px minmax(180px, 1fr) minmax(220px, 1fr) 140px;
-  gap: 0.5rem;
-}
-
 @media (max-width: 1024px) {
   .admin-review-actions {
     grid-template-columns: 1fr;
@@ -2126,7 +2012,6 @@ a:hover {
   }
 
 
-
   .language-switcher-header {
     gap: 0.35rem;
   }
@@ -2180,7 +2065,6 @@ a:hover {
     text-align: center;
   }
 }
-
 
 
 @media (min-width: 1200px) {
@@ -2409,160 +2293,6 @@ a:hover {
   padding: 0;
 }
 
-.nurse-page .admin-review-list {
-  margin-top: 1rem;
-}
-
-/* ═══════════════════════════════════════════════
-   Nurse Review Cards — Premium design
-   ═══════════════════════════════════════════════ */
-
-.nurse-review-list {
-  display: flex;
-  flex-direction: column;
-  gap: 0.85rem;
-}
-
-/* ── Card shell ── */
-.nurse-review-card {
-  background: var(--surface-card);
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-md);
-  padding: 1rem 1.15rem;
-  box-shadow: var(--shadow-md);
-  position: relative;
-  overflow: hidden;
-  transition: box-shadow 0.25s ease, border-color 0.25s ease;
-}
-
-.nurse-review-card::before {
-  content: '';
-  position: absolute;
-  inset: 0 auto 0 0;
-  width: 4px;
-  background: var(--status-warning);
-  transition: background 0.2s ease;
-}
-
-.nurse-review-card.review-approved::before {
-  background: var(--status-success);
-}
-
-.nurse-review-card.review-corrected::before {
-  background: var(--color-primary);
-}
-
-.nurse-review-card.review-pending::before {
-  background: var(--status-warning);
-}
-
-.nurse-review-card:hover {
-  border-color: var(--border-strong);
-  box-shadow: var(--shadow-lg);
-}
-
-/* ── Card header ── */
-.nurse-card-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-  flex-wrap: wrap;
-}
-
-.nurse-card-header-left {
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-}
-
-.nurse-session-code {
-  font-size: 0.8rem;
-  background: var(--surface-sunken);
-  color: var(--teal-700);
-  padding: 0.15rem 0.5rem;
-  border-radius: var(--radius-sm);
-  font-family: monospace;
-  letter-spacing: 0.02em;
-  overflow-wrap: anywhere;
-}
-
-/* ── View conversation button ── */
-.nurse-conv-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.45rem;
-  padding: 0.4rem 0.85rem;
-  font: inherit;
-  font-size: 0.82rem;
-  font-weight: 500;
-  color: var(--color-primary);
-  background: var(--teal-50);
-  border: 1px solid var(--teal-100);
-  border-radius: 999px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  white-space: nowrap;
-}
-
-.nurse-conv-btn:hover {
-  background: var(--teal-100);
-  border-color: var(--color-primary);
-  color: var(--teal-700);
-}
-
-/* ── Department info row ── */
-.nurse-card-dept {
-  display: flex;
-  align-items: center;
-  gap: 0.45rem;
-  margin-top: 0.65rem;
-  font-size: 0.88rem;
-  flex-wrap: wrap;
-}
-
-.nurse-card-dept-label {
-  font-size: 0.72rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: var(--text-muted);
-}
-
-.nurse-card-dept-value {
-  color: var(--text-body);
-  font-weight: 500;
-}
-
-.nurse-card-dept-arrow {
-  color: var(--text-muted);
-  font-size: 0.8rem;
-}
-
-.nurse-card-dept-corrected {
-  color: var(--color-primary);
-  font-weight: 600;
-}
-
-.nurse-card-summary-grid,
-.nurse-card-meta-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0.65rem;
-  margin-top: 0.75rem;
-}
-
-.nurse-card-meta-item {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-  min-width: 0;
-  padding: 0.65rem 0.75rem;
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-sm);
-  background: var(--surface-card);
-}
-
 @media (max-width: 768px) {
   .nurse-card-summary-grid,
   .nurse-card-meta-grid {
@@ -2570,143 +2300,10 @@ a:hover {
   }
 }
 
-/* ── Reviewed at info ── */
-.nurse-card-reviewed-at {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  margin-top: 0.35rem;
-  font-size: 0.78rem;
-  color: var(--text-muted);
-}
-
-.nurse-card-reviewer {
-  font-weight: 600;
-  color: var(--teal-700);
-}
-
-/* ── Action buttons (pending reviews) ── */
-.nurse-card-actions {
-  display: flex;
-  flex-direction: column;
-  gap: 0.65rem;
-  margin-top: 0.85rem;
-  padding-top: 0.85rem;
-  border-top: 1px solid var(--border-default);
-}
-
-.nurse-score-field {
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
-  max-width: 220px;
-  font-size: 0.78rem;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--text-muted);
-}
-
-.nurse-approve-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.45rem;
-  padding: 0.55rem 1.25rem;
-  font: inherit;
-  font-size: 0.9rem;
-  font-weight: 600;
-  color: #ffffff;
-  background: var(--status-success);
-  border: none;
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  transition: transform 0.12s ease, box-shadow 0.2s ease, opacity 0.2s ease;
-  box-shadow: 0 1px 3px rgba(63, 143, 107, 0.3);
-  align-self: flex-start;
-}
-
-.nurse-approve-btn:hover:not(:disabled) {
-  transform: translateY(-1px);
-  box-shadow: 0 3px 8px rgba(22, 163, 74, 0.35);
-}
-
-.nurse-approve-btn:disabled {
-  opacity: 0.55;
-  cursor: not-allowed;
-}
-
-.nurse-correct-group {
-  display: grid;
-  grid-template-columns: minmax(180px, 1fr) minmax(200px, 1.5fr) auto;
-  gap: 0.5rem;
-  align-items: stretch;
-}
-
 @media (max-width: 768px) {
   .nurse-correct-group {
     grid-template-columns: 1fr;
   }
-}
-
-.nurse-dept-select,
-.nurse-score-select,
-.nurse-reason-input {
-  min-height: 40px;
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius-sm);
-  padding: 0 0.7rem;
-  font: inherit;
-  font-size: 0.88rem;
-  background: var(--surface-page);
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
-}
-
-.nurse-dept-select:focus,
-.nurse-score-select:focus,
-.nurse-reason-input:focus {
-  outline: none;
-  border-color: var(--color-primary);
-  box-shadow: 0 0 0 2px rgba(62, 163, 203, 0.15);
-}
-
-.nurse-correct-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0.5rem 1rem;
-  font: inherit;
-  font-size: 0.85rem;
-  font-weight: 600;
-  color: var(--teal-700);
-  background: var(--surface-card);
-  border: 2px solid var(--teal-700);
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  transition: all 0.15s ease;
-  white-space: nowrap;
-}
-
-.nurse-correct-btn:hover:not(:disabled) {
-  background: var(--teal-700);
-  color: #ffffff;
-}
-
-.nurse-correct-btn:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
-  border-color: var(--border-strong);
-  color: var(--text-muted);
-}
-
-/* ═══════════════════════════════════════════════
-   Conversation Panel (expanded inside card)
-   ═══════════════════════════════════════════════ */
-
-.nurse-conv-panel {
-  margin-top: 0.85rem;
-  border-top: 1px solid var(--border-default);
-  padding-top: 0.85rem;
-  animation: nurse-conv-reveal 0.3s ease;
 }
 
 @keyframes nurse-conv-reveal {
@@ -2720,88 +2317,10 @@ a:hover {
   }
 }
 
-.nurse-conv-panel-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 0.65rem;
-}
-
-.nurse-conv-panel-title {
-  font-family: var(--font-sans);
-  font-size: 0.95rem;
-  font-weight: 600;
-  color: var(--teal-700);
-}
-
-.nurse-conv-panel-count {
-  font-size: 0.78rem;
-  color: var(--text-muted);
-  background: var(--surface-sunken);
-  padding: 0.18rem 0.6rem;
-  border-radius: 999px;
-}
-
-.nurse-conv-messages {
-  max-height: 420px;
-  overflow-y: auto;
-  padding-right: 0.25rem;
-  scrollbar-color: var(--color-primary) var(--surface-sunken);
-  scrollbar-width: thin;
-  background:
-    linear-gradient(180deg, var(--surface-page) 0%, transparent 12px),
-    linear-gradient(0deg, var(--surface-page) 0%, transparent 12px);
-  background-attachment: local;
-  border-radius: var(--radius-sm);
-  padding: 0.5rem;
-}
-
-.nurse-conv-messages::-webkit-scrollbar {
-  width: 6px;
-}
-
-.nurse-conv-messages::-webkit-scrollbar-track {
-  background: var(--surface-sunken);
-  border-radius: 999px;
-}
-
-.nurse-conv-messages::-webkit-scrollbar-thumb {
-  background: var(--teal-400);
-  border-radius: 999px;
-}
-
-.nurse-conv-messages::-webkit-scrollbar-thumb:hover {
-  background: var(--color-primary);
-}
-
-.nurse-conv-loading {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.6rem;
-  padding: 2rem 1rem;
-  color: var(--text-muted);
-  font-size: 0.88rem;
-}
-
-.nurse-conv-spinner {
-  width: 18px;
-  height: 18px;
-  border: 2px solid var(--border-default);
-  border-top-color: var(--color-primary);
-  border-radius: 50%;
-  animation: nurse-spin 0.7s linear infinite;
-}
-
 @keyframes nurse-spin {
   to {
     transform: rotate(360deg);
   }
-}
-
-.nurse-conv-empty {
-  text-align: center;
-  padding: 1.5rem 1rem;
 }
 
 /* ═══════════════════════════════════════════════
@@ -2851,16 +2370,6 @@ a:hover {
   background: var(--surface-card);
 }
 
-.nurse-review-modal-kicker,
-.nurse-review-section-title {
-  margin: 0;
-  color: var(--text-muted);
-  font-size: 0.74rem;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-}
-
 .nurse-review-modal-header h2 {
   margin: 0.15rem 0 0;
   color: var(--teal-700);
@@ -2871,186 +2380,9 @@ a:hover {
 .nurse-review-modal-close {
   flex: 0 0 auto;
 }
-
-.nurse-review-modal-body {
-  display: grid;
-  grid-template-columns: minmax(280px, 340px) minmax(0, 1fr);
-  gap: 1rem;
-  min-height: 0;
-  flex: 1;
-  padding: 1rem;
-  overflow: hidden;
-}
-
-.nurse-review-decision-panel,
-.nurse-review-transcript-panel {
-  min-height: 0;
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-sm);
-  background: var(--surface-card);
-}
-
-.nurse-review-decision-panel {
-  display: flex;
-  flex-direction: column;
-  gap: 0.9rem;
-  padding: 0.9rem;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-}
-
-.nurse-review-transcript-panel {
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-  padding: 0.9rem;
-  overflow: hidden;
-  overscroll-behavior: contain;
-}
-
-.nurse-review-facts {
-  display: grid;
-  gap: 0.65rem;
-}
-
-.nurse-review-facts > div {
-  display: grid;
-  gap: 0.22rem;
-  padding-bottom: 0.65rem;
-  border-bottom: 1px solid var(--border-default);
-}
-
-.nurse-review-facts > div:last-child {
-  padding-bottom: 0;
-  border-bottom: 0;
-}
-
-.nurse-review-facts strong {
-  color: var(--text-body);
-  font-size: 0.98rem;
-  font-weight: 700;
-}
-
-.nurse-modal-field {
-  max-width: none;
-}
-
-.nurse-modal-correction {
-  display: grid;
-  gap: 0.55rem;
-  padding-top: 0.85rem;
-  border-top: 1px solid var(--border-default);
-}
-
-.nurse-review-modal-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.65rem;
-  padding-top: 0.85rem;
-  border-top: 1px solid var(--border-default);
-}
-
-.nurse-modal-messages {
-  flex: 1;
-  min-height: 0;
-  max-height: none;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-}
-
-/* ── Tabbed review modal (assessment / conversation) ─────────────────────── */
-.nurse-modal-tab-bar {
-  display: flex;
-  gap: 0;
-  border-bottom: 2px solid var(--border-default);
-  padding: 0 1rem;
-  flex: 0 0 auto;
-}
-
-.nurse-review-modal-tabbed {
-  display: block;
-  overflow-y: auto;
-}
-
-.nurse-assessment-panel {
-  display: flex;
-  flex-direction: column;
-  gap: 0.9rem;
-  padding: 0.25rem 0.15rem 0.5rem;
-}
-
-.nurse-review-modal-tabbed .nurse-review-transcript-panel {
-  height: 100%;
-  min-height: 320px;
-  border: 0;
-  padding: 0.25rem 0.15rem;
-}
-
-.nurse-vitals-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-  gap: 0.6rem;
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-sm);
-  background: var(--surface-card);
-  padding: 0.85rem;
-}
-
-.nurse-vital-item {
-  display: grid;
-  gap: 0.2rem;
-}
-
-.nurse-grounding {
-  margin: 0 0 0.6rem;
-  font-size: 0.85rem;
-  color: var(--ink-500);
-}
 .nurse-grounding.grounded::before { content: '📖 '; }
 .nurse-grounding.ungrounded::before { content: '○ '; }
-
-.nurse-vital-source {
-  display: inline-block;
-  margin-left: 6px;
-  padding: 1px 6px;
-  border-radius: 999px;
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.03em;
-  text-transform: uppercase;
-  vertical-align: middle;
-  border: 1px solid var(--border-default);
-  color: var(--ink-500);
-}
 .nurse-vital-source.device { border-color: var(--color-primary); color: var(--color-primary); }
-
-.nurse-vital-item strong {
-  color: var(--text-body);
-  font-size: 1.05rem;
-  font-weight: 700;
-}
-
-.nurse-narrative-input {
-  width: 100%;
-  resize: vertical;
-  min-height: 2.6rem;
-  font: inherit;
-  color: var(--text-body);
-  background: var(--surface-card);
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-sm);
-  padding: 0.55rem 0.7rem;
-}
-
-.nurse-narrative-input:focus {
-  outline: 2px solid var(--color-primary);
-  outline-offset: 1px;
-}
-
-.nurse-narrative-hint {
-  margin: -0.35rem 0 0;
-  font-size: 0.85rem;
-}
 
 @media (max-width: 860px) {
   .nurse-review-modal {
@@ -3073,23 +2405,6 @@ a:hover {
   gap: 0;
   border-bottom: 2px solid var(--border-default);
   margin-bottom: 1.5rem;
-}
-
-.nurse-tab-btn {
-  background: none;
-  border: none;
-  border-bottom: 3px solid transparent;
-  margin-bottom: -2px;
-  padding: 0.65rem 1.25rem;
-  font-size: 0.9rem;
-  font-weight: 500;
-  color: var(--text-muted);
-  cursor: pointer;
-  transition: color 0.15s, border-color 0.15s;
-}
-
-.nurse-tab-btn:hover {
-  color: var(--text-body);
 }
 
 .nurse-tab-btn.active {
@@ -3318,35 +2633,10 @@ a:hover {
   padding-bottom: 0;
 }
 
-.admin-tab-btn {
-  background: none;
-  border: none;
-  cursor: pointer;
-  padding: 0.55rem 1.1rem;
-  font-size: 0.9rem;
-  font-weight: 500;
-  color: var(--text-muted);
-  border-bottom: 2px solid transparent;
-  margin-bottom: -2px;
-  transition: color 0.15s, border-color 0.15s;
-  border-radius: 6px 6px 0 0;
-}
-
-.admin-tab-btn:hover {
-  color: var(--text-body);
-  background: color-mix(in srgb, var(--border-default) 40%, transparent);
-}
-
 .admin-tab-btn.active {
   color: var(--color-primary);
   border-bottom-color: var(--color-primary);
   font-weight: 600;
-}
-
-/* ── Outbreak Surveillance Dashboard ─────────────────────────────────────── */
-
-.surv-container {
-  padding: 0.25rem 0 1rem;
 }
 
 .surv-header {
@@ -3368,24 +2658,6 @@ a:hover {
   margin: 0;
 }
 
-.surv-day-filter {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-  flex-wrap: wrap;
-}
-
-.surv-day-btn {
-  background: var(--surface-card);
-  border: 1px solid var(--border-default);
-  border-radius: 20px;
-  padding: 0.3rem 0.75rem;
-  font-size: 0.82rem;
-  cursor: pointer;
-  color: var(--text-body);
-  transition: background 0.15s, border-color 0.15s;
-}
-
 .surv-day-btn:hover,
 .surv-day-btn.active {
   background: var(--color-primary);
@@ -3393,246 +2665,8 @@ a:hover {
   color: #fff;
 }
 
-.surv-loading {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  color: var(--text-muted);
-  padding: 2rem;
-}
-
-.surv-error {
-  padding: 1rem;
-  background: color-mix(in srgb, var(--status-danger) 10%, var(--surface-card));
-  border-radius: 8px;
-  color: var(--status-danger);
-  margin-bottom: 1rem;
-}
-
-.surv-empty {
-  text-align: center;
-  color: var(--text-muted);
-  padding: 3rem 1rem;
-  font-size: 0.92rem;
-}
-
-.surv-kpi-row {
-  display: flex;
-  gap: 0.75rem;
-  flex-wrap: wrap;
-  margin-bottom: 1.5rem;
-}
-
-.surv-kpi-card {
-  background: var(--surface-card);
-  border: 1px solid var(--border-default);
-  border-radius: 10px;
-  padding: 0.75rem 1.1rem;
-  min-width: 110px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-
-.surv-kpi-value {
-  font-size: 1.6rem;
-  font-weight: 700;
-  color: var(--text-heading);
-  line-height: 1.1;
-}
-
-.surv-kpi-label {
-  font-size: 0.75rem;
-  margin-top: 0.25rem;
-  text-align: center;
-}
-
-.surv-alerts {
-  margin-bottom: 1.5rem;
-}
-
-.surv-alert-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-  gap: 0.75rem;
-  margin-top: 0.75rem;
-}
-
-.surv-alert-card {
-  background: color-mix(in srgb, var(--status-warning) 10%, var(--surface-card));
-  border: 1px solid color-mix(in srgb, var(--status-warning) 50%, transparent);
-  border-radius: 10px;
-  padding: 0.9rem 1rem;
-}
-
-.surv-alert-keyword {
-  font-weight: 700;
-  font-size: 0.95rem;
-  color: var(--text-heading);
-  margin-bottom: 0.3rem;
-  text-transform: capitalize;
-}
-
-.surv-alert-area {
-  font-size: 0.82rem;
-  margin-bottom: 0.4rem;
-}
-
-.surv-alert-stats {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  margin-bottom: 0.2rem;
-}
-
-.surv-alert-count {
-  font-size: 0.88rem;
-  font-weight: 600;
-}
-
-.surv-alert-increase {
-  font-size: 0.78rem;
-  font-weight: 700;
-  color: var(--status-danger);
-  background: color-mix(in srgb, var(--status-danger) 12%, transparent);
-  border-radius: 4px;
-  padding: 0.1em 0.45em;
-}
-
-.surv-alert-prev {
-  font-size: 0.75rem;
-}
-
-.surv-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 1rem;
-}
-
 @media (max-width: 700px) {
   .surv-grid { grid-template-columns: 1fr; }
-}
-
-.surv-panel {
-  background: var(--surface-card);
-  border: 1px solid var(--border-default);
-  border-radius: 12px;
-  padding: 1rem 1.2rem;
-}
-
-.surv-panel-full {
-  grid-column: 1 / -1;
-}
-
-.surv-section-title {
-  font-size: 0.9rem;
-  font-weight: 600;
-  margin: 0 0 0.85rem;
-  color: var(--text-heading);
-}
-
-.surv-bar-chart {
-  display: flex;
-  flex-direction: column;
-  gap: 0.45rem;
-}
-
-.surv-bar-row {
-  display: grid;
-  grid-template-columns: 140px 1fr 36px;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.surv-bar-label {
-  font-size: 0.78rem;
-  color: var(--text-body);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  text-transform: capitalize;
-}
-
-.surv-bar-track {
-  background: var(--border-default);
-  border-radius: 4px;
-  height: 8px;
-  overflow: hidden;
-}
-
-.surv-bar-fill {
-  height: 100%;
-  border-radius: 4px;
-  transition: width 0.4s ease;
-  min-width: 4px;
-}
-
-.surv-bar-value {
-  font-size: 0.78rem;
-  font-weight: 600;
-  color: var(--text-muted);
-  text-align: right;
-}
-
-.surv-sparkline-wrap {
-  width: 100%;
-}
-
-.surv-sparkline {
-  width: 100%;
-  height: 80px;
-  display: block;
-}
-
-.surv-sparkline-labels {
-  display: flex;
-  justify-content: space-between;
-  margin-top: 0.3rem;
-}
-
-.surv-sparkline-label {
-  font-size: 0.68rem;
-  color: var(--text-muted);
-}
-
-.surv-area-table-wrap {
-  overflow-x: auto;
-}
-
-.surv-area-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 0.82rem;
-}
-
-.surv-area-table th {
-  text-align: left;
-  padding: 0.4rem 0.6rem;
-  border-bottom: 1px solid var(--border-default);
-  color: var(--text-muted);
-  font-weight: 600;
-  font-size: 0.75rem;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-
-.surv-area-table td {
-  padding: 0.4rem 0.6rem;
-  border-bottom: 1px solid color-mix(in srgb, var(--border-default) 50%, transparent);
-  text-transform: capitalize;
-}
-
-.surv-area-table tr:last-child td {
-  border-bottom: none;
-}
-
-.surv-count-badge {
-  background: color-mix(in srgb, var(--color-primary) 15%, transparent);
-  color: var(--color-primary);
-  font-weight: 700;
-  border-radius: 4px;
-  padding: 0.1em 0.5em;
-  font-size: 0.8rem;
 }
 
 /* ── Triage Manual Upload ──────────────────────────────────────────────────── */
@@ -4445,20 +3479,6 @@ a.cm-source-link:hover {
   max-width: 420px;
 }
 
-/* A vital the engine refused as impossible: the reported number is shown
-   struck through rather than blanked, so "patient said 50 °C" never reads as
-   "not measured". */
-.nurse-vital-rejected {
-  color: var(--triage-1);
-}
-
-.nurse-vital-rejected-note {
-  display: block;
-  font-size: 0.75rem;
-  font-weight: 400;
-  color: var(--text-muted);
-}
-
 /* ── Admin: BP device manager ───────────────────────────────────────── */
 .bpdev-container {
   padding: 0.25rem 0 1rem;
@@ -4899,23 +3919,6 @@ a.cm-source-link:hover {
   .vitals-form-grid.cols-2 { grid-template-columns: 1fr; }
 }
 
-/* ── Nurse slip-code lookup ──────────────────────────────────────────────── */
-
-.nurse-slip-search {
-  min-width: 260px;
-}
-
-.nurse-slip-code {
-  font-family: var(--font-mono, ui-monospace, monospace);
-  font-weight: 700;
-  font-size: 0.9rem;
-  letter-spacing: 0.04em;
-  color: var(--teal-700);
-  background: rgba(88, 161, 157, 0.1);
-  padding: 0.1rem 0.45rem;
-  border-radius: 6px;
-}
-
 /* ── Admin Hospital DB panel (mock HIS before/after view) ────────────────── */
 
 .hdb-panel { display: flex; flex-direction: column; gap: 1rem; }
@@ -5210,56 +4213,6 @@ body:has(.hdb-modal-backdrop) .reviews-fab { display: none; }
   max-height: 85vh;
   overflow-y: auto;
   text-align: left;
-}
-
-.nurse-sbar-warning {
-  color: var(--gold-700);
-  font-weight: 600;
-}
-
-.nurse-sbar-dept {
-  font-weight: 600;
-}
-
-.nurse-sbar-hint {
-  color: var(--text-muted);
-  font-size: 0.9rem;
-}
-
-.nurse-sbar-fields {
-  display: grid;
-  gap: 0.6rem;
-  margin: 0.75rem 0;
-}
-
-.nurse-sbar-fields label {
-  display: grid;
-  gap: 0.2rem;
-}
-
-.nurse-sbar-fields label > span {
-  font-size: 0.85rem;
-  font-weight: 600;
-  color: var(--text-muted);
-}
-
-.nurse-sbar-fields textarea {
-  width: 100%;
-  resize: vertical;
-  font: inherit;
-  padding: 0.45rem 0.6rem;
-  border: 1px solid var(--border-strong);
-  border-radius: 8px;
-}
-
-/* The number the nurse reads out to the patient — the point of the dialog. */
-.nurse-queue-number {
-  font-size: 3rem;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  text-align: center;
-  margin: 0.5rem 0;
-  color: var(--color-primary);
 }
 
 /* ── Criteria rule book (read-only active criteria) ─────────────────────── */
