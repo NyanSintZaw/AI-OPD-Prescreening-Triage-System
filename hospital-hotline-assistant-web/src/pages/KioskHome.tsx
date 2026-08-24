@@ -97,7 +97,12 @@ export function KioskHome() {
 
       <div className="k-home">
         <div className="k-hero-hello">
-          <NongMali size={168} motion="nongRiseSway" />
+          {/* Own wrapper, sized to the mark: the showreel draws its rings and
+              petals into the parent, and .k-hero-hello is the mark plus the
+              greeting line — bursts would centre between them. */}
+          <span className="k-hero-mark">
+            <NongMali size={168} motion="nongShowreel" />
+          </span>
           <span className="k-hero-hello-text">{t('kioskHeroHello')}</span>
         </div>
 
