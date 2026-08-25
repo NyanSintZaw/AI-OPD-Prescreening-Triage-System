@@ -1,5 +1,5 @@
 /**
- * MALI logo motion — the seven approved animations for the two brand marks,
+ * MALI logo motion — the approved animations for the two brand marks,
  * ported from the Brand Guidelines canvas.
  *
  * These are Web Animations API sequences over the SVG's own paths, not CSS
@@ -29,7 +29,8 @@ export type MarkMotion =
   | 'nongExplode'
   | 'nongHeartbeat'
   | 'nongShowreel'
-  | 'nongWaveHello';
+  | 'nongWaveHello'
+  | 'nongBounce';
 
 /** Which mark each motion belongs to — `Mark` (bud) or `NongMali`. */
 export const MARK_MOTIONS: Record<MarkMotion, { mark: 'bud' | 'nong'; role: string }> = {
@@ -45,6 +46,7 @@ export const MARK_MOTIONS: Record<MarkMotion, { mark: 'bud' | 'nong'; role: stri
   nongHeartbeat: { mark: 'nong', role: 'attract loop — heartbeat burst' },
   nongShowreel: { mark: 'nong', role: 'attract loop — random mix' },
   nongWaveHello: { mark: 'nong', role: 'attract loop — wave hello' },
+  nongBounce: { mark: 'nong', role: 'attract loop — playful bounce' },
 };
 
 /** Motions that spawn ring/petal effects around the mark and loop forever. */
@@ -52,6 +54,7 @@ export const ATTRACT_MOTIONS: MarkMotion[] = [
   'nongExplode',
   'nongHeartbeat',
   'nongWaveHello',
+  'nongBounce',
   'nongShowreel',
 ];
 
@@ -312,6 +315,51 @@ export function playMark(
     });
     return geo;
   };
+
+  /** Her three face marks, ordered down the face: left eye, right eye, mouth.
+     They are the only parts in the deep-teal ink, which is what finds them
+     without hand-numbering paths. */
+  const facialParts = () => {
+    const face = [...root.querySelectorAll<SVGGeometryElement>('path')].filter((p) =>
+      /#2C7978/i.test(p.getAttribute('fill') ?? ''),
+    );
+    face.forEach((p) => {
+      const st = p.style as CSSStyleDeclaration & { transformBox?: string };
+      st.transformBox = 'fill-box';
+      st.transformOrigin = 'center';
+    });
+    const top = (p: SVGGeometryElement) => {
+      try {
+        return p.getBBox().y;
+      } catch {
+        return 0;
+      }
+    };
+    face.sort((a, b) => top(a) - top(b));
+    return { eyes: face.slice(0, 2), mouth: face[2] as SVGGeometryElement | undefined };
+  };
+
+  /** One blink — both eyes squeeze shut and open. */
+  const blink = (eyes: SVGGeometryElement[], delay: number, dur: number) =>
+    eyes.forEach((e) =>
+      track(
+        e.animate(
+          [
+            { transform: 'scaleY(1)' },
+            { transform: 'scaleY(0.1)', offset: 0.5 },
+            { transform: 'scaleY(1)' },
+          ],
+          { duration: dur, delay, easing: 'ease-in-out' },
+        ),
+      ),
+    );
+
+  /** A soft closed-mouth smile — the resting expression between events. */
+  const SMILE: Keyframe[] = [
+    { transform: 'scale(1,1)' },
+    { transform: 'scale(1.18,0.85)', offset: 0.5 },
+    { transform: 'scale(1,1)' },
+  ];
 
   const allParts = [...root.querySelectorAll<SVGGeometryElement>('path, circle')];
   let t = 0;
@@ -591,6 +639,7 @@ export function playMark(
     motion === 'nongExplode' ||
     motion === 'nongHeartbeat' ||
     motion === 'nongWaveHello' ||
+    motion === 'nongBounce' ||
     motion === 'nongShowreel'
   ) {
     /* Attract loops: built to pull eyes from across a lobby, so they are
@@ -691,6 +740,7 @@ export function playMark(
     /** `beats` lub-dubs, each shedding rings and petals. */
     const heartbeatRun = (beats: number): number => {
       root.style.transformOrigin = '50% 50%';
+      const { eyes, mouth } = facialParts();
       let t = 0;
       for (let k = 0; k < beats; k += 1) {
         track(
@@ -710,6 +760,14 @@ export function playMark(
           burstRing(stage, t + 360, 300);
           petalBurst(stage, t + 240, '50%', '50%', 8, 165);
         }
+        /* Her face keeps its own rhythm under the beat — a blink between
+           pulses, sometimes doubled, and now and then a soft smile. Rolled per
+           beat rather than on a self-rescheduling timer, so the segment still
+           ends when it says it does and the showreel can chain it. */
+        blink(eyes, t + 900, 300);
+        if (Math.random() < 0.35) blink(eyes, t + 1280, 280);
+        if (mouth && Math.random() < 0.4)
+          track(mouth.animate(SMILE, { duration: 1100, delay: t + 640, easing: 'ease-in-out' }));
         t += 1600;
       }
       return t;
@@ -720,6 +778,7 @@ export function playMark(
      *  again mid-loop. */
     const swayRun = (turns: number): number => {
       root.style.transformOrigin = '50% 85%';
+      const { eyes, mouth } = facialParts();
       track(
         root.animate(SWAY_KEYFRAMES, {
           duration: SWAY_DUR,
@@ -727,6 +786,16 @@ export function playMark(
           easing: 'ease-in-out',
         }),
       );
+      /* Face life at the sway's pace: one lazy blink per turn, landing at a
+         different point each time so the loop never reads as a loop, and a
+         smile on roughly half of them. */
+      for (let k = 0; k < turns; k += 1) {
+        const at = k * SWAY_DUR;
+        blink(eyes, at + 700 + Math.random() * 1200, 340);
+        if (Math.random() < 0.5) blink(eyes, at + 2600, 300);
+        if (mouth && Math.random() < 0.45)
+          track(mouth.animate(SMILE, { duration: 1400, delay: at + 1500, easing: 'ease-in-out' }));
+      }
       return SWAY_DUR * turns;
     };
 
@@ -751,6 +820,7 @@ export function playMark(
       golds.forEach((g) => {
         g.p.style.transformOrigin = Math.cos(g.ang) < 0 ? 'right bottom' : 'left bottom';
       });
+      const { eyes, mouth } = facialParts();
       const waveGolds = (delay: number, dur: number) =>
         golds.forEach((g, j) => {
           const m = Math.cos(g.ang) < 0 ? -1 : 1;
@@ -795,6 +865,21 @@ export function playMark(
         ),
       );
       waveGolds(tt, 1700);
+      // her face waves too — a happy double blink and a held smile
+      blink(eyes, tt + 250, 260);
+      blink(eyes, tt + 850, 260);
+      if (mouth)
+        track(
+          mouth.animate(
+            [
+              { transform: 'scale(1,1)' },
+              { transform: 'scale(1.4,0.75)', offset: 0.3 },
+              { transform: 'scale(1.4,0.75)', offset: 0.7 },
+              { transform: 'scale(1,1)' },
+            ],
+            { duration: 1700, delay: tt, easing: 'ease-in-out' },
+          ),
+        );
       track(
         root.animate(
           [
@@ -831,6 +916,32 @@ export function playMark(
         ),
       );
       if (stage) petalBurst(stage, tt + 900 * 0.88, '50%', 'calc(50% + 140px)', 7, 130);
+      // eyes squeeze shut mid-air, grin on the landing
+      eyes.forEach((e) =>
+        track(
+          e.animate(
+            [
+              { transform: 'scaleY(1)' },
+              { transform: 'scaleY(0.12)', offset: 0.5 },
+              { transform: 'scale(1.3,1.35)', offset: 0.9 },
+              { transform: 'scale(1,1)' },
+            ],
+            { duration: 900, delay: tt, easing: 'ease-in-out' },
+          ),
+        ),
+      );
+      if (mouth)
+        track(
+          mouth.animate(
+            [
+              { transform: 'scale(1,1)' },
+              { transform: 'scale(0.75,1.25)', offset: 0.5 },
+              { transform: 'scale(1.5,0.7)', offset: 0.88 },
+              { transform: 'scale(1,1)' },
+            ],
+            { duration: 900, delay: tt, easing: 'ease-in-out' },
+          ),
+        );
       tt += 1000;
       // and a sway while she waits to wave again
       track(
@@ -847,6 +958,159 @@ export function playMark(
       );
       return tt + 2000;
     };
+
+    /** She drops in, lands with a squash, wiggles hello, spin-jumps, and
+     *  settles. The most character-forward loop — every beat is on her face as
+     *  well as her body. Returns how long it occupies. */
+    const bounceRun = (): number => {
+      root.style.transformOrigin = '50% 100%';
+      const { eyes, mouth } = facialParts();
+      let tt = 0;
+      /* Each act animates the root in turn. No fill: an act that filled
+         backwards would apply its opening keyframe from time zero and, being
+         declared later, would win over the acts before it — the drop would
+         never be seen. */
+      const seg = (kf: Keyframe[], dur: number, easing = 'ease-in-out') => {
+        track(root.animate(kf, { duration: dur, delay: tt, easing }));
+        tt += dur;
+      };
+
+      // the drop
+      seg(
+        [
+          { transform: 'translateY(-480px) scale(1,1)', opacity: 0 },
+          { transform: 'translateY(0) scale(1.16,0.78)', opacity: 1, offset: 0.5 },
+          { transform: 'translateY(-95px) scale(0.94,1.07)', opacity: 1, offset: 0.68 },
+          { transform: 'translateY(0) scale(1.09,0.9)', opacity: 1, offset: 0.85 },
+          { transform: 'translateY(0) scale(1,1)', opacity: 1 },
+        ],
+        1400,
+        'cubic-bezier(.36,0,.4,1)',
+      );
+      if (stage) petalBurst(stage, 700, '50%', 'calc(50% + 150px)', 7, 130);
+      // landing: eyes squash shut with the impact, pop wide on the rebound
+      eyes.forEach((e) =>
+        track(
+          e.animate(
+            [
+              { transform: 'scaleY(1)' },
+              { transform: 'scaleY(0.12) translateY(3px)', offset: 0.5 },
+              { transform: 'scale(1.35,1.45)', offset: 0.72 },
+              { transform: 'scale(1,1)' },
+            ],
+            { duration: 1400, easing: 'ease-in-out' },
+          ),
+        ),
+      );
+      if (mouth)
+        track(
+          mouth.animate(
+            [
+              { transform: 'scale(1,1)' },
+              { transform: 'scale(1.5,0.6)', offset: 0.5 },
+              { transform: 'scale(1.15,1.5)', offset: 0.72 },
+              { transform: 'scale(1,1)' },
+            ],
+            { duration: 1400, easing: 'ease-in-out' },
+          ),
+        );
+
+      // wiggle hello — double blink and a mouth wobble side to side
+      const wiggleAt = tt;
+      seg(
+        [
+          { transform: 'rotate(0deg)' },
+          { transform: 'rotate(-8deg)' },
+          { transform: 'rotate(7deg)' },
+          { transform: 'rotate(-4deg)' },
+          { transform: 'rotate(0deg)' },
+        ],
+        850,
+      );
+      blink(eyes, wiggleAt + 120, 260);
+      blink(eyes, wiggleAt + 470, 260);
+      if (mouth)
+        track(
+          mouth.animate(
+            [
+              { transform: 'translateX(0) rotate(0deg)' },
+              { transform: 'translateX(-5px) rotate(-6deg)', offset: 0.25 },
+              { transform: 'translateX(5px) rotate(6deg)', offset: 0.6 },
+              { transform: 'translateX(0) rotate(0deg)' },
+            ],
+            { duration: 850, delay: wiggleAt, easing: 'ease-in-out' },
+          ),
+        );
+
+      // the spin-jump
+      const jumpAt = tt;
+      seg(
+        [
+          { transform: 'translateY(0) rotate(0deg) scale(1,1)' },
+          { transform: 'translateY(0) rotate(0deg) scale(1.12,0.84)', offset: 0.16 },
+          { transform: 'translateY(-170px) rotate(190deg) scale(1,1)', offset: 0.55 },
+          { transform: 'translateY(0) rotate(360deg) scale(1.14,0.86)', offset: 0.86 },
+          { transform: 'translateY(0) rotate(360deg) scale(1,1)' },
+        ],
+        1150,
+        'cubic-bezier(.4,0,.45,1)',
+      );
+      if (stage) {
+        burstRing(stage, jumpAt + 1150 * 0.86);
+        petalBurst(stage, jumpAt + 1150 * 0.86, '50%', 'calc(50% + 150px)', 9, 160);
+      }
+      // eyes shut tight mid-air, big grin stretch on landing
+      eyes.forEach((e) =>
+        track(
+          e.animate(
+            [
+              { transform: 'scaleY(1)' },
+              { transform: 'scaleY(0.1)', offset: 0.4 },
+              { transform: 'scaleY(0.1)', offset: 0.7 },
+              { transform: 'scale(1.3,1.3)', offset: 0.9 },
+              { transform: 'scale(1,1)' },
+            ],
+            { duration: 1150, delay: jumpAt, easing: 'ease-in-out' },
+          ),
+        ),
+      );
+      if (mouth)
+        track(
+          mouth.animate(
+            [
+              { transform: 'scale(1,1)' },
+              { transform: 'scale(0.7,1.3)', offset: 0.45 },
+              { transform: 'scale(1.6,0.7) translateY(2px)', offset: 0.88 },
+              { transform: 'scale(1,1)' },
+            ],
+            { duration: 1150, delay: jumpAt, easing: 'ease-in-out' },
+          ),
+        );
+
+      // settle, with one lazy blink
+      const restAt = tt;
+      seg(
+        [
+          { transform: 'rotate(0deg) translateY(0)' },
+          { transform: 'rotate(3deg) translateY(-5px)' },
+          { transform: 'rotate(0deg) translateY(0)' },
+          { transform: 'rotate(-3deg) translateY(-5px)' },
+          { transform: 'rotate(0deg) translateY(0)' },
+        ],
+        1300,
+      );
+      blink(eyes, restAt + 620, 340);
+      return tt + 500;
+    };
+
+    if (motion === 'nongBounce') {
+      const loop = () => {
+        softReset();
+        later(loop, bounceRun());
+      };
+      loop();
+      return handle;
+    }
 
     if (motion === 'nongWaveHello') {
       track(

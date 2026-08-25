@@ -7,8 +7,9 @@ export interface NongMaliProps extends Omit<SVGProps<SVGSVGElement>, 'children'>
   size?: number;
   /** Play one of her approved motions on mount: bloom (welcome), rise (quiet
    *  entrance), wave (greeting), or riseSway (idle loop — rises, sways a few
-   *  seconds, rises again), or the attract loops explode / heartbeat, which
-   *  throw rings and petals into the mark's parent and run forever. Skipped
+   *  seconds, rises again), or one of the attract loops — showreel, waveHello,
+   *  bounce, explode, heartbeat — which animate her face as well as her body,
+   *  throw rings and petals into the mark's parent, and run forever. Skipped
    *  under prefers-reduced-motion. */
   motion?: Extract<
     MarkMotion,
@@ -20,6 +21,7 @@ export interface NongMaliProps extends Omit<SVGProps<SVGSVGElement>, 'children'>
     | 'nongHeartbeat'
     | 'nongShowreel'
     | 'nongWaveHello'
+    | 'nongBounce'
   >;
 }
 
