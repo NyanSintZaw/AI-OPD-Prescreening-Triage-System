@@ -106,7 +106,40 @@ sudo ufw allow 8090/tcp      # Linux — the only port that needs to be open
 
 ## 2. Pick the right address
 
-A GPU box usually has several. Use whichever network the app node shares:
+**Use the Tailscale MagicDNS name, not an IP.** On the campus Wi-Fi the booth's
+DHCP lease moves often — it changed three times in one afternoon
+(`172.27.138.104` → `.141.144` → `.132.246`), and every change silently breaks
+every turn until someone edits `.env` on the app node. A name does not move:
+
+```
+AI_MODE=local
+LOCAL_AI_BASE_URL=http://desktop-hh9005e.tail310b75.ts.net:8090/v1
+```
+
+MagicDNS is enabled tailnet-wide, so any device on the tailnet resolves that
+name. Two requirements on the **app node** (not the booth):
+
+- Tailscale running and logged into the same tailnet.
+- `tailscale set --accept-dns=true` — on by default on macOS. Without it the
+  name will not resolve and you are back to IPs. Check with
+  `tailscale dns status`.
+
+The booth itself does not need `--accept-dns`; it is the server, and never has
+to resolve anything. `tailscale status --json` reports the booth's own name
+under `Self.DNSName`.
+
+Tailscale also encrypts the hop, which the LAN address does not — worth having
+for audio and clinical text even inside the hospital.
+
+> The tailnet is shared and large (~55 devices). The gateway has **no
+> authentication**, so every device on it can reach the booth once the port is
+> bound beyond loopback. Restrict with Tailscale ACLs, or keep the LAN
+> firewall rule from §5, before leaving it running unattended.
+
+### Falling back to an IP
+
+If the app node is not on the tailnet, a GPU box usually has several addresses.
+Use whichever network the app node shares:
 
 ```powershell
 # Windows
@@ -121,12 +154,14 @@ hostname -I      # Linux
 
 | Kind | Example | Use when |
 |---|---|---|
-| LAN | `10.1.82.61` | both machines on the same wired/Wi-Fi network |
-| Tailscale / VPN | `100.124.80.25` | machines on different networks |
+| Tailscale | `100.90.155.63` | stable; prefer the MagicDNS name above |
+| LAN | `172.27.132.246` | same wired/Wi-Fi network — **moves with DHCP** |
+| Hyper-V / WSL vEthernet | `192.168.64.1` | never — no other machine can reach it |
 | Docker bridge | `172.17.0.1` | never — internal to Docker |
 
-Prefer a DNS name or a static lease over a DHCP address; a reboot that changes
-the IP silently breaks every turn.
+A DHCP address is the last resort. If you must use one, ask IT for a static
+lease on the booth's MAC — otherwise a reboot silently breaks every turn, and
+the failure looks like a timeout rather than a name that stopped resolving.
 
 ---
 
