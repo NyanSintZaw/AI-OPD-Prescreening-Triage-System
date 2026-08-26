@@ -71,6 +71,16 @@ class Settings(BaseSettings):
     screening_thinking_level: str | None = "minimal"
     screening_openai_base_url: str | None = None
     screening_openai_api_key: str | None = None
+    # Automatic failover for the screening LLM: when set (e.g. "vertexai"),
+    # every call tries the primary provider above first and completes on this
+    # one if the primary errors or times out — the booth keeps working when
+    # the local sidecar is down. None = single provider (no failover).
+    screening_fallback_provider: str | None = None
+    screening_fallback_model_name: str = "gemini-3.1-flash-lite"
+    # Leg budget for the primary when a fallback exists: fail over early
+    # enough that primary + fallback together still fit inside
+    # screening_model_timeout_s (which bounds the whole call).
+    screening_primary_timeout_s: float = 12.0
     screening_prompt_version: str = "v1"
     screening_question_budget: int = 8
     # Voice turn endpointing — tunable without a code change (restart to apply).
@@ -107,6 +117,11 @@ class Settings(BaseSettings):
     tts_local_voice_th: str = "alloy"
     tts_local_voice_en: str = "alloy"
     speech_http_timeout_s: float = 30.0
+    # Speech failover, same idea as the screening fallback: try the primary
+    # STT/TTS provider, complete on this one when it errors ("google" keeps
+    # the cloud path as the safety net while the local sidecar is primary).
+    stt_fallback_provider: str | None = None
+    tts_fallback_provider: str | None = None
     # Button-first turn taking (product decision 2026-07-27): the patient
     # ends their turn with "I'm finished speaking". Silence auto-detect is
     # only a safety net for patients who never tap — long enough that it

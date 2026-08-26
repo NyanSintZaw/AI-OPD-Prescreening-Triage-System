@@ -10,6 +10,10 @@ choice, not a code change:
   kokoro-fastapi / openedai-speech for TTS — so patient audio can stay inside
   the hospital (the privacy claim in ``docs/ai-model-io.md``).
 
+``STT_FALLBACK_PROVIDER``/``TTS_FALLBACK_PROVIDER`` optionally name a second
+provider tried automatically when the primary errors — so a local sidecar can
+be primary without a sidecar outage silencing the booth.
+
 The Protocols capture exactly what the two callers use: the ``/stt`` + ``/tts``
 routes (``app/routers/speech.py``) and the voice bridge
 (``app/services/screening/voice_bridge.py``).
@@ -218,8 +222,65 @@ class HttpTtsClient:
         return strip_wav_header(audio)
 
 
-def build_stt_client(settings: Any) -> SttClient:
-    provider = getattr(settings, "stt_provider", "google")
+class FallbackSttClient:
+    """Failover pair behind the ``SttClient`` protocol: transcribe on the
+    primary; any error completes on the fallback instead of failing the
+    voice turn. An empty transcript is a valid result (silence), not an
+    error — it does not trigger the fallback."""
+
+    def __init__(self, primary: SttClient, fallback: SttClient) -> None:
+        self._primary = primary
+        self._fallback = fallback
+
+    async def transcribe(
+        self, *, audio_bytes: bytes, language: str, mime_type: str | None
+    ) -> SttResult:
+        try:
+            return await self._primary.transcribe(
+                audio_bytes=audio_bytes, language=language, mime_type=mime_type
+            )
+        except Exception:
+            logger.warning("Primary STT failed; using fallback", exc_info=True)
+            return await self._fallback.transcribe(
+                audio_bytes=audio_bytes, language=language, mime_type=mime_type
+            )
+
+
+class FallbackTtsClient:
+    """Failover pair behind the ``TtsClient`` protocol, same contract as
+    :class:`FallbackSttClient` — the caller keeps hearing a voice even when
+    the primary TTS is down."""
+
+    def __init__(self, primary: TtsClient, fallback: TtsClient) -> None:
+        self._primary = primary
+        self._fallback = fallback
+
+    async def synthesize(
+        self,
+        *,
+        text: str,
+        language: str,
+        audio_encoding: str = "mp3",
+        sample_rate_hertz: int | None = None,
+    ) -> bytes:
+        try:
+            return await self._primary.synthesize(
+                text=text,
+                language=language,
+                audio_encoding=audio_encoding,
+                sample_rate_hertz=sample_rate_hertz,
+            )
+        except Exception:
+            logger.warning("Primary TTS failed; using fallback", exc_info=True)
+            return await self._fallback.synthesize(
+                text=text,
+                language=language,
+                audio_encoding=audio_encoding,
+                sample_rate_hertz=sample_rate_hertz,
+            )
+
+
+def _stt_for_provider(settings: Any, provider: str) -> SttClient:
     if provider == "google":
         from app.services.google_stt import GoogleSttClient
 
@@ -234,8 +295,7 @@ def build_stt_client(settings: Any) -> SttClient:
     raise ValueError(f"Unknown stt_provider: {provider!r}")
 
 
-def build_tts_client(settings: Any) -> TtsClient:
-    provider = getattr(settings, "tts_provider", "google")
+def _tts_for_provider(settings: Any, provider: str) -> TtsClient:
     if provider == "google":
         from app.services.google_tts import GoogleTtsClient
 
@@ -252,3 +312,21 @@ def build_tts_client(settings: Any) -> TtsClient:
             timeout_s=float(getattr(settings, "speech_http_timeout_s", 30.0)),
         )
     raise ValueError(f"Unknown tts_provider: {provider!r}")
+
+
+def build_stt_client(settings: Any) -> SttClient:
+    provider = getattr(settings, "stt_provider", "google")
+    client = _stt_for_provider(settings, provider)
+    fallback = getattr(settings, "stt_fallback_provider", None)
+    if fallback and fallback != provider:
+        return FallbackSttClient(client, _stt_for_provider(settings, fallback))
+    return client
+
+
+def build_tts_client(settings: Any) -> TtsClient:
+    provider = getattr(settings, "tts_provider", "google")
+    client = _tts_for_provider(settings, provider)
+    fallback = getattr(settings, "tts_fallback_provider", None)
+    if fallback and fallback != provider:
+        return FallbackTtsClient(client, _tts_for_provider(settings, fallback))
+    return client

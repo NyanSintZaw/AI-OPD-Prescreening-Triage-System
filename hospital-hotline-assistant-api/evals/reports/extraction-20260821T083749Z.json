@@ -1,0 +1,91 @@
+{
+ "criteria": "seed",
+ "model": "scb10x/llama3.1-typhoon2-8b-instruct:latest",
+ "passed": 0,
+ "total": 4,
+ "results": [
+  {
+   "id": "suicide_th",
+   "language": "th",
+   "category": null,
+   "phrase": "ช่วงนี้ไม่อยากมีชีวิตอยู่แล้วค่ะ",
+   "expect": [
+    "suicidal_ideation"
+   ],
+   "allow": [
+    "self_harm_risk"
+   ],
+   "forbid": [],
+   "error": "TimeoutError: "
+  },
+  {
+   "id": "burn_th",
+   "language": "th",
+   "category": null,
+   "phrase": "โดนน้ำร้อนลวกที่แขนเมื่อกี้นี้เอง",
+   "expect": [
+    "burn_scald_24h"
+   ],
+   "allow": [],
+   "forbid": [],
+   "error": "TimeoutError: "
+  },
+  {
+   "id": "gi_dehydration_th",
+   "language": "th",
+   "category": null,
+   "phrase": "ท้องเสียทั้งคืน ตอนนี้ปากแห้ง ตาโหล เพลียจนลุกไม่ไหว",
+   "expect": [
+    "diarrhea",
+    "dehydration_signs"
+   ],
+   "allow": [
+    "fatigue_weight_loss"
+   ],
+   "forbid": [],
+   "present": [
+    "diarrhea"
+   ],
+   "absent": [
+    "dehydration_signs"
+   ],
+   "got_category": "abdominal_pain",
+   "evidence": {
+    "diarrhea": "ท้องเสียทั้งคืน"
+   },
+   "misses": [
+    "dehydration_signs"
+   ],
+   "absent_misses": [],
+   "category_wrong": false,
+   "overmatch": [],
+   "stray": [],
+   "passed": false
+  },
+  {
+   "id": "sweat_en_ctrl",
+   "language": "en",
+   "category": null,
+   "phrase": "I'm sweating a lot for no reason",
+   "expect": [
+    "diaphoresis"
+   ],
+   "allow": [],
+   "forbid": [
+    "pale_cold_sweaty"
+   ],
+   "present": [],
+   "absent": [],
+   "got_category": null,
+   "evidence": {},
+   "misses": [
+    "diaphoresis"
+   ],
+   "absent_misses": [],
+   "category_wrong": false,
+   "overmatch": [],
+   "stray": [],
+   "passed": false
+  }
+ ]
+}

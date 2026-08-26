@@ -1,0 +1,33 @@
+{
+ "criteria": "seed",
+ "model": "scb10x/llama3.1-typhoon2-8b-instruct:latest",
+ "passed": 1,
+ "total": 1,
+ "results": [
+  {
+   "id": "cp_th_1",
+   "language": "th",
+   "category": null,
+   "phrase": "แน่นหน้าอกเหมือนมีอะไรมาทับครับ",
+   "expect": [
+    "chest_pain"
+   ],
+   "allow": [],
+   "forbid": [],
+   "present": [
+    "chest_pain"
+   ],
+   "absent": [],
+   "got_category": "chest_pain",
+   "evidence": {
+    "chest_pain": "แน่นหน้าอกเหมือนมีอะไรมาทับครับ"
+   },
+   "misses": [],
+   "absent_misses": [],
+   "category_wrong": false,
+   "overmatch": [],
+   "stray": [],
+   "passed": true
+  }
+ ]
+}

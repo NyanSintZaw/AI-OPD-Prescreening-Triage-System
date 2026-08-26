@@ -15,6 +15,9 @@ import logging
 from typing import Any, Awaitable, Callable
 
 from langchain_core.language_models.chat_models import BaseChatModel
+from langchain_core.messages import BaseMessage
+from langchain_core.outputs import ChatGeneration, ChatResult
+from langchain_core.runnables import Runnable, RunnableLambda
 
 logger = logging.getLogger(__name__)
 
@@ -51,6 +54,60 @@ def _silence_schema_warning() -> None:
 InstrumentationHook = Callable[[str, str, int, bool], Awaitable[None] | None]
 
 
+class FallbackChatModel(BaseChatModel):
+    """Failover pair behind the ``BaseChatModel`` contract: every call tries
+    ``primary`` and transparently completes on ``fallback`` when the primary
+    errors or times out. The engine seam stays a single model object — the
+    nodes, prewarm and the eval harness never learn two backends exist."""
+
+    primary: BaseChatModel
+    fallback: BaseChatModel
+
+    @property
+    def _llm_type(self) -> str:
+        return "fallback_chat_model"
+
+    def _generate(
+        self, messages: list[BaseMessage], stop: Any = None, run_manager: Any = None, **kwargs: Any
+    ) -> ChatResult:
+        try:
+            message = self.primary.invoke(messages, stop=stop, **kwargs)
+        except Exception:
+            logger.warning("Primary screening model failed; using fallback", exc_info=True)
+            message = self.fallback.invoke(messages, stop=stop, **kwargs)
+        return ChatResult(generations=[ChatGeneration(message=message)])
+
+    async def _agenerate(
+        self, messages: list[BaseMessage], stop: Any = None, run_manager: Any = None, **kwargs: Any
+    ) -> ChatResult:
+        try:
+            message = await self.primary.ainvoke(messages, stop=stop, **kwargs)
+        except Exception:
+            logger.warning("Primary screening model failed; using fallback", exc_info=True)
+            message = await self.fallback.ainvoke(messages, stop=stop, **kwargs)
+        return ChatResult(generations=[ChatGeneration(message=message)])
+
+    def with_structured_output(self, schema: Any, **kwargs: Any) -> Runnable:
+        primary = self.primary.with_structured_output(schema, **kwargs)
+        fallback = self.fallback.with_structured_output(schema, **kwargs)
+
+        def _invoke(value: Any, config: Any = None) -> Any:
+            try:
+                return primary.invoke(value, config)
+            except Exception:
+                logger.warning("Primary structured output failed; using fallback", exc_info=True)
+                return fallback.invoke(value, config)
+
+        async def _ainvoke(value: Any, config: Any = None) -> Any:
+            try:
+                return await primary.ainvoke(value, config)
+            except Exception:
+                logger.warning("Primary structured output failed; using fallback", exc_info=True)
+                return await fallback.ainvoke(value, config)
+
+        return RunnableLambda(_invoke, afunc=_ainvoke)
+
+
 def build_chat_model(settings: Any) -> BaseChatModel:
     provider = getattr(settings, "screening_model_provider", "vertexai")
     model_name = getattr(settings, "screening_model_name", "gemini-2.5-flash")
@@ -58,6 +115,30 @@ def build_chat_model(settings: Any) -> BaseChatModel:
     # turn. The screening nodes also wrap every call in asyncio.wait_for
     # (belt-and-suspenders), but this gives the SDK a real deadline to honour.
     timeout_s = float(getattr(settings, "screening_model_timeout_s", 30.0))
+    fallback_provider = getattr(settings, "screening_fallback_provider", None)
+
+    if not fallback_provider or fallback_provider == provider:
+        return _build_provider(settings, provider, model_name, timeout_s, max_retries=1)
+
+    # Failover pair: the primary gets a short leg budget and no client-side
+    # retries (the fallback IS the retry), so a dead primary plus the
+    # fallback call still fit inside screening_model_timeout_s — the bound
+    # the nodes' ainvoke_with_timeout enforces on the whole call.
+    primary_timeout = min(
+        timeout_s, float(getattr(settings, "screening_primary_timeout_s", 12.0))
+    )
+    fallback_name = getattr(
+        settings, "screening_fallback_model_name", "gemini-3.1-flash-lite"
+    )
+    return FallbackChatModel(
+        primary=_build_provider(settings, provider, model_name, primary_timeout, max_retries=0),
+        fallback=_build_provider(settings, fallback_provider, fallback_name, timeout_s, max_retries=1),
+    )
+
+
+def _build_provider(
+    settings: Any, provider: str, model_name: str, timeout_s: float, max_retries: int
+) -> BaseChatModel:
     temperature = float(getattr(settings, "screening_model_temperature", 0.1))
 
     if provider == "openai_compatible":
@@ -69,7 +150,7 @@ def build_chat_model(settings: Any) -> BaseChatModel:
             api_key=settings.screening_openai_api_key or "not-needed",
             temperature=temperature,
             timeout=timeout_s,
-            max_retries=1,
+            max_retries=max_retries,
         )
 
     if provider == "vertexai":
@@ -103,7 +184,7 @@ def build_chat_model(settings: Any) -> BaseChatModel:
             location=settings.google_cloud_location,
             vertexai=True,
             timeout=timeout_s,
-            max_retries=1,
+            max_retries=max_retries,
             **extra_kwargs,
         )
 
