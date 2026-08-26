@@ -262,6 +262,14 @@ _ENGINE_SPEED = {"th": TTS_SPEED_TH, "en": TTS_SPEED_EN}
 # is also what docs/local-stack-design.md specifies: no unauthenticated LLM
 # endpoint on the hospital LAN.
 OLLAMA_URL = os.environ.get("OLLAMA_URL", "http://127.0.0.1:11434")
+# Pin this model in VRAM at startup so the first patient never pays the load.
+# A cold 8B costs ~11 s here and has been measured at 75 s on a cold page
+# cache, against the backend's model timeout — so the first turn after any
+# restart simply dies. OLLAMA_KEEP_ALIVE is NOT a reliable way to do this:
+# Ollama's background service respawns with its own environment and ignored
+# it (ollama ps still showed a 4-minute expiry). keep_alive=-1 on a native
+# /api/generate call does work — that reports "Forever".
+LLM_PIN_MODEL = os.environ.get("LLM_PIN_MODEL", "").strip()
 LLM_TIMEOUT_S = float(os.environ.get("LLM_TIMEOUT_S", "180"))
 
 _LANG_ALIASES = {
@@ -552,6 +560,7 @@ def _load_mms(language, device):
         )
     return {
         "engine": "mms",
+        "model": name,
         "device": device,
         "sample_rate": MMS_SAMPLE_RATE,
         "tokenizer": tokenizer,
@@ -594,6 +603,7 @@ def _load_f5(language, device):
 
     return {
         "engine": "f5",
+        "model": f"F5-TTS-THAI/{F5_MODEL}",
         "device": device,
         "sample_rate": F5_SAMPLE_RATE,
         "tts": tts,
@@ -643,6 +653,7 @@ def get_tts(language):
         _tts_cache[language] = entry
         _tts_runtime[language] = {
             "engine": entry["engine"],
+            "model": entry["model"],
             "engine_requested": requested,
             "device": entry["device"],
             "sample_rate": entry["sample_rate"],
@@ -687,6 +698,7 @@ def _demote_to_mms(language, reason):
         _tts_cache[language] = entry
         _tts_runtime[language] = {
             "engine": entry["engine"],
+            "model": entry["model"],
             "engine_requested": TTS_ENGINES.get(language, "mms"),
             "device": entry["device"],
             "sample_rate": entry["sample_rate"],
@@ -754,9 +766,22 @@ def to_wav(samples, source_rate, target_rate):
 PREWARM = os.environ.get("PREWARM", "1").strip().lower() not in ("0", "false", "no")
 
 
+def _pin_llm():
+    """Load LLM_PIN_MODEL and hold it in VRAM indefinitely."""
+    if not LLM_PIN_MODEL:
+        logger.info("prewarm: LLM_PIN_MODEL unset — the LLM will load on first use")
+        return
+    body = {"model": LLM_PIN_MODEL, "prompt": "hi", "stream": False, "keep_alive": -1}
+    t0 = time.perf_counter()
+    r = httpx.post(f"{OLLAMA_URL}/api/generate", json=body, timeout=600)
+    r.raise_for_status()
+    logger.info("prewarm: LLM %s pinned in %.1f s", LLM_PIN_MODEL, time.perf_counter() - t0)
+
+
 def _prewarm():
     for name, fn in (
         ("STT", lambda: get_stt()),
+        ("LLM", _pin_llm),
         # Only the languages an engine is configured for; get_tts() falls back
         # to MMS by itself if F5 cannot load.
         *[(f"TTS {lang}", (lambda l=lang: get_tts(l))) for lang in TTS_ENGINES],
@@ -813,7 +838,11 @@ def health():
             "loaded": _stt_model is not None,
         },
         "tts": {
-            "models": TTS_MODELS,
+            # The MMS checkpoints, which are only in use where runtime says
+            # engine=mms. Reading this as "what is loaded" led a teammate to
+            # diagnose F5 as inactive while it was serving every request —
+            # runtime[lang].model is the authoritative answer.
+            "mms_models_configured": TTS_MODELS,
             "engines_requested": TTS_ENGINES,
             "device_requested": TTS_DEVICE,
             # Per language, what actually loaded. A Thai row reading
