@@ -78,3 +78,9 @@ his_mock.db
 
 # Impeccable critique snapshots (local working notes)
 .impeccable/
+
+# Installed agent skills (npx skills add) — machine-local, not part of the repo.
+# The installer writes to .agents/ and symlinks into .claude/skills/.
+.agents/
+.claude/skills/transitions-dev
+.claude/skills/transitions-polish
