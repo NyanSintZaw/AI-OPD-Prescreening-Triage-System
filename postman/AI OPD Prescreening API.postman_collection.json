@@ -72,7 +72,7 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{BASE_URL}}/admin/ai-metrics?from=&to=",
+              "raw": "{{BASE_URL}}/admin/ai-metrics?days=&from=&to=",
               "host": [
                 "{{BASE_URL}}"
               ],
@@ -81,6 +81,11 @@
                 "ai-metrics"
               ],
               "query": [
+                {
+                  "key": "days",
+                  "value": "",
+                  "description": ""
+                },
                 {
                   "key": "from",
                   "value": "",
@@ -699,6 +704,66 @@
       "name": "admin-sessions",
       "item": [
         {
+          "name": "GET /admin/sessions",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/admin/sessions?window=7d&level=&outcome=&language=&flag=&q=&limit=50&offset=0",
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "admin",
+                "sessions"
+              ],
+              "query": [
+                {
+                  "key": "window",
+                  "value": "7d",
+                  "description": ""
+                },
+                {
+                  "key": "level",
+                  "value": "",
+                  "description": ""
+                },
+                {
+                  "key": "outcome",
+                  "value": "",
+                  "description": ""
+                },
+                {
+                  "key": "language",
+                  "value": "",
+                  "description": ""
+                },
+                {
+                  "key": "flag",
+                  "value": "",
+                  "description": ""
+                },
+                {
+                  "key": "q",
+                  "value": "",
+                  "description": ""
+                },
+                {
+                  "key": "limit",
+                  "value": "50",
+                  "description": ""
+                },
+                {
+                  "key": "offset",
+                  "value": "0",
+                  "description": ""
+                }
+              ]
+            },
+            "description": "The admin session log — one page of rows plus the window's exception counts.\n\nCounts are scoped to the window and NOT to the active filters: clicking\n\"14 abandoned\" must not zero the other three, or the ribbon stops being a\nmap of what is wrong and becomes a readout of what you already selected.\n\n**Roles:** super_admin, viewer, nurse"
+          }
+        },
+        {
           "name": "GET /admin/sessions/{session_id}/trace",
           "request": {
             "method": "GET",
@@ -950,6 +1015,65 @@
             },
             "description": "Return the latest triage manual upload record.\n\nThe frontend polls this endpoint after uploading to track ingest progress.\nReturns ``null`` when no manual has been uploaded yet.\n\n**Roles:** super_admin, nurse"
           }
+        },
+        {
+          "name": "GET /admin/triage-manual/file",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/admin/triage-manual/file",
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "admin",
+                "triage-manual",
+                "file"
+              ]
+            },
+            "description": "Serve the triage manual PDF itself.\n\nThe rule book cites this manual as a source but had no way to open it —\nthe only routes were upload (POST) and status. `inline` rather than an\nattachment: a nurse checking the manual behind a rule wants to read it in\na tab, not download a copy. Same roles as /status; this is an internal\nclinical document.\n\n**Roles:** super_admin, nurse"
+          }
+        }
+      ]
+    },
+    {
+      "name": "admin-triage-stats",
+      "item": [
+        {
+          "name": "GET /admin/triage-stats",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{BASE_URL}}/admin/triage-stats?days=7&from=&to=",
+              "host": [
+                "{{BASE_URL}}"
+              ],
+              "path": [
+                "admin",
+                "triage-stats"
+              ],
+              "query": [
+                {
+                  "key": "days",
+                  "value": "7",
+                  "description": ""
+                },
+                {
+                  "key": "from",
+                  "value": "",
+                  "description": ""
+                },
+                {
+                  "key": "to",
+                  "value": "",
+                  "description": ""
+                }
+              ]
+            },
+            "description": "Operational numbers behind the nurse and admin dashboards.\n\nEvery series is returned DENSE (generate_series left-joined to the counts)\nso a day or hour with no patients arrives as an explicit zero. The old\nsurveillance trend grouped by date and let the client space points by\nindex, which drew five empty days as a straight line between two bars.\n\nThe window is either a rolling `days` or an explicit `from`/`to` pair, the\nsame contract `/admin/ai-metrics` already used — the dashboard's chips send\nthe first, its calendar sends the second. Every series below is bounded by\nthe resolved pair, so the two controls cannot disagree about what \"the\nperiod\" means. `hourly_today` is the one exception and stays on\nCURRENT_DATE: it answers \"who came to the booth today\", which a chosen\nwindow in March should not repoint.\n\n**Roles:** super_admin, nurse, viewer"
+          }
         }
       ]
     },
@@ -1056,28 +1180,6 @@
               ]
             },
             "description": "Hard delete a nurse account. Review history survives — reviewer FKs\nare ON DELETE SET NULL, so signed reviews just show a blank reviewer.\n\n**Roles:** super_admin"
-          }
-        }
-      ]
-    },
-    {
-      "name": "conversation-summary",
-      "item": [
-        {
-          "name": "GET /conversation-summary",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{BASE_URL}}/conversation-summary",
-              "host": [
-                "{{BASE_URL}}"
-              ],
-              "path": [
-                "conversation-summary"
-              ]
-            },
-            "description": "Conversation Summary\n\n**Roles:** super_admin, viewer, nurse"
           }
         }
       ]
@@ -2459,7 +2561,7 @@
                 "fetch"
               ]
             },
-            "description": "Take one settled SpO2/pulse reading from the fingertip oximeter.\n\nConnects, waits for the patient's finger (up to ``timeout_seconds``),\nlets the value settle, persists the reading to ``spo2_readings`` and —\nwhen a session is given — merges it into the session vitals so the next\nscreening turn carries it (the criteria's low-SpO2 rules read it).\nAlways returns 200 with a ``status`` field the kiosk UI branches on.\n\n**Auth:** none (patient-facing).",
+            "description": "Take one stable SpO2/pulse reading from the fingertip oximeter.\n\nConnects, waits for the patient's finger (up to ``timeout_seconds``),\naccepts only once the values stop moving (stability window + median —\nthe settling overshoot is never reported), persists the reading to\n``spo2_readings`` and —\nwhen a session is given — merges it into the session vitals so the next\nscreening turn carries it (the criteria's low-SpO2 rules read it).\nAlways returns 200 with a ``status`` field the kiosk UI branches on.\n\n**Auth:** none (patient-facing).",
             "body": {
               "mode": "raw",
               "raw": "{\n  \"session_id\": \"00000000-0000-0000-0000-000000000000\",\n  \"timeout_seconds\": 0.0\n}",

@@ -658,10 +658,13 @@ async def list_routing_feedback(
         """
         SELECT
             rf.*,
+            original.name_en AS original_department_name_en,
+            original.name_th AS original_department_name_th,
             corrected.name_en AS corrected_department_name_en,
             corrected.name_th AS corrected_department_name_th,
             reporter.full_name AS reporter_name
         FROM routing_feedback rf
+        LEFT JOIN departments original ON original.id = rf.original_department_id
         LEFT JOIN departments corrected ON corrected.id = rf.corrected_department_id
         LEFT JOIN admin_users reporter ON reporter.id = rf.reported_by
         ORDER BY rf.created_at DESC

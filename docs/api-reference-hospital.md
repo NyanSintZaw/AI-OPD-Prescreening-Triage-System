@@ -1,6 +1,6 @@
 # AI OPD Prescreening & Triage System — API Reference
 
-Prepared for the MFU Medical Center hospital IT team · updated 2026-08-23
+Prepared for the MFU Medical Center hospital IT team · updated 2026-08-26
 
 This document describes the complete HTTP + WebSocket API surface of the AI OPD
 prescreening booth system (FastAPI backend). It is generated directly from the
@@ -1049,10 +1049,12 @@ Example response:
 
 Fetch Spo2.
 
-Take one settled SpO2/pulse reading from the fingertip oximeter.
+Take one stable SpO2/pulse reading from the fingertip oximeter.
 
 Connects, waits for the patient's finger (up to ``timeout_seconds``),
-lets the value settle, persists the reading to ``spo2_readings`` and —
+accepts only once the values stop moving (stability window + median —
+the settling overshoot is never reported), persists the reading to
+``spo2_readings`` and —
 when a session is given — merges it into the session vitals so the next
 screening turn carries it (the criteria's low-SpO2 rules read it).
 Always returns 200 with a ``status`` field the kiosk UI branches on.
@@ -2188,32 +2190,74 @@ Example response:
 
 ---
 
-### `GET /conversation-summary`
+### `GET /admin/sessions`
 
-Conversation Summary.
+List Admin Sessions.
+
+The admin session log — one page of rows plus the window's exception counts.
+
+Counts are scoped to the window and NOT to the active filters: clicking
+"14 abandoned" must not zero the other three, or the ribbon stops being a
+map of what is wrong and becomes a readout of what you already selected.
 
 **Auth:** bearer token (roles: super_admin, viewer, nurse)
 
-**Response 200:** `array of ConversationSummaryOut`
+**Query params:**
+
+| Param | Type | Required | Notes |
+|---|---|---|---|
+| `window` | string — one of `today` \| `7d` \| `30d` \| `all` | N | default: `"7d"` |
+| `level` | string or null | N |  |
+| `outcome` | string — one of `disposed` \| `abandoned` \| `active` or null | N |  |
+| `language` | string — one of `th` \| `en` or null | N |  |
+| `flag` | string — one of `abandoned` \| `ai_error` \| `his_failed` \| `unreviewed` or null | N |  |
+| `q` | string or null | N |  |
+| `limit` | integer | N | default: `50` |
+| `offset` | integer | N | default: `0` |
+
+**Response 200:** `AdminSessionsOut`
 
 Example response:
 
 ```json
-[
-  {
-    "session_id": "00000000-0000-0000-0000-000000000000",
-    "language": "th",
-    "status": "active",
-    "started_at": "2026-08-04T09:00:00Z",
-    "ended_at": "2026-08-04T09:00:00Z",
-    "severity": "emergency",
-    "department_name_en": "string",
-    "department_name_th": "string",
-    "message_count": 0,
-    "has_alert": false,
-    "escalation_reason": "string"
-  }
-]
+{
+  "window": "string",
+  "total": 0,
+  "limit": 0,
+  "offset": 0,
+  "counts": {
+    "sessions": 0,
+    "abandoned": 0,
+    "ai_errors": 0,
+    "his_failed": 0,
+    "unreviewed": 0
+  },
+  "rows": [
+    {
+      "session_id": "00000000-0000-0000-0000-000000000000",
+      "started_at": "2026-08-04T09:00:00Z",
+      "ended_at": "2026-08-04T09:00:00Z",
+      "language": "th",
+      "status": "active",
+      "triage_level": 0,
+      "outcome": "disposed",
+      "patient_hn": "string",
+      "proposed_department_en": "string",
+      "proposed_department_th": "string",
+      "confirmed_department_en": "string",
+      "confirmed_department_th": "string",
+      "review_status": "pending",
+      "turns": 0,
+      "duration_seconds": 0,
+      "avg_latency_ms": 0,
+      "vitals_measured": 0,
+      "vitals_core": 3,
+      "criteria_version": 0,
+      "his_status": "string",
+      "ai_error": false
+    }
+  ]
+}
 ```
 
 ---
@@ -2317,6 +2361,74 @@ Returns ``null`` when no manual has been uploaded yet.
 
 ---
 
+### `GET /admin/triage-manual/file`
+
+Get Triage Manual File.
+
+Serve the triage manual PDF itself.
+
+The rule book cites this manual as a source but had no way to open it —
+the only routes were upload (POST) and status. `inline` rather than an
+attachment: a nurse checking the manual behind a rule wants to read it in
+a tab, not download a copy. Same roles as /status; this is an internal
+clinical document.
+
+**Auth:** bearer token (roles: super_admin, nurse)
+
+**Response 200:** JSON (Successful Response)
+
+---
+
+### `GET /admin/triage-stats`
+
+Get Triage Stats.
+
+Operational numbers behind the nurse and admin dashboards.
+
+Every series is returned DENSE (generate_series left-joined to the counts)
+so a day or hour with no patients arrives as an explicit zero. The old
+surveillance trend grouped by date and let the client space points by
+index, which drew five empty days as a straight line between two bars.
+
+The window is either a rolling `days` or an explicit `from`/`to` pair, the
+same contract `/admin/ai-metrics` already used — the dashboard's chips send
+the first, its calendar sends the second. Every series below is bounded by
+the resolved pair, so the two controls cannot disagree about what "the
+period" means. `hourly_today` is the one exception and stays on
+CURRENT_DATE: it answers "who came to the booth today", which a chosen
+window in March should not repoint.
+
+**Auth:** bearer token (roles: super_admin, nurse, viewer)
+
+**Query params:**
+
+| Param | Type | Required | Notes |
+|---|---|---|---|
+| `days` | integer | N | default: `7` |
+| `from` | string or null | N |  |
+| `to` | string or null | N |  |
+
+**Response 200:** `TriageStatsOut`
+
+Example response:
+
+```json
+{
+  "days": 0,
+  "pending_reviews": 0,
+  "oldest_pending_minutes": 0,
+  "acuity": [],
+  "hourly_today": [],
+  "departments": [],
+  "agreement": {},
+  "daily": [],
+  "funnel": {},
+  "weekday_hourly": []
+}
+```
+
+---
+
 ### `GET /admin/ai-metrics`
 
 Get Ai Metrics.
@@ -2333,6 +2445,7 @@ counts, and escalation totals.
 
 | Param | Type | Required | Notes |
 |---|---|---|---|
+| `days` | integer or null | N |  |
 | `from` | string or null | N |  |
 | `to` | string or null | N |  |
 
@@ -2408,6 +2521,9 @@ Example response:
     "disposition_reasons": [
       {}
     ],
+    "triage_level": 0,
+    "triage_label": "string",
+    "triage_response_time": "string",
     "notes": "string",
     "visit_id": "string",
     "patient_name": "string",
@@ -2556,6 +2672,9 @@ Example response:
   "disposition_reasons": [
     {}
   ],
+  "triage_level": 0,
+  "triage_label": "string",
+  "triage_response_time": "string",
   "notes": "string",
   "visit_id": "string",
   "patient_name": "string",
@@ -2653,6 +2772,9 @@ Example response:
   "disposition_reasons": [
     {}
   ],
+  "triage_level": 0,
+  "triage_label": "string",
+  "triage_response_time": "string",
   "notes": "string",
   "visit_id": "string",
   "patient_name": "string",
@@ -2698,6 +2820,8 @@ Example response:
     "session_id": "00000000-0000-0000-0000-000000000000",
     "assessment_id": "00000000-0000-0000-0000-000000000000",
     "original_department_id": "00000000-0000-0000-0000-000000000000",
+    "original_department_name_en": "string",
+    "original_department_name_th": "string",
     "corrected_department_id": "00000000-0000-0000-0000-000000000000",
     "corrected_department_name_en": "string",
     "corrected_department_name_th": "string",
@@ -3035,6 +3159,57 @@ Request/response models referenced above.
 | `expires_at` | string (date-time) | Y | Expires At |
 | `user` | AdminUserOut | Y |  |
 
+### `AdminSessionCounts`
+
+Ribbon counts. Scoped to the window only — never to the active filters, or clicking one would zero the others and the ribbon would stop being a map of what is wrong.
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `sessions` | integer | N | Sessions (default: `0`) |
+| `abandoned` | integer | N | Abandoned (default: `0`) |
+| `ai_errors` | integer | N | Ai Errors (default: `0`) |
+| `his_failed` | integer | N | His Failed (default: `0`) |
+| `unreviewed` | integer | N | Unreviewed (default: `0`) |
+
+### `AdminSessionRow`
+
+One line in the admin session log (`GET /admin/sessions`).  Operational, not clinical: the nurse queue answers "is this patient routed right", this answers "did the booth work". Severity is the engine's own MOPH level — the retired emergency/urgent/general buckets were the patient-facing redaction and never belonged on a staff surface.
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `session_id` | string (uuid) | Y | Session Id |
+| `started_at` | string (date-time) | Y | Started At |
+| `ended_at` | string (date-time) or null | N | Ended At |
+| `language` | string — one of `th` \| `en` | Y | Language |
+| `status` | string — one of `active` \| `completed` \| `reset` \| `escalated` | Y | Status |
+| `triage_level` | integer or null | N | Triage Level |
+| `outcome` | string — one of `disposed` \| `abandoned` \| `active` | Y | Outcome |
+| `patient_hn` | string or null | N | Patient Hn |
+| `proposed_department_en` | string or null | N | Proposed Department En |
+| `proposed_department_th` | string or null | N | Proposed Department Th |
+| `confirmed_department_en` | string or null | N | Confirmed Department En |
+| `confirmed_department_th` | string or null | N | Confirmed Department Th |
+| `review_status` | string — one of `pending` \| `approved` \| `corrected` or null | N | Review Status |
+| `turns` | integer | N | Turns (default: `0`) |
+| `duration_seconds` | integer or null | N | Duration Seconds |
+| `avg_latency_ms` | integer or null | N | Avg Latency Ms |
+| `vitals_measured` | integer | N | Vitals Measured (default: `0`) |
+| `vitals_core` | integer | N | Vitals Core (default: `3`) |
+| `criteria_version` | integer or null | N | Criteria Version |
+| `his_status` | string or null | N | His Status |
+| `ai_error` | boolean | N | Ai Error (default: `false`) |
+
+### `AdminSessionsOut`
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `window` | string | Y | Window |
+| `total` | integer | Y | Total |
+| `limit` | integer | Y | Limit |
+| `offset` | integer | Y | Offset |
+| `counts` | AdminSessionCounts | Y |  |
+| `rows` | array of AdminSessionRow | Y | Rows |
+
 ### `AdminUserCreate`
 
 | Field | Type | Required | Notes |
@@ -3129,6 +3304,9 @@ Row in the admin User Settings table (nurse accounts).
 | `patient_contact_preferred_time` | string or null | N | Patient Contact Preferred Time |
 | `patient_contact_relation` | string or null | N | Patient Contact Relation |
 | `disposition_reasons` | array of object or null | N | Disposition Reasons |
+| `triage_level` | integer or null | N | Triage Level |
+| `triage_label` | string or null | N | Triage Label |
+| `triage_response_time` | string or null | N | Triage Response Time |
 | `notes` | string or null | N | Notes |
 | `visit_id` | string or null | N | Visit Id |
 | `patient_name` | string or null | N | Patient Name |
@@ -3263,22 +3441,6 @@ Outcome of the HN name-confirm step.
 | `name_confirmed` | boolean | Y | Name Confirmed |
 | `unlinked` | boolean | N | Unlinked (default: `false`) |
 | `patient_name` | string or null | N | Patient Name |
-
-### `ConversationSummaryOut`
-
-| Field | Type | Required | Notes |
-|---|---|---|---|
-| `session_id` | string (uuid) | Y | Session Id |
-| `language` | string — one of `th` \| `en` | Y | Language |
-| `status` | string — one of `active` \| `completed` \| `reset` \| `escalated` | Y | Status |
-| `started_at` | string (date-time) | Y | Started At |
-| `ended_at` | string (date-time) or null | N | Ended At |
-| `severity` | string — one of `emergency` \| `urgent` \| `general` \| `unknown` or null | N | Severity |
-| `department_name_en` | string or null | N | Department Name En |
-| `department_name_th` | string or null | N | Department Name Th |
-| `message_count` | integer | Y | Message Count |
-| `has_alert` | boolean | N | Has Alert (default: `false`) |
-| `escalation_reason` | string or null | N | Escalation Reason |
 
 ### `DailyCount`
 
@@ -3574,6 +3736,8 @@ First-time-patient structured history collected at the booth.  Field names per D
 | `session_id` | string (uuid) | Y | Session Id |
 | `assessment_id` | string (uuid) | Y | Assessment Id |
 | `original_department_id` | string (uuid) or null | N | Original Department Id |
+| `original_department_name_en` | string or null | N | Original Department Name En |
+| `original_department_name_th` | string or null | N | Original Department Name Th |
 | `corrected_department_id` | string (uuid) | Y | Corrected Department Id |
 | `corrected_department_name_en` | string or null | N | Corrected Department Name En |
 | `corrected_department_name_th` | string or null | N | Corrected Department Name Th |
@@ -3730,11 +3894,11 @@ Body for the pulse-oximeter fetch: waits for a settled fingertip reading, links 
 
 ### `Spo2FetchResponse`
 
-Result of a kiosk-side pulse-oximeter fetch. ``status`` is always set; the reading fields are only present when ``status == "ok"``.
+Result of a kiosk-side pulse-oximeter fetch. ``status`` is always set; the reading fields are only present when ``status == "ok"``. ``timeout`` = no finger was ever detected; ``unstable`` = a finger was seen but the values never held steady long enough to trust.
 
 | Field | Type | Required | Notes |
 |---|---|---|---|
-| `status` | string — one of `ok` \| `busy` \| `not_configured` \| `device_not_found` \| `wrong_device` \| `timeout` \| `error` | Y | Status |
+| `status` | string — one of `ok` \| `busy` \| `not_configured` \| `device_not_found` \| `wrong_device` \| `timeout` \| `unstable` \| `error` | Y | Status |
 | `spo2` | integer or null | N | Spo2 |
 | `pulse_bpm` | integer or null | N | Pulse Bpm |
 | `measured_at` | string (date-time) or null | N | Measured At |
@@ -3879,6 +4043,23 @@ Result of a kiosk-side thermometer fetch. ``status`` is always set; the reading 
 | `measured_at` | string (date-time) or null | N | Measured At |
 | `message` | string or null | N | Message |
 | `reading_id` | string (uuid) or null | N | Reading Id |
+
+### `TriageStatsOut`
+
+Operational triage numbers for the nurse and admin dashboards.  One round trip for every panel: queue pressure, acuity mix, arrival rhythm, department load, and how often a nurse rerouted what the engine proposed. Staff-only — nothing here is ever shown to a patient.
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `days` | integer | Y | Days |
+| `pending_reviews` | integer | Y | Pending Reviews |
+| `oldest_pending_minutes` | integer or null | N | Oldest Pending Minutes |
+| `acuity` | array of object | N | Acuity (default: `[]`) |
+| `hourly_today` | array of object | N | Hourly Today (default: `[]`) |
+| `departments` | array of object | N | Departments (default: `[]`) |
+| `agreement` | object | N | Agreement (default: `{}`) |
+| `daily` | array of object | N | Daily (default: `[]`) |
+| `funnel` | object | N | Funnel (default: `{}`) |
+| `weekday_hourly` | array of object | N | Weekday Hourly (default: `[]`) |
 
 ### `TtsRequest`
 

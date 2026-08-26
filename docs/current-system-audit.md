@@ -163,7 +163,7 @@ Administrative authentication is custom: login verifies a SHA-256-style stored p
 
 | Method | Endpoint | Purpose / UI usage |
 |---|---|---|
-| GET | `/conversation-summary` | Latest 100 sessions; admin UI |
+| GET | `/admin/sessions` | Admin session log: windowed + paged rows, exception counts |
 | GET | `/admin/surveillance` | Aggregated surveillance; admin UI |
 
 There are no super-admin-only endpoints. The distinction between `super_admin` and `admin` is almost entirely a frontend portal distinction.
