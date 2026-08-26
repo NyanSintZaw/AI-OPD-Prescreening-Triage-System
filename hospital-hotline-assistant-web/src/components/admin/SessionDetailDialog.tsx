@@ -78,8 +78,11 @@ function DispositionSummary({ state, language }: { state: Record<string, unknown
 
   return (
     <TraceBlock title={t('adminTraceDisposition')}>
+      {/* No badge here. The dialog header carries the level beside the session
+          id and keeps it on every tab; repeating it 40px below said the same
+          thing twice and made the second one look like a different fact. What
+          this row adds is the destination. */}
       <div className="trace-disposition">
-        <TriageBadge level={Number(disposition.level)} size="lg" />
         <code className="code-chip">{String(disposition.department_code ?? '—')}</code>
         {disposition.age_assumed ? (
           <span className="trace-caution">{t('adminTraceAgeAssumed')}</span>
