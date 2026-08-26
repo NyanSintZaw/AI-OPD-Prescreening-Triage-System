@@ -121,8 +121,14 @@ class Settings(BaseSettings):
     tts_model: str = "tts-1"
     tts_api_key: str | None = None
     # Local voices, per language (the Chirp names above are Google-only).
-    tts_local_voice_th: str = "alloy"
-    tts_local_voice_en: str = "alloy"
+    # The local gateway has NO language field on /v1/audio/speech — the voice
+    # name IS the language selector, so these must be 'th'/'en'. They used to
+    # default to "alloy" (an OpenAI voice name, right for kokoro-fastapi and
+    # friends but meaningless to local-speech), which silently resolved to
+    # English and spoke Thai text in the English voice. Override per
+    # deployment if the server on the other end wants real voice names.
+    tts_local_voice_th: str = "th"
+    tts_local_voice_en: str = "en"
     speech_http_timeout_s: float = 30.0
     # Button-first turn taking (product decision 2026-07-27): the patient
     # ends their turn with "I'm finished speaking". Silence auto-detect is
@@ -201,6 +207,36 @@ class Settings(BaseSettings):
             # The OpenAI client rejects an empty key even when the server
             # ignores it entirely.
             self.screening_openai_api_key = self.screening_openai_api_key or "local"
+        return self
+
+    @model_validator(mode="after")
+    def _normalise_openai_base_urls(self):
+        """Every OpenAI-compatible base URL must end in /v1.
+
+        The clients append their own path — ``ChatOpenAI`` adds
+        ``/chat/completions``, ``HttpSttClient`` adds ``/audio/transcriptions``,
+        ``HttpTtsClient`` adds ``/audio/speech``. A base URL without the suffix
+        therefore 404s at request time, not at startup, and reads as "the
+        gateway is down" when the gateway is fine. Observed in the field: STT
+        and TTS worked while every LLM call 404'd on ``/chat/completions``,
+        because only that one URL had been written without ``/v1``.
+
+        Normalising here rather than in each adapter means one rule for all
+        three, and it also covers the URLs AI_MODE fills in.
+        """
+        for field in (
+            "screening_openai_base_url",
+            "stt_base_url",
+            "tts_base_url",
+        ):
+            url = (getattr(self, field, None) or "").strip()
+            if not url:
+                continue
+            fixed = url.rstrip("/")
+            if not fixed.endswith("/v1"):
+                fixed = f"{fixed}/v1"
+            if fixed != url:
+                setattr(self, field, fixed)
         return self
 
     @model_validator(mode="after")

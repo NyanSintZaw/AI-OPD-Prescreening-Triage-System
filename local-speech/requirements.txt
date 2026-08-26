@@ -32,6 +32,13 @@ psutil
 # 2.6.0 is the only cu124 build for cp313/win_amd64; bump both together.
 --extra-index-url https://download.pytorch.org/whl/cu124
 torch==2.6.0+cu124
+# Pinned to torch's version and pulled from the SAME index. transformers 5.x
+# imports torchaudio to load VITS, and installing f5-tts-th drags in whatever
+# torchaudio PyPI has latest (2.11.0), which is built against a much newer
+# torch — the C++ extension then fails to load with
+# "[WinError 127] The specified procedure could not be found" and takes the
+# working MMS path down with it. Bump this in lockstep with torch, never alone.
+torchaudio==2.6.0+cu124
 transformers
 
 # 16 kHz (MMS) -> 24 kHz (voice bridge) resampling

@@ -137,6 +137,11 @@ Env vars, all optional:
 | `STT_BEAM_SIZE` | `1` | there is GPU headroom to raise it — measure on real Thai utterances |
 | `TTS_DEVICE` | `cuda` | needs a CUDA torch build; ignored by CPU-only wheels |
 | `TTS_MODEL_TH` / `TTS_MODEL_EN` | MMS | any VITS checkpoint |
+| `TTS_ENGINE_TH` / `_EN` | `mms` | `f5` switches that language to F5-TTS-THAI |
+| `TTS_REF_AUDIO_TH` | — | F5 reference clip; 5–15 s works best |
+| `TTS_REF_TEXT_TH` | — | that clip's transcript, **exact** — F5 aligns against it |
+| `TTS_SPEED_TH` / `_EN` | `0.95` / `1.0` | applies to whichever engine serves the language |
+| `F5_STEPS` / `F5_CFG` | `32` / `2.0` | more steps = slower and better |
 | `OLLAMA_URL` | `http://127.0.0.1:11434` | upstream for the LLM proxy |
 | `LLM_TIMEOUT_S` | `180` | |
 
@@ -146,6 +151,62 @@ beats vanilla Whisper, at the cost of English. Both need converting with
 `ct2-transformers-converter` first. 20 GB is enough to hold a Thai model and
 turbo for English side by side — `get_tts()` is already per-language cached and
 `get_stt()` would need the same treatment.
+
+## F5-TTS for Thai (optional)
+
+MMS Thai is a **male** voice, and `mms-tts-tha` / `mms-tts-eng` are different
+speakers — so the on-prem nurse is two different people depending on language.
+F5-TTS clones one reference clip, giving a female voice and the same speaker in
+both languages.
+
+```powershell
+.\venv\Scripts\pip install f5-tts-th
+$env:TTS_ENGINE_TH    = 'f5'
+$env:TTS_ENGINE_EN    = 'f5'     # optional — see "one voice" below
+$env:TTS_REF_AUDIO_TH = 'C:\path\to\nurse_ref.wav'
+$env:TTS_REF_TEXT_TH  = '<exact transcript of that clip>'
+```
+
+**Engine is per language and both default to `mms`.** Setting only
+`TTS_ENGINE_TH=f5` leaves English on MMS — which is a different (and, for
+Thai, male) speaker, so the booth changes voice when the patient switches
+language.
+
+**One voice, both languages.** `TTS_REF_AUDIO_EN` / `TTS_REF_TEXT_EN` fall back
+to the Thai pair, because cloning takes the *voice* from the reference and the
+*language* from the text. One clip therefore covers both — the
+[config.py](../hospital-hotline-assistant-api/app/config.py) intent that "the
+nurse avatar is the same person in th and en", which MMS structurally cannot
+meet. Verified here: the Thai reference produced English at 0.70 s for 1.86 s
+of audio (2.6× realtime) and round-tripped exactly. Bear in mind
+`F5-TTS-THAI` is a *Thai* fine-tune, so judge its English accent by ear before
+committing — an exact round-trip proves intelligibility, not naturalness.
+
+**ffmpeg is required and is not a pip dependency.** `f5_tts_th` decodes the
+reference through pydub, which shells out to `ffmpeg`/`ffprobe`; without them
+inference dies with `[WinError 2] The system cannot find the file specified`
+*after* the model has loaded, so `/health` will happily report `engine: f5`
+right up until the first request. Put both binaries on PATH.
+
+Measured here (RTX 4000 SFF Ada), same Thai sentence:
+
+| | MMS | F5 |
+|---|---|---|
+| Latency | 0.089 s | **0.72 s** |
+| Realtime factor | 17–45× | **~4.1×** |
+| Output rate | 16 kHz → resampled | **24 kHz native** |
+| Whisper round-trip | `สวัสดีคัด กรณาบอกอาการของคุณ` | `สวัสดีค่ะ กรุณาบอกอาการของคุณ` (exact) |
+
+So F5 costs roughly **+0.64 s per turn** and returns a cleaner round-trip. Note
+that a round-trip proves *intelligibility, not tone* — whisper is context-robust
+and will transcribe a tonally wrong vowel back to the right characters. Thai is
+tonal and this is a medical booth: **have a native speaker score the output
+before trusting it**, weighted toward the 183 digit-bearing strings in
+`screening_criteria.json`.
+
+If F5 fails at inference the engine is **demoted to MMS for the rest of the
+process** rather than failing the turn; `/health` then shows `demoted_from` and
+`demote_reason`.
 
 ## Why MMS-TTS and not piper
 

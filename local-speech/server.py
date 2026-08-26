@@ -34,8 +34,10 @@ Run:
     uvicorn server:app --host 0.0.0.0 --port 8090
 """
 
+import contextlib
 import io
 import os
+import re
 import time
 import wave
 import json
@@ -52,6 +54,19 @@ from scipy.signal import resample_poly
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s  %(message)s")
 logger = logging.getLogger("local-speech")
+
+# Read local-speech/.env before any config below is evaluated, so engine and
+# reference settings survive a restart instead of living in one shell's
+# environment. Real environment variables still win, which keeps
+# `TTS_ENGINE_TH=mms uvicorn ...` working as a one-off override.
+try:
+    from dotenv import load_dotenv
+
+    _ENV_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
+    if load_dotenv(_ENV_FILE, override=False):
+        logger.info("loaded config from %s", _ENV_FILE)
+except ImportError:      # python-dotenv is optional; env vars alone still work
+    pass
 
 # ---------------------------------------------------------------------------
 # Config
@@ -74,6 +89,39 @@ STT_BEAM_SIZE = int(os.environ.get("STT_BEAM_SIZE", "1"))
 # it is closed — and it closes on garbage collection. Hold them for the life of
 # the process or the search path silently empties again.
 _dll_dirs = []
+
+
+def _claim_cudnn(dirs):
+    """Load torch's cuDNN first so it is the one the whole process uses.
+
+    Three copies of ``cudnn64_9.dll`` ship in this venv — ctranslate2 bundles
+    9.10 in its own package directory, the nvidia-cudnn-cu12 wheel has 9.24,
+    torch/lib has 9.1 — and a Windows process can only hold ONE module per
+    base name. Whichever loads first serves everyone.
+
+    ctranslate2 loads its bundled copy out of its own directory, so PATH order
+    cannot win the race: with STT warming before TTS, torch later asked 9.10
+    for a symbol it does not export and the process died outright —
+    ``Could not load symbol cudnnGetLibConfig. Error code 127``, exit code 9,
+    no traceback. Claiming the name here, before either library initialises,
+    is what actually decides it. torch's build is the fussy one; ctranslate2
+    runs happily against it (measured: whisper on cuda, 8x realtime).
+    """
+    import ctypes
+
+    for d in dirs:
+        if not d.lower().endswith(os.path.join("torch", "lib")):
+            continue
+        dll = os.path.join(d, "cudnn64_9.dll")
+        if not os.path.isfile(dll):
+            continue
+        try:
+            ctypes.WinDLL(dll)
+            logger.info("claimed cuDNN for the process: %s", dll)
+        except OSError as exc:
+            # Not fatal on its own — it only means the race is back open.
+            logger.warning("could not preload torch cuDNN (%s): %s", dll, exc)
+        return
 
 
 def _preload_cuda_libs():
@@ -110,8 +158,17 @@ def _preload_cuda_libs():
 
     if os.name == "nt":
         found = []
-        for pattern in (os.path.join("nvidia", "*", "bin"),
-                        os.path.join("torch", "lib")):
+        # ORDER IS LOad-BEARING. torch/lib must come first. Both torch and the
+        # nvidia-cudnn-cu12 wheel ship a cudnn64_9.dll, and only ONE can be
+        # resident: whichever is found first serves the whole process. With the
+        # nvidia wheel winning, torch's CUDA kernels later ask for a symbol it
+        # does not export and the process dies outright —
+        #   "Could not load symbol cudnnGetLibConfig. Error code 127"
+        # exit code 9, no traceback, mid-request. ctranslate2 is the tolerant
+        # one of the two and runs fine against torch's build, so let torch's
+        # win and keep the nvidia wheels as the fallback for a torch-less box.
+        for pattern in (os.path.join("torch", "lib"),
+                        os.path.join("nvidia", "*", "bin")):
             for root in roots:
                 for path in sorted(glob.glob(os.path.join(root, pattern))):
                     if os.path.isdir(path) and path not in found:
@@ -125,6 +182,7 @@ def _preload_cuda_libs():
             os.environ["PATH"] = os.pathsep.join(
                 found + [os.environ.get("PATH", "")]
             )
+        _claim_cudnn(found)
         return len(found)
 
     import ctypes
@@ -151,8 +209,52 @@ TTS_MODELS = {
 # CPU-only wheel silently ignores this, so get_tts() says so rather than
 # leaving a "why is TTS still slow" mystery.
 TTS_DEVICE = os.environ.get("TTS_DEVICE", "cuda")
-MMS_SAMPLE_RATE = 16_000          # what VITS/MMS emits
 DEFAULT_OUTPUT_RATE = 24_000      # what the voice bridge plays
+
+# ── TTS engine per language ────────────────────────────────────────────────
+# "mms" — facebook/mms-tts-* (VITS). One forward pass, ~57x realtime, but the
+#         Thai checkpoint is a MALE voice and th/en are different speakers.
+# "f5"  — F5-TTS-THAI voice cloning. Female nurse voice, and one reference
+#         clip gives the same speaker in both languages. Flow matching, so
+#         markedly slower: budget for it before switching a live booth.
+# Per language so Thai can move to F5 while English stays on MMS.
+TTS_ENGINES = {
+    "th": os.environ.get("TTS_ENGINE_TH", "mms").strip().lower(),
+    "en": os.environ.get("TTS_ENGINE_EN", "mms").strip().lower(),
+}
+
+# Each engine emits its own rate. F5 emits 24 kHz — exactly what the voice
+# bridge plays — so its resample is a no-op; MMS emits 16 kHz and still needs
+# the 3:2. This is why the source rate is per-engine and not a global.
+MMS_SAMPLE_RATE = 16_000          # what VITS/MMS emits
+F5_SAMPLE_RATE = 24_000           # what F5-TTS emits
+
+# F5 is voice cloning: it needs a reference clip AND that clip's transcript.
+# Both are required — a wrong transcript degrades output badly, because the
+# model aligns the reference against it. Without them Thai falls back to MMS.
+F5_MODEL = os.environ.get("F5_MODEL", "v1")
+TTS_REF_AUDIO_TH = os.environ.get("TTS_REF_AUDIO_TH", "").strip()
+TTS_REF_TEXT_TH = os.environ.get("TTS_REF_TEXT_TH", "").strip()
+# English falls back to the Thai clip on purpose: cloning takes the voice from
+# the reference and the language from the text, so ONE clip gives the same
+# nurse in both languages — which is what config.py asks for and what MMS
+# cannot do (mms-tts-tha and mms-tts-eng are different speakers, and the Thai
+# one is male). Set these only if you want a separate English reference.
+TTS_REF_AUDIO_EN = os.environ.get("TTS_REF_AUDIO_EN", "").strip() or TTS_REF_AUDIO_TH
+TTS_REF_TEXT_EN = os.environ.get("TTS_REF_TEXT_EN", "").strip() or TTS_REF_TEXT_TH
+_F5_REFS = {
+    "th": (TTS_REF_AUDIO_TH, TTS_REF_TEXT_TH),
+    "en": (TTS_REF_AUDIO_EN, TTS_REF_TEXT_EN),
+}
+# Sampling knobs. 32 steps / cfg 2.0 are the F5 defaults; more steps is
+# slower and better, and latency is the scarce resource here.
+F5_STEPS = int(os.environ.get("F5_STEPS", "32"))
+F5_CFG = float(os.environ.get("F5_CFG", "2.0"))
+# Slightly under 1.0 reads as calmer and is easier to follow in a noisy
+# booth — an unhurried nurse rather than a brisk one.
+TTS_SPEED_TH = float(os.environ.get("TTS_SPEED_TH", "0.95"))
+TTS_SPEED_EN = float(os.environ.get("TTS_SPEED_EN", "1.0"))
+_ENGINE_SPEED = {"th": TTS_SPEED_TH, "en": TTS_SPEED_EN}
 
 # Upstream LLM. Ollama binds 127.0.0.1 by default and changing that needs root
 # (it runs under systemd), so instead of exposing it we proxy to it from here —
@@ -172,6 +274,61 @@ def normalize_language(value, default="en"):
     if not value:
         return default
     return _LANG_ALIASES.get(str(value).strip().lower(), default)
+
+
+# Thai script is a contiguous, unambiguous block — nothing else uses it.
+_THAI_SCRIPT = re.compile(r"[฀-๿]")
+
+
+def resolve_speech_language(voice, text):
+    """Language for synthesis. The voice name is the contract, Thai script wins.
+
+    ``/v1/audio/speech`` carries no language field, so the voice name IS the
+    selector. That makes a backend misconfiguration silent and severe: the
+    default of ``TTS_LOCAL_VOICE_TH`` is ``alloy`` (an OpenAI voice name that
+    means nothing here), which falls through to the ``en`` default — so Thai
+    text was synthesized with the English voice and a Thai patient heard
+    English, with no error raised anywhere.
+
+    Thai script cannot appear in English text, so use it as the tiebreak and
+    say loudly when the two disagree.
+    """
+    known = str(voice or "").strip().lower() in _LANG_ALIASES
+    language = normalize_language(voice)
+    if known:
+        # An explicit 'th'/'en' is the backend stating the session language,
+        # and it wins. Script is NOT a safe override here: the kiosk greets by
+        # name, so an English line legitimately contains Thai characters
+        # ("Hello สมชาย ใจดี, welcome") and any-Thai-character detection would
+        # flip the whole utterance to the Thai voice. Only flag a lopsided
+        # mismatch, which means a real backend bug rather than a proper noun.
+        thai = len(_THAI_SCRIPT.findall(text or ""))
+        letters = sum(1 for c in (text or "") if c.isalpha())
+        if letters and language == "en" and thai / letters > 0.6:
+            logger.warning(
+                "voice='en' but %.0f%% of the text is Thai script — check the "
+                "session language; synthesizing as en as asked.",
+                100 * thai / letters,
+            )
+        return language
+
+    # Unrecognised voice name (the backend default 'alloy' is an OpenAI voice,
+    # meaningless here) would otherwise fall through to the 'en' default and
+    # speak Thai text in the English voice, silently. Here script IS the best
+    # signal available, because the voice name carries none.
+    if _THAI_SCRIPT.search(text or ""):
+        logger.warning(
+            "voice=%r is not a language selector and the text contains Thai — "
+            "synthesizing as th. Set TTS_LOCAL_VOICE_TH=th / _EN=en in the "
+            "backend .env.", voice,
+        )
+        return "th"
+    logger.warning(
+        "voice=%r is not a language selector — defaulting to %r. The "
+        "backend should send TTS_LOCAL_VOICE_TH/EN as 'th'/'en'.",
+        voice, language,
+    )
+    return language
 
 
 # ---------------------------------------------------------------------------
@@ -336,64 +493,231 @@ def get_stt():
 # ---------------------------------------------------------------------------
 # TTS - MMS-TTS (VITS) per language, loaded once on first use
 # ---------------------------------------------------------------------------
+# Cache entries are dicts, not tuples, because the two engines carry
+# different payloads. Every entry has: engine, device, sample_rate.
 _tts_cache = {}
 _tts_lock = threading.Lock()
-# What TTS actually ended up on, which may differ from TTS_DEVICE when torch
-# turned out to be a CPU-only build.
-_tts_runtime = {"device": TTS_DEVICE}
+# What TTS actually ended up as, per language — which may differ from what was
+# requested when torch turned out to be a CPU-only build, or when F5 could not
+# load and Thai fell back to MMS. Keyed by language because the engine is now
+# a per-language choice, so one global value could not express it.
+_tts_runtime = {}
+
+
+def _resolve_torch_device(requested):
+    """Requested device, downgraded to cpu when this torch cannot do CUDA."""
+    import torch
+
+    if requested == "cuda" and not torch.cuda.is_available():
+        # The usual cause is the CPU-only torch wheel, which is easy to
+        # install by accident and impossible to spot from the outside.
+        logger.warning(
+            "TTS_DEVICE=cuda but this torch build reports no CUDA (%s) — "
+            "running TTS on CPU", torch.__version__,
+        )
+        return "cpu"
+    return requested
+
+
+def _load_mms(language, device):
+    """facebook/mms-tts-* (VITS). One forward pass per utterance."""
+    import torch
+    from transformers import AutoTokenizer, VitsModel
+
+    name = TTS_MODELS[language]
+    logger.info("Loading TTS: %s (%s, mms)", name, language)
+    tokenizer = AutoTokenizer.from_pretrained(name)
+    model = VitsModel.from_pretrained(name)
+    model.eval()
+    # Pace is a model attribute on VITS, not an inference argument as it is on
+    # F5 — so set it once here. Doing it per call would mutate state shared by
+    # every in-flight request.
+    speed = _ENGINE_SPEED.get(language, 1.0)
+    if speed and speed != 1.0 and hasattr(model, "speaking_rate"):
+        model.speaking_rate = speed
+        logger.info("TTS %s speaking_rate=%.2f", language, speed)
+    try:
+        model = model.to(device)
+    except Exception as exc:      # noqa: BLE001 — a slow booth beats a dead one
+        logger.warning("TTS could not move to %s (%s) — using CPU", device, exc)
+        device = "cpu"
+        model = model.to("cpu")
+    if getattr(tokenizer, "is_uroman", False):
+        # MMS checkpoints for some scripts need romanized input; if a
+        # future voice needs it, feeding raw script silently produces
+        # garbage, so say so rather than ship noise.
+        logger.warning(
+            "%s expects uroman-romanized input; raw %s text will be mispronounced",
+            name, language,
+        )
+    return {
+        "engine": "mms",
+        "device": device,
+        "sample_rate": MMS_SAMPLE_RATE,
+        "tokenizer": tokenizer,
+        "model": model,
+        "torch": torch,
+    }
+
+
+def _load_f5(language, device):
+    """F5-TTS voice cloning. Raises so get_tts() can fall back to MMS.
+
+    The reference clip and its transcript are read and validated HERE, once,
+    and reused for every request — re-reading env or stat-ing the file per
+    utterance would put filesystem latency on the patient's critical path.
+    """
+    ref_audio, ref_text = _F5_REFS.get(language, ("", ""))
+    suffix = language.upper()
+    if not ref_audio or not os.path.isfile(ref_audio):
+        raise RuntimeError(
+            f"TTS_REF_AUDIO_{suffix} is unset or not a file ({ref_audio!r})"
+        )
+    if not ref_text:
+        # A missing transcript is worse than a missing clip: F5 still runs but
+        # aligns against nothing, and the output degrades in a way that is easy
+        # to mistake for the model simply being bad.
+        raise RuntimeError(
+            f"TTS_REF_TEXT_{suffix} is unset (F5 needs the clip's transcript)"
+        )
+
+    from f5_tts_th.tts import TTS
+
+    logger.info("Loading TTS: F5-TTS-THAI %s (%s, f5, %s)", F5_MODEL, language, device)
+    try:
+        tts = TTS(model=F5_MODEL, device=device)
+    except TypeError:
+        # Not every f5-tts-th build accepts a device kwarg; those place the
+        # model by torch's own default instead.
+        logger.info("f5_tts_th.TTS takes no device kwarg — using torch default")
+        tts = TTS(model=F5_MODEL)
+
+    return {
+        "engine": "f5",
+        "device": device,
+        "sample_rate": F5_SAMPLE_RATE,
+        "tts": tts,
+        "ref_audio": ref_audio,
+        "ref_text": ref_text,
+    }
 
 
 def get_tts(language):
+    """Load (once) and return the cache entry for a language.
+
+    Fallback chain, mirroring get_stt(): F5 on the requested device → F5 on
+    CPU → MMS. A booth that sounds worse still triages; one that cannot speak
+    is dead.
+    """
     with _tts_lock:
-        if language not in _tts_cache:
-            import torch
-            from transformers import AutoTokenizer, VitsModel
+        if language in _tts_cache:
+            return _tts_cache[language]
 
-            name = TTS_MODELS[language]
-            t0 = time.perf_counter()
-            logger.info("Loading TTS: %s (%s)", name, language)
-            tokenizer = AutoTokenizer.from_pretrained(name)
-            model = VitsModel.from_pretrained(name)
-            model.eval()
+        t0 = time.perf_counter()
+        requested = TTS_ENGINES.get(language, "mms")
+        device = _resolve_torch_device(TTS_DEVICE)
+        entry = None
 
-            device = TTS_DEVICE
-            if device == "cuda" and not torch.cuda.is_available():
-                # The usual cause is the CPU-only torch wheel, which is easy to
-                # install by accident and impossible to spot from the outside.
-                logger.warning(
-                    "TTS_DEVICE=cuda but this torch build reports no CUDA "
-                    "(%s) — running TTS on CPU", torch.__version__,
-                )
-                device = "cpu"
+        if requested == "f5":
             try:
-                model = model.to(device)
-            except Exception as exc:      # noqa: BLE001 — a slow booth beats a dead one
-                logger.warning("TTS could not move to %s (%s) — using CPU", device, exc)
-                device = "cpu"
-                model = model.to("cpu")
-            _tts_runtime["device"] = device
-            logger.info("TTS %s on %s", language, device)
-            if getattr(tokenizer, "is_uroman", False):
-                # MMS checkpoints for some scripts need romanized input; if a
-                # future voice needs it, feeding raw script silently produces
-                # garbage, so say so rather than ship noise.
-                logger.warning(
-                    "%s expects uroman-romanized input; raw %s text will be mispronounced",
-                    name, language,
-                )
-            _tts_cache[language] = (tokenizer, model, torch, device)
-            logger.info("TTS %s ready in %.1f s", language, time.perf_counter() - t0)
+                entry = _load_f5(language, device)
+            except Exception as exc:      # noqa: BLE001
+                if device != "cpu":
+                    logger.warning("F5 TTS unavailable on %s (%s) — retrying on CPU",
+                                   device, exc)
+                    try:
+                        entry = _load_f5(language, "cpu")
+                    except Exception as exc2:   # noqa: BLE001
+                        logger.warning("F5 TTS unavailable on CPU too (%s) — "
+                                       "falling back to MMS for %s", exc2, language)
+                else:
+                    logger.warning("F5 TTS unavailable (%s) — falling back to MMS "
+                                   "for %s", exc, language)
+        elif requested != "mms":
+            logger.warning("unknown TTS_ENGINE_%s=%r — using mms",
+                           language.upper(), requested)
+
+        if entry is None:
+            entry = _load_mms(language, device)
+
+        _tts_cache[language] = entry
+        _tts_runtime[language] = {
+            "engine": entry["engine"],
+            "engine_requested": requested,
+            "device": entry["device"],
+            "sample_rate": entry["sample_rate"],
+        }
+        logger.info(
+            "TTS %s ready: %s on %s in %.1f s",
+            language, entry["engine"], entry["device"], time.perf_counter() - t0,
+        )
     return _tts_cache[language]
 
 
-def synthesize(text, language, output_rate):
-    tokenizer, model, torch, device = get_tts(language)
+def _synth_mms(entry, text, speed):
+    # speed is unused here: VITS pace is baked in at load (see _load_mms).
+    torch = entry["torch"]
+    tokenizer, model, device = entry["tokenizer"], entry["model"], entry["device"]
     inputs = tokenizer(text, return_tensors="pt")
     # Inputs must sit on the same device as the weights, or torch raises.
     inputs = {k: v.to(device) for k, v in inputs.items()}
     with torch.no_grad():
-        waveform = model(**inputs).waveform[0].float().cpu().numpy()
-    return to_wav(waveform, MMS_SAMPLE_RATE, output_rate)
+        return model(**inputs).waveform[0].float().cpu().numpy()
+
+
+def _synth_f5(entry, text, speed):
+    wav = entry["tts"].infer(
+        ref_audio=entry["ref_audio"],
+        ref_text=entry["ref_text"],
+        gen_text=text,
+        step=F5_STEPS,
+        cfg=F5_CFG,
+        speed=speed,
+    )
+    # Some builds return (waveform, sample_rate) rather than a bare array.
+    if isinstance(wav, tuple):
+        wav = wav[0]
+    return np.asarray(wav, dtype=np.float32).squeeze()
+
+
+def _demote_to_mms(language, reason):
+    """Swap a language's engine to MMS for the rest of the process."""
+    with _tts_lock:
+        entry = _load_mms(language, _resolve_torch_device(TTS_DEVICE))
+        _tts_cache[language] = entry
+        _tts_runtime[language] = {
+            "engine": entry["engine"],
+            "engine_requested": TTS_ENGINES.get(language, "mms"),
+            "device": entry["device"],
+            "sample_rate": entry["sample_rate"],
+            "demoted_from": "f5",
+            "demote_reason": str(reason)[:200],
+        }
+    return entry
+
+
+def synthesize(text, language, output_rate):
+    """Returns (wav_bytes, audio_seconds) — unchanged contract for speech()."""
+    entry = get_tts(language)
+    speed = _ENGINE_SPEED.get(language, 1.0)
+    if entry["engine"] == "f5":
+        try:
+            waveform = _synth_f5(entry, text, speed)
+        except Exception as exc:      # noqa: BLE001
+            # Loading F5 successfully does NOT mean it can infer: the reference
+            # decode shells out to ffmpeg, and CUDA kernels resolve lazily — so
+            # the first real failure lands here, not in the loader. A dead turn
+            # is worse than a plainer voice, so demote for the rest of the
+            # process rather than 500 on this turn and every later one.
+            logger.exception("F5 inference failed for %s — demoting to MMS", language)
+            entry = _demote_to_mms(language, exc)
+            waveform = _synth_mms(entry, text, speed)
+    else:
+        waveform = _synth_mms(entry, text, speed)
+    # Per-engine source rate: F5 already emits 24 kHz so to_wav's resample is a
+    # no-op, while MMS's 16 kHz still gets the exact 3:2. Read AFTER any
+    # demotion above, or a demoted turn would be resampled at the wrong rate.
+    return to_wav(waveform, entry["sample_rate"], output_rate)
 
 
 def to_wav(samples, source_rate, target_rate):
@@ -420,7 +744,41 @@ def to_wav(samples, source_rate, target_rate):
 # ---------------------------------------------------------------------------
 # API
 # ---------------------------------------------------------------------------
-app = FastAPI(title="Local AI Gateway (STT / TTS / LLM)")
+# Load the models at startup instead of on the first request. Lazily loading
+# them means the FIRST PATIENT of the day pays the cost: F5 takes ~13 s from a
+# warm disk cache and minutes on a cold one, while the backend's TTS client
+# gives up after speech_http_timeout_s (30 s) — so that turn dies with an
+# httpx.ReadTimeout and the booth greets nobody. Warming runs on a background
+# thread so the port still opens immediately and /health answers while it
+# works; watch "loaded" there to know when it is actually ready.
+PREWARM = os.environ.get("PREWARM", "1").strip().lower() not in ("0", "false", "no")
+
+
+def _prewarm():
+    for name, fn in (
+        ("STT", lambda: get_stt()),
+        # Only the languages an engine is configured for; get_tts() falls back
+        # to MMS by itself if F5 cannot load.
+        *[(f"TTS {lang}", (lambda l=lang: get_tts(l))) for lang in TTS_ENGINES],
+    ):
+        try:
+            t0 = time.perf_counter()
+            fn()
+            logger.info("prewarm: %s ready in %.1f s", name, time.perf_counter() - t0)
+        except Exception:      # noqa: BLE001 — a cold model is not fatal, it just costs the first turn
+            logger.exception("prewarm: %s failed; it will load on first use", name)
+
+
+@contextlib.asynccontextmanager
+async def lifespan(_app):
+    if PREWARM:
+        threading.Thread(target=_prewarm, daemon=True, name="prewarm").start()
+    else:
+        logger.info("PREWARM disabled — models load on first request")
+    yield
+
+
+app = FastAPI(title="Local AI Gateway (STT / TTS / LLM)", lifespan=lifespan)
 
 
 @app.get("/")
@@ -456,9 +814,14 @@ def health():
         },
         "tts": {
             "models": TTS_MODELS,
-            "device": _tts_runtime["device"],
+            "engines_requested": TTS_ENGINES,
             "device_requested": TTS_DEVICE,
+            # Per language, what actually loaded. A Thai row reading
+            # engine=mms while engine_requested=f5 is the F5 fallback having
+            # fired — the reason is one warning back in the log.
+            "runtime": _tts_runtime,
             "loaded": sorted(_tts_cache),
+            "speed": _ENGINE_SPEED,
         },
         "llm": {"upstream": OLLAMA_URL, "reachable": _llm_reachable()},
         "output_sample_rate": DEFAULT_OUTPUT_RATE,
@@ -677,7 +1040,7 @@ def speech(req: SpeechReq):
     if not text:
         raise HTTPException(400, "input must not be empty")
 
-    language = normalize_language(req.voice)
+    language = resolve_speech_language(req.voice, text)
     rate = req.sample_rate or DEFAULT_OUTPUT_RATE
     if req.response_format not in ("wav", "pcm"):
         # No mp3 encoder here on purpose; the voice bridge asks for wav.
@@ -693,16 +1056,22 @@ def speech(req: SpeechReq):
         raise HTTPException(500, f"TTS error: {exc}") from exc
 
     elapsed = probe.elapsed or 0.0
+    # Which engine produced this. Without it /metrics cannot attribute a
+    # latency to mms vs f5, which is the whole point of running both.
+    rt = _tts_runtime.get(language, {})
     row = probe.record(
         language=language,
+        engine=rt.get("engine"),
+        device=rt.get("device"),
         chars=len(text),
         audio_s=round(audio_seconds, 2),
         realtime_factor=round(audio_seconds / elapsed, 2) if elapsed else None,
     )
     logger.info(
-        "TTS  lang=%s chars=%d audio=%.1fs latency=%.2fs (%.1fx RT)  %s",
-        language, len(text), audio_seconds, elapsed,
-        (audio_seconds / elapsed) if elapsed else 0.0, _fmt_hw(row),
+        "TTS  lang=%s engine=%s chars=%d audio=%.1fs latency=%.2fs (%.1fx RT) on %s  %s",
+        language, rt.get("engine", "?"), len(text), audio_seconds, elapsed,
+        (audio_seconds / elapsed) if elapsed else 0.0,
+        rt.get("device", "?"), _fmt_hw(row),
     )
     if req.response_format == "pcm":
         return Response(content=wav[44:], media_type="application/octet-stream")
