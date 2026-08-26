@@ -15,9 +15,11 @@ import type {
   CriteriaViewQuestion,
   CriteriaViewRule,
 } from '../api/types';
-import { CriteriaSources } from './CriteriaViewer';
 
-type Section = 'complaints' | 'rules' | 'findings' | 'routing';
+/** `always` is the fixed spine of every interview — the questions the booth
+ *  asks whatever the complaint. `complaints` is the per-complaint set, which
+ *  is a dropdown per category and reads as a different kind of thing. */
+type Section = 'always' | 'complaints' | 'rules' | 'findings' | 'routing' | 'sources';
 
 /** Rule group → the label key the existing criteria viewer already ships. */
 const GROUP_KEY: Record<CriteriaViewRule['group'], string> = {
@@ -45,6 +47,86 @@ function PlaceholderBadge() {
     <span className="cm-flag" title={t('criteriaBookPlaceholderHint')}>
       <WarningCircle size={13} weight="duotone" aria-hidden="true" /> {t('criteriaBookPlaceholder')}
     </span>
+  );
+}
+
+interface SourceStandard {
+  name?: string;
+  edition?: string;
+  url?: string;
+}
+
+/**
+ * What the criteria are built on.
+ *
+ * These were three wrapping chips, one of which ran to 160 characters because
+ * `edition` carries the ESI scope note as well as the edition — as a chip it
+ * read as a run-on sentence with a border round it. Two columns and a link
+ * per row say the same thing at a glance.
+ */
+/** What GET /admin/triage-manual/file serves — `settings.triage_manual_path`.
+ *  Used as the label when a criteria entry carries no edition of its own: the
+ *  seed names it now, but versions deployed before that leave it blank. */
+const HELD_MANUAL_FILE = 'triage_manual.pdf';
+
+function SourcesTable({ sources }: { sources: SourceStandard[] }) {
+  const { t } = useTranslation();
+  const [openError, setOpenError] = useState<string | null>(null);
+
+  // The route is bearer-guarded, so it cannot be an href. Fetch, hand the tab
+  // an object URL, and release it once the viewer has had time to load.
+  const openManual = async () => {
+    setOpenError(null);
+    try {
+      const url = URL.createObjectURL(await api.getTriageManualFile());
+      window.open(url, '_blank', 'noopener');
+      window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    } catch (err) {
+      setOpenError(err instanceof Error ? err.message : t('error'));
+    }
+  };
+
+  if (sources.length === 0) return <p className="muted">{t('criteriaSourceDefault')}</p>;
+  return (
+    <table className="staff-table cm-source-table">
+      <thead>
+        <tr>
+          <th scope="col">{t('criteriaSourceColName')}</th>
+          <th scope="col">{t('criteriaSourceColEdition')}</th>
+          <th scope="col" />
+        </tr>
+      </thead>
+      <tbody>
+        {sources.map((src, i) => {
+          // A published standard carries its own URL. The MFU manual is not
+          // published anywhere — the portal holds the PDF and built the RAG
+          // index from it — so a source with no URL is the one we serve.
+          const isLocal = !src.url;
+          return (
+            <tr key={`${src.name}-${i}`}>
+              <th scope="row">{src.name}</th>
+              <td>{src.edition || (isLocal ? HELD_MANUAL_FILE : '—')}</td>
+              <td className="cm-source-open">
+                {src.url ? (
+                  <a href={src.url} target="_blank" rel="noopener noreferrer">
+                    {t('criteriaSourceOpen')} ↗
+                  </a>
+                ) : isLocal ? (
+                  <>
+                    <button type="button" className="link-btn" onClick={() => void openManual()}>
+                      {t('criteriaSourceOpen')} ↗
+                    </button>
+                    {openError && <span className="cm-source-error">{openError}</span>}
+                  </>
+                ) : (
+                  '—'
+                )}
+              </td>
+            </tr>
+          );
+        })}
+      </tbody>
+    </table>
   );
 }
 
@@ -105,7 +187,7 @@ export function CriteriaBook() {
   const [view, setView] = useState<CriteriaActiveView | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [section, setSection] = useState<Section>('complaints');
+  const [section, setSection] = useState<Section>('always');
   const [query, setQuery] = useState('');
   const [openCategory, setOpenCategory] = useState<string | null>(null);
 
@@ -130,14 +212,6 @@ export function CriteriaBook() {
     (lang === 'th' ? item.label_th : item.label_en) || item.label_en || item.label_th || '—';
   const condition = (item: { condition_en: string; condition_th: string }) =>
     (lang === 'th' ? item.condition_th : item.condition_en) || '—';
-
-  const placeholderCount = useMemo(() => {
-    if (!view) return 0;
-    return (
-      view.rules.filter((r) => r.placeholder).length +
-      view.routing.filter((r) => r.placeholder).length
-    );
-  }, [view]);
 
   const findings = useMemo<CriteriaViewFinding[]>(
     () =>
@@ -182,33 +256,21 @@ export function CriteriaBook() {
       .join(' ');
   };
 
-  const sections: Array<{ id: Section; label: string; count: number }> = [
+  const sections: Array<{ id: Section; label: string; count?: number }> = [
+    {
+      id: 'always',
+      label: t('criteriaSecAlways'),
+      count: view.universal_questions.length + view.pre_disposition_questions.length,
+    },
     { id: 'complaints', label: t('criteriaSecTemplates'), count: view.complaint_templates.length },
     { id: 'rules', label: t('criteriaBookSecRules'), count: view.rules.length },
     { id: 'findings', label: t('criteriaSecFindings'), count: view.findings.length },
     { id: 'routing', label: t('criteriaGroupRouting'), count: view.routing.length },
+    { id: 'sources', label: t('criteriaSecSources') },
   ];
 
   return (
     <section className="criteria-book">
-      <div className="criteria-book-meta">
-        <span className="cm-status-pill cm-status-active">
-          {view.version_no != null ? `v${view.version_no}` : t('criteriaBookSeed')}
-        </span>
-        <span className="muted">
-          {t('criteriaBookActiveSince')}: {formatDate(view.activated_at)}
-        </span>
-        {view.change_summary && <span className="cm-book-summary">{view.change_summary}</span>}
-      </div>
-      <CriteriaSources doc={view as unknown as Record<string, unknown>} />
-
-      {placeholderCount > 0 && (
-        <p className="alert-note alert-note-warning">
-          <WarningCircle size={18} weight="duotone" aria-hidden="true" />
-          {t('criteriaBookPlaceholderCount', { n: placeholderCount })}
-        </p>
-      )}
-
       <div className="tabs" role="tablist">
         {sections.map((s) => (
           <button
@@ -219,7 +281,8 @@ export function CriteriaBook() {
             className={`tab ${section === s.id ? 'active' : ''}`}
             onClick={() => setSection(s.id)}
           >
-            {s.label} <span className="tab-count">{s.count}</span>
+            {s.label}
+            {s.count !== undefined && <span className="tab-count">{s.count}</span>}
           </button>
         ))}
       </div>
@@ -235,194 +298,236 @@ export function CriteriaBook() {
         />
       )}
 
-      {section === 'complaints' && (
-        <div className="cm-tpl-list">
-          {view.universal_questions.length > 0 && (
-            <div className="cm-tpl-card">
-              <div className="cm-tpl-head">
-                <span className="cm-tpl-title">{t('criteriaBookUniversal')}</span>
-                <span className="muted cm-tpl-count">
-                  {t('criteriaQuestionsN', { n: view.universal_questions.length })}
-                </span>
-              </div>
-              <div className="cm-tpl-body">
-                <QuestionList questions={view.universal_questions} lang={lang} />
-              </div>
-            </div>
-          )}
-
-          {view.complaint_templates.map((tpl) => {
-            const isOpen = openCategory === tpl.category;
-            const keywords = lang === 'th' ? tpl.keywords_th : tpl.keywords_en;
-            return (
-              <div key={tpl.category} className="cm-tpl-card">
-                <button
-                  type="button"
-                  className="cm-tpl-head"
-                  aria-expanded={isOpen}
-                  onClick={() => setOpenCategory(isOpen ? null : tpl.category)}
-                >
-                  <span className="cm-tpl-toggle" aria-hidden="true">
-                    {isOpen ? '▾' : '▸'}
-                  </span>
-                  <span className="cm-tpl-title">{label(tpl)}</span>
-                  <code className="cm-tpl-cat">{tpl.category}</code>
+      {/* Keyed on the section so the panel is a new element on every switch,
+          which is what lets its fade run. It carries the book's own flex
+          rules rather than sitting between them as a plain box — the tables
+          inside are bounded by `flex: 1` against a fill-height column, and a
+          neutral wrapper would swallow that and let them grow again. */}
+      <div className="criteria-panel" key={section}>
+        {section === 'always' && (
+          <div className="cm-tpl-list">
+            {view.universal_questions.length > 0 && (
+              <div className="cm-tpl-card">
+                <div className="cm-tpl-head">
+                  <span className="cm-tpl-title">{t('criteriaBookUniversal')}</span>
                   <span className="muted cm-tpl-count">
-                    {t('criteriaQuestionsN', { n: tpl.questions.length })}
+                    {t('criteriaQuestionsN', { n: view.universal_questions.length })}
                   </span>
-                </button>
-                {isOpen && (
-                  <div className="cm-tpl-body">
-                    {keywords.length > 0 && (
-                      <p className="cm-tpl-keywords">
-                        <span className="muted">{t('criteriaKeywords')}:</span>{' '}
-                        {keywords.map((k) => (
-                          <span key={k} className="cm-pill">
-                            {k}
-                          </span>
-                        ))}
-                      </p>
-                    )}
-                    <QuestionList questions={tpl.questions} lang={lang} />
-                  </div>
-                )}
+                </div>
+                <div className="cm-tpl-body">
+                  <QuestionList questions={view.universal_questions} lang={lang} />
+                </div>
               </div>
-            );
-          })}
+            )}
 
-          {view.pre_disposition_questions.length > 0 && (
-            <div className="cm-tpl-card">
-              <div className="cm-tpl-head">
-                <span className="cm-tpl-title">{t('criteriaBookClosing')}</span>
-                <span className="muted cm-tpl-count">
-                  {t('criteriaQuestionsN', { n: view.pre_disposition_questions.length })}
-                </span>
+            {view.pre_disposition_questions.length > 0 && (
+              <div className="cm-tpl-card">
+                <div className="cm-tpl-head">
+                  <span className="cm-tpl-title">{t('criteriaBookClosing')}</span>
+                  <span className="muted cm-tpl-count">
+                    {t('criteriaQuestionsN', { n: view.pre_disposition_questions.length })}
+                  </span>
+                </div>
+                <div className="cm-tpl-body">
+                  <QuestionList questions={view.pre_disposition_questions} lang={lang} />
+                </div>
               </div>
-              <div className="cm-tpl-body">
-                <QuestionList questions={view.pre_disposition_questions} lang={lang} />
+            )}
+          </div>
+        )}
+
+        {section === 'complaints' && (
+          <div className="cm-tpl-list">
+            {view.complaint_templates.map((tpl) => {
+              const isOpen = openCategory === tpl.category;
+              const keywords = lang === 'th' ? tpl.keywords_th : tpl.keywords_en;
+              return (
+                <div key={tpl.category} className="cm-tpl-card">
+                  <button
+                    type="button"
+                    className="cm-tpl-head"
+                    aria-expanded={isOpen}
+                    onClick={() => setOpenCategory(isOpen ? null : tpl.category)}
+                  >
+                    <span className="cm-tpl-toggle" aria-hidden="true">
+                      {isOpen ? '▾' : '▸'}
+                    </span>
+                    <span className="cm-tpl-title">{label(tpl)}</span>
+                    <code className="cm-tpl-cat">{tpl.category}</code>
+                    <span className="muted cm-tpl-count">
+                      {t('criteriaQuestionsN', { n: tpl.questions.length })}
+                    </span>
+                  </button>
+                  {isOpen && (
+                    <div className="cm-tpl-body">
+                      {keywords.length > 0 && (
+                        <p className="cm-tpl-keywords">
+                          <span className="muted">{t('criteriaKeywords')}:</span>{' '}
+                          {keywords.map((k) => (
+                            <span key={k} className="cm-pill">
+                              {k}
+                            </span>
+                          ))}
+                        </p>
+                      )}
+                      <QuestionList questions={tpl.questions} lang={lang} />
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {section === 'rules' && (
+          <div className="table-wrap scroll-slim">
+            <table className="admin-table cm-rule-table cm-table-rules">
+              <thead>
+                <tr>
+                  <th>{t('criteriaColRule')}</th>
+                  <th>{t('criteriaColCondition')}</th>
+                  <th>{t('criteriaColEffect')}</th>
+                  <th>{t('criteriaColCitation')}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rules.map((r) => (
+                  <tr key={`${r.group}-${r.id}`}>
+                    <td>
+                      <span className="cm-pill cm-group-pill">{t(GROUP_KEY[r.group] ?? r.group)}</span>
+                      <div className="cm-rule-label">{label(r)}</div>
+                      <code className="cm-tpl-cat">{r.id}</code>
+                    </td>
+                    <td className="cm-cond">{condition(r)}</td>
+                    <td className="cm-effect">{effectOf(r)}</td>
+                    <td className="cm-cite">
+                      {r.citation || t('criteriaCiteFallback')}
+                      {r.placeholder && (
+                        <>
+                          <br />
+                          <PlaceholderBadge />
+                        </>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {rules.length === 0 && <p className="muted">{t('criteriaViewerEmpty')}</p>}
+          </div>
+        )}
+
+        {section === 'findings' && (
+          <div className="table-wrap scroll-slim">
+            <table className="admin-table cm-rule-table cm-table-findings">
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>{t('criteriaFindingLabel')}</th>
+                  <th>{t('criteriaSynonyms')}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {findings.map((f) => (
+                  <tr key={f.id}>
+                    <td>
+                      <code>{f.id}</code>
+                      {f.is_risk_factor && (
+                        <div className="cm-pill cm-group-pill">{t('criteriaBookRiskFactor')}</div>
+                      )}
+                    </td>
+                    <td>
+                      <div>{label(f)}</div>
+                      <div className="muted cm-q-alt">{lang === 'th' ? f.label_en : f.label_th}</div>
+                    </td>
+                    <td className="cm-q-chips">
+                      {[...f.synonyms_th, ...f.synonyms_en].map((s) => (
+                        <span key={s} className="cm-pill">
+                          {s}
+                        </span>
+                      ))}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {findings.length === 0 && <p className="muted">{t('criteriaViewerEmpty')}</p>}
+          </div>
+        )}
+
+        {section === 'sources' && (
+          <div className="cm-sources-panel">
+            <dl className="fact-grid">
+              <div>
+                <dt>{t('criteriaVersionLabel')}</dt>
+                <dd>{view.version_no != null ? `v${view.version_no}` : t('criteriaBookSeed')}</dd>
               </div>
+              <div>
+                <dt>{t('criteriaBookActiveSince')}</dt>
+                <dd>{formatDate(view.activated_at)}</dd>
+              </div>
+              {view.change_summary && (
+                <div>
+                  <dt>{t('criteriaVersionChange')}</dt>
+                  <dd>{view.change_summary}</dd>
+                </div>
+              )}
+            </dl>
+            <div className="table-wrap scroll-slim">
+              <SourcesTable
+                sources={
+                  (Array.isArray((view as { source_standards?: unknown }).source_standards)
+                    ? ((view as { source_standards?: SourceStandard[] }).source_standards ?? [])
+                    : []
+                  ).filter((src) => src.name)
+                }
+              />
             </div>
-          )}
-        </div>
-      )}
+          </div>
+        )}
 
-      {section === 'rules' && (
-        <div className="table-wrap">
-          <table className="admin-table cm-rule-table">
-            <thead>
-              <tr>
-                <th>{t('criteriaColRule')}</th>
-                <th>{t('criteriaColCondition')}</th>
-                <th>{t('criteriaColEffect')}</th>
-                <th>{t('criteriaColCitation')}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rules.map((r) => (
-                <tr key={`${r.group}-${r.id}`}>
-                  <td>
-                    <span className="cm-pill cm-group-pill">{t(GROUP_KEY[r.group] ?? r.group)}</span>
-                    <div className="cm-rule-label">{label(r)}</div>
-                    <code className="cm-tpl-cat">{r.id}</code>
-                  </td>
-                  <td className="cm-cond">{condition(r)}</td>
-                  <td className="cm-effect">{effectOf(r)}</td>
-                  <td className="cm-cite">
-                    {r.citation || t('criteriaCiteFallback')}
-                    {r.placeholder && (
-                      <>
-                        <br />
-                        <PlaceholderBadge />
-                      </>
-                    )}
-                  </td>
+        {section === 'routing' && (
+          <div className="table-wrap scroll-slim">
+            <table className="admin-table cm-rule-table cm-table-routing">
+              <thead>
+                <tr>
+                  <th>{t('criteriaColRule')}</th>
+                  <th>{t('criteriaColCondition')}</th>
+                  <th>{t('criteriaColEffect')}</th>
+                  <th>{t('criteriaColCitation')}</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-          {rules.length === 0 && <p className="muted">{t('criteriaViewerEmpty')}</p>}
-        </div>
-      )}
-
-      {section === 'findings' && (
-        <div className="table-wrap">
-          <table className="admin-table cm-rule-table">
-            <thead>
-              <tr>
-                <th>ID</th>
-                <th>{t('criteriaFindingLabel')}</th>
-                <th>{t('criteriaSynonyms')}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {findings.map((f) => (
-                <tr key={f.id}>
-                  <td>
-                    <code>{f.id}</code>
-                    {f.is_risk_factor && (
-                      <div className="cm-pill cm-group-pill">{t('criteriaBookRiskFactor')}</div>
-                    )}
-                  </td>
-                  <td>
-                    <div>{label(f)}</div>
-                    <div className="muted cm-q-alt">{lang === 'th' ? f.label_en : f.label_th}</div>
-                  </td>
-                  <td className="cm-q-chips">
-                    {[...f.synonyms_th, ...f.synonyms_en].map((s) => (
-                      <span key={s} className="cm-pill">
-                        {s}
-                      </span>
-                    ))}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          {findings.length === 0 && <p className="muted">{t('criteriaViewerEmpty')}</p>}
-        </div>
-      )}
-
-      {section === 'routing' && (
-        <div className="table-wrap">
-          <table className="admin-table cm-rule-table">
-            <thead>
-              <tr>
-                <th>{t('criteriaColRule')}</th>
-                <th>{t('criteriaColCondition')}</th>
-                <th>{t('criteriaColEffect')}</th>
-                <th>{t('criteriaColCitation')}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {view.routing.map((r) => (
-                <tr key={`${r.complaint_category}-${r.department_code}`}>
-                  <td>
-                    <code>{r.complaint_category}</code>
-                  </td>
-                  <td className="cm-cond">{condition(r) === '—' ? t('criteriaBookAlways') : condition(r)}</td>
-                  <td className="cm-effect">
-                    → {deptLabel(r.department_code, r.department_name_th)}
-                    {r.fallback_department_code && (
-                      <div className="muted">
-                        {t('criteriaBookElse')} → {deptLabel(r.fallback_department_code, null)}
-                      </div>
-                    )}
-                  </td>
-                  <td className="cm-cite">
-                    {r.citation || t('criteriaCiteFallback')}
-                    {r.placeholder && (
-                      <>
-                        <br />
-                        <PlaceholderBadge />
-                      </>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+              </thead>
+              <tbody>
+                {view.routing.map((r) => (
+                  <tr key={`${r.complaint_category}-${r.department_code}`}>
+                    <td>
+                      <code>{r.complaint_category}</code>
+                    </td>
+                    <td className="cm-cond">{condition(r) === '—' ? t('criteriaBookAlways') : condition(r)}</td>
+                    <td className="cm-effect">
+                      → {deptLabel(r.department_code, r.department_name_th)}
+                      {r.fallback_department_code && (
+                        <div className="muted">
+                          {t('criteriaBookElse')} → {deptLabel(r.fallback_department_code, null)}
+                        </div>
+                      )}
+                    </td>
+                    <td className="cm-cite">
+                      {r.citation || t('criteriaCiteFallback')}
+                      {r.placeholder && (
+                        <>
+                          <br />
+                          <PlaceholderBadge />
+                        </>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
     </section>
   );
 }

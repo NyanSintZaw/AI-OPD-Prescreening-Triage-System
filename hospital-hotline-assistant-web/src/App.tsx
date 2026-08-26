@@ -8,8 +8,12 @@ import { LoginPage } from './pages/LoginPage';
 import { NursePage } from './pages/NursePage';
 import { SlipPage } from './pages/SlipPage';
 import { ProtectedRoute } from './components/ProtectedRoute';
+import { useTabIndicator } from './hooks/useTabIndicator';
 
 export function App() {
+  // One observer for every tab strip in the app — see the hook.
+  useTabIndicator();
+
   return (
     <BrowserRouter>
       <Routes>

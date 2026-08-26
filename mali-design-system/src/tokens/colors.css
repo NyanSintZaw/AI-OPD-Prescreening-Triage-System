@@ -57,6 +57,16 @@
   --status-warning: var(--gold-600);  --status-warning-soft: var(--gold-50);
   --status-danger: var(--red-500);    --status-danger-soft: var(--red-50);
 
+  /* Text ON the matching -soft fill. The base steps are tuned to read as
+     status against a white card and land at 3.5–3.8:1 on their own soft
+     background — under the 4.5:1 that a small label needs, which three
+     shipped pills and the dashboard error banner were quietly failing. Each
+     ink is the darkest step of its own hue that clears 4.5:1 on its pair. */
+  --status-success-ink: #2f6b50;      /* 5.63:1 on --green-50 */
+  --status-info-ink: #35608f;         /* 5.83:1 on --blue-50  */
+  --status-warning-ink: #7c5d20;      /* 5.47:1 on --gold-50  */
+  --status-danger-ink: #9c4034;       /* 5.75:1 on --red-50   */
+
   /* MOPH 5-level triage — nurse/admin surfaces only, unchanged by branding.
      Level 1 also carries the emergency UI: -strong for hover/pressed on a
      red action, -border for the hairline on an emergency banner. */
@@ -64,6 +74,31 @@
   --triage-1-strong: #a80d26; --triage-1-border: #f5c2cb;
   --triage-2: #e8591c; --triage-2-soft: #fdf0ea;
   --triage-3: #d9a400; --triage-3-soft: #fff8e1;
-  --triage-4: #2f8f5b; --triage-4-soft: #eef7f1;
+  /* Softened 2026-08-25: #2f8f5b was a dark, cold forest green at luminance
+     0.21 sitting between amber (0.41) and grey — it broke the ramp's
+     lightness walk and read as a different family. #6fbf95 lands at 0.43,
+     alongside level 3, and takes dark text like level 3 does. It also
+     fixes a contrast failure: white on the old green was 4.04:1 under a
+     16px bold digit that needs 4.5. */
+  --triage-4: #6fbf95; --triage-4-soft: #e9f6ee;
   --triage-5: #6b7280; --triage-5-soft: #f1f2f4;
+
+  /* Chart sequential ramp — magnitude, one hue, light to dark. Steps are the
+     teal ramp thinned until it PASSES the ordinal checks against a white card
+     (monotone lightness, every adjacent gap >= 0.06 L, lightest step >= 2:1
+     vs surface). teal-200/300 fail the light end (1.45:1 and 1.93:1) and
+     teal-500 sits only 0.056 L from teal-400, so both are skipped; teal-800
+     is skipped because it reads deep green rather than teal.
+     Never a rainbow, and never a value-ramp on nominal categories. */
+  --chart-seq-1: var(--teal-400); /* #73b1ac — 2.44:1 vs white */
+  --chart-seq-2: var(--teal-600);
+  --chart-seq-3: var(--teal-700);
+  --chart-seq-4: var(--teal-900);
+  /* A cell with no data is not the palest step of the ramp — zero is a state,
+     not a small magnitude. */
+  --chart-empty: var(--ink-100);
+  /* Everything that is context rather than data: the prior period in a
+     sparkline, gridlines, an axis rule. Hairline, one step off the surface. */
+  --chart-muted: var(--ink-300);
+  --chart-grid: var(--ink-100);
 }

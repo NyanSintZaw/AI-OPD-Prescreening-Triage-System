@@ -1,12 +1,21 @@
-/* Motion: arriving things decelerate hard; leaving things accelerate away and take less time. */
+/* Motion: arriving things decelerate hard; leaving things accelerate away and
+   take less time. A third case sits between them — something already on screen
+   that MOVES: a tab bar's active mark, the pill in a segmented control — one
+   step under an entrance in duration.
+
+   Pair --dur-move with --ease-enter when the move ANSWERS A CLICK. --ease-move
+   has a very slow head (1% travelled at 30ms, 5% at 60ms) and over that
+   duration it reads as lag in the frames the user is watching hardest. Keep
+   --ease-move for movement nobody asked for — a reflow, an auto-advance — and
+   for colour, where there is no position to watch. */
 :root {
   --ease-enter: cubic-bezier(0.16, 1, 0.3, 1);
   --ease-exit: cubic-bezier(0.4, 0, 1, 1);
   --ease-press: cubic-bezier(0.23, 1, 0.32, 1);
   --ease-move: cubic-bezier(0.77, 0, 0.175, 1);
-  --dur-press: 140ms; --dur-color: 160ms; --dur-exit: 200ms; --dur-enter: 300ms; --dur-breathe: 2400ms;
+  --dur-press: 140ms; --dur-color: 160ms; --dur-exit: 200ms; --dur-move: 240ms; --dur-enter: 300ms; --dur-breathe: 2400ms;
   --press-scale: 0.97;
 }
 @media (prefers-reduced-motion: reduce) {
-  :root { --dur-press: 0ms; --dur-exit: 0ms; --dur-enter: 0ms; --dur-breathe: 0ms; }
+  :root { --dur-press: 0ms; --dur-exit: 0ms; --dur-move: 0ms; --dur-enter: 0ms; --dur-breathe: 0ms; }
 }

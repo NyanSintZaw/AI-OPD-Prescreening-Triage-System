@@ -1,269 +1,137 @@
 /**
  * The one dashboard, mounted in both staff portals.
  *
- * `scope="nurse"` answers "how busy is my floor right now and how sick are
- * they"; `scope="admin"` adds the volume trend behind it. Everything comes
- * from two calls — `/admin/triage-stats` (dense series, computed in SQL) and
- * `/admin/surveillance` (symptom counts) — so no panel derives a number from
- * a capped 100-row page the way the old admin KPI row did.
+ * It reads top-to-bottom as urgency decays — **right now**, then **today**,
+ * then **the period** — because the old flat grid of eight equal panels made
+ * the nurse hunt for the one thing that needed her: a 5-day-old unconfirmed
+ * screening sat in a small tile between symptom frequencies.
  *
- * Colour rules this file obeys, because a validator run said so:
- *  - The MOPH triage colours are clinical and cannot be re-picked, but
- *    level 1 vs level 2 sit at ΔE 13.1 for NORMAL vision — under the 15 floor.
- *    So acuity is never encoded by colour alone: every mark carries its
- *    number and its label. Colour is the supporting stripe, not the signal.
- *  - Every other chart is single-hue magnitude. The old rainbow gave eight
- *    hues to eight bars that were all length 1, which encoded nothing.
+ *  - **Right now** is unscoped and live: who is waiting, how sick, how long.
+ *    It is the only band a nurse needs before she has had coffee.
+ *  - **Today** is the booth's shift: how many screened, when they arrived.
+ *  - **The period** (7/14/30) is the only band the toolbar scopes, and it says
+ *    so — the old toolbar silently didn't apply to "arrivals today".
+ *
+ * Volume across the window, symptom frequency and the AI's own record live on
+ * the administrator's board instead (`components/admin/AdminDashboard.tsx`).
+ * They are deliberately **not** here — a nurse cannot act on a 30-day symptom
+ * rank, and the underlying `symptom_keywords` mixes chief complaints with
+ * history and allergies, so "coronary artery disease" ranks beside "fever".
+ *
+ * Forms are chosen in `dashboard/charts.tsx`; the rule that governs them is
+ * that length stopped being the magnitude channel. See that file.
  */
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
-import { ArrowUp, Minus, WarningCircle } from '@phosphor-icons/react';
+import { ArrowRight, WarningCircle } from '@phosphor-icons/react';
 import { api } from '../api';
-import type { RoutingFeedbackOut, SurveillanceSummaryOut, TriageStatsOut } from '../api/types';
+import type {
+  AssessmentReviewOut,
+  RoutingFeedbackOut,
+  TriageStatsOut,
+} from '../api/types';
 import { useLanguage } from '../hooks/useSession';
 import { useDuration } from '../hooks/useDuration';
-
-type Scope = 'nurse' | 'admin';
+import { TriageBadge } from './staff/TriageBadge';
+import { DateRangeField, type DateRange } from './ui/DateRangeField';
+import { daysBetween, fromDateValue } from './ui/dateRange';
+import {
+  Band,
+  DotPlot,
+  EmptyNote,
+  Figure,
+  Panel,
+  ShareStrip,
+  TrendArea,
+  UnitStrip,
+  type DotRow,
+  type TrendPoint,
+  type Unit,
+} from './dashboard/charts';
 
 const DAY_OPTIONS = [7, 14, 30] as const;
 
-/** MOPH level → the token that carries it. Levels are ordinal, not categorical. */
-const LEVEL_TOKEN: Record<number, string> = {
-  1: 'var(--triage-1)',
-  2: 'var(--triage-2)',
-  3: 'var(--triage-3)',
-  4: 'var(--triage-4)',
-  5: 'var(--triage-5)',
-};
+/** The hour band the arrivals chart always draws, widened by any real
+ *  reading outside it. A fixed 0–23 spent ten columns on hours the booth is
+ *  shut; a purely data-driven window would jump about between refreshes. */
+/* How long a screening may sit unconfirmed before the board calls it out.
+   Two hours, because the booth is a same-visit flow — the patient is meant to
+   be seen on this trip, not called back. Not a clinical SLA and not presented
+   as one; it is the line at which the board stops assuming someone is on it.
+   ponytail: one constant, per-level thresholds if a clinician wants them. */
+const STALE_MINUTES = 120;
+
+/** Past this the list stops being scannable and starts being the queue table
+ *  the nurse already has a tab for. The overflow is counted, never hidden. */
+const ATTENTION_CAP = 5;
+
+const CLINIC_FROM = 7;
+const CLINIC_TO = 19;
 
 const nf = new Intl.NumberFormat();
 
 /**
- * Is this keyword a symptom term, or a whole utterance?
+ * The page header's actions slot, once it exists.
  *
- * Two writers feed `symptom_keywords`: the extractor writes short terms, and
- * the turn pipeline writes the free-text `symptoms_summary`. The second kind
- * arrived as a sibling "symptom" — a full Thai sentence ranked next to
- * "fever". Thai does not put spaces between words, so a word count cannot
- * tell the two apart; character length can.
+ * The period toolbar belongs on the title's line — the header is already a
+ * `space-between` row built for exactly this, and giving the toolbar a row of
+ * its own meant a full-width band with content in the right third and nothing
+ * in the other two. A portal rather than lifting the period state into the
+ * page: the state belongs to the board, only its pixels belong up there.
+ *
+ * `useLayoutEffect` so the toolbar is placed before paint. With a passive
+ * effect it renders once without and appears on the next frame, which reads as
+ * the header flickering on every visit.
  */
-function isSymptomTerm({ keyword }: { keyword: string }): boolean {
-  const term = keyword.trim();
-  return term.length > 0 && term.length <= 24 && term.split(/\s+/).length <= 3;
+function usePortalTarget(id: string): HTMLElement | null {
+  const [node, setNode] = useState<HTMLElement | null>(null);
+  useLayoutEffect(() => {
+    setNode(document.getElementById(id));
+  });
+  return node;
 }
 
-function StatTile({
-  label,
-  value,
-  hint,
-  tone,
+function minutesSince(iso: string): number {
+  return Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60000));
+}
+
+/* ── Shells ───────────────────────────────────────────────────────────── */
+
+/* ── The board ────────────────────────────────────────────────────────── */
+
+export function TriageDashboard({
+  /** Present only where there is a queue to open — the nurse portal. */
+  onOpenQueue,
 }: {
-  label: string;
-  value: string;
-  hint?: string | null;
-  tone?: 'default' | 'attention' | 'good';
+  onOpenQueue?: () => void;
 }) {
-  return (
-    <div className={`stat-tile ${tone && tone !== 'default' ? `stat-tile-${tone}` : ''}`}>
-      <p className="stat-tile-label">{label}</p>
-      <p className="stat-tile-value">{value}</p>
-      {hint ? <p className="stat-tile-hint">{hint}</p> : null}
-    </div>
-  );
-}
-
-function Panel({
-  title,
-  subtitle,
-  children,
-  wide,
-}: {
-  title: string;
-  subtitle?: string;
-  children: React.ReactNode;
-  wide?: boolean;
-}) {
-  return (
-    <section className={`dash-panel ${wide ? 'dash-panel-wide' : ''}`}>
-      <header className="dash-panel-head">
-        <h3>{title}</h3>
-        {subtitle ? <p className="dash-panel-sub">{subtitle}</p> : null}
-      </header>
-      {children}
-    </section>
-  );
-}
-
-function EmptyNote({ text }: { text: string }) {
-  return <p className="dash-empty">{text}</p>;
-}
-
-/**
- * Ranked horizontal bars, one hue. Values are direct-labelled because the
- * length alone is unreadable once every bar is near the max.
- */
-function RankedBars({
-  rows,
-  emptyText,
-}: {
-  rows: Array<{ key: string; label: string; value: number; note?: string }>;
-  emptyText: string;
-}) {
-  const max = Math.max(1, ...rows.map((r) => r.value));
-  if (rows.length === 0) return <EmptyNote text={emptyText} />;
-  return (
-    <ul className="bar-list">
-      {rows.map((row) => (
-        <li key={row.key} className="bar-row">
-          <span className="bar-row-label" title={row.label}>
-            {row.label}
-          </span>
-          <span className="bar-row-track">
-            <span
-              className="bar-row-fill"
-              style={{ inlineSize: `${(row.value / max) * 100}%` }}
-            />
-          </span>
-          <span className="bar-row-value">
-            {nf.format(row.value)}
-            {row.note ? <span className="bar-row-note">{row.note}</span> : null}
-          </span>
-        </li>
-      ))}
-    </ul>
-  );
-}
-
-/**
- * Acuity, the one chart that may not lean on colour. Each row states its
- * level number and clinical label; the stripe only reinforces them.
- */
-function AcuityRows({
-  rows,
-  total,
-  emptyText,
-}: {
-  rows: Array<{ level: number | null; count: number }>;
-  total: number;
-  emptyText: string;
-}) {
-  const { t } = useTranslation();
-  if (total === 0) return <EmptyNote text={emptyText} />;
-  const byLevel = new Map(rows.map((r) => [r.level ?? 0, r.count]));
-  return (
-    <ul className="acuity-list">
-      {[1, 2, 3, 4, 5].map((level) => {
-        const count = byLevel.get(level) ?? 0;
-        const pct = total ? (count / total) * 100 : 0;
-        return (
-          <li key={level} className={`acuity-row ${count === 0 ? 'is-zero' : ''}`}>
-            <span
-              className="acuity-chip"
-              style={{ background: LEVEL_TOKEN[level] }}
-              aria-hidden="true"
-            >
-              {level}
-            </span>
-            <span className="acuity-name">{t(`triageLevelName_${level}`)}</span>
-            <span className="acuity-track">
-              <span className="acuity-fill" style={{ inlineSize: `${pct}%` }} />
-            </span>
-            <span className="acuity-count">{nf.format(count)}</span>
-          </li>
-        );
-      })}
-    </ul>
-  );
-}
-
-/**
- * Today's arrivals, hour by hour. Dense 0-23 from SQL, so an empty hour is a
- * visible gap rather than a missing column that silently closes the spacing.
- */
-function HourColumns({ rows, emptyText }: { rows: Array<{ hour: number; count: number }>; emptyText: string }) {
-  const { t } = useTranslation();
-  const max = Math.max(...rows.map((r) => r.count), 0);
-  if (max === 0) return <EmptyNote text={emptyText} />;
-  return (
-    <div className="hour-chart">
-      <ul className="hour-cols">
-        {rows.map((row) => (
-          <li key={row.hour} className="hour-col">
-            <span
-              className="hour-bar"
-              style={{ blockSize: `${(row.count / max) * 100}%` }}
-              title={t('dashHourTooltip', { hour: row.hour, n: row.count })}
-            />
-          </li>
-        ))}
-      </ul>
-      <div className="hour-axis" aria-hidden="true">
-        {[0, 6, 12, 18, 23].map((h) => (
-          <span key={h} style={{ insetInlineStart: `${(h / 23) * 100}%` }}>
-            {String(h).padStart(2, '0')}
-          </span>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-/**
- * Daily volume. One hue for screened patients over a recessive track for all
- * sessions started — the track is a background, not a second data series, so
- * there is no categorical palette to get wrong. Values are labelled because
- * the track fails the 3:1 contrast check on its own.
- */
-function DailyColumns({
-  rows,
-  emptyText,
-}: {
-  rows: Array<{ date: string; sessions: number; screened: number }>;
-  emptyText: string;
-}) {
-  const { t } = useTranslation();
-  const max = Math.max(1, ...rows.map((r) => r.sessions));
-  if (rows.every((r) => r.sessions === 0)) return <EmptyNote text={emptyText} />;
-  return (
-    <div className="daily-chart">
-      <ul className="daily-cols">
-        {rows.map((row) => (
-          <li key={row.date} className="daily-col">
-            <span className="daily-value">{row.sessions ? nf.format(row.sessions) : ''}</span>
-            <span className="daily-track" style={{ blockSize: `${(row.sessions / max) * 100}%` }}>
-              <span
-                className="daily-fill"
-                style={{ blockSize: row.sessions ? `${(row.screened / row.sessions) * 100}%` : '0%' }}
-              />
-            </span>
-            <span className="daily-label">{row.date.slice(5)}</span>
-          </li>
-        ))}
-      </ul>
-      <ul className="chart-legend">
-        <li>
-          <span className="chart-key chart-key-fill" aria-hidden="true" />
-          {t('dashLegendScreened')}
-        </li>
-        <li>
-          <span className="chart-key chart-key-track" aria-hidden="true" />
-          {t('dashLegendStarted')}
-        </li>
-      </ul>
-    </div>
-  );
-}
-
-export function TriageDashboard({ scope }: { scope: Scope }) {
   const { t } = useTranslation();
   const { language } = useLanguage();
   const formatDuration = useDuration();
+  const headSlot = usePortalTarget('staff-head-actions');
 
-  const [days, setDays] = useState<number>(7);
+  /**
+   * The period, and which control set it.
+   *
+   * One piece of state rather than two, because the board can only show one
+   * window: picking dates has to clear the active chip and picking a chip has
+   * to clear the dates, or the toolbar would claim two answers at once.
+   */
+  const [range, setRange] = useState<DateRange | null>(null);
+  const [rollingDays, setRollingDays] = useState<number>(7);
+
+  /** What the band heading and the sub-copy count in — the chips' own number,
+   *  or the length of the chosen range. */
+  const days = useMemo(() => {
+    if (!range) return rollingDays;
+    const from = fromDateValue(range.from);
+    const to = fromDateValue(range.to);
+    return from && to ? daysBetween(from, to) : rollingDays;
+  }, [range, rollingDays]);
   const [stats, setStats] = useState<TriageStatsOut | null>(null);
-  const [trends, setTrends] = useState<SurveillanceSummaryOut | null>(null);
-  // Why the engine was overruled — the detail behind the agreement tile.
-  // It used to sit under the working queue, unrelated to the work there.
+  const [pending, setPending] = useState<AssessmentReviewOut[]>([]);
+  // Why the engine was overruled — the detail behind the agreement figure.
   const [reroutes, setReroutes] = useState<RoutingFeedbackOut[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -274,14 +142,20 @@ export function TriageDashboard({ scope }: { scope: Scope }) {
     setError(null);
     void (async () => {
       try {
-        const [statsData, trendData, rerouteData] = await Promise.all([
-          api.getTriageStats(days),
-          api.getSurveillanceSummary(days),
+        // Surveillance is no longer fetched here — symptom frequency moved to
+        // the administrator's board, and this was a round trip whose result
+        // the nurse never saw.
+        const [statsData, pendingData, rerouteData] = await Promise.all([
+          api.getTriageStats(range ?? { days: rollingDays }),
+          // The one call the stats endpoint cannot stand in for: it returns a
+          // pending *count*, and the question this board leads with is which
+          // levels are in that count and how long the worst has waited.
+          api.listAssessmentReviews('pending').catch(() => [] as AssessmentReviewOut[]),
           api.listRoutingFeedback().catch(() => [] as RoutingFeedbackOut[]),
         ]);
         if (cancelled) return;
         setStats(statsData);
-        setTrends(trendData);
+        setPending(pendingData);
         setReroutes(rerouteData);
       } catch (err) {
         if (!cancelled) setError(err instanceof Error ? err.message : t('error'));
@@ -292,14 +166,146 @@ export function TriageDashboard({ scope }: { scope: Scope }) {
     return () => {
       cancelled = true;
     };
-  }, [days, t]);
+    // `t` is deliberately not a dependency: it is only read for an error
+    // message, and its identity changes on every language switch — which was
+    // refetching the whole board to render the same numbers in Thai.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [range, rollingDays]);
+
+  /* ── Right now ─────────────────────────────────────────────────────── */
+
+  /** Sickest first, then longest-waiting — the order a nurse would pick them
+   *  up in, which is what makes the strip readable as a queue and not a bag. */
+  const waiting: Unit[] = useMemo(
+    () =>
+      [...pending]
+        .sort(
+          (a, b) =>
+            (a.triage_level ?? 9) - (b.triage_level ?? 9) ||
+            new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
+        )
+        .map((row) => ({
+          id: row.assessment_id,
+          level: row.triage_level,
+          label: t('dashWaitingUnit', {
+            name: row.patient_name || row.patient_hn || t('dashWaitingAnon'),
+            level: row.triage_level ?? '—',
+            d: formatDuration(minutesSince(row.created_at)),
+          }),
+        })),
+    [pending, t, formatDuration],
+  );
+
+  /**
+   * What is wrong with a waiting case, if anything.
+   *
+   * The board could tell a nurse how many were waiting and how sick they were,
+   * and nothing else — so acting on any of it meant leaving for the queue and
+   * finding the row again. Every dashboard worth copying puts the exceptions
+   * on the board itself; this is that list, and it costs no extra request
+   * because the pending reviews were already loaded for the count.
+   *
+   * Ordered by what a nurse would pick up first, not by how many flags a row
+   * collected: an unconfirmed level 2 outranks a level 5 with three notes.
+   */
+  const flagsFor = (row: AssessmentReviewOut): { stale: boolean; reasons: string[] } => {
+    const out: string[] = [];
+    const level = row.triage_level ?? 9;
+    // Staleness is not written into the reasons: the row already ends with the
+    // elapsed time, and "Waiting 5 d 8 h · 5 d 8 h" is what that produced. It
+    // colours that column instead, so the number does one job and says two
+    // things.
+    const stale = minutesSince(row.created_at) >= STALE_MINUTES;
+    if (level <= 2) out.push(t('dashFlagUrgent', { level }));
+    if (row.missing_vitals?.length) {
+      out.push(
+        t('dashFlagVitals', {
+          list: row.missing_vitals
+            .map((k) => t(`nurseMissingVitalName_${k}`, { defaultValue: k }))
+            .join(', '),
+        }),
+      );
+    }
+    if (row.rejected_vitals && Object.keys(row.rejected_vitals).length > 0) {
+      out.push(t('dashFlagRejected'));
+    }
+    if (row.patient_contact_requested) out.push(t('dashFlagCallback'));
+    return { stale, reasons: out };
+  };
+
+  const attention = useMemo(
+    () =>
+      pending
+        .map((row) => ({ row, ...flagsFor(row) }))
+        .filter((entry) => entry.stale || entry.reasons.length > 0)
+        .sort(
+          (a, b) =>
+            (a.row.triage_level ?? 9) - (b.row.triage_level ?? 9) ||
+            new Date(a.row.created_at).getTime() - new Date(b.row.created_at).getTime(),
+        ),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [pending, t, formatDuration],
+  );
+
+  const pendingCount = stats?.pending_reviews ?? pending.length;
+
+  /* ── Today ─────────────────────────────────────────────────────────── */
+
+  const daily = stats?.daily ?? [];
+  const today = daily.length ? daily[daily.length - 1] : null;
+  const priorDays = daily.slice(0, -1);
+  const priorMean = priorDays.length
+    ? priorDays.reduce((sum, r) => sum + r.screened, 0) / priorDays.length
+    : null;
+  const screenedDelta =
+    today && priorMean !== null ? Math.round(today.screened - priorMean) || 0 : null;
+
+  const arrivals: TrendPoint[] = useMemo(() => {
+    const rows = stats?.hourly_today ?? [];
+    const busy = rows.filter((r) => r.count > 0).map((r) => r.hour);
+    // Widened, never narrowed, by real readings: a 05:00 walk-in must not be
+    // cropped out of the chart just because the booth normally opens at 07.
+    const from = Math.min(CLINIC_FROM, ...busy);
+    const to = Math.max(CLINIC_TO, ...busy);
+    const byHour = new Map(rows.map((r) => [r.hour, r.count]));
+    const out: TrendPoint[] = [];
+    for (let hour = from; hour <= to; hour += 1) {
+      out.push({ tick: `${String(hour).padStart(2, '0')}`, value: byHour.get(hour) ?? 0 });
+    }
+    return out;
+  }, [stats]);
+
+  const arrivalsLiveUntil = useMemo(() => {
+    const rows = stats?.hourly_today ?? [];
+    const busy = rows.filter((r) => r.count > 0).map((r) => r.hour);
+    const from = Math.min(CLINIC_FROM, ...busy);
+    return new Date().getHours() - from;
+  }, [stats]);
+
+  const arrivalsTotal = arrivals.reduce((sum, p) => sum + p.value, 0);
+
+  const peakHour = useMemo(
+    () => arrivals.reduce<TrendPoint | null>((best, p) => (!best || p.value > best.value ? p : best), null),
+    [arrivals],
+  );
+
+  /* ── The period ────────────────────────────────────────────────────── */
 
   const acuityTotal = useMemo(
     () => (stats?.acuity ?? []).reduce((sum, row) => sum + row.count, 0),
     [stats],
   );
 
-  const departmentRows = useMemo(
+  const acuityShares = useMemo(() => {
+    const byLevel = new Map((stats?.acuity ?? []).map((r) => [r.level ?? 0, r.count]));
+    return [1, 2, 3, 4, 5].map((level) => ({
+      level,
+      name: t(`triageLevelName_${level}`),
+      count: byLevel.get(level) ?? 0,
+    }));
+  }, [stats, t]);
+
+  const departmentRows: DotRow[] = useMemo(
     () =>
       (stats?.departments ?? []).map((d) => ({
         key: d.code,
@@ -309,41 +315,25 @@ export function TriageDashboard({ scope }: { scope: Scope }) {
     [stats, language],
   );
 
-  /**
-   * Symptom counts, with the whole-utterance rows dropped.
-   *
-   * Two writers feed `symptom_keywords`: the extractor writes short English
-   * terms, and the turn pipeline writes the free-text `symptoms_summary`. The
-   * second kind arrived as sibling "symptoms" like a full Thai sentence, so a
-   * ranked list was half sentences. Anything sentence-shaped is not a symptom
-   * term and is filtered here rather than charted.
-   */
-  const symptomRows = useMemo(() => {
-    const rising = new Map(
-      (trends?.outbreak_alerts ?? []).map((a) => [a.keyword, a]),
-    );
-    return (trends?.top_symptoms ?? [])
-      .filter(isSymptomTerm)
-      .slice(0, 8)
-      .map((s) => ({
-        key: s.keyword,
-        label: s.keyword,
-        value: s.count,
-        note: rising.has(s.keyword) ? t('dashRisingTag') : undefined,
-      }));
-  }, [trends, t]);
-
-  const risingRows = useMemo(
-    () =>
-      (trends?.outbreak_alerts ?? []).filter((a) => isSymptomTerm(a)),
-    [trends],
-  );
-
   const agreement = stats?.agreement;
   const agreementPct =
     agreement?.agreement_rate === null || agreement?.agreement_rate === undefined
       ? null
       : Math.round(agreement.agreement_rate * 100);
+
+  /** Reroutes folded to "where nurses moved patients to, and how often" — the
+   *  raw feed was eight timestamped rows, which answered no question. */
+  const rerouteTargets = useMemo(() => {
+    const tally = new Map<string, number>();
+    reroutes.forEach((row) => {
+      const name =
+        (language === 'th'
+          ? row.corrected_department_name_th ?? row.corrected_department_name_en
+          : row.corrected_department_name_en) ?? '—';
+      tally.set(name, (tally.get(name) ?? 0) + 1);
+    });
+    return [...tally.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5);
+  }, [reroutes, language]);
 
   if (loading && !stats) return <p className="muted dash-loading">{t('loading')}</p>;
 
@@ -356,139 +346,222 @@ export function TriageDashboard({ scope }: { scope: Scope }) {
     );
   }
 
+  const toolbar = (
+  <div className="dash-toolbar">
+      <span className="dash-toolbar-label" id="dash-period-label">
+        {t('dashPeriod')}
+      </span>
+      <div className="chip-group" role="group" aria-labelledby="dash-period-label">
+        {DAY_OPTIONS.map((option) => (
+          <button
+            key={option}
+            type="button"
+            className={`filter-chip ${!range && rollingDays === option ? 'active' : ''}`}
+            onClick={() => {
+              setRollingDays(option);
+              setRange(null);
+            }}
+          >
+            {t('dashLastDays', { n: option })}
+          </button>
+        ))}
+      </div>
+    <DateRangeField value={range} onChange={setRange} label={t('dashPickDatesLabel')} />
+  </div>
+  );
+
   return (
     <div className="dashboard">
-      <div className="dash-toolbar">
-        <div className="chip-group" role="group" aria-label={t('dashPeriod')}>
-          {DAY_OPTIONS.map((option) => (
-            <button
-              key={option}
-              type="button"
-              className={`filter-chip ${days === option ? 'active' : ''}`}
-              onClick={() => setDays(option)}
-            >
-              {t('dashLastDays', { n: option })}
-            </button>
-          ))}
-        </div>
-      </div>
+      {/* Into the page header when there is one, in place otherwise — the
+          board is mounted in more than one shell. */}
+      {headSlot ? createPortal(toolbar, headSlot) : toolbar}
 
-      <div className="stat-row">
-        <StatTile
-          label={t('dashPendingReviews')}
-          value={nf.format(stats?.pending_reviews ?? 0)}
-          hint={
-            stats?.oldest_pending_minutes != null
-              ? t('dashOldestWait', { d: formatDuration(stats.oldest_pending_minutes) })
-              : t('dashQueueClear')
-          }
-          tone={stats?.pending_reviews ? 'attention' : 'default'}
-        />
-        <StatTile
-          label={t('dashScreenedWindow')}
-          value={nf.format(acuityTotal)}
-          hint={t('dashOverDays', { n: days })}
-        />
-        <StatTile
-          label={t('dashAgreement')}
-          value={agreementPct === null ? '—' : `${agreementPct}%`}
-          hint={
-            agreement && agreement.reviewed > 0
-              ? t('dashAgreementHint', { n: agreement.rerouted })
-              : t('dashNoReviewsYet')
-          }
-        />
-        <StatTile
-          label={t('dashAvgReviewTime')}
-          value={formatDuration(agreement?.avg_review_minutes)}
-          hint={t('dashAvgReviewHint')}
-        />
-      </div>
+      <Band title={t('dashBandNow')}>
+        {/* Two panels, not one across the row: the queue and its worst case
+            are two readings, and holding both in a single full-width card
+            left a metre of empty white between them. */}
+        <Panel
+          title={t('dashWaitingTitle')}
+          subtitle={t('dashWaitingSub')}
+        >
+          {pendingCount === 0 ? (
+            <p className="dash-clear">{t('dashQueueClear')}</p>
+          ) : (
+            <>
+              <div className="waiting">
+                <Figure hero value={nf.format(pendingCount)} unit={t('dashWaitingUnitWord')} />
+                <UnitStrip
+                  units={waiting}
+                  onSelect={onOpenQueue ? () => onOpenQueue() : undefined}
+                />
+              </div>
+              {onOpenQueue ? (
+                <button type="button" className="dash-panel-action" onClick={onOpenQueue}>
+                  {t('dashOpenQueue')}
+                  <ArrowRight size={15} weight="bold" aria-hidden="true" />
+                </button>
+              ) : null}
+            </>
+          )}
+        </Panel>
 
-      <div className="dash-grid">
-        <Panel title={t('dashAcuityTitle')} subtitle={t('dashAcuitySub')}>
-          <AcuityRows
-            rows={stats?.acuity ?? []}
-            total={acuityTotal}
-            emptyText={t('dashNoScreenings')}
+        {/* The exceptions, as rows. A count and a strip of level chips say how
+            many and how sick; they cannot say *who*, so acting on any of it
+            meant leaving the board. This is the one panel a nurse can work
+            from. The longest wait used to be its own tile — it is a flag like
+            any other and belongs in the list rather than beside it. */}
+        <Panel title={t('dashAttentionTitle')} subtitle={t('dashAttentionSub')} span={2}>
+          {attention.length === 0 ? (
+            <p className="dash-clear">
+              {pendingCount === 0 ? t('dashQueueClear') : t('dashAttentionClear')}
+            </p>
+          ) : (
+            <ul className="attention-list">
+              {attention.slice(0, ATTENTION_CAP).map(({ row, stale, reasons }) => {
+                const name = row.patient_name || row.patient_hn || t('dashWaitingAnon');
+                const Row = onOpenQueue ? 'button' : 'div';
+                return (
+                  <li key={row.assessment_id}>
+                    <Row
+                      {...(onOpenQueue
+                        ? { type: 'button' as const, onClick: onOpenQueue }
+                        : {})}
+                      className="attention-row"
+                    >
+                      <TriageBadge level={row.triage_level} />
+                      <span className="attention-who">{name}</span>
+                      <span className="attention-why">{reasons.join(' · ')}</span>
+                      <span className={`attention-wait ${stale ? 'is-stale' : ''}`}>
+                        {formatDuration(minutesSince(row.created_at))}
+                      </span>
+                      {onOpenQueue ? (
+                        <ArrowRight size={14} weight="bold" aria-hidden="true" />
+                      ) : null}
+                    </Row>
+                  </li>
+                );
+              })}
+              {attention.length > ATTENTION_CAP ? (
+                <li className="attention-more">
+                  {t('dashAttentionMore', { n: attention.length - ATTENTION_CAP })}
+                </li>
+              ) : null}
+            </ul>
+          )}
+        </Panel>
+
+        <Panel title={t('dashScreenedToday')} subtitle={t('dashScreenedTodaySub', { n: days })}>
+          <Figure
+            value={nf.format(today?.screened ?? 0)}
+            delta={
+              screenedDelta === null
+                ? null
+                : {
+                    // "0 against the 7-day average" is a sentence that says
+                    // nothing; on the day it is true, say it in words.
+                    text:
+                      screenedDelta === 0
+                        ? t('dashSameAsAverage', { n: days })
+                        : t('dashVsAverage', {
+                            delta: `${screenedDelta > 0 ? '+' : ''}${nf.format(screenedDelta)}`,
+                            n: days,
+                          }),
+                    up: screenedDelta === 0 ? null : screenedDelta > 0,
+                  }
+            }
+            spark={{
+              values: daily.map((r) => r.screened),
+              label: t('dashSparkLabel', { n: days }),
+            }}
           />
         </Panel>
 
+        <Panel title={t('dashArrivalsTitle')} subtitle={t('dashArrivalsSub')} span={2}>
+          {arrivalsTotal === 0 ? (
+            <EmptyNote text={t('dashNoArrivals')} />
+          ) : (
+            <>
+              {/* The card's own summary, on the card — a chart whose total is
+                  only in the subtitle makes the reader add up the shape. */}
+              <div className="chart-head">
+                <Figure value={nf.format(arrivalsTotal)} unit={t('dashArrivalsUnit')} />
+                {peakHour ? (
+                  <p className="chart-head-note">
+                    {t('dashArrivalsPeak', { hour: peakHour.tick, n: peakHour.value })}
+                  </p>
+                ) : null}
+              </div>
+            <TrendArea
+              points={arrivals}
+              liveUntil={arrivalsLiveUntil}
+              label={t('dashArrivalsAria', {
+                list: arrivals
+                  .filter((p) => p.value > 0)
+                  .map((p) => `${p.tick}:00 ${p.value}`)
+                  .join(', '),
+              })}
+              formatPoint={(p) => t('dashArrivalsPoint', { hour: p.tick, n: p.value })}
+            />
+            </>
+          )}
+        </Panel>
+      </Band>
+
+      <Band title={range ? t('dashRangeHeading', { n: days }) : t('dashLastDays', { n: days })}>
+        <Panel
+          title={t('dashAcuityTitle')}
+          subtitle={t('dashAcuitySub')}
+        >
+          {acuityTotal === 0 ? (
+            <EmptyNote text={t('dashNoScreenings')} />
+          ) : (
+            <ShareStrip rows={acuityShares} total={acuityTotal} />
+          )}
+        </Panel>
+
         <Panel title={t('dashDepartmentTitle')} subtitle={t('dashDepartmentSub')}>
-          <RankedBars rows={departmentRows} emptyText={t('dashNoRouting')} />
+          {departmentRows.length === 0 ? (
+            <EmptyNote text={t('dashNoRouting')} />
+          ) : (
+            <DotPlot rows={departmentRows} axisLabel={t('dashDeptAxis')} />
+          )}
         </Panel>
 
-        <Panel title={t('dashArrivalsTitle')} subtitle={t('dashArrivalsSub')}>
-          <HourColumns rows={stats?.hourly_today ?? []} emptyText={t('dashNoArrivals')} />
-        </Panel>
-
-        <Panel title={t('dashSymptomsTitle')} subtitle={t('dashSymptomsSub', { n: days })}>
-          <RankedBars rows={symptomRows} emptyText={t('dashNoSymptoms')} />
-        </Panel>
-
-        {risingRows.length > 0 && (
-          <Panel title={t('dashRisingTitle')} subtitle={t('dashRisingSub')} wide>
-            <ul className="rising-list">
-              {risingRows.map((row) => (
-                <li key={`${row.keyword}-${row.area}`} className="rising-row">
-                  <ArrowUp size={16} weight="bold" aria-hidden="true" />
-                  <span className="rising-keyword">{row.keyword}</span>
-                  <span className="rising-counts">
-                    {t('dashRisingCounts', {
-                      now: row.recent_count,
-                      before: row.previous_count,
-                    })}
-                  </span>
-                  <span className="rising-delta">
-                    {row.previous_count === 0
-                      ? t('dashRisingNew')
-                      : `+${Math.round(row.increase_pct)}%`}
-                  </span>
-                </li>
-              ))}
-            </ul>
-            <p className="dash-footnote">
-              <Minus size={14} aria-hidden="true" />
-              {t('dashRisingFootnote')}
-            </p>
-          </Panel>
-        )}
-
-        {reroutes.length > 0 && (
-          <Panel title={t('dashReroutesTitle')} subtitle={t('dashReroutesSub')} wide>
-            <div className="table-wrap">
-              <table className="staff-table">
-                <thead>
-                  <tr>
-                    <th scope="col">{t('started')}</th>
-                    <th scope="col">{t('department')}</th>
-                    <th scope="col">{t('adminCorrectionReason')}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {reroutes.slice(0, 8).map((row) => (
-                    <tr key={row.id}>
-                      <td>{new Date(row.created_at).toLocaleString()}</td>
-                      <td>
-                        {(language === 'th'
-                          ? row.corrected_department_name_th ?? row.corrected_department_name_en
-                          : row.corrected_department_name_en) ?? '—'}
-                      </td>
-                      <td>{row.reason ?? '—'}</td>
-                    </tr>
+        <Panel title={t('dashAgreement')} subtitle={t('dashAgreementSub')}>
+          {!agreement || agreement.reviewed === 0 ? (
+            <EmptyNote text={t('dashNoReviewsYet')} />
+          ) : (
+            <>
+              <Figure
+                value={agreementPct === null ? '—' : `${agreementPct}`}
+                unit="%"
+                delta={{
+                  text: t('dashAgreementValue', {
+                    confirmed: agreement.confirmed,
+                    reviewed: agreement.reviewed,
+                  }),
+                  up: null,
+                }}
+              />
+              {rerouteTargets.length > 0 ? (
+                <ul className="reroute-list">
+                  {rerouteTargets.map(([name, count]) => (
+                    <li key={name}>
+                      <ArrowRight size={14} weight="bold" aria-hidden="true" />
+                      <span className="reroute-name">{name}</span>
+                      <span className="reroute-count">{nf.format(count)}</span>
+                    </li>
                   ))}
-                </tbody>
-              </table>
-            </div>
-          </Panel>
-        )}
+                </ul>
+              ) : null}
+              <p className="dash-footnote">
+                {t('dashAvgReviewTime')} · {formatDuration(agreement.avg_review_minutes)}
+              </p>
+            </>
+          )}
+        </Panel>
 
-        {scope === 'admin' && (
-          <Panel title={t('dashVolumeTitle')} subtitle={t('dashVolumeSub')} wide>
-            <DailyColumns rows={stats?.daily ?? []} emptyText={t('dashNoVolume')} />
-          </Panel>
-        )}
-      </div>
+      </Band>
     </div>
   );
 }

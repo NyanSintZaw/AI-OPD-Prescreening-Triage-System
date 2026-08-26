@@ -78,7 +78,7 @@ export function StaffNav<T extends string>({
           <CaretLeft size={16} weight="bold" aria-hidden="true" />
         </button>
       </div>
-      <nav aria-label={title}>
+      <nav className="scroll-slim" aria-label={title}>
         <ul className="staff-nav-list">
           {items.map((item) => {
             const Glyph = item.icon;
@@ -94,7 +94,13 @@ export function StaffNav<T extends string>({
                   // nav is collapsed, so it has to survive as a tooltip.
                   title={collapsed ? item.label : undefined}
                 >
-                  <Glyph size={20} weight="duotone" aria-hidden="true" />
+                  {/* Outline when inactive, duotone when current. The house
+                      weight is duotone (the kiosk uses it at 22–52px), but its
+                      second layer is currentColor at 20% opacity — at 20px on
+                      every row at once that read as smudge, not as voice. Held
+                      back for the active row, it does a job: it marks where
+                      you are. */}
+                  <Glyph size={22} weight={isActive ? 'duotone' : 'regular'} aria-hidden="true" />
                   <span className="staff-nav-label">{item.label}</span>
                   {item.badge ? <span className="staff-nav-badge">{item.badge}</span> : null}
                 </button>

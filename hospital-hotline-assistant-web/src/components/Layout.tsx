@@ -45,8 +45,8 @@ export function Layout({
         {sidebar}
         {sidebar ? <div className="staff-content">{children}</div> : children}
       </main>
-      {/* Staff shortcut to the triage review queue; renders itself only for
-          signed-in staff who are not already on that screen. */}
+      {/* Shortcut back to the triage review queue. Renders itself only on the
+          nurse portal's other tabs — never on /admin. */}
       <ReviewsFab />
     </div>
   );

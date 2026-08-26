@@ -121,18 +121,85 @@ export interface EmergencyEventCreate {
   alert_message: string;
 }
 
-export interface ConversationSummaryOut {
+/** One line in the admin session log. Operational, not clinical — the acuity
+ *  is the engine's own MOPH level, never the patient-facing severity bucket. */
+export interface AdminSessionRow {
   session_id: string;
-  language: LanguageCode;
-  status: SessionStatus;
   started_at: string;
   ended_at: string | null;
-  severity: SeverityLevel | null;
-  department_name_en: string | null;
-  department_name_th: string | null;
-  message_count: number;
-  has_alert: boolean;
-  escalation_reason: string | null;
+  language: LanguageCode;
+  status: SessionStatus;
+  triage_level: number | null;
+  outcome: SessionOutcome;
+  patient_hn: string | null;
+  proposed_department_en: string | null;
+  proposed_department_th: string | null;
+  confirmed_department_en: string | null;
+  confirmed_department_th: string | null;
+  review_status: 'pending' | 'approved' | 'corrected' | null;
+  turns: number;
+  duration_seconds: number | null;
+  avg_latency_ms: number | null;
+  vitals_measured: number;
+  vitals_core: number;
+  criteria_version: number | null;
+  his_status: string | null;
+  ai_error: boolean;
+}
+
+export type SessionOutcome = 'disposed' | 'abandoned' | 'active';
+export type SessionWindow = 'today' | '7d' | '30d' | 'all';
+export type SessionFlag = 'abandoned' | 'ai_error' | 'his_failed' | 'unreviewed';
+
+export interface AdminSessionCounts {
+  sessions: number;
+  abandoned: number;
+  ai_errors: number;
+  his_failed: number;
+  unreviewed: number;
+}
+
+export interface AdminSessionQuery {
+  window?: SessionWindow;
+  level?: number | 'none';
+  outcome?: SessionOutcome;
+  language?: LanguageCode;
+  flag?: SessionFlag;
+  q?: string;
+  limit?: number;
+  offset?: number;
+}
+
+export interface AdminSessionsOut {
+  window: SessionWindow;
+  total: number;
+  limit: number;
+  offset: number;
+  counts: AdminSessionCounts;
+  rows: AdminSessionRow[];
+}
+
+/** `GET /admin/sessions/{id}/trace` — the engine's own record of the decision. */
+export interface SessionTraceOut {
+  session_id: string;
+  criteria_version_id: string | null;
+  prompt_version: string | null;
+  updated_at: string | null;
+  engine_state: Record<string, unknown> | null;
+  audit: SessionTraceEntry[];
+}
+
+export interface SessionTraceEntry {
+  turn_no: number;
+  call_site: string;
+  model_name: string | null;
+  prompt_version: string | null;
+  criteria_version_id: string | null;
+  rules_trace: Record<string, unknown> | null;
+  validator_result: Record<string, unknown> | null;
+  ok: boolean;
+  latency_ms: number | null;
+  created_at: string;
 }
 
 export interface AdminUserOut {
@@ -304,6 +371,10 @@ export interface RoutingFeedbackOut {
   session_id: string;
   assessment_id: string;
   original_department_id: string | null;
+  /** What the engine proposed, by name — without it a reroute cannot say what
+   *  it was chosen *over*, and no confusion matrix can be built. */
+  original_department_name_en: string | null;
+  original_department_name_th: string | null;
   corrected_department_id: string;
   corrected_department_name_en: string | null;
   corrected_department_name_th: string | null;
@@ -871,6 +942,30 @@ export interface DailyVolume {
   date: string;
   sessions: number;
   screened: number;
+  reviewed: number;
+  rerouted: number;
+  escalated: number;
+  /** null on a day the AI never ran. Not 0 — a zero would drag a latency
+   *  sparkline to the floor and read as "instant". */
+  avg_latency_ms: number | null;
+}
+
+/** started -> disposed -> reviewed -> pushed. Each stage is a subset of the
+ *  one before it, so the drop between two stages is the loss to look at. */
+export interface BoothFunnel {
+  started: number;
+  disposed: number;
+  reviewed: number;
+  his_pushed: number;
+  his_failed: number;
+  his_skipped: number;
+}
+
+export interface WeekdayHourCount {
+  /** 0 = Sunday, matching Postgres EXTRACT(DOW). */
+  weekday: number;
+  hour: number;
+  count: number;
 }
 
 export interface TriageStatsOut {
@@ -892,6 +987,38 @@ export interface TriageStatsOut {
   /** Dense across the whole window, so gaps read as zero rather than as a
    *  straight line between the two days that happened to have data. */
   daily: DailyVolume[];
+  funnel: BoothFunnel;
+  /** Dense 7 x 24 over the window. `hourly_today` is the nurse's "right now";
+   *  a staffing decision needs every weekday. */
+  weekday_hourly: WeekdayHourCount[];
+}
+
+/** `/admin/ai-metrics` — the AI transparency aggregate (SRS F40). Computed
+ *  since migration 014 and, until now, rendered nowhere. */
+export interface AiMetricsOut {
+  from: string | null;
+  to: string | null;
+  totals: {
+    sessions?: number;
+    escalations?: number;
+    extraction_failures?: number;
+    dispositions?: number;
+  };
+  grounding: {
+    explanations: number;
+    grounded: number;
+    grounded_rate: number | null;
+    ungrounded_reasons: Array<{ reason: string; count: number }>;
+  };
+  call_sites: Array<{
+    call_site: string;
+    calls: number;
+    ok_calls: number;
+    ok_rate: number | null;
+    avg_latency_ms: number | null;
+  }>;
+  dispositions: Array<{ level: number | null; department_code: string | null; count: number }>;
+  validator_violations: Array<{ violation: string; count: number }>;
 }
 
 export interface SurveillanceSummaryOut {

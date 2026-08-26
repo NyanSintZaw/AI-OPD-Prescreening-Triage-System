@@ -22,7 +22,11 @@ import type {
   Spo2PairRequest,
   Spo2PairResponse,
   Spo2ScanResponse,
-  ConversationSummaryOut,
+  AdminSessionCounts,
+  AdminSessionQuery,
+  AdminSessionRow,
+  AdminSessionsOut,
+  SessionTraceOut,
   CriteriaActiveView,
   DepartmentOut,
   DepartmentRecommendationCreate,
@@ -62,6 +66,7 @@ import type {
   SeverityAssessmentCreate,
   SttResponsePayload,
   SurveillanceSummaryOut,
+  AiMetricsOut,
   TriageStatsOut,
   SymptomEntryCreate,
   TriageManualUploadOut,
@@ -243,8 +248,19 @@ export const api = {
 
   listEmergencyTriggers: () => request<EmergencyTriggerOut[]>('/emergency-triggers'),
 
-  getConversationSummary: () =>
-    request<ConversationSummaryOut[]>('/conversation-summary'),
+  listAdminSessions: (params: AdminSessionQuery = {}) => {
+    const search = new URLSearchParams();
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && value !== '') {
+        search.set(key, String(value));
+      }
+    });
+    const qs = search.toString();
+    return request<AdminSessionsOut>(`/admin/sessions${qs ? `?${qs}` : ''}`);
+  },
+
+  getSessionTrace: (sessionId: string) =>
+    request<SessionTraceOut>(`/admin/sessions/${sessionId}/trace`),
 
   listAssessmentReviews: (
     status: 'all' | 'pending' | 'reviewed' | 'approved' | 'corrected' = 'pending',
@@ -395,8 +411,21 @@ export const api = {
 
   /** Queue pressure, acuity mix, department load and nurse-vs-engine
    *  agreement — one round trip behind every dashboard panel. */
-  getTriageStats: (days = 7) =>
-    request<TriageStatsOut>(`/admin/triage-stats?days=${days}`),
+  /** The dashboard's period, either way it can be expressed: a rolling window
+   *  from the chips, or the explicit pair the calendar produces. Sending both
+   *  is not an error — `from` wins server-side — but the caller should send
+   *  one, since only one of them is what the nurse chose. */
+  getTriageStats: (period: { days: number } | { from: string; to: string } = { days: 7 }) => {
+    const qs =
+      'days' in period
+        ? `days=${period.days}`
+        : `from=${encodeURIComponent(period.from)}&to=${encodeURIComponent(period.to)}`;
+    return request<TriageStatsOut>(`/admin/triage-stats?${qs}`);
+  },
+
+  /** AI transparency aggregate — call-site ok-rates and latency, validator
+   *  violations, RAG grounding. Shares the dashboard's one period control. */
+  getAiMetrics: (days = 7) => request<AiMetricsOut>(`/admin/ai-metrics?days=${days}`),
 
   // ── Hospital DB (mock HIS) read-only view ──────────────────────────────────
   getHisVisits: () => request<HisVisitsResponse>('/admin/his/visits'),
@@ -459,10 +488,22 @@ export const api = {
   getTriageManualStatus: () =>
     request<TriageManualUploadOut | null>('/admin/triage-manual/status'),
 
+  /** The manual PDF itself. Returned as a Blob because the route is bearer-
+   *  guarded — a plain <a href> cannot carry the Authorization header, so the
+   *  caller opens an object URL instead. */
+  getTriageManualFile: async (): Promise<Blob> => {
+    const token = (await import('./client')).getAdminToken();
+    const response = await fetch(`${baseUrl}/admin/triage-manual/file`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+    if (!response.ok) throw new Error(response.statusText);
+    return response.blob();
+  },
+
   /** Read-only, nurse-shaped view of the criteria the booth decides with. */
   getActiveCriteria: () => request<CriteriaActiveView>('/admin/criteria/active'),
 
   // ── Screening criteria governance (engine v2) ─────────────────────────────
 };
 
-export type { CriteriaActiveView, MessageOut, SessionOut, ConversationSummaryOut, DepartmentOut, SurveillanceSummaryOut, TriageStatsOut, TriageManualUploadOut, LinkPatientResponse, HisVisitSummary, HisVisitDetail, KioskStats };
+export type { CriteriaActiveView, MessageOut, SessionOut, AdminSessionsOut, AdminSessionRow, AdminSessionCounts, SessionTraceOut, DepartmentOut, SurveillanceSummaryOut, TriageStatsOut, AiMetricsOut, TriageManualUploadOut, LinkPatientResponse, HisVisitSummary, HisVisitDetail, KioskStats };

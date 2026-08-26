@@ -26,13 +26,19 @@ export function MessageBubble({ message }: MessageBubbleProps) {
     <div className={`message-bubble ${message.role}`}>
       <div className="message-meta">
         <span className="message-role">{roleLabel}</span>
+      </div>
+      {/* The input mode trails the words rather than sitting beside the name:
+          it says how this utterance was produced, which qualifies the words,
+          not who said them. Beside the name it also outweighed it — a bordered
+          pill against plain text — and the speaker is what gets scanned. */}
+      <p className="message-content">
+        {message.content}
         {modeLabel && (
           <span className={`message-mode message-mode-${message.input_mode}`}>
             {modeLabel}
           </span>
         )}
-      </div>
-      <p className="message-content">{message.content}</p>
+      </p>
     </div>
   );
 }

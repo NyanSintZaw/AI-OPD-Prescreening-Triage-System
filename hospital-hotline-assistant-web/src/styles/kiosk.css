@@ -471,7 +471,10 @@
   font-size: 16px;
   font-weight: 800;
   flex-shrink: 0;
-  transition: all var(--k-t-med) var(--k-ease);
+  transition:
+    border-color var(--k-t-med) var(--k-ease),
+    background-color var(--k-t-med) var(--k-ease),
+    color var(--k-t-med) var(--k-ease);
 }
 
 .k-step.current .k-step-dot {

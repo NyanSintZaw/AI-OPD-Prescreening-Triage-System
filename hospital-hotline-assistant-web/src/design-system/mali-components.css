@@ -87,7 +87,7 @@
 .mali-badge--l1 { --bdg-fg: #fff; --bdg-bg: var(--triage-1); --bdg-dot: var(--triage-1); }
 .mali-badge--l2 { --bdg-fg: #fff; --bdg-bg: var(--triage-2); --bdg-dot: var(--triage-2); }
 .mali-badge--l3 { --bdg-fg: var(--ink-900); --bdg-bg: var(--triage-3); --bdg-dot: var(--triage-3); }
-.mali-badge--l4 { --bdg-fg: #fff; --bdg-bg: var(--triage-4); --bdg-dot: var(--triage-4); }
+.mali-badge--l4 { --bdg-fg: var(--ink-900); --bdg-bg: var(--triage-4); --bdg-dot: var(--triage-4); }
 .mali-badge--l5 { --bdg-fg: #fff; --bdg-bg: var(--triage-5); --bdg-dot: var(--triage-5); }
 .mali-badge:not(.mali-badge--dot)[class*='mali-badge--l'] .mali-badge__dot { background: currentColor; opacity: 0.6; }
 

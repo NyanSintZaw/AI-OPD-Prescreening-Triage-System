@@ -8,4 +8,30 @@
   --header-top-min-height: 110px;
   --header-inner-max-width: min(1400px, 96vw);
   --content-max-width: 1140px;
+
+  /* Focus halo for form controls.
+
+     The design system's --focus-ring is mid-teal at 50% opacity. Sitting
+     outside the solid --color-primary border a focused field also gets, it
+     read as two competing edges — a dark line inside a pale ring — instead of
+     one focused field. A lighter halo lets the border be the single green edge
+     that carries focus; the border is 3.00:1 on white, the non-text contrast
+     floor, so the indicator does not depend on the halo. The DS token itself
+     is untouched: it still serves buttons and the kiosk. */
+  --focus-ring-field: 0 0 0 3px var(--teal-100);
+
+  /* Dropdown motion. Emil's scale puts a dropdown at 150–250ms, so neither
+     --dur-enter (300) nor --dur-color (160) is right, and the exit is faster
+     than the entrance because a thing leaving should accelerate away.
+     `--menu-exit-dur` is mirrored by MENU_EXIT_MS in SelectField.tsx. */
+  --menu-enter-dur: 200ms;
+  --menu-exit-dur: 140ms;
+}
+
+/* The design system zeroes its own duration tokens here; these follow. */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --menu-enter-dur: 0ms;
+    --menu-exit-dur: 0ms;
+  }
 }

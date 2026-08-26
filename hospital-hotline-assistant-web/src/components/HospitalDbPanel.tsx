@@ -1,5 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { InfoDialog } from './staff/InfoDialog';
+import { LedgerRow } from './staff/Ledger';
+import { useDialogExit } from '../hooks/useDialogExit';
 import { api } from '../api';
 import { getAdminRole } from '../api/client';
 import type {
@@ -18,20 +21,6 @@ function ageFromBirthdate(birthdate: string | null): string {
   const m = now.getMonth() - born.getMonth();
   if (m < 0 || (m === 0 && now.getDate() < born.getDate())) age -= 1;
   return String(age);
-}
-
-/** A single field row that reads blank vs filled, tagged by write stage. */
-function Field({ label, value, stage }: { label: string; value: unknown; stage?: string }) {
-  const filled = value !== null && value !== undefined && value !== '';
-  return (
-    <div className={`hdb-field ${filled ? 'filled' : 'blank'}`}>
-      <span className="hdb-field-label">
-        {label}
-        {stage ? <span className={`hdb-stage-tag hdb-stage-${stage}`}>{stage}</span> : null}
-      </span>
-      <span className="hdb-field-value">{filled ? String(value) : '—'}</span>
-    </div>
-  );
 }
 
 /** Connection setup / status for the hospital DB — the demo's "the hospital
@@ -55,6 +44,11 @@ function ConnectionCard({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirmDisconnect, setConfirmDisconnect] = useState(false);
+  // The confirm leaves rather than vanishing — both when it is answered and
+  // when it is dismissed.
+  const { leaving: leavingConfirm, close: dismissConfirm } = useDialogExit(
+    useCallback(() => setConfirmDisconnect(false), []),
+  );
 
   // Keep the collapsed/expanded state in sync when the connection loads.
   useEffect(() => {
@@ -91,7 +85,7 @@ function ConnectionCard({
     setError(null);
     try {
       const next = await api.disconnectHisConnection();
-      setConfirmDisconnect(false);
+      dismissConfirm();
       onConnected(next);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -104,7 +98,7 @@ function ConnectionCard({
     <div className={`hdb-connection ${connected ? 'connected' : 'disconnected'}`}>
       <div className="hdb-connection-status">
         <span className={`hdb-conn-dot ${connected ? 'ok' : 'off'}`} aria-hidden="true" />
-        <span className="hdb-conn-text">
+        <span>
           {connected
             ? t('hdbConnConnected', {
                 endpoint: conn?.endpoint ?? '',
@@ -119,7 +113,7 @@ function ConnectionCard({
             </button>
             <button
               type="button"
-              className="text-btn users-danger"
+              className="text-btn is-danger"
               onClick={() => setConfirmDisconnect(true)}
               disabled={busy}
             >
@@ -130,15 +124,21 @@ function ConnectionCard({
       </div>
 
       {confirmDisconnect && (
-        <div className="hdb-modal-backdrop" role="presentation">
-          <div className="hdb-modal" role="alertdialog" aria-modal="true">
+        <div className="dialog" role="presentation">
+          <div className="dialog-backdrop" data-leaving={leavingConfirm || undefined} />
+          <div
+            className="dialog-card dialog-confirm"
+            role="alertdialog"
+            aria-modal="true"
+            data-leaving={leavingConfirm || undefined}
+          >
             <h3>{t('hdbConnDisconnectTitle')}</h3>
             <p className="muted">{t('hdbConnDisconnectBody', { name: conn?.name ?? '' })}</p>
             {error && <p className="error-text">{error}</p>}
-            <div className="hdb-modal-actions">
+            <div className="dialog-confirm-actions">
               <button
                 type="button"
-                className="secondary-btn users-danger"
+                className="secondary-btn is-danger"
                 onClick={() => void disconnect()}
                 disabled={busy}
               >
@@ -147,7 +147,7 @@ function ConnectionCard({
               <button
                 type="button"
                 className="text-btn"
-                onClick={() => setConfirmDisconnect(false)}
+                onClick={dismissConfirm}
                 disabled={busy}
               >
                 {t('usersCancel')}
@@ -160,9 +160,10 @@ function ConnectionCard({
 
       {open && canEdit && (
         <div className="hdb-connection-form">
-          <label className="vitals-extra-field">
-            <span>{t('hdbConnEndpoint')}</span>
+          <label className="field">
+            <span className="field-label">{t('hdbConnEndpoint')}</span>
             <input
+              className="field-input"
               type="url"
               placeholder="http://localhost:8001"
               value={endpoint}
@@ -170,9 +171,10 @@ function ConnectionCard({
               disabled={busy}
             />
           </label>
-          <label className="vitals-extra-field">
-            <span>{t('hdbConnName')}</span>
+          <label className="field">
+            <span className="field-label">{t('hdbConnName')}</span>
             <input
+              className="field-input"
               type="text"
               placeholder={t('hdbConnNamePlaceholder')}
               value={name}
@@ -181,9 +183,10 @@ function ConnectionCard({
               maxLength={120}
             />
           </label>
-          <label className="vitals-extra-field">
-            <span>{t('hdbConnToken')}</span>
+          <label className="field">
+            <span className="field-label">{t('hdbConnToken')}</span>
             <input
+              className="field-input"
               type="password"
               autoComplete="off"
               placeholder={
@@ -270,17 +273,9 @@ export function HospitalDbPanel() {
   const selectedPatient = patients.find((p) => p.hn === selectedHn) ?? null;
 
   return (
+    /* No heading of its own — the admin page head already prints "Database
+       Settings" above this. */
     <div className="hdb-panel">
-      <div className="hdb-header">
-        <div>
-          <h2>{conn?.connected && conn.name ? conn.name : t('hdbTitle')}</h2>
-          <p className="muted">{t('hdbSubtitle')}</p>
-        </div>
-        <button type="button" className="secondary-btn" onClick={() => void refresh()}>
-          {t('hdbRefresh')}
-        </button>
-      </div>
-
       <ConnectionCard
         conn={conn}
         onConnected={() => void loadVisits()}
@@ -296,31 +291,36 @@ export function HospitalDbPanel() {
         <p className="muted">{t('loading')}</p>
       ) : (
         <>
-          <div className="hdb-view-tabs" role="tablist">
-            <button
-              type="button"
-              role="tab"
-              aria-selected={view === 'vn'}
-              className={`hdb-view-tab ${view === 'vn' ? 'active' : ''}`}
-              onClick={() => setView('vn')}
-            >
-              {t('hdbTabVisits', { count: visits.length })}
-            </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={view === 'hn'}
-              className={`hdb-view-tab ${view === 'hn' ? 'active' : ''}`}
-              onClick={() => setView('hn')}
-            >
-              {t('hdbTabPatients', { count: patients.length })}
+          <div className="hdb-tabbar">
+            <div className="tabs" role="tablist">
+              <button
+                type="button"
+                role="tab"
+                aria-selected={view === 'vn'}
+                className={`tab ${view === 'vn' ? 'active' : ''}`}
+                onClick={() => setView('vn')}
+              >
+                {t('hdbTabVisits', { count: visits.length })}
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={view === 'hn'}
+                className={`tab ${view === 'hn' ? 'active' : ''}`}
+                onClick={() => setView('hn')}
+              >
+                {t('hdbTabPatients', { count: patients.length })}
+              </button>
+            </div>
+            <button type="button" className="secondary-btn" onClick={() => void refresh()}>
+              {t('hdbRefresh')}
             </button>
           </div>
 
           {view === 'hn' ? (
         <div className="hdb-body">
-          <div className="hdb-list">
-            <table className="hdb-table">
+          <div className="table-wrap scroll-slim">
+            <table className="staff-table hdb-table">
               <thead>
                 <tr>
                   <th>{t('hdbHn')}</th>
@@ -343,7 +343,7 @@ export function HospitalDbPanel() {
                     <td>{p.visit_count}</td>
                     <td>
                       <span
-                        className={`hdb-status ${p.is_first_time ? 'hdb-status-registered' : 'hdb-status-routed'}`}
+                        className={`status-chip ${p.is_first_time ? 'chip-first-visit' : 'chip-returning'}`}
                       >
                         {p.is_first_time ? t('hdbFirstTime') : t('hdbReturning')}
                       </span>
@@ -355,61 +355,66 @@ export function HospitalDbPanel() {
           </div>
 
           {selectedPatient && (
-            <div className="hdb-detail">
-              <div className="hdb-detail-head">
-                <code>{selectedPatient.hn}</code>
-                <span
-                  className={`hdb-status ${selectedPatient.is_first_time ? 'hdb-status-registered' : 'hdb-status-routed'}`}
-                >
-                  {selectedPatient.is_first_time ? t('hdbFirstTime') : t('hdbReturning')}
-                </span>
-              </div>
+            <InfoDialog
+              title={selectedPatient.patient_name?.trim() || t('hdbPatientName')}
+              onClose={() => setSelectedHn(null)}
+              meta={
+                <>
+                  <code className="code-chip">{selectedPatient.hn}</code>
+                  <span
+                    className={`status-chip ${selectedPatient.is_first_time ? 'chip-first-visit' : 'chip-returning'}`}
+                  >
+                    {selectedPatient.is_first_time ? t('hdbFirstTime') : t('hdbReturning')}
+                  </span>
+                </>
+              }
+            >
 
               <h4>{t('hdbGroupRegistered')}</h4>
-              <Field label={t('hdbPatientName')} value={selectedPatient.patient_name} />
-              <Field label={t('hdbBirthdate')} value={selectedPatient.birthdate} />
-              <Field label={t('hdbVisitCount')} value={selectedPatient.visit_count} />
+              <LedgerRow label={t('hdbPatientName')} value={selectedPatient.patient_name} />
+              <LedgerRow label={t('hdbBirthdate')} value={selectedPatient.birthdate} />
+              <LedgerRow label={t('hdbVisitCount')} value={selectedPatient.visit_count} />
 
               <h4>{t('hdbGroupHistory')}</h4>
-              <Field
+              <LedgerRow
                 label={t('hdbSmoking')}
                 value={selectedPatient.history.smoking}
                 stage="1"
               />
-              <Field
+              <LedgerRow
                 label={t('hdbAlcohol')}
                 value={selectedPatient.history.alcohol}
                 stage="1"
               />
-              <Field label={t('hdbAllergies')} value={selectedPatient.history.allergies} stage="1" />
-              <Field
+              <LedgerRow label={t('hdbAllergies')} value={selectedPatient.history.allergies} stage="1" />
+              <LedgerRow
                 label={t('hdbChronicConditions')}
                 value={selectedPatient.history.chronic_conditions}
                 stage="1"
               />
-              <Field
+              <LedgerRow
                 label={t('hdbPostSurgeries')}
                 value={selectedPatient.history.post_surgeries}
                 stage="1"
               />
-              <Field
+              <LedgerRow
                 label={t('hdbFamilyHistory')}
                 value={selectedPatient.history.family_history}
                 stage="1"
               />
-              <Field label={t('hdbHistoryRecordedAt')} value={selectedPatient.history.recorded_at} />
+              <LedgerRow label={t('hdbHistoryRecordedAt')} value={selectedPatient.history.recorded_at} />
 
               <h4>{t('hdbGroupLastVitals')}</h4>
-              <Field label={t('hdbWeight')} value={selectedPatient.last_vitals.weight} />
-              <Field label={t('hdbHeight')} value={selectedPatient.last_vitals.hight} />
-              <Field label={t('hdbVitalsMeasuredAt')} value={selectedPatient.last_vitals.measured_at} />
-            </div>
+              <LedgerRow label={t('hdbWeight')} value={selectedPatient.last_vitals.weight} />
+              <LedgerRow label={t('hdbHeight')} value={selectedPatient.last_vitals.hight} />
+              <LedgerRow label={t('hdbVitalsMeasuredAt')} value={selectedPatient.last_vitals.measured_at} />
+            </InfoDialog>
           )}
         </div>
           ) : (
         <div className="hdb-body">
-          <div className="hdb-list">
-            <table className="hdb-table">
+          <div className="table-wrap scroll-slim">
+            <table className="staff-table hdb-table">
               <thead>
                 <tr>
                   <th>{t('hdbVisitId')}</th>
@@ -431,7 +436,7 @@ export function HospitalDbPanel() {
                     <td>{v.patient_name?.trim() || '—'}</td>
                     <td>{ageFromBirthdate(v.birthdate)}</td>
                     <td>
-                      <span className={`hdb-status hdb-status-${v.screening_status}`}>
+                      <span className={`status-chip chip-${v.screening_status}`}>
                         {t(`hdbState_${v.screening_status}`)}
                       </span>
                     </td>
@@ -442,35 +447,42 @@ export function HospitalDbPanel() {
           </div>
 
           {selected && (
-            <div className="hdb-detail">
-              <div className="hdb-detail-head">
-                <code>{selected.visit_id}</code>
-                <span className={`hdb-status hdb-status-${selected.screening_status}`}>
-                  {t(`hdbState_${selected.screening_status}`)}
-                </span>
-              </div>
+            <InfoDialog
+              title={selected.patient_name?.trim() || t('hdbVisitId')}
+              onClose={() => setSelected(null)}
+              meta={
+                <>
+                  {/* A VN is 18 digits — the widest thing in this header if it
+                      is left to run. */}
+                  <code className="code-chip is-long">{selected.visit_id}</code>
+                  <span className={`status-chip chip-${selected.screening_status}`}>
+                    {t(`hdbState_${selected.screening_status}`)}
+                  </span>
+                </>
+              }
+            >
 
               <h4>{t('hdbGroupRegistered')}</h4>
-              <Field label={t('hdbHn')} value={selected.hnx} />
-              <Field label={t('hdbPatientName')} value={selected.patient_name} />
-              <Field label={t('hdbBirthdate')} value={selected.birthdate} />
-              <Field label={t('hdbAppointment')} value={selected.appointment ? t('hdbYes') : t('hdbNo')} />
+              <LedgerRow label={t('hdbHn')} value={selected.hnx} />
+              <LedgerRow label={t('hdbPatientName')} value={selected.patient_name} />
+              <LedgerRow label={t('hdbBirthdate')} value={selected.birthdate} />
+              <LedgerRow label={t('hdbAppointment')} value={selected.appointment ? t('hdbYes') : t('hdbNo')} />
 
               <h4>{t('hdbGroupStage1')}</h4>
-              <Field label={t('hdbPressure')} value={selected.vitals.pressure} stage="1" />
-              <Field label={t('hdbPulse')} value={selected.vitals.pulse} stage="1" />
-              <Field label={t('hdbWeight')} value={selected.vitals.weight} stage="1" />
-              <Field label={t('hdbHeight')} value={selected.vitals.height} stage="1" />
-              <Field label={t('hdbBmi')} value={selected.vitals.bmi} stage="1" />
-              <Field label={t('hdbTemperature')} value={selected.vitals.temperature} stage="1" />
-              <Field label={t('hdbWaist')} value={selected.vitals.waist_width} />
-              <Field label={t('hdbFirstLocation')} value={selected.first_location.department} stage="1" />
+              <LedgerRow label={t('hdbPressure')} value={selected.vitals.pressure} stage="1" />
+              <LedgerRow label={t('hdbPulse')} value={selected.vitals.pulse} stage="1" />
+              <LedgerRow label={t('hdbWeight')} value={selected.vitals.weight} stage="1" />
+              <LedgerRow label={t('hdbHeight')} value={selected.vitals.height} stage="1" />
+              <LedgerRow label={t('hdbBmi')} value={selected.vitals.bmi} stage="1" />
+              <LedgerRow label={t('hdbTemperature')} value={selected.vitals.temperature} stage="1" />
+              <LedgerRow label={t('hdbWaist')} value={selected.vitals.waist_width} />
+              <LedgerRow label={t('hdbFirstLocation')} value={selected.first_location.department} stage="1" />
 
               <h4>{t('hdbGroupStage2')}</h4>
-              <Field label={t('hdbChiefComplaint')} value={selected.nurse_chief_complaint} stage="2" />
-              <Field label={t('hdbIllness')} value={selected.nurse_patient_illness} stage="2" />
-              <Field label={t('hdbSecondLocation')} value={selected.second_location.department} stage="2" />
-            </div>
+              <LedgerRow label={t('hdbChiefComplaint')} value={selected.nurse_chief_complaint} stage="2" />
+              <LedgerRow label={t('hdbIllness')} value={selected.nurse_patient_illness} stage="2" />
+              <LedgerRow label={t('hdbSecondLocation')} value={selected.second_location.department} stage="2" />
+            </InfoDialog>
           )}
         </div>
           )}
