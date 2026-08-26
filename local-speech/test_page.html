@@ -1,0 +1,316 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Local AI Gateway — connectivity test</title>
+<style>
+  :root {
+    --bg:#f6f7f9; --panel:#fff; --ink:#16191d; --muted:#666e7a; --line:#dfe3e8;
+    --ok:#0f7b45; --okbg:#e6f4ec; --bad:#b3261e; --badbg:#fceceb;
+    --warn:#8a5a00; --warnbg:#fdf3e0; --accent:#0b5cad;
+    --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg:#14171a; --panel:#1c2024; --ink:#e8eaed; --muted:#9aa4b0; --line:#2c3238;
+      --ok:#6ee7a8; --okbg:#10291d; --bad:#ff9d95; --badbg:#2c1614;
+      --warn:#f0c069; --warnbg:#2b2214; --accent:#7ab4ef;
+    }
+  }
+  *{box-sizing:border-box}
+  body{margin:0;padding:24px;background:var(--bg);color:var(--ink);
+       font:15px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+  .wrap{max-width:860px;margin:0 auto}
+  h1{font-size:20px;margin:0 0 4px}
+  .sub{color:var(--muted);font-size:13px;margin-bottom:20px}
+  .bar{display:flex;gap:8px;margin-bottom:20px;flex-wrap:wrap}
+  input[type=text],textarea,select{
+    background:var(--panel);color:var(--ink);border:1px solid var(--line);
+    border-radius:8px;padding:9px 11px;font:inherit}
+  input[type=text]{flex:1;min-width:260px;font-family:var(--mono);font-size:13px}
+  textarea{width:100%;font-size:14px;resize:vertical}
+  button{background:var(--accent);color:#fff;border:0;border-radius:8px;
+         padding:9px 16px;font:inherit;font-weight:550;cursor:pointer}
+  button:disabled{opacity:.5;cursor:default}
+  button.ghost{background:transparent;color:var(--accent);
+               border:1px solid var(--line)}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;
+        padding:16px 18px;margin-bottom:14px}
+  .card h2{font-size:14px;margin:0 0 12px;display:flex;align-items:center;gap:8px}
+  .pill{font-size:11px;font-weight:700;padding:2px 8px;border-radius:99px;
+        letter-spacing:.03em}
+  .p-idle{background:var(--line);color:var(--muted)}
+  .p-run{background:var(--warnbg);color:var(--warn)}
+  .p-ok{background:var(--okbg);color:var(--ok)}
+  .p-bad{background:var(--badbg);color:var(--bad)}
+  .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
+  pre{background:var(--bg);border:1px solid var(--line);border-radius:8px;
+      padding:10px 12px;font-family:var(--mono);font-size:12px;
+      overflow-x:auto;margin:10px 0 0;white-space:pre-wrap;word-break:break-word}
+  .metrics{display:flex;gap:18px;flex-wrap:wrap;font-family:var(--mono);
+           font-size:12px;color:var(--muted);margin-top:10px}
+  .metrics b{color:var(--ink);font-weight:600}
+  table{width:100%;border-collapse:collapse;font-size:13px;margin-top:4px}
+  td{padding:5px 0;border-bottom:1px solid var(--line);vertical-align:top}
+  td:first-child{color:var(--muted);width:38%}
+  td:last-child{font-family:var(--mono);font-size:12px}
+  audio{width:100%;margin-top:10px}
+  .hint{color:var(--muted);font-size:12px;margin-top:8px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Local AI Gateway — connectivity test</h1>
+  <div class="sub">Checks that this port is reachable from a browser, and that the LLM, STT and TTS all answer.</div>
+
+  <div class="bar">
+    <input type="text" id="base" spellcheck="false">
+    <button id="runAll">Run all</button>
+  </div>
+
+  <div class="card">
+    <h2>1 · Reachability <span class="pill p-idle" id="s-health">idle</span></h2>
+    <div class="row"><button class="ghost" id="b-health">Check /health</button></div>
+    <table id="health-tbl"></table>
+    <pre id="out-health" hidden></pre>
+  </div>
+
+  <div class="card">
+    <h2>2 · LLM <span class="pill p-idle" id="s-llm">idle</span></h2>
+    <div class="row">
+      <input type="text" id="llm-model" value="scb10x/llama3.1-typhoon2-8b-instruct">
+    </div>
+    <textarea id="llm-prompt" rows="2">Reply in one short sentence: what department treats a headache?</textarea>
+    <div class="row" style="margin-top:10px"><button class="ghost" id="b-llm">Send</button></div>
+    <div class="metrics" id="m-llm" hidden></div>
+    <pre id="out-llm" hidden></pre>
+  </div>
+
+  <div class="card">
+    <h2>3 · TTS <span class="pill p-idle" id="s-tts">idle</span></h2>
+    <div class="row">
+      <select id="tts-lang"><option value="th">Thai (th)</option><option value="en">English (en)</option></select>
+      <button class="ghost" id="b-tts">Synthesize &amp; play</button>
+    </div>
+    <textarea id="tts-text" rows="2">สวัสดีค่ะ ดิฉันเป็นผู้ช่วยคัดกรองของโรงพยาบาล กรุณาบอกอาการของคุณ</textarea>
+    <div class="metrics" id="m-tts" hidden></div>
+    <audio id="tts-audio" controls hidden></audio>
+    <pre id="out-tts" hidden></pre>
+  </div>
+
+  <div class="card">
+    <h2>4 · STT <span class="pill p-idle" id="s-stt">idle</span></h2>
+    <div class="row">
+      <select id="stt-lang"><option value="th">Thai (th)</option><option value="en">English (en)</option></select>
+      <button class="ghost" id="b-rec">● Record</button>
+      <button class="ghost" id="b-loop">Use the TTS clip instead</button>
+    </div>
+    <div class="hint">Recording needs microphone permission. Over plain HTTP that is only granted on <code>localhost</code> — from another machine use the round-trip button, which sends the audio TTS just produced.</div>
+    <div class="metrics" id="m-stt" hidden></div>
+    <pre id="out-stt" hidden></pre>
+  </div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const base = () => $('base').value.replace(/\/+$/, '');
+$('base').value = location.origin;
+
+function mark(id, state, text) {
+  const el = $(id);
+  el.className = 'pill p-' + state;
+  el.textContent = text;
+}
+function show(id, content) {
+  const el = $(id);
+  el.hidden = false;
+  el.textContent = content;
+}
+const secs = ms => (ms / 1000).toFixed(2) + 's';
+
+// ── 1. health ──────────────────────────────────────────────────────────────
+async function checkHealth() {
+  mark('s-health', 'run', 'checking');
+  $('health-tbl').innerHTML = '';
+  $('out-health').hidden = true;
+  const t0 = performance.now();
+  try {
+    const r = await fetch(base() + '/health');
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const h = await r.json();
+    const rt = h.tts?.runtime || {};
+    const rows = [
+      ['round trip', secs(performance.now() - t0)],
+      ['status', h.status],
+      ['STT', `${h.stt?.model} · ${h.stt?.device} · loaded=${h.stt?.loaded}`],
+      ['TTS th', rt.th ? `${rt.th.engine} · ${rt.th.model} · ${rt.th.device}` : 'not loaded'],
+      ['TTS en', rt.en ? `${rt.en.engine} · ${rt.en.model} · ${rt.en.device}` : 'not loaded'],
+      ['LLM upstream', `${h.llm?.upstream} · reachable=${h.llm?.reachable}`],
+    ];
+    $('health-tbl').innerHTML = rows
+      .map(([k, v]) => `<tr><td>${k}</td><td>${v}</td></tr>`).join('');
+    const warm = h.stt?.loaded && Object.keys(rt).length >= 2;
+    mark('s-health', h.llm?.reachable && warm ? 'ok' : 'run',
+         h.llm?.reachable ? (warm ? 'reachable' : 'still warming') : 'LLM unreachable');
+    return true;
+  } catch (e) {
+    mark('s-health', 'bad', 'unreachable');
+    show('out-health',
+      e.message + '\n\nIf this says "Failed to fetch", the request never arrived. Check:\n' +
+      '  · the gateway is bound 0.0.0.0, not 127.0.0.1\n' +
+      '  · Windows Firewall allows inbound TCP 8090\n' +
+      '  · the host in the box above resolves from this machine');
+    return false;
+  }
+}
+
+// ── 2. LLM ─────────────────────────────────────────────────────────────────
+async function checkLlm() {
+  mark('s-llm', 'run', 'sending');
+  $('m-llm').hidden = true; $('out-llm').hidden = true;
+  const t0 = performance.now();
+  try {
+    const r = await fetch(base() + '/v1/chat/completions', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        model: $('llm-model').value,
+        messages: [{role: 'user', content: $('llm-prompt').value}],
+        stream: false,
+      }),
+    });
+    const body = await r.text();
+    if (!r.ok) throw new Error(`HTTP ${r.status}\n${body.slice(0, 300)}`);
+    const j = JSON.parse(body);
+    const ms = performance.now() - t0;
+    const u = j.usage || {};
+    $('m-llm').hidden = false;
+    $('m-llm').innerHTML =
+      `<span><b>${secs(ms)}</b> round trip</span>` +
+      `<span><b>${u.prompt_tokens ?? '?'}</b> prompt</span>` +
+      `<span><b>${u.completion_tokens ?? '?'}</b> completion</span>` +
+      (u.completion_tokens ? `<span><b>${(u.completion_tokens / (ms/1000)).toFixed(1)}</b> tok/s</span>` : '');
+    show('out-llm', j.choices?.[0]?.message?.content?.trim() || '(empty reply)');
+    mark('s-llm', 'ok', 'answered');
+  } catch (e) {
+    mark('s-llm', 'bad', 'failed');
+    show('out-llm', e.message + '\n\nA 404 here usually means the base URL is missing /v1.');
+  }
+}
+
+// ── 3. TTS ─────────────────────────────────────────────────────────────────
+let lastTtsBlob = null;
+async function checkTts() {
+  mark('s-tts', 'run', 'synthesizing');
+  $('m-tts').hidden = true; $('out-tts').hidden = true; $('tts-audio').hidden = true;
+  const t0 = performance.now();
+  try {
+    const r = await fetch(base() + '/v1/audio/speech', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        model: 'tts-1', input: $('tts-text').value, voice: $('tts-lang').value,
+        response_format: 'wav', sample_rate: 24000,
+      }),
+    });
+    if (!r.ok) throw new Error(`HTTP ${r.status}\n${(await r.text()).slice(0, 300)}`);
+    const blob = await r.blob();
+    lastTtsBlob = blob;
+    const ms = performance.now() - t0;
+    // Read the WAV header so we can prove the 24 kHz contract from the client.
+    const head = new DataView(await blob.slice(0, 44).arrayBuffer());
+    const rate = head.getUint32(24, true);
+    const secsAudio = (blob.size - 44) / (rate * 2);
+    $('m-tts').hidden = false;
+    $('m-tts').innerHTML =
+      `<span><b>${secs(ms)}</b> round trip</span>` +
+      `<span><b>${(blob.size/1024).toFixed(0)} KB</b></span>` +
+      `<span><b>${rate} Hz</b>${rate === 24000 ? '' : ' ✗ expected 24000'}</span>` +
+      `<span><b>${secsAudio.toFixed(1)}s</b> audio</span>` +
+      `<span><b>${(secsAudio/(ms/1000)).toFixed(1)}×</b> realtime</span>`;
+    const a = $('tts-audio');
+    a.src = URL.createObjectURL(blob); a.hidden = false;
+    a.play().catch(() => {});
+    mark('s-tts', rate === 24000 ? 'ok' : 'bad', rate === 24000 ? 'spoke' : 'wrong rate');
+  } catch (e) {
+    mark('s-tts', 'bad', 'failed');
+    show('out-tts', e.message);
+  }
+}
+
+// ── 4. STT ─────────────────────────────────────────────────────────────────
+async function postStt(blob, filename) {
+  mark('s-stt', 'run', 'transcribing');
+  $('m-stt').hidden = true; $('out-stt').hidden = true;
+  const fd = new FormData();
+  fd.append('file', blob, filename);
+  fd.append('language', $('stt-lang').value);
+  fd.append('response_format', 'json');
+  const t0 = performance.now();
+  try {
+    const r = await fetch(base() + '/v1/audio/transcriptions', {method: 'POST', body: fd});
+    if (!r.ok) throw new Error(`HTTP ${r.status}\n${(await r.text()).slice(0, 300)}`);
+    const j = await r.json();
+    $('m-stt').hidden = false;
+    $('m-stt').innerHTML =
+      `<span><b>${secs(performance.now() - t0)}</b> round trip</span>` +
+      `<span><b>${(blob.size/1024).toFixed(0)} KB</b> sent</span>`;
+    show('out-stt', j.text || '(nothing transcribed)');
+    mark('s-stt', j.text ? 'ok' : 'bad', j.text ? 'transcribed' : 'empty');
+  } catch (e) {
+    mark('s-stt', 'bad', 'failed');
+    show('out-stt', e.message);
+  }
+}
+
+let rec = null, chunks = [];
+$('b-rec').onclick = async () => {
+  if (rec && rec.state === 'recording') {
+    rec.stop();
+    $('b-rec').textContent = '● Record';
+    return;
+  }
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({audio: true});
+    chunks = [];
+    rec = new MediaRecorder(stream);
+    rec.ondataavailable = e => chunks.push(e.data);
+    rec.onstop = () => {
+      stream.getTracks().forEach(t => t.stop());
+      postStt(new Blob(chunks, {type: 'audio/webm'}), 'speech.webm');
+    };
+    rec.start();
+    $('b-rec').textContent = '■ Stop';
+    mark('s-stt', 'run', 'recording');
+  } catch (e) {
+    mark('s-stt', 'bad', 'no microphone');
+    show('out-stt', e.message +
+      '\n\nBrowsers only grant the mic on https:// or localhost. From another ' +
+      'machine over plain HTTP, use "Use the TTS clip instead" — it round-trips ' +
+      'TTS output back through STT, which exercises the same endpoint.');
+  }
+};
+
+$('b-loop').onclick = () => {
+  if (!lastTtsBlob) {
+    mark('s-stt', 'bad', 'no clip');
+    show('out-stt', 'Run the TTS test first — this sends that audio back through STT.');
+    return;
+  }
+  postStt(lastTtsBlob, 'speech.wav');
+};
+
+$('b-health').onclick = checkHealth;
+$('b-llm').onclick = checkLlm;
+$('b-tts').onclick = checkTts;
+$('runAll').onclick = async () => {
+  if (!await checkHealth()) return;
+  await checkLlm();
+  await checkTts();
+  await new Promise(r => setTimeout(r, 200));
+  if (lastTtsBlob) await postStt(lastTtsBlob, 'speech.wav');
+};
+
+checkHealth();
+</script>
+</body>
+</html>

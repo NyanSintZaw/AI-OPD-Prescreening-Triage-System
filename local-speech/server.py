@@ -48,7 +48,8 @@ import threading
 import httpx
 import numpy as np
 from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
-from fastapi.responses import Response, StreamingResponse
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import HTMLResponse, Response, StreamingResponse
 from pydantic import BaseModel
 from scipy.signal import resample_poly
 
@@ -270,6 +271,16 @@ OLLAMA_URL = os.environ.get("OLLAMA_URL", "http://127.0.0.1:11434")
 # it (ollama ps still showed a 4-minute expiry). keep_alive=-1 on a native
 # /api/generate call does work — that reports "Forever".
 LLM_PIN_MODEL = os.environ.get("LLM_PIN_MODEL", "").strip()
+
+# Browsers refuse a cross-origin fetch without these headers, so the kiosk on
+# :5173 and the /test page cannot reach the gateway without them. Default is
+# permissive because the gateway has no authentication anyway — CORS is not
+# what is keeping anyone out, the firewall and the tailnet ACL are. Narrow it
+# with CORS_ORIGINS="http://kiosk:5173,http://localhost:5173" when the origins
+# are known.
+CORS_ORIGINS = [
+    o.strip() for o in os.environ.get("CORS_ORIGINS", "*").split(",") if o.strip()
+]
 LLM_TIMEOUT_S = float(os.environ.get("LLM_TIMEOUT_S", "180"))
 
 _LANG_ALIASES = {
@@ -804,6 +815,12 @@ async def lifespan(_app):
 
 
 app = FastAPI(title="Local AI Gateway (STT / TTS / LLM)", lifespan=lifespan)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=CORS_ORIGINS,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 @app.get("/")
@@ -820,8 +837,27 @@ def index():
             "POST /v1/audio/speech",
             "POST /v1/chat/completions",
             "GET  /v1/models",
+            "GET  /test   (browser connectivity check)",
         ],
     }
+
+
+@app.get("/test", response_class=HTMLResponse)
+def test_page():
+    """Browser-side connectivity check, served from the gateway itself.
+
+    Same-origin on purpose: opening it from :8090 means a failure here is the
+    gateway, not CORS or a stale file:// copy. It exercises /health,
+    /v1/chat/completions, /v1/audio/speech and /v1/audio/transcriptions the
+    way the kiosk does, so "can the frontend reach this box" gets a yes/no
+    from the machine that is actually asking.
+    """
+    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "test_page.html")
+    try:
+        with open(path, encoding="utf-8") as fh:
+            return HTMLResponse(fh.read())
+    except OSError as exc:
+        raise HTTPException(500, f"test page missing: {exc}") from exc
 
 
 @app.get("/health")
