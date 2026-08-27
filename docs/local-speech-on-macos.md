@@ -18,7 +18,7 @@ gets slower, and F5-TTS stops being viable.
 | **TTS th** | `facebook/mms-tts-tha` (VITS) | cuda — 57× realtime | cpu or mps — ~2× realtime |
 | **TTS en** | `facebook/mms-tts-eng` (VITS) | cuda | cpu or mps |
 | **TTS (alt)** | `VIZINTZOR/F5-TTS-THAI` via `f5-tts-th` | cuda — ~0.8 s/utterance | **not recommended** — see §5 |
-| **LLM** | `scb10x/llama3.1-typhoon2-8b-instruct` (Q4, 4.9 GB) | proxied to Ollama, 50 tok/s | Ollama on the Mac, or keep remote |
+| **LLM** | `scb10x/llama3.1-typhoon2-8b-instruct` (Q4, 4.9 GB) | proxied to Ollama, 50 tok/s | Ollama on the Mac, **or stays on the GPU box — §6b** |
 
 Sizes on disk: whisper `large-v3-turbo` ≈ 1.6 GB, each MMS voice ≈ 145 MB,
 F5-TTS ≈ 1.3 GB plus a Vocos vocoder, typhoon2 ≈ 4.9 GB.
@@ -69,9 +69,10 @@ TTS_DEVICE=cpu        # try mps once it works on cpu; VITS is small either way
 TTS_SPEED_TH=0.95
 TTS_SPEED_EN=1.0
 
-# Only if Ollama also runs on the Mac. Otherwise point at the remote one.
-LLM_PIN_MODEL=scb10x/llama3.1-typhoon2-8b-instruct
-# OLLAMA_URL=http://<windows-host>:11434
+# ONLY if Ollama also runs on the Mac. Leave both unset when the LLM stays on
+# the GPU box (§6b) — prewarm would otherwise try to pin a model that is not
+# there, and health.llm.reachable=false is the correct reading in that split.
+# LLM_PIN_MODEL=scb10x/llama3.1-typhoon2-8b-instruct
 ```
 
 If `large-v3-turbo` on CPU is too slow, `STT_MODEL_SIZE=medium` is roughly 2×
@@ -164,12 +165,15 @@ STT  -> http://localhost:8091/v1
 TTS  -> http://localhost:8091/v1
 ```
 
-`AI_MODE=local` fills all three base URLs from `LOCAL_AI_BASE_URL`, which is
-the only way to be sure the LLM URL keeps its `/v1` — omitting it there is
-what produced the original `404 /chat/completions`.
+Either way, **every base URL must end in `/v1`** — the clients append their
+own path (`/chat/completions`, `/audio/speech`, `/audio/transcriptions`), and
+omitting it is what produced the original `404 /chat/completions`. Letting
+`AI_MODE=local` fill a URL in guarantees the suffix; typing one by hand does
+not, so check it.
 
-Delete the three `*_BASE_URL` lines pointing at the devtunnel, and the
-devtunnel itself.
+If you moved everything, delete the devtunnel and the `*_BASE_URL` lines that
+point at it. If you kept Ollama on the GPU box (§6b), the tunnel stays — but
+re-point it at **8091**, not the old 8090, which Traefik owns.
 
 ## 8. Verify
 
