@@ -785,16 +785,19 @@ def to_wav(samples, source_rate, target_rate):
 PREWARM = os.environ.get("PREWARM", "1").strip().lower() not in ("0", "false", "no")
 
 
-def _pin_llm():
+def _pin_llm(quiet=False):
     """Load LLM_PIN_MODEL and hold it in VRAM indefinitely."""
     if not LLM_PIN_MODEL:
         logger.info("prewarm: LLM_PIN_MODEL unset — the LLM will load on first use")
         return
-    body = {"model": LLM_PIN_MODEL, "prompt": "hi", "stream": False, "keep_alive": -1}
+    # No prompt: Ollama loads and holds the model without generating.
+    body = {"model": LLM_PIN_MODEL, "keep_alive": -1}
     t0 = time.perf_counter()
     r = httpx.post(f"{OLLAMA_URL}/api/generate", json=body, timeout=600)
     r.raise_for_status()
-    logger.info("prewarm: LLM %s pinned in %.1f s", LLM_PIN_MODEL, time.perf_counter() - t0)
+    if not quiet:
+        logger.info("prewarm: LLM %s pinned in %.1f s",
+                    LLM_PIN_MODEL, time.perf_counter() - t0)
 
 
 def _norm_model(name):
@@ -824,16 +827,23 @@ def _pin_watchdog():
     while True:
         time.sleep(LLM_PIN_INTERVAL_S)
         resident = _llm_resident()
-        if resident is None or _norm_model(LLM_PIN_MODEL) in resident:
-            continue
-        logger.warning(
-            "LLM %s was evicted (resident: %s) — re-pinning",
-            LLM_PIN_MODEL, ", ".join(sorted(resident)) or "nothing",
-        )
+        if resident is not None and _norm_model(LLM_PIN_MODEL) not in resident:
+            logger.warning(
+                "LLM %s was evicted (resident: %s) — re-pinning",
+                LLM_PIN_MODEL, ", ".join(sorted(resident)) or "nothing",
+            )
         try:
-            _pin_llm()
+            # Unconditional rather than only on eviction. The pin has been
+            # observed lapsing to a ~5 min expiry after other traffic — most
+            # likely a foreign request reloading the model without keep_alive —
+            # and by the time it has actually disappeared a patient is already
+            # waiting on the reload. Re-asserting every tick is a bare load
+            # call with no generation, so it is nearly free insurance. (A plain
+            # chat call through this gateway does NOT clear the pin; that was
+            # measured, so this is not the mechanism.)
+            _pin_llm(quiet=True)
         except Exception:      # noqa: BLE001
-            logger.exception("re-pin failed; the next turn will pay a cold load")
+            logger.exception("re-pin failed; the next turn may pay a cold load")
 
 
 def _prewarm():
