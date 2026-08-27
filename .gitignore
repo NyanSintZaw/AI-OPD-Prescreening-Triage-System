@@ -79,7 +79,18 @@ his_mock.db
 # Postman local-workspace metadata (contains an account-specific workspace id)
 .postman/
 
+<<<<<<< HEAD
 # local-speech audio: synthesis test output, and the F5 reference clip.
 # The reference is deployment config (and someone's recorded voice), not
 # source — .env points at it by path, .env.example documents the setting.
 local-speech/*.wav
+=======
+# Impeccable critique snapshots (local working notes)
+.impeccable/
+
+# Installed agent skills (npx skills add) — machine-local, not part of the repo.
+# The installer writes to .agents/ and symlinks into .claude/skills/.
+.agents/
+.claude/skills/transitions-dev
+.claude/skills/transitions-polish
+>>>>>>> 102c53fea2d87d54b4eae31d5da65c72a53637bc

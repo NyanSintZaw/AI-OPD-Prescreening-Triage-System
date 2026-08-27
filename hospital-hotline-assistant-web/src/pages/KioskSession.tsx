@@ -590,13 +590,25 @@ export function KioskSession() {
   }, [phase, sessionId]);
 
   // ── Reset / exit ─────────────────────────────────────────────────────────
-  const resetToHome = useCallback(() => {
-    setConfirmExit(false);
-    void voiceCall.end();
-    setSessionId(null);
-    navigate('/kiosk');
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [navigate, setSessionId]);
+  /** Tear the session down and send the booth to `to`. */
+  const endSession = useCallback(
+    (to: '/kiosk' | '/kiosk/attract') => {
+      setConfirmExit(false);
+      void voiceCall.end();
+      setSessionId(null);
+      navigate(to);
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    },
+    [navigate, setSessionId],
+  );
+
+  /** Someone tapped Exit — they are still standing here, so show the welcome. */
+  const resetToHome = useCallback(() => endSession('/kiosk'), [endSession]);
+
+  /** Nobody answered the idle prompt: the booth is empty. Go straight to the
+   *  attract loop rather than parking on a screen addressed to a patient who
+   *  is present — otherwise the welcome screen's own timer has to elapse too. */
+  const resetToAttract = useCallback(() => endSession('/kiosk/attract'), [endSession]);
 
   // Mid-conversation an accidental Exit tap would throw away the whole
   // interview — confirm first. Every other phase exits immediately.
@@ -614,7 +626,7 @@ export function KioskSession() {
     enabled: true,
     warnAfterMs: phase === 'result' ? 90000 : phase === 'conversation' ? 60000 : 45000,
     graceMs: IDLE_GRACE_SECONDS * 1000,
-    onReset: resetToHome,
+    onReset: resetToAttract,
   });
 
   // ── Render ───────────────────────────────────────────────────────────────

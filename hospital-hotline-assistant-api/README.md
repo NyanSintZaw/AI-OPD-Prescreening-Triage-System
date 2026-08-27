@@ -49,6 +49,6 @@ Set these variables in `.env` for production-like frontdesk triage:
 - `POST /sessions/{session_id}/department-recommendations`
 - `POST /sessions/{session_id}/emergency-events`
 - `GET /sessions/{session_id}/emergency-events`
-- `GET /conversation-summary`
+- `GET /admin/sessions`
 
 Interactive docs are available at `http://localhost:8000/docs` when the server is running.

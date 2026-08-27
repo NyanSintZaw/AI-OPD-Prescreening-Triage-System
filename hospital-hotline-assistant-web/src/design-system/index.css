@@ -1,0 +1,10 @@
+/* MALI design system — vendored from the repo-root mali-design-system/ package.
+   That package is the source of truth: edit there, then `npm run sync:ds`.
+   Everything here except this file is a byte copy; this file is app glue. */
+@import './tokens/colors.css';
+@import './tokens/typography.css';
+@import './tokens/spacing.css';
+@import './tokens/radii.css';
+@import './tokens/shadows.css';
+@import './tokens/effects.css';
+@import './mali-components.css';

@@ -1,0 +1,8 @@
+/* Tinted with Deep Leaf Ink (#1F3B38), never black. Every shadow has an offset and a blur. */
+:root {
+  --shadow-xs: 0 1px 2px rgba(31, 59, 56, 0.06);
+  --shadow-sm: 0 2px 6px rgba(31, 59, 56, 0.07), 0 1px 2px rgba(31, 59, 56, 0.05);
+  --shadow-md: 0 6px 18px rgba(31, 59, 56, 0.09), 0 2px 4px rgba(31, 59, 56, 0.05);
+  --shadow-lg: 0 16px 40px rgba(31, 59, 56, 0.14), 0 4px 10px rgba(31, 59, 56, 0.06);
+  --shadow-gold-halo: 0 12px 48px rgba(219, 181, 102, 0.35);
+}

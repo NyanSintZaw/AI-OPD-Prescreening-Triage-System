@@ -3,14 +3,15 @@
   <head>
     <meta charset="utf-8" />
     <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'" />
-    <title>MFU Triage Reviews</title>
+    <title>MALI Triage Reviews</title>
     <style>
       /* Mirrors .reviews-fab in the web app's global.css so the desktop pill
          and the in-page one read as the same control. */
+      /* MALI Brand v1.0 — mirrors the web app's semantic tokens. */
       :root {
-        --mch-gold: #ba9643;
-        --mch-gold-dark: #705a28;
-        --mch-red: #d63933;
+        --color-primary: #46867f;   /* teal-600 */
+        --color-primary-deep: #386b66;
+        --status-danger: #c05b4d;
       }
 
       * { box-sizing: border-box; }
@@ -34,9 +35,9 @@
         gap: 0.5rem;
         height: 52px;
         padding: 0 1rem 0 0;
-        border: 1px solid var(--mch-gold-dark);
+        border: 1px solid var(--color-primary-deep);
         border-radius: 999px;
-        background: var(--mch-gold);
+        background: var(--color-primary);
         color: #fff;
         font-size: 0.95rem;
         font-weight: 600;
@@ -86,7 +87,7 @@
         padding: 0 6px;
         border: 2px solid #fff;
         border-radius: 999px;
-        background: var(--mch-red);
+        background: var(--status-danger);
         font-size: 0.75rem;
         font-weight: 700;
       }

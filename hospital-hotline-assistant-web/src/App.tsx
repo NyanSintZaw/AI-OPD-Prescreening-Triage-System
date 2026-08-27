@@ -2,13 +2,18 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { AdminPage } from './pages/AdminPage';
 import { AvatarDevPage } from './pages/AvatarDevPage';
 import { KioskHome } from './pages/KioskHome';
+import { KioskAttract } from './pages/KioskAttract';
 import { KioskSession } from './pages/KioskSession';
 import { LoginPage } from './pages/LoginPage';
 import { NursePage } from './pages/NursePage';
 import { SlipPage } from './pages/SlipPage';
 import { ProtectedRoute } from './components/ProtectedRoute';
+import { useTabIndicator } from './hooks/useTabIndicator';
 
 export function App() {
+  // One observer for every tab strip in the app — see the hook.
+  useTabIndicator();
+
   return (
     <BrowserRouter>
       <Routes>
@@ -16,6 +21,8 @@ export function App() {
         {/* Kiosk booth — the only patient-facing experience. */}
         <Route path="/kiosk" element={<KioskHome />} />
         <Route path="/kiosk/session" element={<KioskSession />} />
+        {/* Attract loop — what the booth shows when nobody is standing at it. */}
+        <Route path="/kiosk/attract" element={<KioskAttract />} />
         {/* Dev-only avatar tuning harness — not linked from any screen. */}
         <Route path="/kiosk/avatar-dev" element={<AvatarDevPage />} />
         {/* Legacy web patient routes now point at the kiosk. */}

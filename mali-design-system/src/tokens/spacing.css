@@ -1,0 +1,10 @@
+:root {
+  --space-0: 0; --space-1: 2px; --space-2: 4px; --space-3: 6px; --space-4: 8px; --space-5: 10px;
+  --space-6: 12px; --space-7: 16px; --space-8: 20px; --space-9: 24px; --space-10: 32px;
+  --space-11: 40px; --space-12: 48px; --space-13: 64px; --space-14: 80px; --space-15: 96px;
+
+  --pad-control-y: 10px; --pad-control-x: 14px; --pad-card: 20px; --pad-page: 32px;
+  --gap-stack: 16px; --gap-inline: 8px;
+  --hit-target: 44px; --hit-target-kiosk: 64px;
+  --content-max: 1200px; --measure: 68ch; --header-h: 56px; --sidebar-w: 260px;
+}

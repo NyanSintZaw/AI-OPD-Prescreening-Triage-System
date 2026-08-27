@@ -1,0 +1,18 @@
+/* Base — opt-in via .mali-root (or html[data-mali]) so the DS never fights a host page. */
+.mali-root, [data-mali] {
+  font-family: var(--font-sans); font-size: var(--text-base); line-height: var(--leading-normal);
+  color: var(--text-body); background: var(--surface-page);
+  -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility;
+  font-variant-numeric: tabular-nums;
+}
+.mali-root *, [data-mali] * { box-sizing: border-box; }
+.mali-root :focus-visible, [data-mali] :focus-visible { outline: none; box-shadow: var(--focus-ring); border-radius: var(--radius-sm); }
+.mali-root h1, .mali-root h2, .mali-root h3, [data-mali] h1, [data-mali] h2, [data-mali] h3 {
+  color: var(--text-heading); font-weight: var(--fw-semibold); line-height: var(--leading-tight);
+  letter-spacing: var(--tracking-tight); text-wrap: balance; margin: 0;
+}
+.mali-root h1, [data-mali] h1 { font-size: var(--text-2xl); }
+.mali-root h2, [data-mali] h2 { font-size: var(--text-xl); }
+.mali-root h3, [data-mali] h3 { font-size: var(--text-lg); }
+.mali-root p, [data-mali] p { margin: 0; max-width: var(--measure); }
+.mali-label { font-size: 11px; font-weight: var(--fw-semibold); letter-spacing: var(--tracking-label); text-transform: uppercase; color: var(--text-muted); }

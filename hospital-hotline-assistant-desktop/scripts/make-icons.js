@@ -61,9 +61,9 @@ function encodePng(size, sample) {
   ]);
 }
 
-// ─── the artwork: MFU gold rounded square + white clipboard ────────────────
+// ─── the artwork: Mali Teal rounded square + white clipboard ───────────────
 
-const GOLD = [186, 150, 67];
+const TEAL = [70, 134, 127]; // --color-primary-hover, teal-600
 const WHITE = [255, 255, 255];
 
 /** Rounded-rect hit test in 0..1 space. */
@@ -84,9 +84,9 @@ function colourAt(u, v, detail) {
     // three ruled lines, dropped on the tray icon where they would just blur
     const line = detail && u > 0.36 && u < 0.64
       && [0.4, 0.52, 0.64].some((y) => Math.abs(v - y) < 0.028);
-    return line ? [...GOLD, 255] : [...WHITE, 255];
+    return line ? [...TEAL, 255] : [...WHITE, 255];
   }
-  return [...GOLD, 255];
+  return [...TEAL, 255];
 }
 
 /** 3×3 supersample so the curves do not stair-step at 32px. */

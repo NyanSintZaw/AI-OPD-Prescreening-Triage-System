@@ -1,8 +1,9 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { X } from '@phosphor-icons/react';
 import type { AppLanguage } from '../../i18n/resources';
-import mfuMonogram from '../../assets/mfu-monogram.png';
+import { Wordmark } from '../../design-system/components/Mark';
 
 interface KioskFrameProps {
   language: AppLanguage;
@@ -15,6 +16,9 @@ interface KioskFrameProps {
   hideLanguage?: boolean;
   children: ReactNode;
 }
+
+/** Hold the lockup this long to send the booth back to the attract loop. */
+const STAFF_HOLD_MS = 1500;
 
 /** Live HH:mm clock — a small production touch every real kiosk has. */
 function Clock() {
@@ -47,6 +51,18 @@ export function KioskFrame({
   children,
 }: KioskFrameProps) {
   const { t } = useTranslation();
+  const navigate = useNavigate();
+
+  // Staff shortcut back to the attract loop: hold the lockup for 1.5s. A
+  // patient never presses and holds a logo, so this cannot fire by accident,
+  // and it needs no visible control competing with the primary action.
+  const holdTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const startHold = () => {
+    clearTimeout(holdTimer.current);
+    holdTimer.current = setTimeout(() => navigate('/kiosk/attract'), STAFF_HOLD_MS);
+  };
+  const cancelHold = () => clearTimeout(holdTimer.current);
+  useEffect(() => () => clearTimeout(holdTimer.current), []);
 
   return (
     <div className="kiosk-root">
@@ -54,12 +70,17 @@ export function KioskFrame({
 
       <header className="kiosk-topbar">
         <div className="k-topbar-left">
-          {/* Official hospital lockup (matches the legacy system header):
-              royal monogram · red rule · bilingual name. The lockup is a
-              fixed brand mark, so both lines always show regardless of the
+          {/* MALI lockup + the hospital's bilingual name. The name is a fixed
+              operational mark, so both lines always show regardless of the
               selected UI language. */}
-          <div className="k-brand">
-            <img className="k-brand-emblem" src={mfuMonogram} alt="" />
+          <div
+            className="k-brand"
+            onPointerDown={startHold}
+            onPointerUp={cancelHold}
+            onPointerLeave={cancelHold}
+            onPointerCancel={cancelHold}
+          >
+            <Wordmark height={26} />
             <span className="k-brand-rule" aria-hidden="true" />
             <span className="k-brand-text">
               <span className="k-brand-name">โรงพยาบาลศูนย์การแพทย์มหาวิทยาลัยแม่ฟ้าหลวง</span>

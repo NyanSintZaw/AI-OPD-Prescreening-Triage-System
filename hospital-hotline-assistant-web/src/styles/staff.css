@@ -1,0 +1,5224 @@
+/* ============================================================================
+   Staff portals — nurse + admin.
+
+   One vocabulary for both. What lived here before was four: `admin-*`,
+   `nurse-*`, `cm-*` (criteria) and `tm-*` (thermometer device manager, whose
+   overlay the nurse SBAR dialog borrowed). That produced six tab bars, five
+   modal shells with four different backdrop colours, thirteen card shells and
+   eleven unrelated input styles on two screens.
+
+   Rules this file keeps, from DESIGN.md:
+     - MALI tokens only. No raw hex, no invented greens, no black shadows.
+     - Dense tables over card lists at 1440.
+     - Triage colour is the only colour that carries meaning here.
+     - Animate transform/opacity only; never `transition: all`.
+     - Hover behind `@media (hover: hover)`; motion has a reduced-motion pair.
+   ========================================================================= */
+
+/* ── Shell ───────────────────────────────────────────────────────────────────
+   The staff portals run edge to edge. `.app-main` caps every page at
+   --content-max-width (1140px), which on a 1920 monitor parked a data table
+   in a 1140px column with 390px of dead paper either side. A queue and a
+   dashboard want the whole screen. */
+
+/* Nothing about the rail may depend on page scroll, so the page does not
+   scroll: the shell is exactly one viewport and the content column is the
+   only scroller. The rail is a static sibling of it, so no amount of content
+   below can move, clip, or offset the nav. */
+body:has(.app-main-sidebar) .app-shell {
+  block-size: 100vh;
+  overflow: hidden;
+}
+
+.app-main.app-main-sidebar {
+  /* The kiosk's own ground (`.kiosk-root` in kiosk.css): MALI paper falling
+     into a whisper of teal. The petal texture that rides on top of it there
+     stays on the kiosk — DESIGN.md keeps that pattern off table bodies. */
+  background: linear-gradient(168deg, var(--surface-page) 0%, var(--teal-50) 100%);
+  max-width: none;
+  inline-size: 100%;
+  min-block-size: 0;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: stretch;
+}
+
+.staff-content {
+  min-inline-size: 0; /* lets tables scroll instead of stretching the grid */
+  block-size: 100%;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--teal-200) transparent;
+  padding: var(--space-7) var(--space-8);
+}
+
+/* The header centres itself at --header-inner-max-width, which left the brand
+   floating mid-screen while the nav rail sat at x=0. On a portal with a rail,
+   the header runs edge to edge and its padding lines up with the rail. */
+body:has(.app-main-sidebar) .header-inner {
+  max-width: none;
+  padding-inline: var(--space-9);
+}
+
+/* ── Side nav ────────────────────────────────────────────────────────────────
+   A real app rail: flush to the left edge, full height, hairline separator —
+   not a floating card sitting in the content flow. */
+
+.staff-nav {
+  /* Static, and full height of the shell's one non-scrolling row. Sticky was
+     always a workaround: it inherited the header's height as an offset and
+     died at the end of its container. */
+  block-size: 100%;
+  inline-size: var(--sidebar-w, 260px);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-4) var(--space-3);
+  background: var(--surface-card);
+  border-inline-end: 1px solid var(--border-subtle);
+  transition: inline-size var(--dur-enter) var(--ease-move);
+}
+
+/* Only the nav list scrolls, so the account block stays pinned at the foot
+   however many sections a portal has.
+
+   `overflow-x` must be stated: setting only overflow-y makes the other axis
+   compute to `auto`, and the collapsed badge's 3px overhang was enough to
+   raise a horizontal scrollbar (scrollWidth 47 vs clientWidth 44). */
+.staff-nav > nav {
+  flex: 1;
+  min-block-size: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.staff-nav.is-collapsed {
+  inline-size: 4.5rem;
+  align-items: center;
+}
+
+.staff-nav-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  min-block-size: var(--hit-target);
+  margin-block-end: var(--space-2);
+  padding: 0 var(--space-2) var(--space-3) var(--space-3);
+  border-block-end: 1px solid var(--border-subtle);
+}
+
+.staff-nav.is-collapsed .staff-nav-head {
+  padding-inline-start: 0;
+  justify-content: center;
+}
+
+/* This names the portal you are in. Tracked micro-caps were the dated part —
+   distinction now comes from size and weight, which is also what lets it stay
+   sentence case like the rest of the product's own voice. */
+.staff-nav-title {
+  margin: 0;
+  font-size: var(--text-base);
+  font-weight: var(--fw-bold);
+  letter-spacing: var(--tracking-tight);
+  color: var(--text-heading);
+  /* Wraps rather than truncates: "Operations Admin Portal" clipped to
+     "Operations Admin Po…", and a portal's name is not an ellipsis candidate. */
+  line-height: var(--leading-snug);
+}
+
+.staff-nav-collapse {
+  display: grid;
+  place-items: center;
+  font: inherit;
+  inline-size: 2rem;
+  block-size: 2rem;
+  flex: none;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--surface-card);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition:
+    background-color var(--dur-color) var(--ease-move),
+    color var(--dur-color) var(--ease-move);
+}
+
+.staff-nav-collapse svg {
+  transition: transform var(--dur-enter) var(--ease-move);
+}
+
+.staff-nav.is-collapsed .staff-nav-collapse svg {
+  transform: rotate(180deg);
+}
+
+.staff-nav-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.staff-nav-item {
+  inline-size: 100%;
+  min-block-size: var(--hit-target);
+  display: flex;
+  align-items: center;
+  gap: var(--space-5);
+  padding: var(--space-2) var(--space-4);
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--text-body);
+  font: inherit;
+  font-size: var(--text-sm);
+  text-align: start;
+  cursor: pointer;
+  white-space: nowrap;
+  transition:
+    background-color var(--dur-color) var(--ease-move),
+    color var(--dur-color) var(--ease-move);
+}
+
+/* Phosphor paints from currentColor, so the glyph follows the row's state.
+   Quiet grey while inactive; the row's teal once it is current. */
+.staff-nav-item svg {
+  flex: none;
+  color: var(--text-muted);
+}
+
+.staff-nav-item.active svg {
+  color: inherit;
+}
+
+.staff-nav.is-collapsed .staff-nav-item {
+  justify-content: center;
+  padding-inline: 0;
+}
+
+.staff-nav.is-collapsed .staff-nav-label {
+  display: none;
+}
+
+.staff-nav-item.active {
+  background: var(--color-primary-soft);
+  color: var(--teal-700);
+  font-weight: var(--fw-semibold);
+}
+
+.staff-nav-label {
+  flex: 1;
+  min-inline-size: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.staff-nav-badge {
+  min-inline-size: 1.5rem;
+  padding: 1px var(--space-2);
+  border-radius: var(--radius-full);
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+  font-size: var(--text-xs);
+  font-weight: var(--fw-semibold);
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Collapsed, the badge rides the icon's corner — the count is the one thing
+   that still has to be visible once the labels are gone. It needs a ring in
+   the surface colour, or it just sits on top of the glyph. */
+.staff-nav.is-collapsed .staff-nav-item {
+  position: relative;
+  inline-size: 2.75rem;
+  block-size: 2.75rem;
+  min-block-size: 0;
+  margin-inline: auto;
+}
+
+.staff-nav.is-collapsed .staff-nav-badge {
+  position: absolute;
+  inset-block-start: 1px;
+  inset-inline-end: 1px;
+  min-inline-size: 1rem;
+  padding: 0 3px;
+  font-size: 10px;
+  line-height: 1rem;
+  box-shadow: 0 0 0 2px var(--surface-card);
+}
+
+.staff-nav-item.active .staff-nav-badge {
+  background: var(--teal-700);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .staff-nav-item:hover:not(.active) {
+    background: var(--surface-muted);
+  }
+
+  .staff-nav-collapse:hover {
+    background: var(--surface-muted);
+    color: var(--text-body);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .staff-nav,
+  .staff-nav-collapse svg {
+    transition: none;
+  }
+}
+
+/* ── Page head ───────────────────────────────────────────────────────────── */
+
+.staff-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+.staff-page-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding-block-end: var(--space-4);
+  border-block-end: 1px solid var(--border-subtle);
+}
+
+.staff-page-head h1 {
+  margin: 0;
+  font-size: var(--text-2xl);
+  color: var(--text-heading);
+}
+
+.staff-page-head .muted {
+  margin: var(--space-1) 0 0;
+}
+
+.staff-head-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.staff-head-note {
+  font-size: var(--text-xs);
+}
+
+.staff-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+/* The only checkbox in the app. `accent-color` repaints the native control to
+   brand teal — a custom one would cost a component and its keyboard handling
+   for a single instance. */
+.staff-toggle input[type='checkbox'] {
+  accent-color: var(--color-primary);
+  inline-size: 1rem;
+  block-size: 1rem;
+  cursor: pointer;
+}
+
+.staff-toggle:hover {
+  color: var(--text-body);
+}
+
+/* ── Toolbar ─────────────────────────────────────────────────────────────── */
+
+.staff-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.staff-search {
+  flex: 1 1 18rem;
+  max-inline-size: 26rem;
+}
+
+/* Controls size to their content, not to the viewport — a filter stretched
+   across an ultrawide screen is a target, not a filter. */
+.staff-toolbar-select {
+  inline-size: 14rem;
+}
+
+/* Three mutually exclusive states, so one segmented track rather than three
+   loose pills: the group now reads the way it behaves. The pills also stood
+   34px tall beside 44px fields, which is what made the row look assembled
+   rather than designed. */
+.staff-toolbar .chip-group,
+.staff-toolbar .chip-group,
+.dash-toolbar .chip-group {
+  position: relative; /* the offsetParent the pill is measured against */
+  gap: 2px;
+  padding: 3px;
+  background: var(--teal-50);
+  border-radius: var(--radius-md);
+}
+
+/* The same moving mark as the tab bar, in the shape a segmented control wants:
+   one pill that slides between options rather than a white background switched
+   on under each. Sliding is what makes a segmented control read as one control
+   with a position, instead of three buttons that happen to sit together.
+
+   It carries the fill and the shadow, so the chips themselves only change
+   colour and weight — two things that cannot be handed to a moving element. */
+.staff-toolbar .chip-group::before,
+.dash-toolbar .chip-group::before {
+  content: '';
+  position: absolute;
+  inset-block-start: 0;
+  inset-inline-start: 0;
+  inline-size: var(--tab-w, 0);
+  block-size: var(--tab-h, 0);
+  border-radius: var(--radius-sm);
+  background: var(--surface-card);
+  box-shadow: var(--shadow-xs);
+  transform: translate3d(var(--tab-x, 0), var(--tab-y, 0), 0);
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    transform var(--dur-move) var(--ease-enter),
+    inline-size var(--dur-move) var(--ease-enter),
+    opacity var(--dur-color) var(--ease-enter);
+}
+
+.staff-toolbar .chip-group[data-tab-ready='true']::before,
+.dash-toolbar .chip-group[data-tab-ready='true']::before {
+  opacity: 1;
+}
+
+/* Above the pill, or the label slides out from under itself. */
+.staff-toolbar .filter-chip,
+.dash-toolbar .filter-chip {
+  position: relative;
+  z-index: 1;
+}
+
+.staff-toolbar .filter-chip,
+.dash-toolbar .filter-chip {
+  min-block-size: 38px;
+  padding: 0 var(--space-7);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  font-weight: var(--fw-medium);
+  transition:
+    background-color var(--dur-color) var(--ease-move),
+    color var(--dur-color) var(--ease-move);
+}
+
+.staff-toolbar .filter-chip.active,
+.dash-toolbar .filter-chip.active {
+  color: var(--teal-700);
+  font-weight: var(--fw-semibold);
+}
+
+/* Refresh acts on the queue, not on the page, so it belongs to the control
+   row — it was stranded 1400px away at the far end of the page header. */
+.staff-toolbar-end {
+  margin-inline-start: auto;
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+}
+
+/* The list auto-refreshes every 30s; without a count the nurse has no way to
+   tell a filtered view from an emptying one. */
+.queue-count {
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .staff-toolbar .filter-chip:hover:not(.active),
+  .dash-toolbar .filter-chip:hover:not(.active) {
+    background: color-mix(in srgb, var(--surface-card) 65%, transparent);
+    color: var(--text-body);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .staff-toolbar .filter-chip,
+  .dash-toolbar .filter-chip {
+    transition: none;
+  }
+}
+
+.staff-empty {
+  padding: var(--space-10) var(--space-6);
+  text-align: center;
+  color: var(--text-muted);
+  background: var(--surface-card);
+  border: 1px dashed var(--border-default);
+  border-radius: var(--radius-lg);
+}
+
+.staff-empty p {
+  margin: 0;
+}
+
+/* ── Fields — the one input primitive ────────────────────────────────────── */
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-block-end: var(--space-4);
+}
+
+.field-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+  gap: var(--space-4);
+}
+
+.field-label {
+  font-size: var(--text-xs);
+  font-weight: var(--fw-semibold);
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.field-hint {
+  margin: 0 0 var(--space-3);
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+}
+
+.field-input {
+  inline-size: 100%;
+  min-block-size: var(--hit-target);
+  padding: var(--space-2) var(--space-3);
+  font: inherit;
+  font-size: var(--text-sm);
+  color: var(--text-body);
+  background: var(--surface-card);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  transition: border-color var(--dur-color) var(--ease-move);
+}
+
+.field-input:focus-visible {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: var(--focus-ring-field);
+}
+
+.field-textarea {
+  min-block-size: 0;
+  resize: vertical;
+  line-height: var(--leading-normal);
+}
+
+/* ── Alerts ──────────────────────────────────────────────────────────────── */
+
+.alert-note {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  margin: 0 0 var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-sm);
+  border: 1px solid transparent;
+  font-size: var(--text-sm);
+  line-height: var(--leading-snug);
+}
+
+.alert-note svg {
+  flex: none;
+  margin-block-start: 1px;
+}
+
+.alert-note-warning {
+  background: var(--status-warning-soft);
+  border-color: color-mix(in srgb, var(--status-warning) 35%, transparent);
+  color: var(--status-warning-ink);
+}
+
+.alert-note-danger {
+  background: var(--status-danger-soft);
+  border-color: color-mix(in srgb, var(--status-danger) 35%, transparent);
+  color: var(--red-500);
+}
+
+.section-title {
+  margin: var(--space-6) 0 var(--space-3);
+  font-size: var(--text-xs);
+  font-weight: var(--fw-semibold);
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+  /* Teal, and darker than the values beneath it. In --text-muted a heading was
+     *lighter* than its own content — ink-500 labelling ink-800 — which inverts
+     the hierarchy, and is why they read as one more quiet line rather than as
+     the start of a group. Teal-700 is 6.06:1 on paper and 5.58:1 on the
+     reasoning panel's tint, and it is already the product's colour for
+     structure: the rail's current item, the table headings, the record keys. */
+  color: var(--teal-700);
+}
+
+.section-title:first-child {
+  margin-block-start: 0;
+}
+
+/* ── Triage badge ────────────────────────────────────────────────────────────
+   Levels 1 and 2 are ΔE 13 apart for normal colour vision — below the legible
+   floor — so the digit is the signal and the colour only reinforces it. The
+   badge never renders without its number. */
+
+.triage-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  border-radius: var(--radius-sm);
+  font-variant-numeric: tabular-nums;
+  color: var(--color-on-primary);
+}
+
+.triage-badge-num {
+  display: grid;
+  place-items: center;
+  min-inline-size: 1.75rem;
+  min-block-size: 1.75rem;
+  padding: 0 var(--space-1);
+  border-radius: var(--radius-sm);
+  background: inherit;
+  font-size: var(--text-base);
+  font-weight: var(--fw-bold);
+  line-height: 1;
+}
+
+/* At `md` the digit square *is* the badge, so the badge itself has no padding.
+   At `lg` a label joins it, and the square then read as flush to the left edge
+   while the label sat 6px off the right — one inset on one side only. The
+   large badge drops the nested square and pads itself evenly instead. */
+.triage-badge-lg {
+  gap: var(--space-4);
+  padding: var(--space-4) var(--space-6);
+}
+
+.triage-badge-lg .triage-badge-num {
+  min-inline-size: 0;
+  min-block-size: 0;
+  padding: 0;
+  border-radius: 0;
+  background: none;
+  font-size: var(--text-xl);
+}
+
+.triage-badge-name {
+  font-size: var(--text-sm);
+  font-weight: var(--fw-semibold);
+  white-space: nowrap;
+}
+
+.triage-badge-none {
+  min-inline-size: 1.75rem;
+  min-block-size: 1.75rem;
+  justify-content: center;
+  background: var(--surface-sunken);
+  color: var(--text-subtle);
+}
+
+.triage-level-1 { background: var(--triage-1); }
+.triage-level-2 { background: var(--triage-2); }
+.triage-level-3 { background: var(--triage-3); }
+.triage-level-4 { background: var(--triage-4); }
+.triage-level-5 { background: var(--triage-5); }
+
+/* Level 3 is 2.15:1 against paper, so its label takes ink, not white. */
+/* Levels 3 and 4 are the two light fills in the ramp, so the digit on them is
+   ink rather than white — 6.9:1 on the softened green, where white was 2.2. */
+.triage-level-3 .triage-badge-name,
+.triage-level-3 .triage-badge-num,
+.triage-level-4 .triage-badge-name,
+.triage-level-4 .triage-badge-num {
+  color: var(--ink-800);
+}
+
+/* ── Tables ──────────────────────────────────────────────────────────────── */
+
+.staff-table {
+  inline-size: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-sm);
+  background: var(--surface-card);
+}
+
+/* A quiet header with one firm rule under it. The solid teal band this
+   replaces was the loudest thing on a screen whose only meaningful colour is
+   the triage badge — a column label was out-shouting the acuity it labelled. */
+.staff-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding: var(--space-5) var(--space-6);
+  background: var(--teal-100);
+  color: var(--teal-700);
+  font-size: var(--text-xs);
+  font-weight: var(--fw-semibold);
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+  text-align: start;
+  white-space: nowrap;
+}
+
+.staff-table tbody td {
+  padding: var(--space-6);
+  border-block-end: 1px solid var(--border-subtle);
+  vertical-align: middle;
+  color: var(--text-body);
+}
+
+.staff-table tbody tr:last-child td {
+  border-block-end: 0;
+}
+
+.staff-table .col-num {
+  text-align: end;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.staff-table .col-level {
+  inline-size: 1%;
+  padding-inline-end: var(--space-2);
+}
+
+/* The complaint is the one free-text column and the only one allowed to wrap;
+   everything else stays on one line, because a department name breaking over
+   four lines made every row four rows tall. */
+.staff-table .col-complaint {
+  min-inline-size: 20rem;
+}
+
+/* ── Full-height sections ────────────────────────────────────────────────────
+   A section that owns the viewport instead of growing past it. Two problems,
+   one shape: three queue rows floating at the top of 700px of blank paper read
+   as a page that failed to load, and a 149-row finding catalogue read as a
+   page you scroll for a minute. Bounded, both are lists you read. */
+
+.staff-page-fill {
+  block-size: 100%;
+}
+
+/* A bounded table shows the page's own ground below its last row, the way the
+   queue does. `.table-wrap` ships a white fill, a 2px border and a shadow —
+   at full height that reads as a white slab with four rows stranded at the top
+   of it, which is the problem the bounding was meant to fix. */
+.staff-page-fill .table-wrap {
+  background: transparent;
+  border: 1px solid var(--border-subtle);
+  box-shadow: none;
+}
+
+/* The admin session list and its message aside, bounded the same way. The base
+   rule sets `align-items: start`, which would leave both at content height. */
+.staff-page-fill .admin-layout {
+  flex: 1;
+  min-block-size: 0;
+  align-items: stretch;
+}
+
+.staff-page-fill .admin-layout > .table-wrap,
+.staff-page-fill .admin-layout > aside {
+  min-block-size: 0;
+  overflow: auto;
+}
+
+.queue-surface {
+  flex: 1;
+  min-block-size: 0;
+  display: flex;
+  flex-direction: column;
+  background: transparent;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+/* .table-wrap ships a 2px border, a radius and a shadow of its own; inside the
+   surface it is only the scroll box. */
+.queue-surface .table-wrap {
+  flex: 1;
+  min-block-size: 0;
+  overflow: auto;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.queue-surface .staff-empty {
+  flex: 1;
+  display: grid;
+  place-content: center;
+  border: 0;
+  background: transparent;
+}
+
+/* Fixed columns, proportioned to the content. Auto layout handed the chief
+   complaint 41% of the table while waiting got 8% and status 9%, so the two
+   columns a nurse actually scans were crushed against the right edge.
+   Measured longest cell, in characters: level 1 · slip 13 · name 14 ·
+   complaint 71 · department 26 · waiting 12 · status 9. */
+.queue-table {
+  table-layout: fixed;
+}
+
+.queue-table th:nth-child(1) { inline-size: 5%; }
+.queue-table th:nth-child(2) { inline-size: 11%; }
+.queue-table th:nth-child(3) { inline-size: 13%; }
+.queue-table th:nth-child(4) { inline-size: 34%; }
+.queue-table th:nth-child(5) { inline-size: 17%; }
+.queue-table th:nth-child(6) { inline-size: 10%; }
+.queue-table th:nth-child(7) { inline-size: 10%; }
+
+/* Both trailing columns hang right. Width alone would not have separated
+   them — a right-aligned number and a left-aligned pill meet in the middle
+   whatever the columns are; hanging the pill at the edge is what puts the gap
+   between the two. */
+.queue-table .col-status {
+  text-align: end;
+}
+
+/* The complaint is the one column allowed to wrap; the rest stay on one line
+   so a long department name cannot make every row four rows tall. */
+.staff-table .col-complaint {
+  min-inline-size: 0;
+}
+
+.queue-table td:nth-child(2),
+.queue-table td:nth-child(3),
+.queue-table td:nth-child(5),
+.queue-table td:nth-child(6) {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.queue-row {
+  cursor: pointer;
+  transition: background-color var(--dur-color) var(--ease-move);
+}
+
+.queue-row:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: -2px;
+}
+
+/* Levels 1-2 keep a red rail: the one place triage colour earns a whole row. */
+.queue-row.row-urgent td:first-child {
+  box-shadow: inset 3px 0 0 var(--triage-1);
+}
+
+/* Who, then what. Every cell carried identical weight, so nothing told the eye
+   where a row starts — the name is the row's subject and reads first. */
+.queue-table td.queue-name {
+  font-weight: var(--fw-semibold);
+  color: var(--text-heading);
+}
+
+.queue-table .col-complaint {
+  color: var(--text-muted);
+}
+
+/* The wait is what the queue is for, so it is read as a number rather than as
+   a caption. No threshold tint: there is no configured target to colour
+   against, and inventing one here would state a policy the system has not set. */
+.queue-table td.queue-wait {
+  font-weight: var(--fw-semibold);
+  color: var(--text-body);
+}
+
+.queue-row.is-done td,
+.queue-row.is-done td.queue-name,
+.queue-row.is-done td.queue-wait {
+  color: var(--text-muted);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .queue-row:hover td {
+    background: var(--surface-muted);
+  }
+}
+
+/* The one status chip. It existed four times — the nurse queue, `.outcome-chip`
+   and `.review-pill` in the admin session log, and `.trace-vital-source` in the
+   session detail — with two visual languages between them and a state missing a
+   rule in each (`approved`, `disposed`).
+
+   A chip at current proportions rather than 2015 ones: a 6px radius instead of
+   a capsule, no 1px ring of its own hue, tight metrics (22px tall, 8px of side
+   padding), sentence case, and a low tint mixed from the hue rather than a flat
+   pastel.
+
+   The label is ink, not the hue, and that is arithmetic rather than taste: at
+   --text-xs a label needs 4.5:1, and on a tint this light the darkest tone of
+   each hue lands at 3.85 (gold), 3.24 (green) and 3.47 (blue). None of them
+   pass. So the hue moves into a 5px bead inside the chip — a graphic, which
+   needs only 3:1 — and the word stays above 12.6:1. */
+.status-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-block-size: 1.375rem;
+  padding: 0 var(--space-4);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--chip-hue, var(--ink-300)) 14%, var(--surface-card));
+  color: var(--ink-800);
+  font-size: var(--text-xs);
+  font-weight: var(--fw-semibold);
+  letter-spacing: 0;
+  white-space: nowrap;
+}
+
+.status-chip::before {
+  content: '';
+  flex: none;
+  inline-size: 6px;
+  block-size: 6px;
+  border-radius: var(--radius-full);
+  background: var(--chip-bead, var(--ink-400));
+}
+
+/* Eight states across four columns, and no hue does two jobs. Gold used to sit
+   on BOTH an abandoned session and a pending review, which put one colour in
+   two columns meaning two unrelated things. The axis is "does this need
+   someone", which is what staff scan for: red = the booth lost a patient,
+   gold = someone is owed a look, blue = the routing was changed, green = it
+   was kept or it finished, grey = nothing to act on. Every chip carries its own
+   word, so the fill is never the only channel.
+
+   Teal is deliberately absent. It is the brand primary and carries no status
+   meaning anywhere else in the app; borrowing it for "approved" made one row of
+   the log look like chrome, and it marked the measured vital in the admin trace
+   for the same non-reason. */
+
+/* Thirteen states across five surfaces, and the constraint is not "every state
+   a different hue" — the palette does not have thirteen — but **no two states
+   that can appear in the same column share one**. The sets that compete are:
+
+     A1  admin log · outcome    disposed · abandoned · active
+     A2  admin log · review     pending · approved · corrected
+     B   vitals provenance      device · patient
+     C   HIS visit progress     registered · screened · routed
+     D   HIS patient type       first-visit · returning     (a separate tab from C)
+     E   staff accounts         enabled · disabled
+
+   Five hues cover all six sets: gold = someone is owed a look, green = it was
+   kept or it finished, blue = it changed or it is mid-flight, red = the booth
+   lost a patient, grey = nothing to act on. A hue repeats only across sets that
+   never share a column, and it means the same thing every time it appears.
+
+   Teal is not among them, and that is measurement rather than policy: mixed to
+   a chip tint it sits **DeltaE 1.0** from the neutral grey (MALI's ink ramp is a
+   warm green-grey and Mali Teal is low-chroma), so a teal chip and a grey chip
+   are the same chip. It used to mark "measured by device" in the admin trace
+   and on the nurse's vitals card; both are grey now.
+
+   The honest limit: the five beads' worst pair is red-gold at **DeltaE 10.8**
+   for normal vision, against a 15 floor, and the darkest step of each hue
+   measures *worse* (6.8) rather than better — these hues are all tuned to the
+   same family. So colour is the supporting channel here and the word is the
+   signal, which is why no chip is ever rendered without its label. */
+
+/* -- gold - someone is owed a look ------------------------------------- */
+
+/* Waiting on a nurse - the queue's working set. */
+.chip-pending,
+/* The patient's own number, not an instrument's. Not wrong, but the one a
+   nurse may want to take again. */
+.chip-patient,
+/* No record for this HN - the intake is a full one. */
+.chip-first-visit {
+  --chip-hue: var(--status-warning);
+  /* Gold-700 rather than a brighter gold: a mark that carries meaning needs
+     3:1, and every gold light enough to read as gold is well under it. */
+  --chip-bead: var(--gold-700);
+}
+
+/* -- green - it was kept, or it finished -------------------------------- */
+
+/* The engine's department was kept. */
+.chip-approved,
+/* A screening that ran all the way to a disposition. */
+.chip-disposed,
+/* The visit reached the hospital queue. */
+.chip-routed,
+/* An instrument took this reading. Green rather than the neutral step it had:
+   grey is for "nothing here yet", and a device reading is not nothing — it is
+   the trustworthy half of the pair it appears in, opposite a number the
+   patient gave us. A whole column of grey chips also reads as unstyled rather
+   than as a signal, which is how it was landing. */
+.chip-device,
+.chip-enabled {
+  --chip-hue: var(--status-success);
+  --chip-bead: var(--status-success);
+}
+
+/* -- blue - it changed, or it is mid-flight ----------------------------- */
+
+/* A nurse sent the patient somewhere else. A signal, not a fault - which is
+   why this is info and not danger. */
+.chip-corrected,
+/* Screened, but not yet handed to the hospital. */
+.chip-screened {
+  --chip-hue: var(--status-info);
+  --chip-bead: var(--status-info);
+}
+
+/* -- red - the booth lost a patient ------------------------------------- */
+
+/* The one number an administrator is trying to bring down. */
+.chip-abandoned {
+  --chip-hue: var(--status-danger);
+  --chip-bead: var(--status-danger);
+}
+
+/* -- grey - nothing to act on ------------------------------------------- */
+
+/* Still at the booth; arrived but not screened; a patient we already hold a
+   record for; a switched-off account. Grey is for a state with nothing in it
+   yet, never for one that is merely unremarkable. */
+.chip-active,
+.chip-registered,
+.chip-returning,
+.chip-disabled {
+  --chip-hue: var(--ink-400);
+  /* Grey-on-grey measured 2.79:1 against its own chip, under the 3:1 a
+     graphic needs, so the bead goes a step darker than the tint it sets. */
+  --chip-bead: var(--ink-500);
+}
+
+/* The destructive modifier on the shared buttons, replacing `.users-danger`
+   from global.css — which was `--triage-1`, borrowing an acuity colour for a
+   button. */
+.text-btn.is-danger {
+  color: var(--status-danger-ink);
+}
+
+.secondary-btn.is-danger {
+  border-color: color-mix(in srgb, var(--status-danger) 45%, transparent);
+  color: var(--status-danger-ink);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .text-btn.is-danger:hover {
+    color: var(--status-danger);
+  }
+
+  .secondary-btn.is-danger:hover:not(:disabled) {
+    background: var(--status-danger);
+    border-color: var(--status-danger);
+    color: #ffffff;
+  }
+}
+
+/* Named distinctly on purpose: `.slip-code` already belongs to the patient
+   slip page, where it is a 1.8rem bare monospace code. */
+.code-chip {
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-sm);
+  background: var(--surface-muted);
+  color: var(--teal-700);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  white-space: nowrap;
+}
+
+/* ── Dialog — one shell, three steps ─────────────────────────────────────── */
+
+.dialog {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: grid;
+  place-items: center;
+  padding: var(--space-6);
+}
+
+.dialog-backdrop {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  padding: 0;
+  background: color-mix(in srgb, var(--teal-900) 55%, transparent);
+  cursor: pointer;
+  opacity: 1;
+  transition: opacity var(--dur-enter) var(--ease-enter);
+}
+
+@starting-style {
+  .dialog-backdrop {
+    opacity: 0;
+  }
+}
+
+/* Faster out and on an ease-in, like every exit in the app: a thing on its way
+   off screen should accelerate away rather than linger. Only takes effect on a
+   dialog whose unmount is delayed (`useExitDelay`); the rest still cut. */
+.dialog-backdrop[data-leaving='true'] {
+  opacity: 0;
+  pointer-events: none;
+  transition-duration: var(--dur-exit);
+  transition-timing-function: var(--ease-exit);
+}
+
+.dialog-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  inline-size: min(78rem, 100%);
+  /* Fixed, not a maximum. As a max the card sized to whichever tab was open,
+     so the whole dialog jumped every time the nurse moved between Assessment,
+     Conversation and History — three heights for one case. It now holds the
+     tallest of them (the transcript's) and the short tabs simply have room
+     left over. */
+  block-size: min(54rem, 92vh);
+  background: var(--surface-card);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+  /* Transitions, not keyframes: a keyframe restarts from zero when it is
+     interrupted, and this dialog can be reopened before the last one has
+     finished leaving. A transition retargets from wherever it is. */
+  opacity: 1;
+  transform: none;
+  transition:
+    opacity var(--dur-enter) var(--ease-enter),
+    transform var(--dur-enter) var(--ease-enter);
+}
+
+/* Never from scale(0) — nothing in the world appears out of nothing. It rises
+   the last few pixels rather than scaling up from small, so the arrival draws
+   attention to the case rather than to the animation. Origin stays centred:
+   this is a modal, not a popover anchored to a trigger.
+
+   The numbers are small because *this card* is not. At 78rem x 54rem a 3%
+   scale swings each edge by ~18px and a 10px rise adds to it — on a card this
+   size that reads as the whole dialog lurching. 1.5% and 6px cover the same
+   perceptual distance on a surface this large. A small dialog could take more;
+   ours cannot. */
+@starting-style {
+  .dialog-card {
+    opacity: 0;
+    transform: translate3d(0, 6px, 0) scale(0.985);
+  }
+}
+
+.dialog-card[data-leaving='true'] {
+  opacity: 0;
+  transform: translate3d(0, 3px, 0) scale(0.995);
+  transition-duration: var(--dur-exit);
+  transition-timing-function: var(--ease-exit);
+}
+
+.dialog-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-5) var(--space-6);
+  border-block-end: 1px solid var(--border-subtle);
+}
+
+.dialog-identity {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  min-inline-size: 0;
+}
+
+.dialog-identity h2 {
+  margin: 0;
+  font-size: var(--text-xl);
+  color: var(--text-heading);
+}
+
+/* A UUID at --text-xl is 36 characters of display type and reads as a wall.
+   Mono at body size keeps it matchable — which is the whole point of showing
+   it in full — without letting it out-shout the badge beside it. */
+.dialog-identity-id {
+  font-family: var(--font-mono);
+  font-size: var(--text-base);
+  font-weight: var(--fw-semibold);
+  letter-spacing: -0.01em;
+  overflow-wrap: anywhere;
+}
+
+.dialog-identity-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  margin: var(--space-1) 0 0;
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+
+.dialog-identity-meta code {
+  font-family: var(--font-mono);
+  color: var(--text-body);
+}
+
+/* A VN is 18 digits. Rendered in full it was the widest thing in the header,
+   next to the patient's name. */
+.dialog-identity-meta code.is-long {
+  display: inline-block;
+  max-inline-size: 12ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: bottom;
+}
+
+/* ── Tabs ────────────────────────────────────────────────────────────────────
+   The one tab primitive. The portals shipped six: two indicator widths, an
+   `-active` suffix that matched nothing else, and two segmented-pill variants.
+
+   Reads as a row of folder tabs on the surface below it: the active one keeps
+   a soft teal wash with rounded shoulders and sits over the container's
+   hairline, so its 2px rule replaces that line instead of stacking on it. */
+
+.tabs {
+  position: relative; /* the offsetParent the indicator is measured against */
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  border-block-end: 1px solid var(--border-default);
+}
+
+/* One bar that travels, rather than a border switched on and off under each
+   tab. The old arrangement made the mark teleport — gone from one tab, back
+   under another, with nothing joining them, so the eye had to re-find it on
+   every switch.
+
+   `transform` and `inline-size` together, because the tabs are different
+   widths and the mark has to both move and resize. Transform is composited;
+   width is not, but this is one 2px-tall element and a fixed-width bar would
+   leave the mark narrower than the tab it belongs to.
+
+   `--ease-enter`, not `--ease-move`, and that is a measured correction rather
+   than a preference. `--ease-move` is cubic-bezier(0.77, 0, 0.175, 1) — a very
+   slow head. Sampled over `--dur-move` it has travelled **1% at 30ms and 5% at
+   60ms**, so a nurse clicks a tab and the mark sits still for the first three
+   frames she is watching. That reads as lag, which is the one thing a direct
+   response to a click cannot afford. `--ease-enter` is at 58% by 30ms.
+
+   `--ease-move`'s slow head is right for movement nobody asked for — a reflow,
+   an auto-advance — where the start does not have to answer a click.
+   Position comes from `useTabIndicator`. */
+.tabs::after {
+  content: '';
+  position: absolute;
+  inset-block-start: 0;
+  inset-inline-start: 0;
+  inline-size: var(--tab-w, 0);
+  block-size: 2px;
+  border-radius: var(--radius-full);
+  background: var(--color-primary);
+  transform: translate3d(var(--tab-x, 0), calc(var(--tab-y, 0) + var(--tab-h, 0) - 2px), 0);
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    transform var(--dur-move) var(--ease-enter),
+    inline-size var(--dur-move) var(--ease-enter),
+    opacity var(--dur-color) var(--ease-enter);
+}
+
+/* Hidden until the first measurement, or it starts at x=0 and slides in from
+   under the leftmost tab on mount. */
+.tabs[data-tab-ready='true']::after {
+  opacity: 1;
+}
+
+
+.dialog .tabs {
+  padding: 0 var(--space-6);
+}
+
+.tab {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-block-size: var(--hit-target);
+  margin-block-end: -1px;
+  padding: 0 var(--space-6);
+  border: 0;
+  border-block-end: 2px solid transparent;
+  border-start-start-radius: var(--radius-sm);
+  border-start-end-radius: var(--radius-sm);
+  background: none;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: var(--text-sm);
+  cursor: pointer;
+  transition:
+    background-color var(--dur-color) var(--ease-move),
+    color var(--dur-color) var(--ease-move),
+    transform var(--dur-press) var(--ease-press);
+}
+
+.tab.active {
+  background: var(--teal-50);
+  color: var(--teal-700);
+  font-weight: var(--fw-semibold);
+}
+
+/* Pressing a tab is a decision, so it answers. 140ms is under the point where
+   feedback starts reading as animation. */
+.tab:active {
+  transform: scale(var(--press-scale));
+}
+
+.tab:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: -2px;
+}
+
+/* White, not the ink ramp's paper: a beige lozenge was the one warm thing left
+   on a teal-tinted page. */
+.tab-count {
+  padding: 0 var(--space-3);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-full);
+  background: var(--surface-card);
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.6;
+}
+
+.tab.active .tab-count {
+  border-color: var(--teal-200);
+  color: var(--teal-700);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .tab:hover:not(.active) {
+    background: color-mix(in srgb, var(--teal-50) 55%, transparent);
+    color: var(--text-body);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tab {
+    transition: none;
+  }
+}
+
+/* Tab content swapping inside the card.
+   ┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄
+
+   Deliberately *not* the out-then-in a panel usually gets. The card is a fixed
+   78rem x 54rem precisely so it does not resize between tabs, so there is no
+   layout jump to mask and nothing that has to be held on screen while the swap
+   happens. And a nurse moves between Assessment, Conversation and History tens
+   of times per shift: at that frequency any hold before the new panel appears
+   is felt as lag rather than as calm.
+
+   So the old panel goes at once and the new one fades up over the system's
+   shortest non-press step. No movement — a translate would fight the
+   transcript's own scroll and the composer pinned inside it.
+
+   The call sites key this element on the active tab, which is what makes it a
+   new element on every switch and lets `@starting-style` fire. */
+.dialog-body {
+  flex: 1;
+  min-block-size: 0;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--teal-200) transparent;
+  padding: var(--space-6);
+  opacity: 1;
+  transition: opacity var(--dur-color) var(--ease-enter);
+}
+
+@starting-style {
+  .dialog-body {
+    opacity: 0;
+  }
+}
+
+/* Pinned: the action the dialog exists for is never below a scrolling fold. */
+.dialog-foot {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-6);
+  border-block-start: 1px solid var(--border-subtle);
+  background: var(--surface-card);
+}
+
+.dialog-foot-note {
+  margin-inline-end: auto;
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+
+/* ── Review split ────────────────────────────────────────────────────────────
+   Evidence on the left, the decision on the right. As one column this ran past
+   2000px: the nurse scrolled the engine's reasoning off screen to reach the
+   department they were being asked to agree with, then scrolled back. */
+
+.review-split {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+  gap: var(--space-9);
+  /* Full height and stretched, so the rule between the columns runs the whole
+     card rather than stopping wherever the shorter column ended, and so the
+     reasoning below can pin to the foot. */
+  min-block-size: 100%;
+  align-items: stretch;
+}
+
+.review-decision {
+  padding-inline-start: var(--space-9);
+  border-inline-start: 1px solid var(--border-subtle);
+}
+
+.review-evidence,
+.review-decision {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  min-inline-size: 0;
+}
+
+.review-block {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+/* Three groups stacked in one column, so each heading is ruled: at --text-xs
+   in --text-subtle with only whitespace around it, a heading read as another
+   quiet line rather than as the start of something. The rule is what says
+   "new group"; the colour is what makes the words legible (5.7:1, where
+   --text-subtle was 3.1). */
+.review-block > .section-title {
+  margin: 0 0 var(--space-5);
+  padding-block-end: var(--space-3);
+  border-block-end: 1px solid var(--border-subtle);
+}
+
+.review-block + .review-block {
+  margin-block-start: var(--space-8);
+}
+
+/* The record keys — HN and VN, whole, on the surface that marks them as the
+   identifiers rather than as more measurements.
+
+   One cell each, ruled apart, label over value. Run together on one line —
+   `HN 09900007   VN 990000000000000007` — the only thing separating two
+   labelled values was whitespace, and with an 18-digit VN in the same mono as
+   the 8-digit HN there was nothing to tell the eye where one ended. */
+.review-keys {
+  display: flex;
+  padding: var(--space-6) var(--space-7);
+  border-radius: var(--radius-md);
+  background: var(--teal-50);
+}
+
+.review-keys-item {
+  flex: 1;
+  min-inline-size: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.review-keys-item + .review-keys-item {
+  padding-inline-start: var(--space-8);
+  margin-inline-start: var(--space-8);
+  border-inline-start: 1px solid var(--teal-200);
+}
+
+.review-keys-label {
+  font-size: var(--text-xs);
+  font-weight: var(--fw-semibold);
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+  color: var(--teal-700);
+}
+
+.review-keys-value {
+  font-family: var(--font-mono);
+  font-size: var(--text-base);
+  color: var(--text-heading);
+  overflow-wrap: anywhere;
+}
+
+/* What the measurements above add up to, at the foot of the column — on its
+   own panel again. Stripped to a bare heading over a bare list, the title read
+   as part of the first reason rather than as a label for all of them. */
+.review-evidence .reasoning-block {
+  margin-block-start: auto;
+  padding: var(--space-6) var(--space-7);
+}
+
+/* The label separates from what it labels by a full line of air; its colour
+   now comes from .section-title itself. */
+.review-evidence .reasoning-block .section-title {
+  margin: 0 0 var(--space-5);
+}
+
+/* The decision column is where the nurse types. A chief complaint of eight
+   Thai words does not want an 1870px-wide field. */
+.review-decision .field-input {
+  max-inline-size: var(--measure);
+}
+
+/* The column's title, ruled like the group headings opposite it. */
+.review-decision > .section-title:first-child {
+  margin: 0 0 var(--space-5);
+  padding-block-end: var(--space-3);
+  border-block-end: 1px solid var(--border-subtle);
+}
+
+/* One field absorbs whatever height the form does not use, so the column ends
+   at the foot of the card instead of at the last input with 300px under it. */
+.review-decision .field-grow {
+  flex: 1;
+  min-block-size: 6rem;
+}
+
+.review-decision .field-grow .field-textarea {
+  flex: 1;
+  block-size: auto;
+  resize: vertical;
+}
+
+@media (max-width: 1180px) {
+  .review-split {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-8);
+  }
+
+  .review-decision {
+    padding-inline-start: 0;
+    padding-block-start: var(--space-8);
+    border-inline-start: 0;
+    border-block-start: 1px solid var(--border-subtle);
+  }
+}
+
+/* ── Vitals ──────────────────────────────────────────────────────────────────
+   Cards, at a size where the value is the thing you read. One treatment for
+   every measurement — the groups are told apart by their headings, not by
+   giving the body measurements a different-looking cell, which was what made
+   one group look like two. */
+
+.vitals-grid {
+  display: grid;
+  /* 9rem packed the row with narrow tracks, so a single measurement landed in
+     a 140px card and its provenance tag had nowhere to sit. */
+  grid-template-columns: repeat(auto-fill, minmax(11.5rem, 1fr));
+  gap: var(--space-4);
+}
+
+/* What the booth never captured, under a heading of its own rather than as a
+   footnote hanging off the group above it — and as separate items rather than
+   one comma-run: these are five distinct absences, not a sentence.
+
+   Dashed, because the outline of a card with nothing in it is exactly what
+   they are. Same footprint as the measured cards above, so the eye reads them
+   as the missing members of that set. */
+.vitals-missing {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.vitals-missing li {
+  padding: var(--space-2) var(--space-5);
+  border: 1px dashed var(--border-default);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+
+.vital-cell {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-inline-size: 0;
+  padding: var(--space-5) var(--space-6);
+  background: var(--surface-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+}
+
+.vital-label {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-1) var(--space-2);
+  font-size: var(--text-xs);
+  line-height: var(--leading-snug);
+  color: var(--text-muted);
+}
+
+.vital-value {
+  font-size: var(--text-2xl);
+  font-weight: var(--fw-semibold);
+  color: var(--text-heading);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.15;
+}
+
+/* Where the number came from, under it. One recipe, two hues — the same one
+   the queue's status chips use: the tint and the edge carry the meaning, the
+   text stays ink so a 10px tag still clears 10:1.
+
+   No letter-spacing: it does nothing for "ผู้ป่วยกรอกเอง" and Thai marks sit
+/* Provenance is a status chip like everything else. It reads on the same axis
+   the others do — "does this need someone" — so it needs no colours of its
+   own: an instrument reading is the unremarkable case and takes the neutral
+   step, a number the patient gave us is the one a nurse may want to take
+   again, and takes gold. Teal used to mark the device reading here and in the
+   admin trace; it is the brand primary and carries no meaning in this
+   vocabulary, so it is gone from both. */
+/* A chip hugs its content. Inside `.vital-cell`, a flex column, it would
+   otherwise stretch the full width of the card and stop reading as a chip. */
+.vital-cell > .status-chip {
+  align-self: flex-start;
+  margin-block-start: var(--space-1);
+}
+
+/* `.trace-vitals li` is baseline-aligned, which a 22px chip sits low against
+   next to a 14px value. */
+.trace-vitals li > .status-chip {
+  align-self: center;
+}
+
+.vital-rejected {
+  display: flex;
+  flex-direction: column;
+  color: var(--status-danger);
+}
+
+.vital-rejected-note {
+  font-size: var(--text-xs);
+  font-weight: var(--fw-regular);
+  color: var(--text-muted);
+}
+
+/* ── Engine reasoning ────────────────────────────────────────────────────── */
+
+.reasoning-block {
+  padding: var(--space-4) var(--space-5);
+  background: var(--surface-muted);
+  border-radius: var(--radius-md);
+}
+
+.reasoning-block .section-title {
+  margin-block-start: 0;
+}
+
+.reasoning-list {
+  margin: 0;
+  padding-inline-start: var(--space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+  color: var(--text-body);
+}
+
+.reasoning-citation {
+  display: block;
+  font-size: var(--text-xs);
+  font-style: normal;
+  color: var(--text-muted);
+}
+
+/* ── Patient history ─────────────────────────────────────────────────────────
+   Grouped and ranked. Allergies lead because an anaphylaxis is the one thing
+   on this tab that changes what a nurse does next — but the rank is carried by
+   position: its own heading, its own rule, the top of the tab. Not by colour
+   (a danger red that fires on every patient stops meaning danger) and not by
+   size either — one value at 20px among values at 14px read as a mistake
+   rather than as emphasis. Same size as every other field, one step of weight. */
+
+.review-history {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  block-size: 100%;
+}
+
+.history-lead {
+  margin: 0;
+  max-inline-size: var(--measure);
+  font-size: var(--text-sm);
+  font-weight: var(--fw-semibold);
+  color: var(--text-heading);
+}
+
+/* Three columns at this width rather than the base grid's auto-fit, which
+   stretched two lifestyle fields across the whole card. */
+.review-history .fact-grid {
+  grid-template-columns: repeat(auto-fill, minmax(18rem, 1fr));
+  gap: var(--space-6) var(--space-8);
+}
+
+/* When the record was captured — about the record, not the patient, so it sits
+   at the foot under a rule rather than in the grid with the clinical fields. */
+.history-recorded {
+  margin: auto 0 0;
+  padding-block-start: var(--space-6);
+  border-block-start: 1px solid var(--border-subtle);
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+
+/* ── Facts / notes / transcript ──────────────────────────────────────────── */
+
+.fact-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+  gap: var(--space-4);
+  margin: 0;
+}
+
+.fact-grid dt {
+  font-size: var(--text-xs);
+  font-weight: var(--fw-semibold);
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.fact-grid dd {
+  margin: var(--space-1) 0 0;
+  font-size: var(--text-sm);
+  color: var(--text-body);
+}
+
+.quoted-note {
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  background: var(--surface-sunken);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-sm);
+  color: var(--text-body);
+}
+
+/* A finished conversation is a record, not a chat. Twenty-five one-line turns
+   rendered as alternating 110px bubbles made the nurse scroll a screen and a
+   half to read what fits in a third of one — so it reads as a log: speaker in
+   the gutter, words in the body.
+
+   Three things separate the turns, and none of them is a row rule. A hairline
+   per row is what the first cut used, and twenty-five identical bands
+   separated nothing: they cut a question from its own answer exactly as hard
+   as from the next exchange. Instead:
+
+     · a continuous rule between the gutter and the words — one column edge,
+       not twenty-five row edges
+     · the patient's turns on tinted ground, because they are the evidence a
+       nurse came here to read
+     · the speaker named in its own colour, the way transcription tools do it
+
+   Together they answer "where does one turn end" and "who is speaking" at a
+   glance, which is all a nurse is asking of this tab. */
+.transcript {
+  display: grid;
+  /* The gutter is exactly as wide as the longest speaker name. It was fixed at
+     9.5rem back when it also had to hold the input-mode tag; with the tag moved
+     out to the words, that left ~70px of empty paper to the left of every
+     label and nothing to put in it. `max-content` measures the whole column at
+     once, so the names still align. */
+  grid-template-columns: max-content minmax(0, 1fr);
+  align-items: stretch;
+}
+
+.transcript .message-bubble {
+  display: contents;
+}
+
+/* The gutter holds the speaker and nothing else, so it reads as a clean column
+   of names — which is what the eye runs down when scanning who said what. */
+.transcript .message-meta {
+  grid-column: 1;
+  display: flex;
+  justify-content: flex-end;
+  margin: 0;
+  padding: var(--space-5) var(--space-6) var(--space-5) var(--space-5);
+  border-inline-end: 1px solid var(--border-subtle);
+  font-size: var(--text-xs);
+  line-height: var(--leading-normal);
+  white-space: nowrap;
+}
+
+.transcript .message-content {
+  grid-column: 2;
+  padding: var(--space-5) var(--space-6);
+  line-height: var(--leading-normal);
+}
+
+/* The speaker, named in its own colour. */
+.transcript .message-role {
+  color: var(--text-muted);
+}
+
+.transcript .message-bubble.user .message-role {
+  color: var(--teal-700);
+  font-weight: var(--fw-semibold);
+}
+
+/* The patient's turns on tinted ground — their words are the evidence; the
+   assistant's are the prompt that produced them. */
+.transcript .message-bubble.user .message-meta,
+.transcript .message-bubble.user .message-content {
+  background: var(--teal-50);
+}
+
+.transcript .message-bubble.user .message-content {
+  color: var(--text-heading);
+  font-weight: var(--fw-medium);
+}
+
+.transcript .message-bubble.assistant .message-content,
+.transcript .message-bubble.system .message-content {
+  color: var(--text-muted);
+}
+
+/* How the patient answered, trailing their words. Small and borderless: it is
+   a footnote repeated on twelve identical rows, and as a full pill beside the
+   name it outdrew the name.
+
+   It earns its place for the same reason `patient-entered` does on a vital: a
+   button tap is the exact wording of a preset option, and a voice turn is a
+   transcription that may have heard wrong. */
+.transcript .message-mode {
+  margin-inline-start: var(--space-4);
+  padding: 1px var(--space-3);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--teal-200) 50%, transparent);
+  font-size: 10px;
+  font-weight: var(--fw-medium);
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+  color: var(--teal-700);
+  white-space: nowrap;
+  vertical-align: 2px;
+}
+
+/* Only the patient has an input mode. What the assistant "typed" is a
+   synthesised reply, and tagging it says nothing a nurse can use. */
+.transcript .message-bubble.assistant .message-mode,
+.transcript .message-bubble.system .message-mode {
+  display: none;
+}
+
+/* ── Confirm step ────────────────────────────────────────────────────────── */
+
+.confirm-destination {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-3);
+  margin-block-end: var(--space-5);
+  padding: var(--space-4) var(--space-5);
+  background: var(--surface-muted);
+  border-radius: var(--radius-md);
+}
+
+.confirm-destination strong {
+  font-size: var(--text-lg);
+  color: var(--text-heading);
+}
+
+.confirm-reroute-tag {
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-full);
+  background: var(--status-warning-soft);
+  color: var(--status-warning-ink);
+  font-size: var(--text-xs);
+  font-weight: var(--fw-medium);
+}
+
+.sbar-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(20rem, 1fr));
+  gap: var(--space-4);
+}
+
+.sbar-fields .field {
+  margin-block-end: 0;
+}
+
+/* ── Assign result ───────────────────────────────────────────────────────── */
+
+/* The one step with far less content than the card holds. Centred so the room
+   left over reads as composition rather than as a half-loaded dialog. */
+.dialog-body:has(> .assign-result) {
+  display: grid;
+  align-content: center;
+}
+
+.assign-result {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-8) var(--space-6);
+  text-align: center;
+}
+
+.assign-result-kicker {
+  margin: 0;
+  font-size: var(--text-sm);
+  font-weight: var(--fw-semibold);
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+/* The number the nurse reads aloud — the whole point of the flow. */
+.assign-queue-number {
+  margin: 0;
+  font-size: var(--text-5xl);
+  font-weight: var(--fw-bold);
+  line-height: 1;
+  color: var(--text-heading);
+  font-variant-numeric: tabular-nums;
+}
+
+.assign-result-hint {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+}
+
+/* ── Dashboard ───────────────────────────────────────────────────────────
+   Three bands — right now / today / the period — instead of one flat grid of
+   equal panels. Panels stretch to their row rather than sitting on
+   `align-items: start`, which is what left the old board with a column of
+   dead space beside a tall panel. */
+
+.dashboard {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-10);
+}
+
+.dash-band {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-7);
+}
+
+.dash-band-head {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: var(--space-4) var(--space-7);
+  padding-block-end: var(--space-4);
+  border-block-end: 1px solid var(--border-subtle);
+}
+
+.dash-band-head h2 {
+  margin: 0;
+  font-size: var(--text-xs);
+  font-weight: var(--fw-bold);
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+  color: var(--teal-700);
+}
+
+.dash-band-head p {
+  margin: 0;
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+
+.dash-band-body {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-7);
+}
+
+/* The period chips sit above every band now, so they need a label: out of
+   the band they scope, "Last 7 days" alone would read as a claim about the
+   whole board. The band it drives echoes the window in its own heading. */
+/* Sits in the page header's actions slot, so it costs no row of its own. The
+   bottom margin is gone with the row: the header's own rule is the separator
+   now. */
+.dash-toolbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--space-6);
+}
+
+.staff-head-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+}
+
+/* Empty on every section that has no controls, and an empty flex item would
+   still take the header's gap. */
+.staff-head-actions:empty {
+  display: none;
+}
+
+.dash-toolbar-label {
+  font-size: var(--text-xs);
+  font-weight: var(--fw-semibold);
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.dash-loading,
+.dash-empty {
+  margin: auto 0;
+  padding: var(--space-6) 0;
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+}
+
+.dash-error {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  border-radius: var(--radius-sm);
+  background: var(--status-danger-soft);
+  color: var(--status-danger-ink);
+  font-size: var(--text-sm);
+}
+
+/* ── The period calendar ─────────────────────────────────────────────────
+   Beside the rolling chips, not instead of them: "last 7 days" is the question
+   a nurse asks every shift and should cost one click; "the week of the
+   outbreak" is the one she asks twice a year and no set of chips can hold. */
+
+.cal-wrap {
+  position: relative;
+}
+
+.cal-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-4);
+  min-block-size: 38px;
+  padding: 0 var(--space-7);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  background: var(--surface-card);
+  font: inherit;
+  font-size: var(--text-sm);
+  font-weight: var(--fw-medium);
+  color: var(--text-body);
+  cursor: pointer;
+  white-space: nowrap;
+  transition:
+    background-color var(--dur-color) var(--ease-move),
+    border-color var(--dur-color) var(--ease-move),
+    transform var(--dur-press) var(--ease-press);
+}
+
+.cal-trigger:active {
+  transform: scale(var(--press-scale));
+}
+
+.cal-trigger:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+/* Set means the calendar owns the period and the chips do not — the same teal
+   the active chip carries, so only one control ever looks chosen. */
+.cal-trigger.is-set {
+  border-color: var(--teal-200);
+  background: var(--teal-50);
+  color: var(--teal-700);
+  font-weight: var(--fw-semibold);
+}
+
+.cal-trigger svg {
+  color: var(--text-subtle);
+}
+
+.cal-trigger.is-set svg {
+  color: var(--teal-700);
+}
+
+.cal-panel {
+  position: absolute;
+  z-index: 60;
+  inset-inline-end: 0;
+  inset-block-start: calc(100% + 6px);
+  padding: var(--space-7);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--surface-card);
+  box-shadow: var(--shadow-lg);
+  opacity: 1;
+  transform: none;
+  transition:
+    opacity var(--dur-color) var(--ease-enter),
+    transform var(--dur-color) var(--ease-enter);
+}
+
+.cal-panel[data-drop-up] {
+  inset-block-start: auto;
+  inset-block-end: calc(100% + 6px);
+}
+
+/* Origin-aware: it belongs to the button under it, so it grows from that
+   corner rather than from its own middle the way a modal does. */
+@starting-style {
+  .cal-panel {
+    opacity: 0;
+    transform: translate3d(0, -4px, 0) scale(0.98);
+  }
+}
+
+.cal-panel[data-leaving] {
+  opacity: 0;
+  transform: translate3d(0, -2px, 0) scale(0.99);
+  pointer-events: none;
+  transition-duration: var(--dur-press);
+  transition-timing-function: var(--ease-exit);
+}
+
+.cal-panel[data-drop-up] { transform-origin: bottom right; }
+.cal-panel:not([data-drop-up]) { transform-origin: top right; }
+
+/* The two arrows sit over the two month names, which are inside the grid —
+   so the head is an overlay row rather than a column of its own. */
+.cal-head {
+  display: flex;
+  justify-content: space-between;
+  margin-block-end: calc(var(--space-8) * -1);
+  position: relative;
+  z-index: 1;
+}
+
+.cal-nav {
+  min-inline-size: 2rem;
+  min-block-size: 2rem;
+}
+
+.cal-months {
+  display: flex;
+  gap: var(--space-9);
+}
+
+.cal-month {
+  inline-size: 15rem;
+}
+
+.cal-month-name {
+  margin: 0 0 var(--space-6);
+  text-align: center;
+  font-size: var(--text-sm);
+  font-weight: var(--fw-semibold);
+  color: var(--text-heading);
+}
+
+.cal-weekdays,
+.cal-days {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+}
+
+.cal-weekdays {
+  margin-block-end: var(--space-3);
+}
+
+.cal-weekdays span {
+  text-align: center;
+  font-size: var(--text-xs);
+  font-weight: var(--fw-semibold);
+  color: var(--text-subtle);
+}
+
+.cal-day {
+  position: relative;
+  block-size: 2rem;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: var(--text-sm);
+  color: var(--text-body);
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  transition: background-color var(--dur-color) var(--ease-move);
+}
+
+/* A neighbouring month's day: holds its cell so the weeks line up, draws
+   nothing. */
+.cal-day-blank {
+  block-size: 2rem;
+}
+
+.cal-day:disabled {
+  color: var(--border-strong);
+  cursor: not-allowed;
+}
+
+.cal-day:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+  border-radius: var(--radius-sm);
+}
+
+/* The span between the two ends. Square, so consecutive days read as one
+   continuous bar rather than a row of separate pills. */
+.cal-day[data-in-range] {
+  background: var(--teal-50);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .cal-day:not(:disabled):not([data-start]):not([data-end]):hover {
+    background: var(--teal-100);
+    border-radius: var(--radius-sm);
+  }
+}
+
+.cal-day[data-start],
+.cal-day[data-end] {
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+  font-weight: var(--fw-semibold);
+}
+
+/* Only the outer corners round, so the two ends cap the bar between them. */
+.cal-day[data-start] {
+  border-start-start-radius: var(--radius-sm);
+  border-end-start-radius: var(--radius-sm);
+}
+
+.cal-day[data-end] {
+  border-start-end-radius: var(--radius-sm);
+  border-end-end-radius: var(--radius-sm);
+}
+
+/* Today keeps a marker even when it is an end of the range, where a ring would
+   be invisible against the teal fill. */
+.cal-day[data-today]::after {
+  content: '';
+  position: absolute;
+  inset-block-end: 3px;
+  inset-inline-start: 50%;
+  translate: -50% 0;
+  inline-size: 3px;
+  block-size: 3px;
+  border-radius: var(--radius-full);
+  background: currentColor;
+}
+
+.cal-foot {
+  margin: var(--space-7) 0 0;
+  padding-block-start: var(--space-5);
+  border-block-start: 1px solid var(--border-subtle);
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cal-panel {
+    transition: none;
+  }
+}
+
+/* ── Panel ──────────────────────────────────────────────────────────── */
+
+.dash-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-7);
+  padding: var(--space-8);
+  background: var(--surface-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-xs);
+}
+
+.dash-panel-2 { grid-column: span 2; }
+.dash-panel-3 { grid-column: 1 / -1; }
+
+.dash-panel-head {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.dash-panel-head h3 {
+  margin: 0;
+  font-size: var(--text-base);
+  font-weight: var(--fw-semibold);
+  color: var(--text-heading);
+}
+
+.dash-panel-sub {
+  margin: 0;
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+
+/* The body takes the leftover height, so panels sharing a row line their
+   charts up on a common baseline instead of each floating at its own top. */
+.dash-panel-body {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  /* …except a list, which reads from its first row. Centring a five-row list
+     in a tall panel floats it away from the heading it belongs to. */
+  gap: var(--space-7);
+  flex: 1;
+  min-block-size: 0;
+}
+
+.dash-panel-body:has(.attention-list) {
+  justify-content: flex-start;
+}
+
+.dash-panel-action {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  gap: var(--space-3);
+  flex: none;
+  padding: var(--space-3) var(--space-5);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-full);
+  background: var(--surface-card);
+  font-size: var(--text-xs);
+  font-weight: var(--fw-semibold);
+  color: var(--text-link);
+  cursor: pointer;
+  transition: background var(--dur-color) var(--ease-move),
+    border-color var(--dur-color) var(--ease-move);
+}
+
+.dash-panel-action:hover {
+  background: var(--teal-50);
+  border-color: var(--teal-200);
+}
+
+.dash-footnote {
+  margin: 0;
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+
+/* ── Figure ─────────────────────────────────────────────────────────────
+   A number, and at most a delta and a sparkline under it. Proportional
+   figures, never tabular: equal-width digits make a large standalone number
+   read loose. `tabular-nums` stays where numbers stack in a column. */
+
+.figure {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+/* A chart card's own headline: the total on the left, the notable point on the
+   right, the plot underneath. */
+.chart-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-7);
+  flex-wrap: wrap;
+}
+
+.chart-head-note {
+  margin: 0;
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.figure-label {
+  margin: 0;
+  font-size: var(--text-xs);
+  font-weight: var(--fw-semibold);
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.figure-value {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+  margin: 0;
+  font-size: var(--text-4xl);
+  font-weight: var(--fw-bold);
+  line-height: 1;
+  color: var(--text-heading);
+}
+
+.figure-hero .figure-value {
+  font-size: var(--text-5xl);
+  letter-spacing: var(--tracking-tight);
+}
+
+.figure-unit {
+  font-size: var(--text-sm);
+  font-weight: var(--fw-medium);
+  color: var(--text-muted);
+}
+
+.figure-delta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin: 0;
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+
+/* Deliberately uncoloured. More patients at a screening booth is neither good
+   news nor bad, and a green arrow would assert that it is. */
+.figure-delta-arrow {
+  font-weight: var(--fw-bold);
+  color: var(--text-body);
+}
+
+/* ── Sparkline ──────────────────────────────────────────────────────── */
+
+/* Takes some of what the row's height leaves it, and stops. A fixed 2.25rem
+   sparkline left "Screened today" spending 236px on two lines of text; letting
+   it grow without a ceiling made it 300px tall next to the arrivals chart,
+   which is not a sparkline any more — it is a chart with no axis. */
+.spark {
+  position: relative;
+  flex: 1;
+  min-block-size: 2.25rem;
+  max-block-size: 4.5rem;
+  margin-block-start: var(--space-2);
+  /* Room at the right for the end dot, which sits on the last point. */
+  padding-inline-end: 5px;
+}
+
+.spark svg {
+  inline-size: 100%;
+  block-size: 100%;
+  overflow: visible;
+}
+
+.spark-area {
+  fill: var(--teal-500);
+  opacity: 0.1;
+}
+
+.spark-line {
+  fill: none;
+  stroke: var(--teal-600);
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+/* A CSS dot, not an SVG circle: the plot is drawn with
+   `preserveAspectRatio="none"`, which would render a circle as an ellipse. */
+.spark-dot {
+  position: absolute;
+  inset-inline-end: 0;
+  inline-size: 9px;
+  block-size: 9px;
+  margin-block-start: -4.5px;
+  border-radius: var(--radius-full);
+  background: var(--teal-600);
+  box-shadow: 0 0 0 2px var(--surface-card);
+}
+
+/* ── Waiting (the live queue) ───────────────────────────────────────── */
+
+/* Flex, not a three-column grid: the strip took a `1fr` cell and stretched
+   it, which is where the empty metre in the middle of the old panel came
+   from. Here the units take the width they need and the rest is margin. */
+.waiting {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-9);
+}
+
+.waiting-worst {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.waiting-worst-value {
+  margin: 0;
+  font-size: var(--text-2xl);
+  font-weight: var(--fw-bold);
+  line-height: 1;
+  color: var(--text-heading);
+}
+
+.waiting-worst-who {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--text-body);
+}
+
+/* The attention list.
+   ┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄
+
+   Rows, not chips: this is the one panel a nurse can act from, so each line
+   has to name a patient and say what is wrong with them. Four columns —
+   level, who, why, how long — on a grid rather than a flex row, so the wait
+   times line up down the right edge and the reasons all start at the same x
+   however long the name is.
+
+   Deliberately not a table. A table implies you can sort and filter it, and
+   the queue tab is where that lives; this is the top five and a count of the
+   rest. */
+.attention-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.attention-row {
+  display: grid;
+  grid-template-columns: max-content minmax(6rem, max-content) minmax(0, 1fr) max-content max-content;
+  align-items: center;
+  gap: var(--space-5);
+  inline-size: 100%;
+  padding: var(--space-4) var(--space-5);
+  /* Pulled back out by its own padding so the level badge starts on the same
+     x as the panel heading. The padding still exists — it is what gives the
+     hover fill something to be — it just does not indent the content. */
+  margin-inline: calc(var(--space-5) * -1);
+  inline-size: calc(100% + var(--space-5) * 2);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: none;
+  font: inherit;
+  text-align: start;
+  color: var(--text-body);
+  transition: background-color var(--dur-color) var(--ease-move);
+}
+
+button.attention-row {
+  cursor: pointer;
+}
+
+button.attention-row:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  button.attention-row:hover {
+    background: var(--surface-muted);
+  }
+}
+
+.attention-who {
+  font-weight: var(--fw-semibold);
+  color: var(--text-heading);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The reasons run to one line and clip. A wrapped row would push the wait
+   time out of alignment with the rows above it, and the full text is on the
+   case itself — this is a pointer to it, not a replacement for it. */
+.attention-why {
+  min-inline-size: 0;
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.attention-wait {
+  font-size: var(--text-sm);
+  font-weight: var(--fw-semibold);
+  color: var(--text-heading);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Past the stale threshold the number carries its own warning, which is what
+   lets the reason column drop the duplicate. Gold, the same "someone is owed
+   a look" it means on a chip. */
+.attention-wait.is-stale {
+  color: var(--status-warning-ink);
+}
+
+.attention-row svg {
+  color: var(--text-subtle);
+}
+
+.attention-more {
+  padding: var(--space-3) var(--space-5);
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+
+.dash-clear {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+}
+
+/* ── Unit strip ─────────────────────────────────────────────────────────
+   One mark per patient. Below the cap in `charts.tsx` a booth's queue is
+   countable, and a count you can literally count beats a bar whose length
+   implies a precision three patients do not have. */
+
+.unit-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+}
+
+.unit {
+  display: inline-flex;
+  padding: 0;
+  border: 0;
+  background: none;
+  border-radius: var(--radius-sm);
+}
+
+button.unit {
+  cursor: pointer;
+  transition: transform var(--dur-press) var(--ease-press);
+}
+
+button.unit:hover {
+  transform: translateY(-2px);
+}
+
+button.unit:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+.unit-rest {
+  align-self: center;
+  font-size: var(--text-xs);
+  font-weight: var(--fw-semibold);
+  color: var(--text-muted);
+}
+
+/* ── Share strip (part-to-whole) ────────────────────────────────────────
+   One row for the whole mix. Five tracks meant four empty rails on a day
+   when everyone screened at level 4; a level with no patients now appears
+   only in the legend, which is where a zero belongs. */
+
+.share {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-7);
+}
+
+.share-strip {
+  display: flex;
+  /* The separator is a gap in the surface, never a stroke around a segment. */
+  gap: 2px;
+  block-size: 12px;
+  overflow: hidden;
+  border-radius: var(--radius-full);
+}
+
+.share-seg {
+  min-inline-size: 3px;
+  border-radius: var(--radius-full);
+}
+
+.share-legend {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr) max-content max-content;
+  align-items: center;
+  gap: var(--space-4) var(--space-5);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.share-legend li {
+  display: contents;
+}
+
+.share-legend li.is-zero {
+  opacity: 0.45;
+}
+
+.share-name {
+  font-size: var(--text-sm);
+  color: var(--text-body);
+}
+
+.share-count {
+  font-size: var(--text-sm);
+  font-weight: var(--fw-semibold);
+  color: var(--text-heading);
+  font-variant-numeric: tabular-nums;
+}
+
+.share-pct {
+  min-inline-size: 2.5rem;
+  text-align: end;
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Dot plot ───────────────────────────────────────────────────────────
+   Position on a common axis instead of length. Equal values line up in a
+   column and read as equal; equal-length bars read as nothing at all. */
+
+.dotplot {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+.dotplot-rows {
+  display: grid;
+  grid-template-columns: minmax(7rem, 11rem) minmax(0, 1fr) max-content;
+  align-items: center;
+  gap: var(--space-5) var(--space-6);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.dotplot-row {
+  display: contents;
+}
+
+.dotplot-label {
+  font-size: var(--text-sm);
+  color: var(--text-body);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dotplot-track {
+  position: relative;
+  block-size: 14px;
+  /* Half a dot of inset at each end, so the marks at 0 and at the maximum sit
+     inside the cell instead of bleeding into the label and value columns. */
+  margin-inline: 5px;
+  /* The axis is a hairline one step off the surface — solid, never dashed. */
+  background: linear-gradient(var(--border-subtle), var(--border-subtle)) center / 100% 1px
+    no-repeat;
+}
+
+.dotplot-dot {
+  position: absolute;
+  inset-block-start: 50%;
+  inline-size: 10px;
+  block-size: 10px;
+  margin-block-start: -5px;
+  margin-inline-start: -5px;
+  border-radius: var(--radius-full);
+  background: var(--teal-600);
+  box-shadow: 0 0 0 2px var(--surface-card);
+}
+
+.dotplot-value {
+  font-size: var(--text-sm);
+  font-weight: var(--fw-semibold);
+  color: var(--text-heading);
+  font-variant-numeric: tabular-nums;
+}
+
+.dotplot-axis {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-5);
+  padding-block-start: var(--space-4);
+  border-block-start: 1px solid var(--border-subtle);
+  font-size: var(--text-xs);
+  /* Axis ticks are text, so they take the muted step (5.95:1), not the
+     subtle one — `--text-subtle` measured 3.18:1 on the card and fails AA. */
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.dotplot-axis-title {
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+}
+
+/* ── Trend area ─────────────────────────────────────────────────────────
+   Arrivals through today, volume across the window. The slots that have not
+   happened yet are the same shape in a recessive weight, so an empty
+   afternoon reads as "not yet" and not as "nobody came". */
+
+.trend {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+/* A label gutter beside the plot, so the ticks sit outside the drawing rather
+   than on top of the series. Sized in ch so it holds a three-digit count
+   without measuring anything. */
+.trend-grid {
+  display: grid;
+  grid-template-columns: 3ch minmax(0, 1fr);
+  align-items: stretch;
+  gap: var(--space-5);
+}
+
+.trend-scale {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  text-align: end;
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  /* Each label centres on its own gridline; the first and last would otherwise
+     sit half outside the plot. */
+  margin-block: -0.5em;
+}
+
+.trend-plot {
+  position: relative;
+  block-size: 8rem;
+  cursor: crosshair;
+}
+
+.trend-gridline {
+  position: absolute;
+  inset-inline: 0;
+  block-size: 1px;
+  background: var(--border-subtle);
+  pointer-events: none;
+}
+
+/* The baseline is the one rule the series sits on, so it reads a step stronger
+   than the grid above it. */
+.trend-gridline[data-base] {
+  background: var(--border-default);
+}
+
+.trend-plot:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+  border-radius: var(--radius-sm);
+}
+
+.trend-plot svg {
+  inline-size: 100%;
+  block-size: 100%;
+  display: block;
+}
+
+.trend-fill {
+  fill: var(--teal-500);
+  opacity: 0.12;
+}
+
+.trend-line {
+  fill: none;
+  stroke: var(--teal-600);
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.trend-future {
+  fill: var(--ink-300);
+  opacity: 0.14;
+}
+
+.trend-future-line {
+  fill: none;
+  /* One step darker than the fill under it: 3.18:1 clears the non-text floor,
+     and stays well under the teal's 4.22:1 so it still reads as recessive. */
+  stroke: var(--ink-400);
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+/* The one direct label: the busiest slot. Everything else is on the axis or
+   under the pointer — a value on every point goes unread. */
+.trend-peak {
+  position: absolute;
+  transform: translate(-50%, -150%);
+  white-space: nowrap;
+  font-size: var(--text-xs);
+  font-weight: var(--fw-semibold);
+  color: var(--text-heading);
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+}
+
+.trend-peak.at-start { transform: translate(0, -150%); }
+.trend-peak.at-end { transform: translate(-100%, -150%); }
+
+.trend-crosshair {
+  position: absolute;
+  inset-block: 0;
+  inline-size: 1px;
+  background: var(--border-strong);
+  pointer-events: none;
+}
+
+.trend-marker {
+  position: absolute;
+  inline-size: 10px;
+  block-size: 10px;
+  margin-block-start: -5px;
+  margin-inline-start: -5px;
+  border-radius: var(--radius-full);
+  background: var(--teal-600);
+  box-shadow: 0 0 0 2px var(--surface-card);
+  pointer-events: none;
+}
+
+.trend-readout {
+  position: absolute;
+  inset-block-start: 0;
+  transform: translateX(-50%);
+  padding: var(--space-2) var(--space-5);
+  border-radius: var(--radius-full);
+  background: var(--teal-900);
+  color: var(--white);
+  font-size: var(--text-xs);
+  font-weight: var(--fw-medium);
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.trend-axis {
+  position: relative;
+  margin-inline-start: calc(3ch + var(--space-5));
+  block-size: 1rem;
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.trend-axis span {
+  position: absolute;
+  transform: translateX(-50%);
+  white-space: nowrap;
+}
+
+/* Ticks at either extreme pull inside so they cannot hang off the panel.
+   Keyed to position, not to DOM order — the last tick rendered is not
+   necessarily the one at the right-hand end. */
+.trend-axis span.at-start { transform: none; }
+.trend-axis span.at-end { transform: translateX(-100%); }
+
+/* ── Reroutes & rising ──────────────────────────────────────────────── */
+
+.reroute-list,
+.rising-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.reroute-list li {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  font-size: var(--text-sm);
+  color: var(--text-body);
+}
+
+.reroute-list svg {
+  flex: none;
+  color: var(--text-subtle);
+}
+
+.reroute-name {
+  flex: 1;
+  min-inline-size: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.reroute-count {
+  font-weight: var(--fw-semibold);
+  color: var(--text-heading);
+  font-variant-numeric: tabular-nums;
+}
+
+.rising-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  font-size: var(--text-sm);
+}
+
+.rising-row svg {
+  flex: none;
+  color: var(--gold-700);
+}
+
+.rising-keyword {
+  flex: 1;
+  min-inline-size: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-body);
+}
+
+.rising-counts {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.rising-delta {
+  font-weight: var(--fw-semibold);
+  color: var(--gold-700);
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 1180px) {
+  .dash-band-body {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .dash-panel-2,
+  .dash-panel-3 {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 820px) {
+  .dash-band-body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .dash-panel-2 {
+    grid-column: auto;
+  }
+
+  .waiting {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-8);
+  }
+
+  .waiting-worst {
+    padding-inline-start: 0;
+    padding-block-start: var(--space-7);
+    border-inline-start: 0;
+    border-block-start: 1px solid var(--border-subtle);
+  }
+}
+
+
+/* ── Responsive ──────────────────────────────────────────────────────────── */
+
+@media (max-width: 900px) {
+  body:has(.app-main-sidebar) .app-shell {
+    block-size: auto;
+    overflow: visible;
+  }
+
+  .app-main.app-main-sidebar {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .staff-content {
+    block-size: auto;
+    overflow-y: visible;
+  }
+
+  .staff-nav,
+  .staff-nav.is-collapsed {
+    inline-size: 100%;
+    block-size: auto;
+    align-items: stretch;
+    border-inline-end: 0;
+    border-block-end: 1px solid var(--border-subtle);
+  }
+
+  .staff-nav-list {
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+
+  .staff-nav-item,
+  .staff-nav.is-collapsed .staff-nav-item {
+    inline-size: auto;
+    padding-inline: var(--space-3);
+  }
+
+  .staff-nav.is-collapsed .staff-nav-label {
+    display: block;
+  }
+
+  .staff-nav-collapse {
+    display: none;
+  }
+
+  .staff-content {
+    padding: var(--space-5) var(--space-4);
+  }
+}
+
+@media (max-width: 720px) {
+  .dialog {
+    padding: 0;
+  }
+
+  .dialog-card {
+    max-block-size: 100vh;
+    border-radius: 0;
+  }
+
+  .sbar-fields {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* No reduced-motion override here on purpose. `--dur-enter` / `--dur-exit` /
+   `--dur-move` already collapse to 0ms in the design system's own media query,
+   so everything expressed in them is instant. Overriding with
+   `transition: none` would go further than asked and kill the opacity fade
+   too — and a card that is on its way out still has to *go*, instantly rather
+   than sitting there for the length of an animation that no longer runs. */
+
+/* ── Criteria rule book ──────────────────────────────────────────────────────
+   It borrowed `.tm-section` from the triage-manual uploader, which caps at
+   680px and centres — so the rule book rendered as a narrow column beside a
+   full-width queue on the same portal. */
+
+.criteria-book {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  /* Only bites inside a .staff-page-fill; harmless in a scrolling page. */
+  flex: 1;
+  min-block-size: 0;
+}
+
+/* A pass-through, not a box: it repeats the book's own column rules so the
+   `flex: 1` on a table wrapper inside still measures against a fill-height
+   parent. A neutral div here would become the flex item and the bounded
+   tables would start growing past the page again.
+
+   It exists only to be keyed, so the panel remounts on a tab switch and can
+   fade — same swap treatment as the dialog body, same reasoning. */
+.criteria-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  flex: 1;
+  min-block-size: 0;
+  opacity: 1;
+  transition: opacity var(--dur-color) var(--ease-enter);
+}
+
+@starting-style {
+  .criteria-panel {
+    opacity: 0;
+  }
+}
+
+/* Whichever section is open takes the height left under the tabs and scrolls
+   inside it. */
+.criteria-book > .table-wrap,
+.criteria-book > .cm-sources-panel,
+.criteria-book > .cm-tpl-list {
+  flex: 1;
+  min-block-size: 0;
+  overflow: auto;
+}
+
+/* The template cards are flex items in that column. Once it had a bounded
+   height they started honouring flex-shrink and collapsed into a stack of
+   empty slivers — they scroll, they do not compress. */
+.criteria-book > .cm-tpl-list > * {
+  flex: none;
+}
+
+/* Fixed columns, proportioned to what each table actually holds.
+
+   Auto layout sized these from their longest unbreakable token — an id like
+   `uterine_contractions_frequent` and a synonym pill reading "something stuck
+   in throat blocking breathing" — which carried `.admin-table`'s 900px floor
+   650px past the box and hid the citation column behind a sideways scrollbar.
+   Fixed layout ignores content width entirely, so the proportions below are
+   the only thing that decides, and every cell wraps inside its column. */
+.criteria-book .cm-rule-table {
+  table-layout: fixed;
+  inline-size: 100%;
+  min-inline-size: 0;
+}
+
+.criteria-book .cm-rule-table th {
+  white-space: normal;
+}
+
+.criteria-book .cm-rule-table td,
+.criteria-book .cm-rule-table .cm-cite,
+.criteria-book .cm-rule-table .cm-cond,
+.criteria-book .cm-rule-table .cm-effect {
+  max-inline-size: none;
+  white-space: normal;
+}
+
+/* Long tokens break rather than spill out of a column that can no longer grow. */
+.criteria-book .cm-rule-table code,
+.criteria-book .cm-rule-table .cm-pill {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+/* Proportions read off the real content, not guessed. Longest cell per column,
+   in characters, over the seeded criteria (v5):
+
+     rules (80 rows)     rule 118 · condition 194 · effect 36 (20 blank) · citation 218
+     findings (149 rows) id 30 · label 90 · synonyms — grows with the vocabulary
+     routing (24 rows)   category 16 · condition 493 · department 68 · citation 114
+
+   The effect column on the level rules is a level and nothing else, and a
+   quarter of it is blank; routing's condition is nearly 500 characters and had
+   been given the same share as a 16-character code. */
+.cm-table-rules th:nth-child(1) { inline-size: 24%; }
+.cm-table-rules th:nth-child(2) { inline-size: 30%; }
+.cm-table-rules th:nth-child(3) { inline-size: 14%; }
+.cm-table-rules th:nth-child(4) { inline-size: 32%; }
+
+.cm-table-findings th:nth-child(1) { inline-size: 20%; }
+.cm-table-findings th:nth-child(2) { inline-size: 30%; }
+.cm-table-findings th:nth-child(3) { inline-size: 50%; }
+
+.cm-table-routing th:nth-child(1) { inline-size: 12%; }
+.cm-table-routing th:nth-child(2) { inline-size: 50%; }
+.cm-table-routing th:nth-child(3) { inline-size: 18%; }
+.cm-table-routing th:nth-child(4) { inline-size: 20%; }
+
+/* Version and citations, off the page header and into their own tab. Standing
+   above the tabs they cost every table ~110px of height on every visit, to say
+   something a nurse reads once. */
+.cm-sources-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+}
+
+.cm-sources-panel .fact-grid {
+  padding: var(--space-7) var(--space-8);
+  background: var(--surface-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+}
+
+.cm-sources-panel .table-wrap {
+  flex: none;
+  overflow: hidden;
+}
+
+/* Name · edition · link. The scope note lives in `edition`, so that column
+   carries the most text and takes the most room. */
+.cm-source-table {
+  table-layout: fixed;
+}
+
+.cm-source-table th:nth-child(1) { inline-size: 34%; }
+.cm-source-table th:nth-child(2) { inline-size: 54%; }
+.cm-source-table th:nth-child(3) { inline-size: 12%; }
+
+.cm-source-table tbody th {
+  padding: var(--space-6);
+  border-block-end: 1px solid var(--border-subtle);
+  color: var(--text-heading);
+  font-weight: var(--fw-semibold);
+  text-align: start;
+  vertical-align: top;
+}
+
+.cm-source-table tbody tr:last-child th {
+  border-block-end: 0;
+}
+
+.cm-source-table td {
+  vertical-align: top;
+}
+
+.cm-source-open {
+  white-space: nowrap;
+}
+
+.cm-source-open a,
+.cm-source-open .link-btn {
+  color: var(--teal-700);
+  font-weight: var(--fw-medium);
+}
+
+/* A bearer-guarded document cannot be an href, so the control that opens the
+   locally-held manual is a button. It has to read as the link beside it. */
+.link-btn {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.cm-source-error {
+  display: block;
+  margin-block-start: var(--space-2);
+  font-size: var(--text-xs);
+  color: var(--status-danger);
+  white-space: normal;
+}
+
+.criteria-book-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+}
+
+.criteria-book .cm-tpl-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+/* `.cm-cite` caps at 240px, which is right inside the rule table's citation
+   column and wrong in the question list — it broke every citation into a
+   four-line ribbon while 1600px of row sat empty beside it. */
+.criteria-book .cm-q .cm-cite {
+  max-inline-size: var(--measure);
+}
+
+/* Full-width cards, readable line lengths. A question set to the width of an
+   ultrawide monitor is a card nobody can track a line across. */
+.criteria-book .cm-q-text {
+  max-inline-size: var(--measure);
+}
+
+.criteria-book .cm-tpl-keywords,
+.criteria-book .cm-cond,
+.criteria-book .cm-effect {
+  max-inline-size: var(--measure);
+}
+
+/* ── Template cards, on the same white the tables use ────────────────────────
+   The question list was paper cards holding bordered boxes holding more
+   bordered chips — three nested frames for one question. It is the table
+   pattern instead: a teal heading, white rows, hairline separators. */
+
+.criteria-book .cm-tpl-card {
+  background: var(--surface-card);
+  border-color: var(--border-subtle);
+  border-radius: var(--radius-md);
+}
+
+/* Reads as a thead, because that is what it is: the group's name and its count
+   — and it stays put like one. With ten questions expanded you were scrolled
+   well past the toggle and had to scroll back up to close the category.
+
+   `.cm-tpl-card` ships `overflow: hidden` for its rounded corners, which is
+   exactly what makes sticky impossible: `hidden` makes the card a scroll
+   container, so the head's scrollport becomes the card and the card never
+   scrolls. `clip` clips identically but creates no scroll container, so the
+   head sticks to the list while the card still rounds its corners.
+
+   Rounding the head itself does not work: once it is stuck halfway down the
+   card, its rounded corners are no longer over the card's corners and they
+   expose the white card behind them as two notches. Square corners, clipped
+   by the card, are right in both positions. */
+.criteria-book .cm-tpl-card {
+  overflow: clip;
+}
+
+.criteria-book .cm-tpl-head {
+  position: sticky;
+  inset-block-start: 0;
+  z-index: 1;
+  padding: var(--space-5) var(--space-6);
+  background: var(--teal-100);
+  border-block-end: 1px solid var(--border-subtle);
+  color: var(--teal-700);
+  font-size: var(--text-sm);
+}
+
+.criteria-book .cm-tpl-cat,
+.criteria-book .cm-tpl-count,
+.criteria-book .cm-tpl-toggle {
+  color: var(--teal-700);
+}
+
+/* The separator lives on the head now, so it travels with it. The body keeps
+   the bottom radii the card can no longer clip. */
+.criteria-book .cm-tpl-body {
+  padding: 0;
+  border-block-start: 0;
+}
+
+.criteria-book .cm-tpl-keywords {
+  margin: 0;
+  padding: var(--space-5) var(--space-6);
+  border-block-end: 1px solid var(--border-subtle);
+}
+
+.criteria-book .cm-q-list {
+  margin: 0;
+  gap: 0;
+}
+
+/* A row, not a box. Same rhythm as a table body: one hairline between
+   neighbours, none under the last — and three real columns, so the question
+   text starts at one x for every row. As a flex row the kind badge sized to
+   its own word, which put AGE's question 55px left of MEASUREMENT's and left
+   the column looking hand-set. 6.5rem clears the widest kind (`measurement`,
+   92px) with room for a longer one. */
+.criteria-book .cm-q {
+  display: grid;
+  grid-template-columns: 1.75rem 6.5rem minmax(0, 1fr);
+  gap: var(--space-2) var(--space-5);
+  align-items: start;
+  padding: var(--space-6);
+  border: 0;
+  border-block-end: 1px solid var(--border-subtle);
+  border-radius: 0;
+}
+
+/* Hugs its word rather than stretching to the track, so the badges share a
+   left edge and the descriptions share theirs. */
+.criteria-book .cm-kind-badge {
+  justify-self: start;
+}
+
+.criteria-book .cm-q:last-child {
+  border-block-end: 0;
+}
+
+/* The tint carries the whole row now that the row has no frame of its own. */
+.criteria-book .cm-q-redflag {
+  background: var(--triage-1-soft);
+}
+
+/* Type label — mono, and the one thing in the row that is teal. */
+.criteria-book .cm-kind-badge {
+  background: var(--teal-50);
+  border-color: var(--teal-200);
+  color: var(--teal-700);
+  justify-self: start;
+}
+
+/* Options and synonyms: white with a hairline, matching the tab counts. On the
+   old paper card these were --surface-page on --surface-page. */
+.criteria-book .cm-pill {
+  background: var(--surface-card);
+  border-color: var(--border-default);
+}
+
+.criteria-book .cm-book-search {
+  background: var(--surface-card);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .criteria-book .cm-tpl-head:hover {
+    background: color-mix(in srgb, var(--teal-200) 50%, var(--teal-100));
+  }
+}
+
+/* ── Account block ───────────────────────────────────────────────────────────
+   Who is signed in, and the way out. Replaces the teal band that ran across
+   the top of every staff page restating the portal title the rail already
+   carries. No avatar — a name and an email identify a person here.
+
+   Teal-100 rather than teal-50: at teal-50 this was a white card on a white
+   rail, the least distinct thing in the nav. It cannot go the other way and
+   fill with Mali Teal — that colour is 3.00:1 on white by design (the kiosk
+   keeps --k-primary-on-light for exactly this), so a 12px email on it would
+   fail. The teal that carries no text — the logout button — is the real
+   thing at full strength. */
+
+.staff-nav-account {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  margin-block-start: auto;
+  padding: var(--space-6);
+  border: 1px solid var(--teal-200);
+  border-radius: var(--radius-md);
+  background: var(--teal-100);
+}
+
+.staff-nav.is-collapsed .staff-nav-account {
+  justify-content: center;
+  padding: var(--space-3);
+}
+
+.staff-nav-account-id {
+  flex: 1;
+  min-inline-size: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.staff-nav-account-name {
+  margin: 0;
+  font-size: var(--text-sm);
+  font-weight: var(--fw-semibold);
+  color: var(--text-heading);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Tinted from the surface's own hue rather than greyed — 4.98:1 on teal-100. */
+.staff-nav-account-email {
+  margin: 0;
+  font-size: var(--text-xs);
+  color: var(--teal-700);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Mali Teal at full strength. A glyph needs 3:1, not 4.5:1, so this is the one
+   place in the block the logo colour can carry the foreground itself. */
+.staff-nav-logout {
+  display: grid;
+  place-items: center;
+  font: inherit;
+  inline-size: 2.25rem;
+  block-size: 2.25rem;
+  flex: none;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+  cursor: pointer;
+  transition: background-color var(--dur-color) var(--ease-move);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .staff-nav-logout:hover {
+    background: var(--color-primary-hover);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .staff-nav-logout {
+    transition: none;
+  }
+}
+
+/* ── Admin ▸ Sessions ─────────────────────────────────────────────────────
+ *
+ * The booth's operations log. Its whole visual argument is that a healthy
+ * session should read as one uninterrupted grey line and a sick one should
+ * not — so nothing here is coloured for emphasis. Colour appears exactly
+ * three times: the MOPH badge (clinical, and never alone — the digit and the
+ * name are always beside it), a warning tint on a meta item that went wrong,
+ * and the teal selection wash the rest of the portal already uses.
+ */
+
+/* Three filters in this row against the nurse queue's two, so they run
+   narrower than its 14rem. The trigger only has to hold the current selection,
+   not the longest option — the list is type-to-filter, and it is its own popup
+   at its own width. */
+.sess-toolbar-select {
+  inline-size: 10.5rem;
+}
+
+.sessions-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  min-block-size: 0;
+}
+
+/* ── The exception ribbon ─────────────────────────────────────────────────
+ *
+ * A sentence, not a KPI wall. The Dashboard tab owns the healthy numbers;
+ * this line only says what is wrong, and each count is the way into those
+ * rows. An exception at zero is not rendered at all — that absence is what
+ * makes "all clear" mean something.
+ */
+.sess-ribbon-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-6);
+  flex-wrap: wrap;
+}
+
+.sess-ribbon {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+}
+
+.sess-ribbon-total {
+  color: var(--text-body);
+}
+
+.sess-ribbon-total strong,
+.sess-ribbon-flag strong {
+  font-weight: var(--fw-semibold);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-heading);
+}
+
+.sess-ribbon-clear {
+  color: var(--text-subtle);
+}
+
+/* Separators come from the layout, not from markup — a middot per item would
+   have to be conditionally rendered around the ones that are hidden. */
+.sess-ribbon-sep {
+  color: var(--border-strong);
+}
+
+/* These filter the table, and nothing said so: quiet grey text in a line of
+   quiet grey text, indistinguishable from the "10 sessions" beside them that
+   does nothing.
+
+   It is `.mali-chip` at ribbon scale — a resting hairline, a pill, fill on
+   hover, press on `:active`. The first attempt invented a dotted underline
+   that appears nowhere else in the app and stacked three signals on hover
+   (fill, border, underline). A resting border is how every other control in
+   this system says "you can press me", and it costs no colour. */
+.sess-ribbon-flag {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-5);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-full);
+  background: var(--surface-card);
+  font: inherit;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition:
+    background-color var(--dur-color) var(--ease-move),
+    border-color var(--dur-color) var(--ease-move),
+    color var(--dur-color) var(--ease-move),
+    transform var(--dur-press) var(--ease-press);
+}
+
+/* Instant feedback that the interface heard the press. */
+.sess-ribbon-flag:active {
+  transform: scale(0.97);
+}
+
+.sess-ribbon-flag.tone-warning strong {
+  color: var(--status-warning-ink);
+}
+
+.sess-ribbon-flag.tone-danger strong {
+  color: var(--status-danger-ink);
+}
+
+/* Selected. Primary on the border is legitimate here — it is a state, the
+   same one `.icon-btn.active` wears — and it is what keeps a chosen filter
+   distinct from one the pointer is merely resting on. */
+.sess-ribbon-flag.active {
+  background: var(--surface-muted);
+  border-color: var(--color-primary);
+  color: var(--teal-700);
+}
+
+.sess-ribbon-flag:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  /* Fill, and the border one step darker — `.mali-chip:hover`, exactly. */
+  .sess-ribbon-flag:not(.active):hover {
+    background: var(--surface-muted);
+    border-color: var(--border-strong);
+    color: var(--text-heading);
+  }
+}
+
+.sess-ribbon-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-5);
+}
+
+.is-spinning {
+  animation: sess-spin 900ms linear infinite;
+}
+
+@keyframes sess-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .is-spinning {
+    animation: none;
+  }
+}
+
+/* ── Level filter chips ───────────────────────────────────────────────────
+ * The digit is the label; the colour is a 3px underline, because five filled
+ * swatches in a toolbar would out-shout the acuity badges in the rows below.
+ */
+/* ── The two-tier row ─────────────────────────────────────────────────────
+ *
+ * One <tbody> per session holding two <tr>s: the primary line keeps its
+ * columns aligned so the eye can run straight down them, and the meta line
+ * takes the full width because none of what it carries wants a column.
+ */
+/* Takes the leftover height and scrolls inside it, so the toolbar, the ribbon
+   and the pager stay put while the rows move. `min-block-size: 0` is what lets
+   a flex child shrink below its content — without it the wrapper grows to the
+   full table and pushes the pager off the screen. */
+.sess-table-wrap {
+  flex: 1;
+  min-block-size: 0;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--teal-200) transparent;
+}
+
+.sess-table {
+  min-inline-size: 0;
+}
+
+.sess-table td {
+  border-bottom: 0;
+  padding-block: var(--space-4) 0;
+}
+
+/* Column widths follow what each column actually holds.
+ *
+ * The three columns carrying the row's substance — outcome, patient, routing —
+ * share the width evenly. Review and started carry one pill and one short
+ * string, so they take their content and nothing more and sit tight against
+ * the right edge.
+ *
+ * Routing is the only column whose content really varies: "OPD ENT" up to
+ * "แผนก OPD HEART (หน่วยตรวจหัวใจและหลอดเลือด)", and twice that again when a
+ * nurse reroute puts two departments in one cell. Its share is a preferred
+ * width, not a cap — the nowrap below lets it push past 30% and take room back
+ * from its neighbours when a name runs long. */
+.sess-table th:nth-child(1) { inline-size: 24%; }
+.sess-table th:nth-child(2) { inline-size: 24%; }
+.sess-table th:nth-child(3) { inline-size: 30%; }
+
+.sess-table th:nth-child(4),
+.sess-table th:nth-child(5) {
+  inline-size: 1%;
+}
+
+/* Every column is nowrap: percentage widths are only preferences, and without
+   this the browser crushed routing to its longest unbreakable word — 78px —
+   and wrapped department names onto two lines, inside a row whose whole design
+   is two fixed tiers. */
+.sess-table th,
+.sess-table .sess-row td {
+  white-space: nowrap;
+}
+
+/* D. The header has to follow its column: the times are right-aligned, and a
+      left-aligned label above them pointed at nothing. */
+.sess-table th.sess-col-time {
+  text-align: end;
+}
+
+.sess-table .sess-row-meta td {
+  padding-block: var(--space-2) var(--space-5);
+}
+
+.sess-group {
+  border-bottom: 1px solid var(--border-subtle);
+  cursor: pointer;
+}
+
+.sess-group td {
+  transition: background var(--dur-color) ease;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .sess-group:hover td {
+    background: var(--teal-50);
+  }
+}
+
+/* Levels 1 and 2 get a tinted card rather than a coloured rule — a 3px
+   border-left is the alert-callout cliché, and the tint reads at a glance
+   without adding a fourth colour to the page. */
+.sess-group.is-acute td {
+  background: var(--status-danger-soft);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .sess-group.is-acute:hover td {
+    background: color-mix(in srgb, var(--status-danger-soft) 88%, var(--red-500));
+  }
+}
+
+.sess-outcome {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-4);
+  white-space: nowrap;
+}
+
+.sess-level-name {
+  font-size: var(--text-sm);
+  color: var(--text-body);
+}
+
+.sess-open {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--space-3);
+  border: 0;
+  background: none;
+  padding: var(--space-2) var(--space-3);
+  margin-inline: calc(var(--space-3) * -1);
+  border-radius: var(--radius-sm);
+  font: inherit;
+  color: var(--text-heading);
+  cursor: pointer;
+  text-align: start;
+}
+
+.sess-open:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+.sess-hn-label {
+  font-size: var(--text-xs);
+  font-weight: var(--fw-semibold);
+  letter-spacing: var(--tracking-label);
+  color: var(--text-subtle);
+}
+
+.sess-hn {
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--fw-medium);
+}
+
+.sess-walkin {
+  color: var(--text-muted);
+}
+
+.sess-routing {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+  font-size: var(--text-sm);
+  color: var(--text-body);
+}
+
+/* A reroute is the one disagreement signal on the page: the engine's choice
+   stays visible but recedes, the nurse's choice takes the ink. */
+.sess-routing-from {
+  color: var(--text-subtle);
+  text-decoration: line-through;
+  text-decoration-color: var(--border-strong);
+}
+
+.sess-routing-arrow {
+  color: var(--text-subtle);
+}
+
+.sess-routing-to {
+  font-weight: var(--fw-medium);
+  color: var(--text-heading);
+}
+
+.sess-col-time {
+  text-align: end;
+  white-space: nowrap;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+
+.sess-dash {
+  color: var(--text-subtle);
+}
+
+/* ── The meta line ────────────────────────────────────────────────────────
+ * Uniform grey until something is wrong, which is the entire point: the eye
+ * skips it on a healthy row and catches on a tinted one.
+ */
+.sess-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  font-size: var(--text-xs);
+  color: var(--text-subtle);
+}
+
+.sess-meta-item {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+  font-variant-numeric: tabular-nums;
+}
+
+.sess-meta-item.is-warning {
+  color: var(--status-warning-ink);
+}
+
+.sess-meta-item.is-danger {
+  color: var(--status-danger-ink);
+  font-weight: var(--fw-medium);
+}
+
+.sess-meta-sep {
+  color: var(--border-strong);
+}
+
+/* Rows, not a spinner: the page keeps its shape while it loads, so nothing
+   jumps when the data lands. */
+.sess-skeleton {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.sess-skeleton li {
+  block-size: 56px;
+  border-radius: var(--radius-sm);
+  background: linear-gradient(var(--surface-sunken), var(--surface-sunken));
+  opacity: 0.6;
+  animation: sess-pulse 1400ms ease-in-out infinite;
+}
+
+.sess-skeleton li:nth-child(even) {
+  animation-delay: 200ms;
+}
+
+@keyframes sess-pulse {
+  50% {
+    opacity: 0.3;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sess-skeleton li {
+    animation: none;
+  }
+}
+
+.sess-pager {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-4);
+  padding-block: var(--space-4);
+}
+
+.sess-pager-range {
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Session detail: trace, transcript, vitals ────────────────────────────
+ * Reuses the nurse review dialog's shell — one overlay vocabulary across the
+ * two portals — with read-only content.
+ */
+.trace-block {
+  padding-block-end: var(--space-7);
+  margin-block-end: var(--space-7);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.trace-block:last-child {
+  border-bottom: 0;
+  margin-block-end: 0;
+}
+
+/* The heading and its counts on one line. The counts used to be a faint
+   "Present · 7" underneath, which read as body text and left the heading
+   itself — 11px, subtle grey, uppercase — quieter than the rows below it. */
+.trace-block-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-5);
+  margin-block-end: var(--space-5);
+}
+
+.trace-block h4 {
+  margin: 0;
+  font-size: var(--text-sm);
+  font-weight: var(--fw-semibold);
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--text-heading);
+}
+
+.trace-block-tags {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.trace-disposition {
+  display: flex;
+  align-items: center;
+  gap: var(--space-5);
+  flex-wrap: wrap;
+  margin-block-end: var(--space-5);
+}
+
+.trace-caution {
+  font-size: var(--text-xs);
+  color: var(--status-warning);
+}
+
+/* The answer to "why did it say that". These were two unstyled sentences with
+   the criteria citation pushed to the far edge by `space-between` — 900px of
+   white between a clause and the rule it cites, on a 78rem card. Each reason
+   is now a card with an accent rule, and the citation sits under the sentence
+   it belongs to. */
+.trace-reasons {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  /* Side by side where there is room. Capped at a 52rem measure they left a
+     third of the card empty and stacked two one-line sentences vertically. */
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(22rem, 1fr));
+  /* Stretch, not start: one reason carries a citation and one does not, and
+     two cards of different heights side by side read as two kinds of thing. */
+  align-items: stretch;
+  gap: var(--space-7);
+}
+
+.trace-reasons li {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-4) var(--space-5);
+  border-inline-start: 2px solid var(--color-primary);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  background: var(--surface-muted);
+}
+
+.trace-reason-text {
+  color: var(--text-heading);
+  font-size: var(--text-sm);
+}
+
+.trace-citation {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+
+.trace-rules {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  margin: var(--space-5) 0 0;
+}
+
+.trace-label {
+  font-size: var(--text-xs);
+  color: var(--text-subtle);
+}
+
+/* The value beside its label, not pinned to the far edge of a 78rem card.
+   `.ledger` is `space-between`, which is right for a narrow dialog and wrong
+   here — it put six inches of white between "Smoking" and its answer. */
+/* Present on the left, absent on the right: two halves of one answer, and
+   stacked they each left a third of the card empty. */
+/* Two equal columns and one gutter — the same rhythm the Decision cards and
+   the Model-call pair above and below it use.
+
+   The previous attempt sized each half to its own content and pushed them to
+   opposite edges, which left a 250px hole down the middle of the block whose
+   two edges lined up with nothing in either neighbouring section. Content-
+   defined edges are only tidy when there is one of them; here there were
+   three different ones in three stacked blocks.
+
+   `start`, not `stretch`: stretched to the ledger's height the box was half
+   empty, and empty space inside a bordered box is far more conspicuous than
+   two columns of honest, different lengths. */
+.trace-findings-split {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+  gap: var(--space-7);
+}
+
+/* One column when only one half exists, and on a narrow dialog. */
+.trace-findings-split:has(> :only-child) {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+@media (max-width: 1000px) {
+  .trace-findings-split {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* The label column is measured once across the whole list, not per row —
+   `max-content` on each row separately gave every value a different left
+   edge, so seven answers started at seven x positions. Subgrid is what makes
+   one measurement serve every row. */
+.ledger.trace-findings {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  column-gap: var(--space-5);
+  align-content: start;
+}
+
+.ledger.trace-findings .ledger-row {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: subgrid;
+}
+
+.ledger.trace-findings .ledger-label {
+  color: var(--text-body);
+}
+
+.ledger.trace-findings .ledger-value {
+  text-align: start;
+}
+
+.trace-absent-group {
+  padding: var(--space-5);
+  border: 1px dashed var(--border-default);
+  border-radius: var(--radius-sm);
+}
+
+.trace-sublabel {
+  margin: 0 0 var(--space-4);
+  font-size: var(--text-xs);
+  font-weight: var(--fw-semibold);
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+/* Findings the extractor did NOT see. Deliberately not struck through — that
+   reads as "deleted" or "wrong", and these were asked and answered no, which
+   is the reason a red flag did not fire. Evidence, not a mistake. The dashed
+   box and the leading minus are what make "not present" legible on chip
+   number twelve, where the group label at the top has long left the eye. */
+.trace-absent {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.trace-absent li {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  padding: 2px var(--space-3);
+  border-radius: var(--radius-sm);
+  background: var(--surface-card);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  white-space: nowrap;
+}
+
+.trace-absent-mark {
+  font-weight: var(--fw-bold);
+  color: var(--text-subtle);
+}
+
+/* One row per turn, its calls side by side. A turn is almost always the same
+   pair — read what the patient said, then decide what to ask — and stacked
+   vertically that pair filled the panel: an eleven-turn session ran to
+   twenty-two rows and the turn structure, the thing worth seeing, was gone. */
+.trace-turns {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* The turn label sits ABOVE its pair, not beside it. Beside it, the cards
+   started 58px in — so this block's two columns lined up with nothing in the
+   two blocks stacked above it, which is the whole complaint. Above, it reads
+   as what it is (a group heading for the calls under it) and the pair falls
+   on the same two columns as the Decision cards and the findings halves. */
+.trace-turn-row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding-block-start: var(--space-5);
+  border-block-start: 1px solid var(--border-subtle);
+}
+
+.trace-turn-row:first-child {
+  padding-block-start: 0;
+  border-block-start: 0;
+}
+
+.trace-turn {
+  font-size: var(--text-xs);
+  font-weight: var(--fw-semibold);
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+/* Two columns and the same gutter as every other split on this tab. */
+.trace-turn-calls {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+  align-items: stretch;
+  gap: var(--space-7);
+}
+
+.trace-call {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-5);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--surface-card);
+}
+
+.trace-call-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+
+.trace-site {
+  color: var(--text-body);
+  font-size: var(--text-sm);
+}
+
+/* Right-aligned tabular figures: the reason to read this list is to find the
+   slow call, and ragged numbers cannot be compared. */
+.trace-latency {
+  flex: none;
+  font-size: var(--text-xs);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
+}
+
+/* The one that took longest, named without a second colour: this board
+   already spends red on failure. */
+.trace-call.is-slowest .trace-latency {
+  color: var(--text-body);
+  font-weight: var(--fw-semibold);
+}
+
+.trace-call.is-failed {
+  border-color: color-mix(in srgb, var(--status-danger) 40%, transparent);
+  background: var(--status-danger-soft);
+}
+
+.trace-call.is-failed .trace-site {
+  color: var(--status-danger-ink);
+  font-weight: var(--fw-medium);
+}
+
+/* Monospace here is for JSON, which is what it is for. */
+/* The payload block. It was warm-grey `--surface-sunken` with browser-default
+   mono at whatever size it inherited — the one panel in the app that looked
+   like a `<pre>` rather than a designed surface. It is teal-50 now, the
+   system's own soft ground, on the border every other inset shares, and it
+   scrolls in both directions rather than stretching its card. */
+.trace-json {
+  margin: 0;
+  padding: var(--space-4) var(--space-5);
+  max-block-size: 22rem;
+  overflow: auto;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--surface-muted);
+  color: var(--teal-900);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: var(--leading-normal);
+  scrollbar-width: thin;
+  scrollbar-color: var(--teal-200) transparent;
+}
+
+.trace-json.is-violation {
+  background: var(--status-danger-soft);
+  border-color: color-mix(in srgb, var(--status-danger) 30%, transparent);
+  color: var(--status-danger-ink);
+}
+
+/* Three columns: what it is, what it read, where it came from. It was a flex
+   row per line, so the source chip started wherever that line's number ended —
+   "measured" at five different x positions down one short list, which is
+   enough to make three identical words read as three different things. */
+.trace-vitals {
+  display: grid;
+  grid-template-columns: max-content max-content max-content;
+  align-items: baseline;
+  gap: var(--space-4) var(--space-5);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.trace-vitals li {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: subgrid;
+  align-items: baseline;
+}
+
+.trace-kv {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.trace-kv li {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-5);
+}
+
+.trace-vital-key,
+.trace-kv li > span:first-child {
+  min-inline-size: 10rem;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+
+/* Right-aligned so the numbers stack on their units, not on their first
+   digit — 78 and 122 line up at the ones place. */
+.trace-vital-value {
+  justify-self: end;
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--fw-medium);
+  color: var(--text-heading);
+}
+
+.trace-vital-source {
+  justify-self: start;
+}
+
+.trace-vital-rejected {
+  justify-self: end;
+  color: var(--status-danger-ink);
+  font-size: var(--text-sm);
+}
+
+.trace-vitals-coverage {
+  display: flex;
+  gap: var(--space-5);
+  flex-wrap: wrap;
+  margin: var(--space-5) 0 0;
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+}
+
+.trace-kv .is-danger {
+  color: var(--status-danger);
+}
+
+@media (max-width: 1100px) {
+  .sess-ribbon-row {
+    align-items: flex-start;
+  }
+
+  .trace-vital-key,
+  .trace-kv li > span:first-child {
+    min-inline-size: 7rem;
+  }
+}
+
+.trace-detail {
+  flex-basis: 100%;
+}
+
+/* A control, not a caption. It was 11px subtle grey with a bare triangle,
+   sitting at the same weight as the JSON it hides. */
+.trace-detail > summary {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  margin-inline-start: calc(var(--space-3) * -1);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-xs);
+  font-weight: var(--fw-medium);
+  color: var(--text-muted);
+  cursor: pointer;
+  list-style: none;
+  transition:
+    background-color var(--dur-color) var(--ease-move),
+    color var(--dur-color) var(--ease-move),
+    transform var(--dur-press) var(--ease-press);
+}
+
+/* Instant feedback that the interface heard the press. */
+.trace-detail > summary:active {
+  transform: scale(0.97);
+}
+
+.trace-detail > summary::-webkit-details-marker {
+  display: none;
+}
+
+.trace-detail > summary::before {
+  content: '▸';
+  transition: transform var(--dur-color) ease;
+}
+
+.trace-detail[open] > summary::before {
+  transform: rotate(90deg);
+}
+
+.trace-detail > summary:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .trace-detail > summary:hover {
+    background: var(--surface-muted);
+    color: var(--text-body);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .trace-detail > summary::before {
+    transition: none;
+  }
+}
+
+/* ── Admin dashboard ─────────────────────────────────────────────────────
+   Forms the nurse board does not use. Everything shared — bands, panels,
+   figures, sparklines, dot plots, share strips, trend areas — is above and
+   is deliberately not re-declared here, so a department dot plot looks the
+   same in both portals. */
+
+/* A row of figures inside a band. `auto-fit` rather than a fixed four, so a
+   band with two tiles doesn't leave two ghost columns. */
+.dash-figures {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+  gap: var(--space-7);
+}
+
+.figure-tile {
+  padding: var(--space-7);
+  background: var(--surface-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-xs);
+}
+
+/* The one tile that raises its hand. It says "look here" without claiming a
+   direction is good or bad — that is what the uncoloured delta is for. */
+.figure-attention {
+  border-color: color-mix(in srgb, var(--color-accent) 55%, transparent);
+}
+
+.figure-hint {
+  margin: var(--space-2) 0 0;
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+
+.figure-tile .figure-value {
+  font-size: var(--text-3xl);
+}
+
+/* A panel body centres its content so charts sharing a row line up on a
+   common baseline. A table is not a chart — centring it in a panel stretched
+   to a taller neighbour leaves a band of air above the header. */
+.dash-panel-body:has(> .table-wrap) {
+  justify-content: flex-start;
+}
+
+/* The lead number is a step up, not a different species — four tiles in a row
+   with one at 6xl breaks the rhythm the row is built on. Both classes, so this
+   beats the `.figure-tile .figure-value` step-down above it. */
+.figure-tile.figure-hero .figure-value {
+  font-size: var(--text-4xl);
+}
+
+/* Labelled counts. The label wraps because these are sentences, not terms. */
+.dash-reasons {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.dash-reasons li {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-5);
+  padding-block-end: var(--space-3);
+  border-block-end: 1px solid var(--border-subtle);
+  font-size: var(--text-sm);
+}
+
+.dash-reasons li:last-child {
+  padding-block-end: 0;
+  border-block-end: 0;
+}
+
+.dash-reason-label {
+  color: var(--text-body);
+}
+
+.dash-reason-count {
+  flex: none;
+  font-weight: var(--fw-semibold);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-heading);
+}
+
+/* Tabs on the left, the period control pinned to the right end of the same
+   rule. One row rather than two, and the window you are reading stays visible
+   from every tab. */
+.dash-tabbar {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--space-5);
+  flex-wrap: wrap;
+  border-block-end: 1px solid var(--border-default);
+}
+
+.dash-tabbar .tabs {
+  border-block-end: 0;
+  flex: 1;
+}
+
+.dash-tabbar .dash-period-select {
+  margin-block-end: var(--space-3);
+}
+
+.dash-period-select {
+  flex: none;
+  inline-size: 10.5rem;
+}
+
+/* Numbers in a column must line up, so this is the one place tabular figures
+   belong. A large standalone value keeps proportional figures — `tabular-nums`
+   gives every digit the width of a zero and makes `121` look loose. */
+.dash-table .num {
+  text-align: end;
+  font-variant-numeric: tabular-nums;
+}
+
+.dash-table .is-bad {
+  color: var(--red-500);
+  font-weight: var(--fw-semibold);
+}
+
+/* ── Meter ──────────────────────────────────────────────────────────────
+   A ratio against a limit the reader already knows. The unfilled track is a
+   lighter step of the same hue rather than a grey, so the state reads across
+   the whole width and not only across the filled part. */
+
+.meter {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.meter-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-5);
+  font-size: var(--text-sm);
+}
+
+.meter-label {
+  color: var(--text-body);
+}
+
+.meter-value {
+  font-weight: var(--fw-semibold);
+  color: var(--text-heading);
+}
+
+.meter-of {
+  font-weight: var(--fw-regular);
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+
+.meter-track {
+  block-size: 10px;
+  border-radius: var(--radius-full);
+  background: var(--teal-100);
+  overflow: hidden;
+}
+
+.meter-fill {
+  display: block;
+  block-size: 100%;
+  border-radius: var(--radius-full);
+  background: var(--color-primary);
+  transition: inline-size var(--dur-enter) var(--ease-move);
+}
+
+.meter-warning .meter-fill {
+  background: var(--status-warning);
+}
+
+/* ── Heatmap ────────────────────────────────────────────────────────────
+   Four validated steps of the teal ramp, plus a neutral for zero. The steps
+   are `--chart-seq-*`, thinned from the full ramp until the ordinal checks
+   pass against a white card: monotone lightness, every adjacent gap >= 0.06 L,
+   and a lightest step that still clears 2:1 against the surface. */
+
+.heatmap {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.heatmap-grid {
+  display: grid;
+  /* The 2px gap IS the separator. A stroke around each cell would add
+     data-weight ink that is not data. */
+  gap: 2px;
+  align-items: center;
+}
+
+.heatmap-cell {
+  aspect-ratio: 1;
+  min-inline-size: 0;
+  border-radius: 2px;
+  background: var(--chart-empty);
+}
+
+.heat-0 { background: var(--chart-empty); }
+.heat-1 { background: var(--chart-seq-1); }
+.heat-2 { background: var(--chart-seq-2); }
+.heat-3 { background: var(--chart-seq-3); }
+.heat-4 { background: var(--chart-seq-4); }
+
+.heatmap-row-label,
+.heatmap-col-label {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.heatmap-row-label {
+  padding-inline-end: var(--space-4);
+  text-align: end;
+  /* A department name is long enough to steal the whole grid otherwise. */
+  max-inline-size: 11rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.heatmap-col-label {
+  text-align: center;
+  overflow: hidden;
+}
+
+.heatmap-legend {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+
+.heatmap-key {
+  inline-size: 14px;
+  block-size: 14px;
+  border-radius: 2px;
+}
+
+/* ── Funnel ─────────────────────────────────────────────────────────────
+   One row per stage, each bar measured against the FIRST stage. The previous
+   version was four equal boxes with a "33% carried through" chip wedged
+   between them: nothing encoded magnitude, every card came out a different
+   width because the chips were in the same flex row, and the chips competed
+   with the numbers they were annotating.
+
+   Length is the magnitude channel here, which the rest of this system avoids —
+   but the rule it breaks is about ranked categories, where equal values draw
+   equal bars and say nothing. This is part-to-whole against a total the reader
+   is already holding, which is the one job length is unambiguously right for. */
+
+.funnel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  /* Capped rather than filling the panel. At 1140px the bars were hairlines a
+     metre long and the count sat so far from its label that the eye had to
+     travel to pair them. */
+  max-inline-size: 52rem;
+}
+
+.funnel-stage {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.funnel-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-5);
+}
+
+.funnel-label {
+  font-size: var(--text-sm);
+  color: var(--text-body);
+}
+
+.funnel-value {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+  font-size: var(--text-lg);
+  font-weight: var(--fw-bold);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-heading);
+}
+
+/* Share of the first stage. Quiet, because the count is the headline and this
+   is the reading aid under it. */
+.funnel-share {
+  font-size: var(--text-xs);
+  font-weight: var(--fw-regular);
+  color: var(--text-muted);
+}
+
+.funnel-track {
+  block-size: 10px;
+  border-radius: var(--radius-full);
+  /* A lighter step of the same hue, so an empty stage still reads as part of
+     the same scale rather than as a missing row. */
+  background: var(--teal-100);
+  overflow: hidden;
+}
+
+.funnel-fill {
+  display: block;
+  block-size: 100%;
+  border-radius: var(--radius-full);
+  background: var(--color-primary);
+  transition: inline-size var(--dur-enter) var(--ease-move);
+}
+
+/* What happened to the ones that did not carry through. Worded by the caller,
+   because a patient who walked away, a record the HIS refused and a case a
+   nurse has not reached yet are three different events. */
+.funnel-drop {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-2) var(--space-4);
+  margin: 0;
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+
+.funnel-drop-main {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--space-2);
+}
+
+.funnel-note {
+  color: var(--text-subtle);
+}
+
+/* ── Admin · Database Settings ───────────────────────────────────────────
+   The HIS connection and the before/after visit view. This panel used to
+   carry its own heading (duplicating the page head above it), its own tab
+   strip, its own modal, its own table and its own status pills — five pieces
+   of vocabulary that already existed in this file. What is left below is only
+   what is genuinely particular to it: the connection card and the field
+   ledger that shows our write-backs landing. */
+
+.hdb-panel,
+.users-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-7);
+}
+
+.hdb-unavailable {
+  padding: var(--space-10);
+  text-align: center;
+}
+
+.hdb-connection {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  padding: var(--space-6) var(--space-7);
+  background: var(--surface-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-xs);
+}
+
+/* Nothing configured yet. A dashed edge reads as an empty slot; a solid card
+   reads as a thing that exists. */
+.hdb-connection.disconnected {
+  border-style: dashed;
+  box-shadow: none;
+}
+
+.hdb-connection-status {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+  font-size: var(--text-sm);
+  color: var(--text-body);
+}
+
+.hdb-conn-dot {
+  flex: none;
+  inline-size: 8px;
+  block-size: 8px;
+  border-radius: var(--radius-full);
+}
+
+/* A dot is a graphic, so 3:1 is the bar it has to clear — and it never carries
+   the state alone; the sentence beside it says it in words. */
+.hdb-conn-dot.ok {
+  background: var(--status-success);
+  box-shadow: 0 0 0 3px var(--status-success-soft);
+}
+
+.hdb-conn-dot.off {
+  background: var(--status-danger);
+  box-shadow: 0 0 0 3px var(--status-danger-soft);
+}
+
+.hdb-connection-form {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1.4fr) minmax(0, 1.4fr) auto;
+  gap: var(--space-5);
+  align-items: end;
+}
+
+/* The shared `.field` carries a bottom margin for stacked forms; in a grid the
+   gap already does that job. */
+.hdb-connection-form .field,
+.users-panel .field-row .field {
+  margin-block-end: 0;
+}
+
+.hdb-connection-form .error-text {
+  grid-column: 1 / -1;
+  margin: 0;
+}
+
+@media (max-width: 900px) {
+  .hdb-connection-form {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Tabs left, refresh pinned right — the same shape as the dashboard's. */
+.hdb-tabbar {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--space-5);
+  flex-wrap: wrap;
+  border-block-end: 1px solid var(--border-default);
+}
+
+.hdb-tabbar .tabs {
+  border-block-end: 0;
+  flex: 1;
+}
+
+.hdb-tabbar .secondary-btn {
+  margin-block-end: var(--space-3);
+}
+
+/* Full width. The record opens in a dialog, so nothing shares the row. */
+.hdb-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-7);
+}
+
+/* A row here opens the record beside it, so the whole row is the target. */
+.hdb-table tbody tr {
+  cursor: pointer;
+}
+
+.hdb-table tbody tr.active {
+  background: var(--surface-muted);
+}
+
+/* `.dialog-card` is a fixed 78rem x 54rem so the nurse's case review does not
+   resize as its tabs change. Nothing on `InfoDialog` has tabs, so each size is
+   as tall as its content and no taller. */
+.info-dialog {
+  block-size: auto;
+  max-block-size: 88vh;
+}
+
+/* A field ledger, a details list, a short form. */
+.info-dialog-sm {
+  inline-size: min(36rem, 92vw);
+}
+
+/* Wide enough for a scan table with a signal column. */
+.info-dialog-md {
+  inline-size: min(46rem, 92vw);
+}
+
+.info-dialog .dialog-body h4 {
+  margin: var(--space-7) 0 var(--space-3);
+  font-size: var(--text-xs);
+  font-weight: var(--fw-semibold);
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+/* ── Admin · User Settings ───────────────────────────────────────────────── */
+
+.users-table td {
+  vertical-align: middle;
+}
+
+.users-actions {
+  display: flex;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.users-reset-row {
+  display: inline-flex;
+  gap: var(--space-3);
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.users-reset-row .field-input {
+  inline-size: 11rem;
+}
+
+/* ── A confirm, in the dialog shell ──────────────────────────────────────
+   `.dialog-card` is sized for the nurse's case review — a fixed 78rem by
+   54rem, because its tabs must not resize it. A yes/no question is not that
+   shape, so it takes the same shell at its own size. */
+
+.dialog-confirm {
+  inline-size: min(28rem, 92vw);
+  block-size: auto;
+  gap: var(--space-4);
+  padding: var(--space-8);
+}
+
+.dialog-confirm h3 {
+  margin: 0;
+  font-size: var(--text-lg);
+  color: var(--text-heading);
+}
+
+.dialog-confirm p {
+  margin: 0;
+}
+
+.dialog-confirm-actions {
+  display: flex;
+  gap: var(--space-4);
+  margin-block-start: var(--space-4);
+}
+
+/* A form in the dialog shell. Same size logic as `.dialog-confirm` — the
+   nurse's case review is 78rem wide because it holds a transcript; three
+   inputs are not that. */
+.dialog-form {
+  inline-size: min(30rem, 92vw);
+  block-size: auto;
+  gap: var(--space-4);
+  padding: var(--space-8);
+  overflow: visible;
+}
+
+.dialog-form-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-5);
+  margin-block-end: var(--space-3);
+}
+
+.dialog-form-head h3 {
+  margin: 0;
+  font-size: var(--text-lg);
+  color: var(--text-heading);
+}
+
+.dialog-form-head p {
+  margin: var(--space-2) 0 0;
+  font-size: var(--text-sm);
+}
+
+.dialog-form-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-4);
+  margin-block-start: var(--space-4);
+}
+
+.users-toolbar {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.users-toolbar .primary-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+/* ── Admin · Device Settings ─────────────────────────────────────────────
+   One tab per instrument. The three managers are structurally identical, so
+   everything here is shared by all of them; what stays under `.bpdev-*` in
+   global.css is only the pairing theatre — the radar sweep, the success
+   check, the step list — which is genuinely particular to setting up a
+   Bluetooth device and has no counterpart elsewhere. */
+
+.device-settings {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-7);
+}
+
+.device-manager {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-7);
+}
+
+/* What configuring this instrument is for. The heading it replaces said only
+   what the instrument is called, which the tab above already says. */
+.device-lead {
+  margin: 0;
+  max-inline-size: 60ch;
+  font-size: var(--text-sm);
+}
+
+/* These panels are a heading and a body, with no subtitle to hang off
+   `.dash-panel-head` — so the title carries the head's type directly. */
+.dash-panel-title {
+  margin: 0;
+  font-size: var(--text-base);
+  font-weight: var(--fw-semibold);
+  color: var(--text-heading);
+}
+
+.bpdev-model-select {
+  inline-size: 14rem;
+  margin-block-end: var(--space-5);
+}
+
+/* A scan list is long and the dialog should not grow with it. */
+.info-dialog .table-wrap {
+  max-block-size: 20rem;
+  overflow-y: auto;
+}
+
+/* The connected device is a button: a device you can see is a device you
+   should be able to open. It keeps the card's own layout and only gains the
+   affordances — a pointer, a hover lift, a focus ring. */
+.device-card-open {
+  inline-size: 100%;
+  padding: var(--space-4);
+  margin-inline: calc(var(--space-4) * -1);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: none;
+  font: inherit;
+  color: inherit;
+  text-align: start;
+  cursor: pointer;
+  transition:
+    background-color var(--dur-color) var(--ease-move),
+    border-color var(--dur-color) var(--ease-move);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .device-card-open:hover {
+    background: var(--surface-muted);
+    border-color: var(--teal-200);
+  }
+}
+
+.device-card-open:focus-visible {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: var(--focus-ring);
+}
+
+.device-body {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-7);
+}
+
+/* One card now, so it does not stretch to the page. */
+.device-body > .dash-panel {
+  inline-size: min(28rem, 100%);
+}
+
+.device-actions {
+  display: flex;
+  gap: var(--space-4);
+}
+
+/* ── Ledger ──────────────────────────────────────────────────────────────
+   Renamed from `.hdb-field*`: the HIS record was the first user, a paired
+   device's details is the second, and a name that says which feature owns it
+   stops being true at two. */
+
+.ledger {
+  display: flex;
+  flex-direction: column;
+}
+
+.ledger-row {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-5);
+  padding-block: var(--space-3);
+  border-block-end: 1px solid var(--border-subtle);
+  font-size: var(--text-sm);
+}
+
+.ledger-row:last-child {
+  border-block-end: 0;
+}
+
+.ledger-label {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  color: var(--text-muted);
+}
+
+.ledger-value {
+  font-weight: var(--fw-semibold);
+  text-align: end;
+  overflow-wrap: anywhere;
+}
+
+/* An empty cell cannot tell "not recorded" from "not rendered". */
+.ledger-row.blank .ledger-value {
+  color: var(--text-subtle);
+  font-weight: var(--fw-regular);
+}
+
+.ledger-row.filled .ledger-value {
+  color: var(--teal-700);
+}
+
+/* Which write-back stage filled this in. */
+.ledger-stage {
+  padding: 1px var(--space-2);
+  border-radius: var(--radius-sm);
+  font-size: 0.62rem;
+  font-weight: var(--fw-bold);
+  letter-spacing: var(--tracking-label);
+}
+
+.ledger-stage-1 {
+  background: var(--status-warning-soft);
+  color: var(--status-warning-ink);
+}
+
+.ledger-stage-2 {
+  background: var(--status-success-soft);
+  color: var(--status-success-ink);
+}

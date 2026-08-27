@@ -552,18 +552,66 @@ class FollowUpQuestionAnswerUpdate(BaseModel):
     answer_message_id: UUID
 
 
-class ConversationSummaryOut(BaseModel):
+class AdminSessionRow(BaseModel):
+    """One line in the admin session log (`GET /admin/sessions`).
+
+    Operational, not clinical: the nurse queue answers "is this patient routed
+    right", this answers "did the booth work". Severity is the engine's own
+    MOPH level — the retired emergency/urgent/general buckets were the
+    patient-facing redaction and never belonged on a staff surface.
+    """
+
     session_id: UUID
-    language: LanguageCode
-    status: SessionStatus
     started_at: datetime
     ended_at: datetime | None = None
-    severity: SeverityLevel | None = None
-    department_name_en: str | None = None
-    department_name_th: str | None = None
-    message_count: int
-    has_alert: bool = False
-    escalation_reason: str | None = None
+    language: LanguageCode
+    status: SessionStatus
+    # Null until the engine disposed; interview turns carry no level.
+    triage_level: int | None = None
+    # disposed  — the engine reached a level
+    # abandoned — no level, and the session went quiet or was closed
+    # active    — no level yet, still inside the idle window
+    outcome: Literal["disposed", "abandoned", "active"]
+    patient_hn: str | None = None
+    proposed_department_en: str | None = None
+    proposed_department_th: str | None = None
+    confirmed_department_en: str | None = None
+    confirmed_department_th: str | None = None
+    review_status: ReviewStatus | None = None
+    turns: int = 0
+    duration_seconds: int | None = None
+    avg_latency_ms: int | None = None
+    # Core triage vitals actually measured this session. Core is what the booth
+    # always takes — cuff (sbp), thermometer (temp) and the cuff's pulse (hr).
+    # RR has no instrument at the booth; SpO2 is measured only when a case
+    # calls for it. Neither belongs in a completeness denominator.
+    vitals_measured: int = 0
+    vitals_core: int = 3
+    criteria_version: int | None = None
+    # Stage-1 HIS write-back: pushed | failed | skipped | null (never linked).
+    his_status: str | None = None
+    ai_error: bool = False
+
+
+class AdminSessionCounts(BaseModel):
+    """Ribbon counts. Scoped to the window only — never to the active filters,
+    or clicking one would zero the others and the ribbon would stop being a
+    map of what is wrong."""
+
+    sessions: int = 0
+    abandoned: int = 0
+    ai_errors: int = 0
+    his_failed: int = 0
+    unreviewed: int = 0
+
+
+class AdminSessionsOut(BaseModel):
+    window: str
+    total: int
+    limit: int
+    offset: int
+    counts: AdminSessionCounts
+    rows: list[AdminSessionRow]
 
 
 class AdminUserOut(BaseModel):
@@ -677,6 +725,45 @@ class AssessmentReviewCorrectRequest(BaseModel):
     sbar: SbarPayload | None = None
 
 
+class TriageStatsOut(BaseModel):
+    """Operational triage numbers for the nurse and admin dashboards.
+
+    One round trip for every panel: queue pressure, acuity mix, arrival
+    rhythm, department load, and how often a nurse rerouted what the engine
+    proposed. Staff-only — nothing here is ever shown to a patient.
+    """
+
+    days: int
+    pending_reviews: int
+    # Wait of the longest-pending confirmation. None when the queue is empty.
+    oldest_pending_minutes: int | None = None
+    # [{level: 1..5 | None, count}] over the window.
+    acuity: list[dict[str, Any]] = []
+    # [{hour: 0..23, count}] for today, dense — a gap must read as zero, not
+    # as "no bar drawn here".
+    hourly_today: list[dict[str, Any]] = []
+    # [{code, name_en, name_th, count}] by the department the patient actually
+    # went to (nurse-confirmed when present, else engine-proposed).
+    departments: list[dict[str, Any]] = []
+    # {reviewed, confirmed, rerouted, agreement_rate, avg_review_minutes}
+    agreement: dict[str, Any] = {}
+    # [{date, sessions, screened, reviewed, rerouted, escalated, avg_latency_ms}]
+    # dense across the whole window. The extra columns exist so every admin
+    # stat tile can carry its own sparkline instead of a bare number — a value
+    # with no trend behind it tells an administrator nothing.
+    daily: list[dict[str, Any]] = []
+    # The booth's completion funnel over the window:
+    # {started, disposed, reviewed, his_pushed, his_failed, his_skipped}.
+    # Each stage is a subset of the one before it, so the drop between two
+    # stages is the loss the admin is looking for.
+    funnel: dict[str, Any] = {}
+    # [{weekday: 0=Sunday..6, hour: 0..23, count}] over the WINDOW, dense at
+    # 7 x 24. `hourly_today` answers the nurse's "how busy am I right now";
+    # this answers the admin's "when should the booth be staffed", which
+    # today-only data cannot.
+    weekday_hourly: list[dict[str, Any]] = []
+
+
 class AssessmentReviewOut(BaseModel):
     id: UUID
     session_id: UUID
@@ -698,6 +785,12 @@ class AssessmentReviewOut(BaseModel):
     patient_contact_relation: str | None = None
     # AI reasoning trace: fired rule ids + manual citations (screening engine v2)
     disposition_reasons: list[dict[str, Any]] | None = None
+    # The engine's MOPH 5-level decision, so the nurse queue can be sorted and
+    # coloured by acuity. Nurse/admin surfaces only — never sent to a patient.
+    # Null until the engine disposed (interview turns stay unclassified).
+    triage_level: int | None = None
+    triage_label: str | None = None
+    triage_response_time: str | None = None
     notes: str | None = None
     # Booth context for the review screen: measurements taken at the kiosk,
     # the linked patient (HN-first; visit_id is the VN passthrough when the
@@ -744,6 +837,11 @@ class RoutingFeedbackOut(BaseModel):
     session_id: UUID
     assessment_id: UUID
     original_department_id: UUID | None = None
+    # The engine's proposal, by name. Without it a reroute reads as "a nurse
+    # chose Medicine" with no way to see what it was chosen *over*, so the
+    # proposed-vs-confirmed confusion matrix could not be built.
+    original_department_name_en: str | None = None
+    original_department_name_th: str | None = None
     corrected_department_id: UUID
     corrected_department_name_en: str | None = None
     corrected_department_name_th: str | None = None

@@ -43,23 +43,27 @@ function usePendingReviewCount(enabled: boolean): number {
 }
 
 /**
- * Fixed shortcut that jumps any staff screen to the nurse portal's Triage
- * Reviews list. Rendered by Layout, so every /admin and /nurse tab gets it
- * without opting in. The nurse tab is read from ?tab=, so the same click
- * works whether it navigates across routes or only switches tabs in place.
- * Nudges and shows a count while cases are waiting to be reviewed.
+ * Fixed shortcut to the nurse portal's Triage Reviews list.
+ *
+ * Nurse portal only. It used to render on /admin too, which put a button that
+ * jumps to another portal on top of every administrator's screen — the admin
+ * surfaces are for inspecting how the booth ran, and confirming an individual
+ * case is not their job. It stays on the nurse's own non-review tabs, where it
+ * is a shortcut back to their queue rather than a trip somewhere else. The tab
+ * is read from ?tab=, so the click switches tabs in place.
  */
 export function ReviewsFab() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Staff-only, and hidden on the destination itself — reviews is the default
-  // tab, so a missing or unknown ?tab= counts as reviews. Resolved before the
-  // poll hook so the hook order never changes between renders.
+  // Nurse portal only, and hidden on the destination itself — reviews is the
+  // default tab, so a missing or unknown ?tab= counts as reviews. Resolved
+  // before the poll hook so the hook order never changes between renders, and
+  // so the admin portal never opens the polling request at all.
   const onNurse = location.pathname.startsWith('/nurse');
   const tab = new URLSearchParams(location.search).get('tab');
-  const visible = Boolean(getAdminToken() && getAdminRole()) && (!onNurse || tab === 'schedules');
+  const visible = Boolean(getAdminToken() && getAdminRole()) && onNurse && tab === 'schedules';
 
   const pending = usePendingReviewCount(visible);
 

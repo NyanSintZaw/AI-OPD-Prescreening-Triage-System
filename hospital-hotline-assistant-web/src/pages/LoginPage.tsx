@@ -4,10 +4,9 @@ import { useTranslation } from 'react-i18next';
 import { api } from '../api';
 import { getAdminEmail, getAdminRole, getAdminToken, type StaffRole } from '../api/client';
 import { LanguageSwitcher } from '../components/LanguageSwitcher';
+import { Wordmark } from '../design-system/components/Mark';
 import { useLanguage } from '../hooks/useSession';
 
-const LOGO_URL =
-  'https://website01.mch.mfu.ac.th/fileadmin/MFUTemplateStandard/Assets/images/logo/Header_MCH_MFU_Thai.png';
 
 type PortalKind = 'nurse' | 'admin';
 
@@ -103,11 +102,12 @@ export function LoginPage() {
   };
 
   return (
-    <div className="portal-shell">
+    <div className="portal-shell mali-texture-petals">
       <header className="portal-header">
         <div className="portal-header-inner">
           <div className="portal-brand">
-            <img src={LOGO_URL} alt={t('hospitalName')} className="portal-logo" />
+            <Wordmark height={30} />
+            <span className="brand-hospital">{t('hospitalName')}</span>
           </div>
           <LanguageSwitcher language={language} onChange={setLanguage} variant="header" />
         </div>

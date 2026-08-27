@@ -1,61 +1,37 @@
-/**
- * Mae Fah Luang University Medical Center Hospital design tokens
- * Source: https://website01.mch.mfu.ac.th/en/mch-index.html
- * theme-mch.css + MFU template standards
- */
+/* MALI Brand v1.0 — the design system is the only token vocabulary.
+   Vendored from @notuning/mali-ds; edit the package and re-copy. */
+@import '../design-system/index.css';
+
+/* App layout constants — not design tokens, owned by this app. */
 :root {
-  /* Brand palette */
-  --mch-gold: #ba9643;
-  --mch-gold-dark: #705a28;
-  --mch-gold-light: #d4b56a;
-  --mch-cyan: #3ea3cb;
-  --mch-cyan-light: #65b5d5;
-  --mch-navy: #213253;
-  --mch-navy-dark: #222831;
-  --mch-red: #d63933;
-  --mch-red-dark: #cf2d1e;
-  --mch-red-accent: #ed213a;
-
-  /* Surfaces & text */
-  --color-bg: #f8f5f1;
-  --color-bg-alt: #f2f1eb;
-  --color-surface: #ffffff;
-  --color-text: #333333;
-  --color-text-heading: #232931;
-  --color-muted: #5c6670;
-  --color-border: #e9e9e9;
-  --color-border-strong: #dddddd;
-
-  /* Semantic mapping */
-  --color-primary: var(--mch-cyan);
-  --color-primary-dark: var(--mch-navy);
-  --color-primary-hover: var(--mch-navy);
-  --color-accent: var(--mch-gold);
-  --color-accent-dark: var(--mch-gold-dark);
-  --color-emergency: var(--mch-red);
-  --color-emergency-bg: #fef2f2;
-  --color-emergency-border: #fecaca;
-
-  /* Chat bubbles */
-  --color-user-bubble: #e8f4fa;
-  --color-assistant-bubble: var(--color-bg-alt);
-
-  /* Typography — Anuphan is self-hosted (@fontsource-variable/anuphan),
-     so the app renders identically offline (kiosk requirement). */
-  --font-body: 'Anuphan Variable', 'Anuphan', 'Noto Sans Thai', system-ui, sans-serif;
-  --font-heading: 'Anuphan Variable', 'Anuphan', 'Noto Sans Thai', system-ui, sans-serif;
-
-  /* Shape & elevation */
-  --radius-sm: 5px;
-  --radius: 10px;
-  --radius-lg: 20px;
-  --shadow: rgba(0, 0, 0, 0.07) 0px 1px 1px, rgba(0, 0, 0, 0.07) 0px 2px 2px,
-    rgba(0, 0, 0, 0.07) 0px 4px 4px, rgba(0, 0, 0, 0.07) 0px 8px 8px;
-  --shadow-card: rgba(0, 0, 0, 0.1) -4px 9px 25px -6px;
-
-  /* Layout */
   --header-nav-height: 48px;
   --header-top-min-height: 110px;
   --header-inner-max-width: min(1400px, 96vw);
   --content-max-width: 1140px;
+
+  /* Focus halo for form controls.
+
+     The design system's --focus-ring is mid-teal at 50% opacity. Sitting
+     outside the solid --color-primary border a focused field also gets, it
+     read as two competing edges — a dark line inside a pale ring — instead of
+     one focused field. A lighter halo lets the border be the single green edge
+     that carries focus; the border is 3.00:1 on white, the non-text contrast
+     floor, so the indicator does not depend on the halo. The DS token itself
+     is untouched: it still serves buttons and the kiosk. */
+  --focus-ring-field: 0 0 0 3px var(--teal-100);
+
+  /* Dropdown motion. Emil's scale puts a dropdown at 150–250ms, so neither
+     --dur-enter (300) nor --dur-color (160) is right, and the exit is faster
+     than the entrance because a thing leaving should accelerate away.
+     `--menu-exit-dur` is mirrored by MENU_EXIT_MS in SelectField.tsx. */
+  --menu-enter-dur: 200ms;
+  --menu-exit-dur: 140ms;
+}
+
+/* The design system zeroes its own duration tokens here; these follow. */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --menu-enter-dur: 0ms;
+    --menu-exit-dur: 0ms;
+  }
 }

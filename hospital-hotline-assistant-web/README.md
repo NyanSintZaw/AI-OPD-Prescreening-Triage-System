@@ -76,7 +76,7 @@ The admin dashboard has **no authentication** in this MVP. Add auth before produ
 
 ## Design
 
-UI follows the [MFU Medical Center Hospital](https://website01.mch.mfu.ac.th/en/mch-index.html) brand. See [DESIGN.md](./DESIGN.md) for colors, fonts, and tokens.
+UI follows the **MALI design system** (Brand v1.0), vendored from the repo-root `mali-design-system/` package into `src/design-system/` (`npm run sync:ds`). See [DESIGN.md](./DESIGN.md) for the marks, colour, typography, and motion tokens.
 
 ## Project structure
 

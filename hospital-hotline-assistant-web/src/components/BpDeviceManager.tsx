@@ -1,5 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { SelectField } from './ui/SelectField';
+import { InfoDialog } from './staff/InfoDialog';
+import { Ledger, LedgerRow } from './staff/Ledger';
 import { api } from '../api';
 import type {
   BloodPressureFetchResponse,
@@ -61,6 +64,23 @@ export function BpDeviceManager() {
   const [statusError, setStatusError] = useState<string | null>(null);
 
   const [testing, setTesting] = useState(false);
+  // Pairing is a task, not part of the page: it was a card sitting open
+  // beside the connected device, showing a wizard nobody had started.
+  const [wizardOpen, setWizardOpen] = useState(false);
+  // The card shows a truncated MAC because a full one is 17 characters
+  // of hex; the details dialog is where it can be read and copied.
+  const [detailOpen, setDetailOpen] = useState(false);
+
+  const openWizard = () => {
+    setStep('idle');
+    setWizardOpen(true);
+  };
+
+  // Closing mid-scan would leave the wizard resumed halfway next time.
+  const closeWizard = () => {
+    setStep('idle');
+    setWizardOpen(false);
+  };
   const [testResult, setTestResult] = useState<BloodPressureFetchResponse | null>(null);
 
   const [step, setStep] = useState<WizardStep>('idle');
@@ -162,43 +182,44 @@ export function BpDeviceManager() {
       : null;
 
   return (
-    <div className="bpdev-container">
-      <header className="surv-header">
-        <div>
-          <h2 className="surv-title">{t('bpdevTitle')}</h2>
-          <p className="surv-subtitle muted">{t('bpdevSubtitle')}</p>
-        </div>
-      </header>
+    <div className="device-manager">
+      <p className="device-lead muted">{t('bpdevSubtitle')}</p>
 
       {statusError && <p className="error-text">{statusError}</p>}
 
-      <div className="bpdev-grid">
-        {/* ── Current device ─────────────────────────────────────────── */}
-        <section className="bpdev-card">
-          <h3 className="bpdev-card-title">{t('bpdevCurrentTitle')}</h3>
+      <div className="device-body">
+        <section className="dash-panel">
+          <h3 className="dash-panel-title">{t('bpdevCurrentTitle')}</h3>
 
-          <div className="bpdev-current">
-            <span className={`bpdev-device-icon ${status?.configured ? 'ok' : ''}`}>
-              <MonitorIcon />
-            </span>
-            <div className="bpdev-current-info">
-              <span className="bpdev-model">
-                {status ? status.device_name.toUpperCase() : '—'}
+          {/* The whole block is the target — a device you can see is a
+              device you should be able to open. */}
+          <button
+            type="button"
+            className="bpdev-current device-card-open"
+            onClick={() => setDetailOpen(true)}
+            aria-label={t('devDetailTitle')}
+          >
+              <span className={`bpdev-device-icon ${status?.configured ? 'ok' : ''}`}>
+                <MonitorIcon />
               </span>
-              {status?.device_mac ? (
-                <code className="bpdev-mac" title={status.device_mac}>
-                  {truncateMac(status.device_mac)}
-                </code>
-              ) : (
-                <span className="muted">{t('bpdevNoMac')}</span>
-              )}
-              <span
-                className={`bpdev-chip ${status?.configured ? 'chip-ok' : 'chip-warn'}`}
-              >
-                {status?.configured ? t('bpdevConfigured') : t('bpdevNotConfigured')}
-              </span>
-            </div>
-          </div>
+              <div className="bpdev-current-info">
+                <span className="bpdev-model">
+                  {status ? status.device_name.toUpperCase() : '—'}
+                </span>
+                {status?.device_mac ? (
+                  <code className="bpdev-mac" title={status.device_mac}>
+                    {truncateMac(status.device_mac)}
+                  </code>
+                ) : (
+                  <span className="muted">{t('bpdevNoMac')}</span>
+                )}
+                <span
+                  className={`status-chip ${status?.configured ? 'chip-enabled' : 'chip-pending'}`}
+                >
+                  {status?.configured ? t('bpdevConfigured') : t('bpdevNotConfigured')}
+                </span>
+              </div>
+          </button>
 
           <p className="muted bpdev-hint">{t('bpdevTestHint')}</p>
           <button
@@ -240,155 +261,192 @@ export function BpDeviceManager() {
           {testErrorKey && <p className="error-text bpdev-test-error">{t(testErrorKey)}</p>}
         </section>
 
-        {/* ── Pairing wizard ─────────────────────────────────────────── */}
-        <section className="bpdev-card">
-          <h3 className="bpdev-card-title">{t('bpdevPairTitle')}</h3>
+        <div className="device-actions">
+          <button type="button" className="secondary-btn" onClick={openWizard}>
+            {t('bpdevPairTitle')}
+          </button>
+        </div>
 
-          {step === 'idle' && (
-            <>
-              <ol className="bpdev-steps">
-                <li>{t('bpdevPairStep1')}</li>
-                <li>{t('bpdevPairStep2')}</li>
-                <li>{t('bpdevPairStep3')}</li>
-              </ol>
-              <label className="bpdev-field">
-                <span>{t('bpdevModelLabel')}</span>
-                <select
-                  value={model}
-                  onChange={(e) => setModel(e.target.value)}
-                  className="bpdev-select"
-                >
-                  {(status?.supported_models ?? [model]).map((m) => (
-                    <option key={m} value={m}>
-                      {m.toUpperCase()}
-                    </option>
-                  ))}
-                </select>
-              </label>
+        {detailOpen && (
+          <InfoDialog
+            title={status ? status.device_name.toUpperCase() : t('devDetailTitle')}
+            onClose={() => setDetailOpen(false)}
+            meta={
+              <span
+                className={`status-chip ${status?.configured ? 'chip-enabled' : 'chip-pending'}`}
+              >
+                {status?.configured ? t('bpdevConfigured') : t('bpdevNotConfigured')}
+              </span>
+            }
+          >
+            <Ledger>
+              <LedgerRow label={t('bpdevModelLabel')} value={status?.device_name?.toUpperCase()} />
+              {/* The whole address, not the truncation the card shows — being
+                  able to read and copy it is why this dialog exists. */}
+              <LedgerRow label={t('devDetailAddress')} value={status?.device_mac} />
+              <LedgerRow
+                label={t('devDetailStatus')}
+                value={status?.configured ? t('bpdevConfigured') : t('bpdevNotConfigured')}
+              />
+              <LedgerRow
+                label={t('devDetailModels')}
+                value={(status?.supported_models ?? []).map((m) => m.toUpperCase()).join(', ')}
+              />
+            </Ledger>
+          </InfoDialog>
+        )}
+
+        {wizardOpen && (
+          <InfoDialog
+            size="md"
+            title={t('bpdevPairTitle')}
+            onClose={closeWizard}
+          >
+        {step === 'idle' && (
+          <>
+            <ol className="bpdev-steps">
+              <li>{t('bpdevPairStep1')}</li>
+              <li>{t('bpdevPairStep2')}</li>
+              <li>{t('bpdevPairStep3')}</li>
+            </ol>
+            {/* The last native <select> on a staff surface. It rendered the
+                OS picker inside a teal design system, which is the whole
+                reason SelectField exists. */}
+            <SelectField
+              label={t('bpdevModelLabel')}
+              value={model}
+              onChange={setModel}
+              className="bpdev-model-select"
+              options={(status?.supported_models ?? [model]).map((m) => ({
+                value: m,
+                label: m.toUpperCase(),
+              }))}
+            />
+            <button
+              type="button"
+              className="primary-btn"
+              onClick={() => void runScan()}
+              disabled={testing}
+            >
+              {t('bpdevScanButton')}
+            </button>
+          </>
+        )}
+
+        {step === 'scanning' && (
+          <div className="bpdev-center">
+            <span className="bpdev-radar" aria-hidden="true" />
+            <p>{t('bpdevScanning')}</p>
+            <p className="muted">{t('bpdevScanningHint')}</p>
+          </div>
+        )}
+
+        {step === 'select' && (
+          <>
+            {devices.length === 0 ? (
+              <p className="muted">{t('bpdevNoDevices')}</p>
+            ) : (
+              <div className="table-wrap scroll-slim">
+                <table className="staff-table">
+                  <thead>
+                    <tr>
+                      <th>{t('bpdevColSignal')}</th>
+                      <th>{t('bpdevColName')}</th>
+                      <th>{t('bpdevColAddress')}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {devices.map((device) => (
+                      <tr
+                        key={device.mac}
+                        className={`bpdev-row ${device.is_omron ? 'omron' : ''} ${
+                          selectedMac === device.mac ? 'selected' : ''
+                        }`}
+                        onClick={() => setSelectedMac(device.mac)}
+                      >
+                        <td>
+                          <SignalBars rssi={device.rssi} />
+                        </td>
+                        <td>
+                          <span className={device.name ? '' : 'muted'}>
+                            {device.name ?? t('bpdevUnknownDevice')}
+                          </span>
+                          {device.is_omron && (
+                            <span className="status-chip chip-enabled">
+                              {t('bpdevLikelyOmron')}
+                            </span>
+                          )}
+                        </td>
+                        <td>
+                          <code className="bpdev-mac">{truncateMac(device.mac)}</code>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            <div className="bpdev-actions">
               <button
                 type="button"
                 className="primary-btn"
-                onClick={() => void runScan()}
-                disabled={testing}
+                onClick={() => void runPair()}
+                disabled={!selectedMac}
               >
-                {t('bpdevScanButton')}
+                {selectedDevice?.name
+                  ? t('bpdevPairNamed', { name: selectedDevice.name })
+                  : t('bpdevPairSelected')}
               </button>
-            </>
-          )}
-
-          {step === 'scanning' && (
-            <div className="bpdev-center">
-              <span className="bpdev-radar" aria-hidden="true" />
-              <p>{t('bpdevScanning')}</p>
-              <p className="muted">{t('bpdevScanningHint')}</p>
-            </div>
-          )}
-
-          {step === 'select' && (
-            <>
-              {devices.length === 0 ? (
-                <p className="muted">{t('bpdevNoDevices')}</p>
-              ) : (
-                <div className="bpdev-table-wrap">
-                  <table className="bpdev-table">
-                    <thead>
-                      <tr>
-                        <th>{t('bpdevColSignal')}</th>
-                        <th>{t('bpdevColName')}</th>
-                        <th>{t('bpdevColAddress')}</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {devices.map((device) => (
-                        <tr
-                          key={device.mac}
-                          className={`bpdev-row ${device.is_omron ? 'omron' : ''} ${
-                            selectedMac === device.mac ? 'selected' : ''
-                          }`}
-                          onClick={() => setSelectedMac(device.mac)}
-                        >
-                          <td>
-                            <SignalBars rssi={device.rssi} />
-                          </td>
-                          <td>
-                            <span className={device.name ? '' : 'muted'}>
-                              {device.name ?? t('bpdevUnknownDevice')}
-                            </span>
-                            {device.is_omron && (
-                              <span className="bpdev-chip chip-ok bpdev-chip-inline">
-                                {t('bpdevLikelyOmron')}
-                              </span>
-                            )}
-                          </td>
-                          <td>
-                            <code className="bpdev-mac">{truncateMac(device.mac)}</code>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-              <div className="bpdev-actions">
-                <button
-                  type="button"
-                  className="primary-btn"
-                  onClick={() => void runPair()}
-                  disabled={!selectedMac}
-                >
-                  {selectedDevice?.name
-                    ? t('bpdevPairNamed', { name: selectedDevice.name })
-                    : t('bpdevPairSelected')}
-                </button>
-                <button type="button" className="secondary-btn" onClick={() => void runScan()}>
-                  {t('bpdevRescan')}
-                </button>
-                <button type="button" className="text-btn" onClick={() => setStep('idle')}>
-                  {t('close')}
-                </button>
-              </div>
-            </>
-          )}
-
-          {step === 'pairing' && (
-            <div className="bpdev-center">
-              <span className="vitals-icon vitals-icon-pulse bpdev-pair-icon">
-                <MonitorIcon />
-              </span>
-              <p>{t('bpdevPairing')}</p>
-              <p className="muted">{t('bpdevPairingHint')}</p>
-            </div>
-          )}
-
-          {step === 'paired' && (
-            <div className="bpdev-center">
-              <span className="bpdev-success-check">✓</span>
-              <p className="bpdev-success-title">{t('bpdevPairedTitle')}</p>
-              <p className="muted">
-                {model.toUpperCase()} · <code className="bpdev-mac">{selectedMac && truncateMac(selectedMac)}</code>
-              </p>
-              <p className="muted">{t('bpdevPairedHint')}</p>
-              <button type="button" className="primary-btn" onClick={() => setStep('idle')}>
-                {t('bpdevDone')}
+              <button type="button" className="secondary-btn" onClick={() => void runScan()}>
+                {t('bpdevRescan')}
+              </button>
+              <button type="button" className="text-btn" onClick={closeWizard}>
+                {t('close')}
               </button>
             </div>
-          )}
+          </>
+        )}
 
-          {step === 'pair-error' && (
-            <div className="bpdev-center">
-              <p className="error-text">{pairError ?? t('error')}</p>
-              <p className="muted">{t('bpdevPairErrorHint')}</p>
-              <div className="bpdev-actions">
-                <button type="button" className="primary-btn" onClick={() => void runScan()}>
-                  {t('bpdevRescan')}
-                </button>
-                <button type="button" className="secondary-btn" onClick={() => setStep('idle')}>
-                  {t('bpdevBackToStart')}
-                </button>
-              </div>
+        {step === 'pairing' && (
+          <div className="bpdev-center">
+            <span className="vitals-icon vitals-icon-pulse bpdev-pair-icon">
+              <MonitorIcon />
+            </span>
+            <p>{t('bpdevPairing')}</p>
+            <p className="muted">{t('bpdevPairingHint')}</p>
+          </div>
+        )}
+
+        {step === 'paired' && (
+          <div className="bpdev-center">
+            <span className="bpdev-success-check">✓</span>
+            <p className="bpdev-success-title">{t('bpdevPairedTitle')}</p>
+            <p className="muted">
+              {model.toUpperCase()} · <code className="bpdev-mac">{selectedMac && truncateMac(selectedMac)}</code>
+            </p>
+            <p className="muted">{t('bpdevPairedHint')}</p>
+            <button type="button" className="primary-btn" onClick={closeWizard}>
+              {t('bpdevDone')}
+            </button>
+          </div>
+        )}
+
+        {step === 'pair-error' && (
+          <div className="bpdev-center">
+            <p className="error-text">{pairError ?? t('error')}</p>
+            <p className="muted">{t('bpdevPairErrorHint')}</p>
+            <div className="bpdev-actions">
+              <button type="button" className="primary-btn" onClick={() => void runScan()}>
+                {t('bpdevRescan')}
+              </button>
+              <button type="button" className="secondary-btn" onClick={() => setStep('idle')}>
+                {t('bpdevBackToStart')}
+              </button>
             </div>
-          )}
-        </section>
+          </div>
+        )}
+          </InfoDialog>
+        )}
       </div>
     </div>
   );

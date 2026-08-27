@@ -42,6 +42,9 @@ async def _serialize_review(
             NULLIF(s.metadata->>'patient_contact_preferred_time', '') AS patient_contact_preferred_time,
             NULLIF(s.metadata->>'patient_contact_relation', '') AS patient_contact_relation,
             s.metadata->'triage_classification'->'disposition_reasons' AS disposition_reasons,
+            (s.metadata->'triage_classification'->>'level')::int AS triage_level,
+            s.metadata->'triage_classification'->>'label' AS triage_label,
+            s.metadata->'triage_classification'->>'response_time' AS triage_response_time,
             s.metadata->'patient'->>'visit_id' AS visit_id,
             NULLIF(s.metadata->'patient'->>'patient_name', '') AS patient_name,
             NULLIF(s.metadata->'patient'->>'hn', '') AS patient_hn,
@@ -186,6 +189,9 @@ async def list_assessment_reviews(
             NULLIF(s.metadata->>'patient_contact_preferred_time', '') AS patient_contact_preferred_time,
             NULLIF(s.metadata->>'patient_contact_relation', '') AS patient_contact_relation,
             s.metadata->'triage_classification'->'disposition_reasons' AS disposition_reasons,
+            (s.metadata->'triage_classification'->>'level')::int AS triage_level,
+            s.metadata->'triage_classification'->>'label' AS triage_label,
+            s.metadata->'triage_classification'->>'response_time' AS triage_response_time,
             s.metadata->'patient'->>'visit_id' AS visit_id,
             NULLIF(s.metadata->'patient'->>'patient_name', '') AS patient_name,
             NULLIF(s.metadata->'patient'->>'hn', '') AS patient_hn,
@@ -652,10 +658,13 @@ async def list_routing_feedback(
         """
         SELECT
             rf.*,
+            original.name_en AS original_department_name_en,
+            original.name_th AS original_department_name_th,
             corrected.name_en AS corrected_department_name_en,
             corrected.name_th AS corrected_department_name_th,
             reporter.full_name AS reporter_name
         FROM routing_feedback rf
+        LEFT JOIN departments original ON original.id = rf.original_department_id
         LEFT JOIN departments corrected ON corrected.id = rf.corrected_department_id
         LEFT JOIN admin_users reporter ON reporter.id = rf.reported_by
         ORDER BY rf.created_at DESC

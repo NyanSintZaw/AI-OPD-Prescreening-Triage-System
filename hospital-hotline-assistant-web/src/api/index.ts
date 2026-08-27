@@ -22,16 +22,14 @@ import type {
   Spo2PairRequest,
   Spo2PairResponse,
   Spo2ScanResponse,
-  ConversationSummaryOut,
+  AdminSessionCounts,
+  AdminSessionQuery,
+  AdminSessionRow,
+  AdminSessionsOut,
+  SessionTraceOut,
   CriteriaActiveView,
   DepartmentOut,
   DepartmentRecommendationCreate,
-  DoctorCreate,
-  DoctorOut,
-  DoctorScheduleCreate,
-  DoctorScheduleOut,
-  DoctorUpdate,
-  DoctorWithSchedulesOut,
   EmergencyEventOut,
   EmergencyEventCreate,
   EmergencyTriggerOut,
@@ -68,13 +66,10 @@ import type {
   SeverityAssessmentCreate,
   SttResponsePayload,
   SurveillanceSummaryOut,
+  AiMetricsOut,
+  TriageStatsOut,
   SymptomEntryCreate,
   TriageManualUploadOut,
-  AiMetricsOut,
-  CriteriaDiffOut,
-  CriteriaEditResponse,
-  CriteriaVersionDetail,
-  CriteriaVersionSummary,
   VitalBoundsOut,
 } from './types';
 
@@ -131,6 +126,7 @@ export const api = {
     setAdminSession(response.access_token, {
       email: response.user.email,
       role: response.user.role,
+      fullName: response.user.full_name,
     });
     return response;
   },
@@ -252,8 +248,19 @@ export const api = {
 
   listEmergencyTriggers: () => request<EmergencyTriggerOut[]>('/emergency-triggers'),
 
-  getConversationSummary: () =>
-    request<ConversationSummaryOut[]>('/conversation-summary'),
+  listAdminSessions: (params: AdminSessionQuery = {}) => {
+    const search = new URLSearchParams();
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && value !== '') {
+        search.set(key, String(value));
+      }
+    });
+    const qs = search.toString();
+    return request<AdminSessionsOut>(`/admin/sessions${qs ? `?${qs}` : ''}`);
+  },
+
+  getSessionTrace: (sessionId: string) =>
+    request<SessionTraceOut>(`/admin/sessions/${sessionId}/trace`),
 
   listAssessmentReviews: (
     status: 'all' | 'pending' | 'reviewed' | 'approved' | 'corrected' = 'pending',
@@ -295,41 +302,6 @@ export const api = {
   stt: (audio: Blob, language: LanguageCode, filename?: string) =>
     sttRequest({ audio, language, filename }),
 
-  // ── Doctor schedules ──────────────────────────────────────────────────────
-  listDoctors: (activeOnly = true) =>
-    request<DoctorOut[]>(`/doctors?active_only=${activeOnly}`),
-
-  createDoctor: (payload: DoctorCreate) =>
-    request<DoctorOut>('/doctors', { method: 'POST', body: JSON.stringify(payload) }),
-
-  updateDoctor: (doctorId: string, payload: DoctorUpdate) =>
-    request<DoctorOut>(`/doctors/${doctorId}`, { method: 'PATCH', body: JSON.stringify(payload) }),
-
-  getDoctor: (doctorId: string) =>
-    request<DoctorWithSchedulesOut>(`/doctors/${doctorId}`),
-
-  listDoctorSchedules: (doctorId: string, fromDate?: string) =>
-    request<DoctorScheduleOut[]>(`/doctors/${doctorId}/schedules${fromDate ? `?from_date=${fromDate}` : ''}`),
-
-  addDoctorSchedule: (doctorId: string, payload: DoctorScheduleCreate) =>
-    request<DoctorScheduleOut>(`/doctors/${doctorId}/schedules`, {
-      method: 'POST',
-      body: JSON.stringify(payload),
-    }),
-
-  updateDoctorSchedule: (doctorId: string, scheduleId: string, payload: DoctorScheduleCreate) =>
-    request<DoctorScheduleOut>(`/doctors/${doctorId}/schedules/${scheduleId}`, {
-      method: 'PATCH',
-      body: JSON.stringify(payload),
-    }),
-
-  deleteDoctorSchedule: (doctorId: string, scheduleId: string) =>
-    request<void>(`/doctors/${doctorId}/schedules/${scheduleId}`, { method: 'DELETE' }),
-
-  getAvailableDoctors: (scheduleDate?: string) =>
-    request<DoctorWithSchedulesOut[]>(
-      `/schedules/available${scheduleDate ? `?schedule_date=${scheduleDate}` : ''}`,
-    ),
 
   // ── Vitals (blood pressure kiosk) ──────────────────────────────────────────
   fetchBloodPressure: (sessionId?: string | null) =>
@@ -437,6 +409,24 @@ export const api = {
   getSurveillanceSummary: (days = 7) =>
     request<SurveillanceSummaryOut>(`/admin/surveillance?days=${days}`),
 
+  /** Queue pressure, acuity mix, department load and nurse-vs-engine
+   *  agreement — one round trip behind every dashboard panel. */
+  /** The dashboard's period, either way it can be expressed: a rolling window
+   *  from the chips, or the explicit pair the calendar produces. Sending both
+   *  is not an error — `from` wins server-side — but the caller should send
+   *  one, since only one of them is what the nurse chose. */
+  getTriageStats: (period: { days: number } | { from: string; to: string } = { days: 7 }) => {
+    const qs =
+      'days' in period
+        ? `days=${period.days}`
+        : `from=${encodeURIComponent(period.from)}&to=${encodeURIComponent(period.to)}`;
+    return request<TriageStatsOut>(`/admin/triage-stats?${qs}`);
+  },
+
+  /** AI transparency aggregate — call-site ok-rates and latency, validator
+   *  violations, RAG grounding. Shares the dashboard's one period control. */
+  getAiMetrics: (days = 7) => request<AiMetricsOut>(`/admin/ai-metrics?days=${days}`),
+
   // ── Hospital DB (mock HIS) read-only view ──────────────────────────────────
   getHisVisits: () => request<HisVisitsResponse>('/admin/his/visits'),
 
@@ -498,52 +488,22 @@ export const api = {
   getTriageManualStatus: () =>
     request<TriageManualUploadOut | null>('/admin/triage-manual/status'),
 
+  /** The manual PDF itself. Returned as a Blob because the route is bearer-
+   *  guarded — a plain <a href> cannot carry the Authorization header, so the
+   *  caller opens an object URL instead. */
+  getTriageManualFile: async (): Promise<Blob> => {
+    const token = (await import('./client')).getAdminToken();
+    const response = await fetch(`${baseUrl}/admin/triage-manual/file`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+    if (!response.ok) throw new Error(response.statusText);
+    return response.blob();
+  },
+
   /** Read-only, nurse-shaped view of the criteria the booth decides with. */
   getActiveCriteria: () => request<CriteriaActiveView>('/admin/criteria/active'),
 
   // ── Screening criteria governance (engine v2) ─────────────────────────────
-  listCriteriaVersions: () =>
-    request<CriteriaVersionSummary[]>('/admin/criteria/versions'),
-
-  getCriteriaVersion: (versionId: string) =>
-    request<CriteriaVersionDetail>(`/admin/criteria/versions/${versionId}`),
-
-  getCriteriaDiff: (versionId: string, against?: string) =>
-    request<CriteriaDiffOut>(
-      `/admin/criteria/versions/${versionId}/diff${against ? `?against=${against}` : ''}`,
-    ),
-
-  updateCriteriaVersion: (versionId: string, criteria: Record<string, unknown>) =>
-    request<CriteriaEditResponse>(`/admin/criteria/versions/${versionId}`, {
-      method: 'PUT',
-      body: JSON.stringify(criteria),
-    }),
-
-  submitCriteriaVersion: (versionId: string) =>
-    request<{ id: string; status: string }>(
-      `/admin/criteria/versions/${versionId}/submit`,
-      { method: 'POST' },
-    ),
-
-  approveCriteriaVersion: (versionId: string) =>
-    request<{ id: string; status: string }>(
-      `/admin/criteria/versions/${versionId}/approve`,
-      { method: 'POST' },
-    ),
-
-  activateCriteriaVersion: (versionId: string) =>
-    request<{ id: string; status: string }>(
-      `/admin/criteria/versions/${versionId}/activate`,
-      { method: 'POST' },
-    ),
-
-  getAiMetrics: (params: { from?: string; to?: string } = {}) => {
-    const query = new URLSearchParams();
-    if (params.from) query.set('from', params.from);
-    if (params.to) query.set('to', params.to);
-    const suffix = query.toString();
-    return request<AiMetricsOut>(`/admin/ai-metrics${suffix ? `?${suffix}` : ''}`);
-  },
 };
 
-export type { CriteriaActiveView, MessageOut, SessionOut, ConversationSummaryOut, DepartmentOut, DoctorOut, DoctorWithSchedulesOut, DoctorScheduleOut, SurveillanceSummaryOut, TriageManualUploadOut, AiMetricsOut, CriteriaDiffOut, CriteriaVersionDetail, CriteriaVersionSummary, LinkPatientResponse, HisVisitSummary, HisVisitDetail, KioskStats };
+export type { CriteriaActiveView, MessageOut, SessionOut, AdminSessionsOut, AdminSessionRow, AdminSessionCounts, SessionTraceOut, DepartmentOut, SurveillanceSummaryOut, TriageStatsOut, AiMetricsOut, TriageManualUploadOut, LinkPatientResponse, HisVisitSummary, HisVisitDetail, KioskStats };

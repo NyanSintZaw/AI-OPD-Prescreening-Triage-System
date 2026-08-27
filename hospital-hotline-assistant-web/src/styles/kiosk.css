@@ -16,59 +16,62 @@
 
 .kiosk-root {
   /* ── Tokens ─────────────────────────────────────────────────────────── */
-  /* Neutrals — soft periwinkle canvas (from the reference infographic) */
-  --k-bg: #e9edf9;
-  --k-bg-2: #dee4f4;
+  /* Neutrals — MALI paper with a whisper of teal (Brand v1.0) */
+  --k-bg: #faf9f5;
+  --k-bg-2: #f0f7f6;
   --k-surface: #ffffff;
-  --k-surface-tint: #eef1fa;
-  --k-border: #d3d9ec;
-  --k-border-strong: #b9c1de;
-  /* Ink — deep indigo family */
-  --k-ink: #35406f;
-  --k-ink-2: #4d5878;
-  --k-ink-3: #7d87a6;
-  /* Primary — deep indigo (reference badge/frame color): navigation & primary
-     actions ONLY. State colors below stay deliberately distinct so
+  --k-surface-tint: #f0f7f6;
+  --k-border: #e4e2da;
+  --k-border-strong: #bbdad7;
+  /* Ink — deep leaf family */
+  --k-ink: #1f3b38;
+  --k-ink-2: #333d3a;
+  --k-ink-3: #5f6b68;   /* 4.9:1 on paper — was #8a9290 at 3.02:1 */
+  /* Primary — Mali Teal (the logo colour): navigation & primary actions ONLY.
+     State colors below stay deliberately distinct so
      normal/success/warning/danger/disabled never look uniform. */
-  --k-primary: #3f4e87;
-  --k-primary-strong: #364375;
-  --k-primary-deep: #2d3963;
-  --k-primary-tint: #dfe4f6;
-  --k-primary-tint-border: #b9c3e6;
+  --k-primary: #58a19d;
+  --k-primary-strong: #46867f;
+  --k-primary-deep: #386b66;
+  --k-primary-tint: #ddecea;
+  --k-primary-tint-border: #bbdad7;
+  /* Mali Teal is exactly 3.00:1 on white, so it can never carry small text.
+     Use this for teal text on a light surface (4.6:1). */
+  --k-primary-on-light: #3f7873;
   /* Success — confirmations, completed steps, "mic live" */
-  --k-success: #1e8a5a;
-  --k-success-strong: #197a4f;
-  --k-success-tint: #e6f6ee;
-  --k-success-tint-border: #b8e4cd;
+  --k-success: #3f8f6b;
+  --k-success-strong: #35795a;
+  --k-success-tint: #eaf5ef;
+  --k-success-tint-border: #bfe0cf;
   /* Warning — countdowns, thinking/processing */
-  --k-warning: #b97d10;
-  --k-warning-text: #8f610c;
-  --k-warning-tint: #fdf3e0;
-  --k-warning-tint-border: #f0d9a8;
+  --k-warning: #b98f3e;
+  --k-warning-text: #93702c;
+  --k-warning-tint: #f9f2e3;
+  --k-warning-tint-border: #ebd49d;
   /* Danger — destructive/end actions, errors */
-  --k-danger: #c2413b;
-  --k-danger-tint: #fbeeed;
+  --k-danger: #c05b4d;
+  --k-danger-tint: #faedeb;
   /* Data accent (stat tiles only) */
-  --k-violet: #6d5bb8;
-  --k-violet-tint: #efecf9;
+  --k-violet: #4a7fb5;
+  --k-violet-tint: #edf3f9;
   /* Disabled — flat gray, unmistakably inactive */
-  --k-disabled-bg: #e9edf2;
-  --k-disabled-text: #9aa6b5;
+  --k-disabled-bg: #f0eee6;
+  --k-disabled-text: #8a9290;
   /* Shape & depth */
   --k-r-sm: 14px;
   --k-r-md: 20px;
   --k-r-lg: 28px;
-  --k-shadow-sm: 0 1px 2px rgba(16, 35, 52, 0.05), 0 1px 3px rgba(16, 35, 52, 0.06);
-  --k-shadow-md: 0 2px 4px rgba(16, 35, 52, 0.04), 0 10px 24px -8px rgba(16, 35, 52, 0.12);
-  --k-shadow-lg: 0 4px 10px rgba(16, 35, 52, 0.05), 0 22px 48px -14px rgba(16, 35, 52, 0.18);
+  --k-shadow-sm: 0 1px 2px rgba(31, 59, 56, 0.05), 0 1px 3px rgba(31, 59, 56, 0.06);
+  --k-shadow-md: 0 2px 4px rgba(31, 59, 56, 0.04), 0 10px 24px -8px rgba(31, 59, 56, 0.12);
+  --k-shadow-lg: 0 4px 10px rgba(31, 59, 56, 0.05), 0 22px 48px -14px rgba(31, 59, 56, 0.18);
   /* Type scale */
   --k-font: 'Anuphan Variable', 'Anuphan', 'Noto Sans Thai', system-ui, sans-serif;
-  --k-fs-display: clamp(42px, 4.6vw, 66px);
-  --k-fs-title: clamp(28px, 3vw, 42px);
-  --k-fs-lead: clamp(19px, 1.8vw, 24px);
-  --k-fs-body-lg: clamp(18px, 1.7vw, 22px);
-  --k-fs-body: clamp(16px, 1.4vw, 19px);
-  --k-fs-caption: clamp(14px, 1.15vw, 16px);
+  --k-fs-display: clamp(46px, 6vmin, 66px);
+  --k-fs-title: clamp(30px, 3.6vmin, 42px);
+  --k-fs-lead: clamp(22px, 2.4vmin, 26px);
+  --k-fs-body-lg: clamp(22px, 2.2vmin, 26px);
+  --k-fs-body: clamp(22px, 2.2vmin, 25px);
+  --k-fs-caption: clamp(20px, 1.9vmin, 22px);
   /* Motion */
   --k-ease: cubic-bezier(0.2, 0.8, 0.3, 1);
   --k-t-fast: 160ms;
@@ -90,15 +93,22 @@
   touch-action: manipulation;
 }
 
-/* Two very subtle color blobs — the only decoration on the canvas. */
+.k-petals {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+
+/* Two very subtle color blobs behind the petal drift. */
 .kiosk-aurora {
   position: absolute;
   inset: 0;
   z-index: 0;
   pointer-events: none;
   background:
-    radial-gradient(640px 640px at 8% 18%, rgba(63, 78, 135, 0.1), transparent 70%),
-    radial-gradient(720px 720px at 96% 88%, rgba(63, 78, 135, 0.08), transparent 70%);
+    radial-gradient(640px 640px at 8% 18%, rgba(88, 161, 157, 0.08), transparent 70%),
+    radial-gradient(720px 720px at 96% 88%, rgba(88, 161, 157, 0.06), transparent 70%);
   animation: k-aurora-drift 36s ease-in-out infinite alternate;
 }
 
@@ -113,7 +123,7 @@
 
 /* Focus visibility — kiosk may get a keyboard/scanner attached. */
 .kiosk-root :focus-visible {
-  outline: 3px solid rgba(63, 78, 135, 0.5);
+  outline: 3px solid rgba(88, 161, 157, 0.55);
   outline-offset: 2px;
   border-radius: 8px;
 }
@@ -163,19 +173,12 @@
   min-width: 0;
 }
 
-/* Official lockup: monogram · red rule · bilingual wordmark (legacy header). */
-.k-brand-emblem {
-  height: clamp(40px, 5.6vh, 54px);
-  width: auto;
-  flex-shrink: 0;
-}
-
+/* MALI lockup · quiet rule · bilingual hospital name. */
 .k-brand-rule {
-  width: 3px;
+  width: 1px;
   align-self: stretch;
   min-height: 44px;
-  background: #d03030;
-  border-radius: 1px;
+  background: var(--border-default);
   flex-shrink: 0;
 }
 
@@ -189,25 +192,24 @@
 }
 
 .k-brand-name {
-  font-size: clamp(14px, 1.25vw, 19px);
+  font-size: clamp(17px, 1.7vmin, 20px);
   font-weight: 800;
-  color: #223145;
+  color: var(--k-ink);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 36vw;
+  max-width: 46vw;
 }
 
 .k-brand-sub {
-  font-size: clamp(10px, 0.85vw, 13px);
+  font-size: clamp(15px, 1.4vmin, 17px);
   font-weight: 600;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: #5a6570;
+  letter-spacing: 0.04em;
+  color: var(--k-ink-3);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 36vw;
+  max-width: 46vw;
 }
 
 .k-clock {
@@ -229,46 +231,62 @@
 }
 
 .k-lang button {
-  min-width: 66px;
-  min-height: 48px;
-  padding: 0 18px;
+  min-width: 84px;
+  min-height: var(--k-touch);
+  padding: 0 22px;
   border: none;
   border-radius: 999px;
   background: transparent;
-  color: var(--k-ink-3);
-  font-size: 17px;
+  color: var(--k-ink-2);
+  font-size: var(--k-fs-caption);
   font-weight: 700;
   cursor: pointer;
   transition: background var(--k-t-fast) var(--k-ease), color var(--k-t-fast) var(--k-ease);
 }
 
 .k-lang button.active {
-  background: var(--k-primary);
+  background: var(--k-primary-deep);
   color: #fff;
 }
 
-/* Labeled exit pill */
+/* Labeled exit pill.
+   Two very different homes, so the base is the topbar one: an inline
+   control at the end of the right cluster, sized to the bar. It used to
+   carry the overlay's absolute centring, which floated it over the middle
+   of the topbar and straight on top of the stepper. */
 .k-exit {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  min-height: 52px;
-  padding: 0 20px;
+  min-height: clamp(44px, calc(var(--k-topbar-h) - 30px), 56px);
+  padding: 0 22px;
   border-radius: 999px;
-  border: 1px solid var(--k-border);
-  background: var(--k-surface);
-  color: var(--k-ink-2);
-  font-size: 17px;
+  border: none;
+  background: var(--k-primary);
+  color: #fff;
+  font-size: var(--k-fs-caption);
   font-weight: 700;
+  white-space: nowrap;
   cursor: pointer;
   box-shadow: var(--k-shadow-sm);
-  transition: background var(--k-t-fast) var(--k-ease), border-color var(--k-t-fast) var(--k-ease);
+  transition: background-color var(--k-t-fast) var(--k-ease);
 }
 
-.k-exit:hover {
-  background: var(--k-bg);
-  border-color: var(--k-border-strong);
+/* Inside a full-screen overlay it is the only way out, so it leaves the bar
+   entirely: anchored at the bottom where a standing patient can reach it,
+   and weighted like the primary action it is. */
+.k-overlay .k-exit {
+  position: absolute;
+  left: 50%;
+  bottom: 40px;
+  transform: translateX(-50%);
+  z-index: 2;
+  min-height: var(--k-touch);
+  padding: 0 48px;
+  font-size: var(--k-fs-body-lg);
+  box-shadow: var(--k-shadow-md);
 }
+
 
 /* ── Shell ──────────────────────────────────────────────────────────────── */
 /* NOTE: no z-index here — a z-index would trap fixed overlays/modals
@@ -342,23 +360,17 @@
 .k-btn.primary {
   background: var(--k-primary);
   color: #fff;
-  box-shadow: 0 10px 24px -10px rgba(63, 78, 135, 0.5), var(--k-shadow-sm);
+  box-shadow: 0 10px 24px -10px rgba(88, 161, 157, 0.55), var(--k-shadow-sm);
 }
 
-.k-btn.primary:hover {
-  background: var(--k-primary-strong);
-}
 
 /* Success — confirm/complete actions ("I'm finished speaking"). */
 .k-btn.success {
   background: var(--k-success);
   color: #fff;
-  box-shadow: 0 10px 24px -10px rgba(30, 138, 90, 0.5), var(--k-shadow-sm);
+  box-shadow: 0 10px 24px -10px rgba(63, 143, 107, 0.5), var(--k-shadow-sm);
 }
 
-.k-btn.success:hover {
-  background: var(--k-success-strong);
-}
 
 .k-btn.secondary {
   background: var(--k-surface);
@@ -367,10 +379,6 @@
   box-shadow: var(--k-shadow-sm);
 }
 
-.k-btn.secondary:hover {
-  background: var(--k-bg);
-  border-color: var(--k-border-strong);
-}
 
 /* Outline — a secondary action that must still read unmistakably tappable
    (vs the flat informational badges): white fill, visible primary border. */
@@ -382,31 +390,20 @@
   box-shadow: var(--k-shadow-sm);
 }
 
-.k-btn.outline:hover {
-  border-color: var(--k-primary);
-  background: var(--k-primary-tint);
-}
 
 .k-btn.ghost {
   background: transparent;
   color: var(--k-ink-3);
 }
 
-.k-btn.ghost:hover {
-  background: rgba(18, 42, 62, 0.05);
-  color: var(--k-ink-2);
-}
 
 .k-btn.danger-ghost {
   background: var(--k-surface);
-  border-color: rgba(194, 65, 59, 0.35);
+  border-color: rgba(192, 91, 77, 0.35);
   color: var(--k-danger);
   box-shadow: var(--k-shadow-sm);
 }
 
-.k-btn.danger-ghost:hover {
-  background: var(--k-danger-tint);
-}
 
 /* ── Cards ──────────────────────────────────────────────────────────────── */
 .k-card {
@@ -474,7 +471,10 @@
   font-size: 16px;
   font-weight: 800;
   flex-shrink: 0;
-  transition: all var(--k-t-med) var(--k-ease);
+  transition:
+    border-color var(--k-t-med) var(--k-ease),
+    background-color var(--k-t-med) var(--k-ease),
+    color var(--k-t-med) var(--k-ease);
 }
 
 .k-step.current .k-step-dot {
@@ -514,49 +514,28 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: clamp(16px, 2.8vh, 30px);
-  width: min(1500px, 94vw);
+  /* Spacing carries grouping. space-evenly put an identical gap between every
+     child, so a headline and its own subtitle sat as far apart as the headline
+     and the disclaimer — nothing read as belonging together. Groups are tight
+     inside and separated between; `justify-content: center` then floats the
+     whole composition, and the group gaps below do the rest. */
+  /* `safe`, not plain `center`: with min-height:100% a centred flex column
+     whose children are taller than its box overflows in BOTH directions, so
+     the top slides under the absolutely-positioned topbar and overflow-y
+     cannot scroll it back (that overflow is above the scroll origin). `safe`
+     falls back to flex-start the moment content exceeds the box. Only the
+     1080x1920 kiosk panel escaped this; every browser window clipped. */
+  justify-content: safe center;
+  min-height: 100%;
+  gap: clamp(14px, 1.8vh, 22px);
+  /* One measure for the whole column. Blocks previously ranged 476-1000px
+     wide, so nothing shared an edge and the silhouette read as ragged. */
+  --k-measure: min(780px, 92vw);
+  width: var(--k-measure);
   text-align: center;
 }
 
-.k-home-main {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: clamp(18px, 3vh, 34px);
-  width: 100%;
-}
 
-/* The two home zones. Portrait/base: display:contents dissolves the
-   wrappers so all blocks stack in ONE column of .k-home-main, re-ordered
-   via `order` below. Landscape turns them into real side-by-side columns:
-   pitch (headline + how-it-works) left, action (greeting + buttons) right. */
-.k-home-pitch,
-.k-home-action {
-  display: contents;
-}
-
-.k-hero-hello {
-  order: 1;
-}
-.k-ad-head {
-  order: 2;
-}
-.k-hero-sub {
-  order: 3;
-}
-.k-ad-dots {
-  order: 4;
-}
-.k-feat-chips {
-  order: 5;
-}
-.k-cta-row {
-  order: 6;
-}
-.k-how {
-  order: 7;
-}
 
 /* Assistant presence: breathing orb + welcome line above the headline.
    The orb's box is slightly overcropped (its ring never reaches the edge)
@@ -567,98 +546,58 @@
   gap: 14px;
 }
 
-.k-hero-hello > [role='img'] {
+/* Stage for the showreel's rings and petals — centred on the mark and allowed
+   to overflow it, so the bursts are not clipped by the content column. */
+.k-hero-mark {
+  position: relative;
+  display: grid;
+  place-items: center;
+  flex: none;
+  overflow: visible;
+}
+
+.k-hero-hello > [role='img'],
+.k-hero-mark > [role='img'] {
   margin: -6px 0;
 }
 
 .k-hero-hello-text {
   font-size: var(--k-fs-lead);
   font-weight: 700;
-  color: var(--k-primary);
+  color: var(--k-primary-on-light);
 }
 
 /* Rotating pitch headline — fixed-height slot so crossfades don't reflow. */
-.k-ad-head {
-  display: flex;
-  align-items: center;
-  min-height: clamp(96px, 14vh, 170px);
-}
 
-.k-ad-title {
-  font-size: var(--k-fs-display);
-  font-weight: 800;
-  line-height: 1.14;
-  letter-spacing: -0.01em;
-  color: var(--k-ink);
-  margin: 0;
-  max-width: 14em;
-  text-wrap: balance;
-}
 
 /* Permanent promise line under the greeting. */
 .k-hero-sub {
+  width: 100%;
   font-size: var(--k-fs-body-lg);
   font-weight: 600;
   color: var(--k-ink-2);
   line-height: 1.5;
-  max-width: 30em;
+  /* balance keeps both languages evenly ragged; the column sets the measure. */
+  text-wrap: balance;
   margin: 0;
 }
 
-.k-ad-dots {
-  display: flex;
-  gap: 8px;
-}
 
-.k-ad-dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 999px;
-  background: var(--k-border-strong);
-  transition: all 400ms var(--k-ease);
-}
 
-.k-ad-dot.active {
-  width: 28px;
-  background: var(--k-primary);
-}
 
 /* Feature badges (trust / ease signals) — a tidy 2×2 grid of soft tint
    capsules. Deliberately distinct BOTH from the body text above (they sit
    on a tint, not bare canvas) and from the buttons below (flat, no border,
    no shadow, square-ish corners instead of the button pill). */
-.k-feat-chips {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px 12px;
-  width: min(560px, 100%);
-}
 
-.k-feat-chip {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 10px 14px;
-  border-radius: 12px;
-  background: rgba(63, 78, 135, 0.08);
-  font-size: var(--k-fs-caption);
-  font-weight: 700;
-  color: var(--k-ink-2);
-  white-space: nowrap;
-}
 
-.k-feat-chip svg {
-  color: var(--k-primary);
-  flex-shrink: 0;
-}
 
 .k-cta-row {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 12px;
-  width: min(560px, 92vw);
+  width: 100%;
 }
 
 .k-cta-row .k-btn {
@@ -669,18 +608,8 @@
    pulse ring and nudging arrow come from framer-motion in KioskHome. */
 .k-cta-row .k-cta-start {
   min-height: clamp(88px, 11vh, 104px);
-  background: linear-gradient(180deg, #4a5a99 0%, var(--k-primary) 45%, var(--k-primary-deep) 100%);
+  background: var(--k-primary);
   box-shadow: var(--k-shadow-lg);
-}
-
-.k-cta-row .k-cta-start:hover {
-  background: linear-gradient(180deg, #4a5a99 0%, var(--k-primary-strong) 45%, var(--k-primary-deep) 100%);
-}
-
-.k-cta-hint {
-  font-size: var(--k-fs-caption);
-  font-weight: 600;
-  color: var(--k-ink-3);
 }
 
 /* How-it-works panel — a numbered TIMELINE, deliberately flat. These rows
@@ -697,86 +626,15 @@
   text-align: left;
 }
 
-.k-how-title {
-  font-size: var(--k-fs-caption);
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--k-ink-3);
-  margin-bottom: 4px;
-}
 
-.k-how-step {
-  display: flex;
-  align-items: stretch;
-  gap: 18px;
-}
 
 /* Left rail: numbered circle + connector line down to the next step. */
-.k-how-rail {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  flex-shrink: 0;
-}
 
-.k-how-dot {
-  display: grid;
-  place-items: center;
-  width: 46px;
-  height: 46px;
-  border-radius: 50%;
-  border: 2.5px solid var(--k-border-strong);
-  background: var(--k-surface-tint);
-  color: var(--k-ink-3);
-  font-size: 19px;
-  font-weight: 800;
-  flex-shrink: 0;
-  transition: all 450ms var(--k-ease);
-}
 
-.k-how-line {
-  flex: 1;
-  width: 2.5px;
-  min-height: 18px;
-  margin: 4px 0;
-  border-radius: 2px;
-  background: var(--k-border);
-}
 
-.k-how-text {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  min-width: 0;
-  padding-bottom: clamp(10px, 1.6vh, 18px);
-}
 
-.k-how-name {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-size: var(--k-fs-body-lg);
-  font-weight: 800;
-  color: var(--k-ink-2);
-  transition: color 450ms var(--k-ease);
-}
 
-.k-how-name-ico {
-  display: inline-flex;
-  color: var(--k-ink-3);
-  transition: color 450ms var(--k-ease);
-}
 
-.k-how-sub {
-  font-size: var(--k-fs-caption);
-  color: var(--k-ink-3);
-  line-height: 1.4;
-}
-
-.k-how-step.active .k-how-name {
-  color: var(--k-ink);
-}
 
 /* Per-step accents when active: blue → amber → green (journey colors). */
 .k-how-step--1.active .k-how-dot {
@@ -805,29 +663,9 @@
 }
 
 /* Bottom band: stats + disclaimer */
-.k-home-band {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 10px;
-  width: min(1200px, 100%);
-}
 
 /* Ambient floating icons on the canvas edges. */
-.k-floats {
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  pointer-events: none;
-  overflow: hidden;
-}
 
-.k-float-ico {
-  position: absolute;
-  color: var(--k-primary);
-  opacity: 0.13;
-  animation: k-bob 7s ease-in-out infinite;
-}
 
 @keyframes k-bob {
   0%,
@@ -840,78 +678,22 @@
 }
 
 /* Today stats / advertising strip */
-.k-today {
-  display: flex;
-  flex-direction: column;
-  gap: 0;
-  width: 100%;
-}
 
 /* The board's title is a solid TAB attached to the strip's top-left corner,
    colored to match the current slide's accent — unmissable, and visually
    one piece with the card below it. */
-.k-today-label {
-  align-self: flex-start;
-  display: inline-flex;
-  align-items: center;
-  margin-left: 22px;
-  padding: 9px 22px;
-  border-radius: 14px 14px 0 0;
-  background: var(--k-primary);
-  color: #fff;
-  font-size: clamp(15px, 1.3vw, 18px);
-  font-weight: 800;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  text-align: left;
-  transition: background 450ms var(--k-ease);
-}
 
-.k-today-label--blue {
-  background: var(--k-primary);
-}
 
-.k-today-label--green {
-  background: var(--k-success);
-}
 
-.k-today-label--amber {
-  background: var(--k-warning);
-}
 
 /* Rotating stat banner — a white card so it stands off the periwinkle
    canvas (the old flat tints were nearly the same value as --k-bg and
    blended in): one stat at a time as a full sentence with the number
    highlighted, plus a friendly supporting sub-line. The active stat's
    accent survives as a tint fading in from the left edge. */
-.k-stat-banner {
-  position: relative;
-  width: 100%;
-  min-height: clamp(88px, 10vh, 118px);
-  padding: clamp(12px, 1.8vh, 18px) clamp(20px, 2.4vw, 36px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: var(--k-r-md);
-  box-sizing: border-box;
-  overflow: hidden;
-  background: var(--k-surface);
-  border: 1px solid var(--k-border);
-  box-shadow: var(--k-shadow-md);
-  transition: background 450ms var(--k-ease);
-}
 
-.k-stat-banner--blue {
-  background: linear-gradient(90deg, var(--k-primary-tint) 0%, var(--k-surface) 55%);
-}
 
-.k-stat-banner--green {
-  background: linear-gradient(90deg, var(--k-success-tint) 0%, var(--k-surface) 55%);
-}
 
-.k-stat-banner--amber {
-  background: linear-gradient(90deg, var(--k-warning-tint) 0%, var(--k-surface) 55%);
-}
 
 .k-stat-line {
   display: flex;
@@ -927,7 +709,8 @@
   width: 64px;
   height: 64px;
   border-radius: var(--k-r-sm);
-  background: var(--k-bg);
+  background: var(--k-primary-tint);
+  color: var(--k-primary-on-light);
   flex-shrink: 0;
 }
 
@@ -940,8 +723,10 @@
 
 .k-stat-line-text {
   font-size: clamp(20px, 2vw, 27px);
-  font-weight: 800;
-  color: var(--k-ink);
+  /* 800 in --k-ink was the headline's exact colour and weight, so the board
+     read as a continuation of the hook rather than support beneath it. */
+  font-weight: 600;
+  color: var(--k-ink-2);
   line-height: 1.3;
 }
 
@@ -955,34 +740,13 @@
 
 .k-stat-line-sub {
   font-size: var(--k-fs-body);
-  font-weight: 600;
-  color: var(--k-ink-2);
+  font-weight: 400;
+  color: var(--k-ink-3);
   line-height: 1.4;
 }
 
 /* Accent per stat: blue / green / amber — solid chip matching the banner
    border, white icon, colored number. */
-.k-stat-line--blue .k-stat-line-ico {
-  background: var(--k-primary);
-  color: #fff;
-}
-.k-stat-line--blue .k-stat-line-num {
-  color: var(--k-primary);
-}
-.k-stat-line--green .k-stat-line-ico {
-  background: var(--k-success);
-  color: #fff;
-}
-.k-stat-line--green .k-stat-line-num {
-  color: var(--k-success);
-}
-.k-stat-line--amber .k-stat-line-ico {
-  background: var(--k-warning);
-  color: #fff;
-}
-.k-stat-line--amber .k-stat-line-num {
-  color: var(--k-warning);
-}
 
 .k-home-footer {
   font-size: var(--k-fs-caption);
@@ -1041,11 +805,6 @@
     transform var(--k-t-fast) var(--k-ease);
 }
 
-.k-lang-card:hover {
-  border-color: var(--k-primary);
-  box-shadow: var(--k-shadow-lg);
-  transform: translateY(-2px);
-}
 
 .k-lang-card:active {
   transform: scale(0.98);
@@ -1057,7 +816,7 @@
   border-radius: 12px;
   overflow: hidden;
   box-shadow: var(--k-shadow-sm);
-  border: 1px solid rgba(30, 44, 64, 0.12);
+  border: 1px solid rgba(31, 59, 56, 0.12);
   line-height: 0;
   margin-bottom: 6px;
 }
@@ -1269,7 +1028,7 @@
   border: none;
   color: #fff;
   background: var(--k-primary);
-  box-shadow: 0 12px 30px -10px rgba(63, 78, 135, 0.5);
+  box-shadow: 0 12px 30px -10px rgba(88, 161, 157, 0.55);
   transition: background var(--k-t-fast) var(--k-ease), transform var(--k-t-fast) var(--k-ease);
 }
 
@@ -1279,17 +1038,17 @@
 
 .k-mic-btn.recording {
   background: var(--k-danger);
-  box-shadow: 0 12px 30px -10px rgba(194, 65, 59, 0.55);
+  box-shadow: 0 12px 30px -10px rgba(192, 91, 77, 0.55);
   animation: k-rec-pulse 1.6s ease-in-out infinite;
 }
 
 @keyframes k-rec-pulse {
   0%,
   100% {
-    box-shadow: 0 12px 30px -10px rgba(194, 65, 59, 0.55), 0 0 0 0 rgba(194, 65, 59, 0.25);
+    box-shadow: 0 12px 30px -10px rgba(192, 91, 77, 0.55), 0 0 0 0 rgba(192, 91, 77, 0.25);
   }
   50% {
-    box-shadow: 0 12px 30px -10px rgba(194, 65, 59, 0.55), 0 0 0 16px rgba(194, 65, 59, 0);
+    box-shadow: 0 12px 30px -10px rgba(192, 91, 77, 0.55), 0 0 0 16px rgba(192, 91, 77, 0);
   }
 }
 
@@ -1313,14 +1072,11 @@
   cursor: pointer;
 }
 
-.k-textlink:hover {
-  color: var(--k-ink-2);
-}
 
 .k-error {
   color: var(--k-danger);
   background: var(--k-danger-tint);
-  border: 1px solid rgba(194, 65, 59, 0.25);
+  border: 1px solid rgba(192, 91, 77, 0.25);
   border-radius: var(--k-r-sm);
   padding: 12px 18px;
   font-size: var(--k-fs-body);
@@ -1350,7 +1106,7 @@
 .k-error-badge {
   background: var(--k-danger-tint);
   color: var(--k-danger);
-  border-color: rgba(194, 65, 59, 0.3);
+  border-color: rgba(192, 91, 77, 0.3);
 }
 
 .k-hello-name {
@@ -1597,10 +1353,6 @@
     transform var(--k-t-fast) var(--k-ease);
 }
 
-.k-chip:hover {
-  border-color: var(--k-primary);
-  background: var(--k-primary-tint);
-}
 
 .k-chip:active {
   transform: scale(0.97);
@@ -1674,7 +1426,7 @@
   z-index: 40;
   display: grid;
   place-items: center;
-  background: rgba(18, 42, 62, 0.4);
+  background: rgba(31, 59, 56, 0.4);
   backdrop-filter: blur(5px);
 }
 
@@ -1753,8 +1505,7 @@
   z-index: 20;
   display: flex;
   flex-direction: column;
-  background: rgba(244, 247, 249, 0.97);
-  backdrop-filter: blur(6px);
+  background: var(--k-bg);
 }
 
 .k-overlay-head {
@@ -1780,10 +1531,14 @@
   overflow: auto;
 }
 
-/* The CareNav wayfinder is a full-viewport app — give the iframe the
-   whole overlay body, no padding or scrolling. */
+/* The CareNav wayfinder is a full-viewport app — give the iframe the overlay
+   body, but stop short of the bottom so the exit pill sits on the surface
+   rather than floating over the map, and so there is a real backdrop to tap. */
 .k-overlay-body-map {
   padding: 0;
+  /* margin, not padding: padding stays inside the box and would still
+     swallow the backdrop tap below the map. */
+  margin-bottom: calc(var(--k-touch) + 72px);
   overflow: hidden;
   display: flex;
 }
@@ -1855,9 +1610,6 @@
   cursor: pointer;
 }
 
-.kiosk-root .primary-btn:hover {
-  background: var(--k-primary-strong);
-}
 
 .kiosk-root .secondary-btn {
   font-family: var(--k-font);
@@ -1874,62 +1626,73 @@
 
 /* ── Landscape (wide demo screens) ──────────────────────────────────────── */
 @media (orientation: landscape) and (min-width: 900px) {
-  /* Home attract → how-it-works left, hero pitch right, stats band below.
-     row-reverse (not a DOM swap) so the hero stays first in the markup:
-     portrait still stacks the pitch + CTA above the explainer, and the
-     primary content still comes first for screen readers. Putting the
-     Start/Map buttons on the right suits the booth's right-hand reach. */
+  /* Landscape is a demo/desktop shape — the booth panel is 1080x1920 portrait.
+     The welcome screen becomes two columns: reading on the left, the decision
+     on the right, reference spanning underneath. Placement is explicit grid
+     rather than wrappers, so the DOM stays one flat list and portrait keeps
+     its single-column reading order (and screen-reader order) unchanged. */
   .k-home {
-    gap: clamp(14px, 2.2vh, 24px);
+    display: grid;
+    grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
+    column-gap: clamp(32px, 4vw, 76px);
+    row-gap: clamp(10px, 1.6vh, 20px);
+    align-content: center;
+    justify-items: start;
+    text-align: left;
+    width: min(1600px, 94vw);
   }
 
-  .k-home-main {
-    flex-direction: row;
-    align-items: center;
-    justify-content: center;
-    gap: clamp(32px, 4vw, 72px);
+  /* Left column carries the reading; the right carries what you get and the
+     decision. The facts row used to sit under the sub-line, which stacked four
+     blocks on the left against two buttons on the right with dead space
+     beneath them. */
+  .k-home > .k-hero-hello {
+    grid-column: 1;
+    grid-row: 1;
+    margin: 0;
+    /* Stacked, so the greeting line starts on the same left edge as the
+       headline. Inline, the mark pushed its text to x=293 while the headline
+       began at x=162 — a ragged edge on the one column that is left-aligned. */
+    flex-direction: column;
+    align-items: flex-start;
+    gap: clamp(8px, 1.2vh, 16px);
   }
+  .k-home > .k-home-title  { grid-column: 1; grid-row: 2; margin: 0; }
+  .k-home > .k-hero-sub    { grid-column: 1; grid-row: 3; margin: 0; }
+  .k-home > .k-facts {
+    grid-column: 2;
+    grid-row: 1;
+    margin: 0;
+    justify-content: flex-start;
+    align-self: end;
+  }
+  .k-home > .k-cta-row {
+    grid-column: 2;
+    grid-row: 2 / 4;
+    align-self: center;
+    justify-self: stretch;
+    width: 100%;
+    margin: 0;
+  }
+  .k-home > .k-how {
+    grid-column: 1 / -1;
+    grid-row: 4;
+    justify-self: stretch;
+    margin-top: clamp(18px, 3vh, 40px);
+  }
+  .k-home > .k-home-footer {
+    grid-column: 1 / -1;
+    grid-row: 5;
+    justify-self: center;
+    text-align: center;
+    margin-top: clamp(10px, 1.6vh, 20px);
+  }
+
+
 
   /* Wrappers become real columns: pitch left, action (buttons) right. */
-  .k-home-pitch {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: clamp(14px, 2.2vh, 24px);
-    flex: 1 1 48%;
-    max-width: 700px;
-    min-width: 0;
-    text-align: left;
-  }
 
-  .k-home-action {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: clamp(14px, 2.2vh, 24px);
-    flex: 1 1 52%;
-    max-width: 640px;
-    min-width: 0;
-    text-align: left;
-  }
 
-  .k-cta-row {
-    width: 100%;
-    align-items: flex-start;
-  }
-
-  .k-cta-hint {
-    align-self: center;
-  }
-
-  .k-how {
-    width: 100%;
-    max-width: none;
-  }
-
-  .k-ad-head {
-    min-height: clamp(96px, 13vh, 150px);
-  }
 
   /* Visit → two columns inside the card: display+context left, method right */
   .k-visit {
@@ -2049,7 +1812,7 @@
 
   .k-btn.xl {
     min-height: 64px;
-    font-size: clamp(18px, 1.9vw, 22px);
+    font-size: var(--k-fs-body);
     padding: 0 34px;
   }
 
@@ -2061,18 +1824,8 @@
     gap: 12px;
   }
 
-  .k-home-main {
-    gap: 16px;
-  }
 
-  .k-home-pitch,
-  .k-home-action {
-    gap: 10px;
-  }
 
-  .k-ad-head {
-    min-height: clamp(60px, 10vh, 96px);
-  }
 
   /* Shave the hello row: smaller orb footprint via negative margins (the
      orb's box is fixed by its size prop; the ring never reaches this far). */
@@ -2090,21 +1843,13 @@
     max-width: 26em;
   }
 
-  .k-cta-hint {
-    font-size: 13px;
-  }
-
-  .k-today-label {
-    font-size: 13px;
-    padding: 7px 18px;
-  }
 
   .k-stat-line-num {
     font-size: clamp(30px, 3vw, 40px);
   }
 
   .k-stat-line-text {
-    font-size: clamp(17px, 1.7vw, 21px);
+    font-size: var(--k-fs-caption);
   }
 
   .k-home-footer {
@@ -2116,32 +1861,14 @@
     padding: 14px 18px;
   }
 
-  .k-how-step {
-    gap: 14px;
-  }
 
-  .k-how-dot {
-    width: 38px;
-    height: 38px;
-    font-size: 16px;
-  }
 
-  .k-how-line {
-    min-height: 10px;
-  }
 
-  .k-how-text {
-    padding-bottom: 8px;
-  }
 
   .k-hero-hello .k-hero-hello-text {
     font-size: 17px;
   }
 
-  .k-stat-banner {
-    min-height: 84px;
-    padding: 10px 20px;
-  }
 
   .k-stat-line-ico {
     width: 46px;
@@ -2153,7 +1880,7 @@
   }
 
   .k-stat-line-text {
-    font-size: clamp(17px, 1.7vw, 21px);
+    font-size: var(--k-fs-caption);
   }
 
   .k-stat-line-sub {
@@ -2214,27 +1941,27 @@
    resource: every vertical dimension tracks vh so the whole attract screen
    fits the viewport without scrolling. */
 @media (orientation: portrait) {
+  /* The booth panel is 1080px wide and the bar has to hold four things: the
+     wordmark, the progress, the clock and the way out. The stepper's content
+     is wider than the centre column gets, and a flex item will not shrink
+     below its content — so it bled across both neighbours and sat on top of
+     the Exit pill. The hospital name is the one item a patient standing
+     inside the hospital does not need, so it yields, and only on the screens
+     that carry a stepper — the welcome and attract screens keep it. */
+  .kiosk-topbar:has(.k-stepper) .k-brand-text,
+  .kiosk-topbar:has(.k-stepper) .k-brand-rule {
+    display: none;
+  }
+
   .k-home {
     gap: clamp(14px, 2vh, 24px);
   }
 
-  /* All blocks stack directly in k-home-main (the column wrappers are
-     display:contents here) — one gap governs the whole column. */
-  .k-home-main {
-    gap: clamp(10px, 1.6vh, 20px);
-  }
 
-  .k-ad-head {
-    min-height: clamp(72px, 9vh, 150px);
-  }
-
-  .k-ad-title {
-    font-size: clamp(30px, 6vw, 56px);
-  }
 
   .k-hero-sub {
-    font-size: clamp(15px, 2.4vw, 20px);
-    max-width: 26em;
+    font-size: var(--k-fs-body-lg);
+    max-width: 52ch;
   }
 
   .k-how {
@@ -2243,17 +1970,11 @@
     gap: clamp(8px, 1.2vh, 14px);
   }
 
-  .k-how-text {
-    padding-bottom: clamp(6px, 1.2vh, 14px);
-  }
 
   .k-cta-row .k-cta-start {
     min-height: clamp(72px, 8.5vh, 96px);
   }
 
-  .k-stat-banner {
-    min-height: clamp(80px, 9vh, 120px);
-  }
 
   .k-stat-line-num {
     font-size: clamp(32px, 4.5vh, 52px);
@@ -2268,23 +1989,17 @@
    at its tightest — drop the decorative orb (the greeting text stays) and
    compress the timeline so everything still fits without scrolling. */
 @media (orientation: portrait) and (max-height: 1150px) {
+  /* Narrower still: the passed and upcoming step names go, the current one
+     stays. Where you are is the part that has to survive. */
+  .k-step:not(.current) .k-step-label {
+    display: none;
+  }
+
   .k-hero-hello > [role='img'] {
     display: none;
   }
 
-  .k-how-dot {
-    width: 38px;
-    height: 38px;
-    font-size: 16px;
-  }
 
-  .k-how-line {
-    min-height: 10px;
-  }
-
-  .k-float-ico {
-    opacity: 0.08;
-  }
 
   .k-home-footer {
     font-size: 13px;
@@ -2297,7 +2012,6 @@
   .k-status-dot,
   .k-spinner,
   .k-mic-btn.recording,
-  .k-float-ico,
   .k-user-echo.live,
   .kiosk-aurora {
     animation: none !important;
@@ -2306,4 +2020,540 @@
   .kiosk-root * {
     transition-duration: 1ms !important;
   }
+}
+
+/* ── Hover, gated ─────────────────────────────────────────────────────────
+   This is a touch panel: an ungated :hover sticks after a tap, leaving the
+   CTA in its pressed fill until the next patient touches something else.
+   Mouse-only, matching the design system's own rule. */
+@media (hover: hover) and (pointer: fine) {
+  .k-exit:hover {
+    background: var(--k-primary-strong);
+  }
+
+  .k-btn.primary:hover {
+    background: var(--k-primary-strong);
+  }
+
+  .k-btn.success:hover {
+    background: var(--k-success-strong);
+  }
+
+  .k-btn.secondary:hover {
+    background: var(--k-bg);
+    border-color: var(--k-border-strong);
+  }
+
+  .k-btn.outline:hover {
+    border-color: var(--k-primary);
+    background: var(--k-primary-tint);
+  }
+
+  .k-btn.ghost:hover {
+    background: rgba(31, 59, 56, 0.05);
+    color: var(--k-ink-2);
+  }
+
+  .k-btn.danger-ghost:hover {
+    background: var(--k-danger-tint);
+  }
+
+  .k-cta-row .k-cta-start:hover {
+    background: var(--k-primary-strong);
+  }
+
+  .k-lang-card:hover {
+    border-color: var(--k-primary);
+    box-shadow: var(--k-shadow-lg);
+    transform: translateY(-2px);
+  }
+
+  .k-textlink:hover {
+    color: var(--k-ink-2);
+  }
+
+  .k-chip:hover {
+    border-color: var(--k-primary);
+    background: var(--k-primary-tint);
+  }
+
+  .kiosk-root .primary-btn:hover {
+    background: var(--k-primary-strong);
+  }
+}
+
+/* ── Welcome screen ─────────────────────────────────────────────────────────
+   One question, one button. The advertising moved to /kiosk/attract, which
+   takes over when nobody is standing here. */
+.k-home-title {
+  margin: 0;
+  width: 100%;
+  font-size: var(--k-fs-display);
+  font-weight: 800;
+  line-height: 1.15;
+  color: var(--k-ink);
+  /* balance, and room for Thai: at 22ch the Thai headline orphaned its final
+     particle (ค่ะ) onto a line of its own. */
+  text-wrap: balance;
+}
+
+/* What is about to happen, said before the patient commits. */
+
+/* Facts, not controls: no fill, no border, no radius — nothing that reads as
+   selectable. Same reasoning as the how-it-works rows below. */
+/* One container, not three floating items. Free-standing they blended into the
+   paper and their right edge fell short of the buttons below; as separate
+   chips they read as tappable. A single strip with hairline-divided cells
+   contains them, spans the column so both edges align with the CTA, and never
+   looks pressable. */
+/* Three separate cards, equal width, spanning the button beneath them. */
+.k-facts {
+  display: flex;
+  width: 100%;
+  align-items: stretch;
+  gap: clamp(8px, 1vw, 14px);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  background: none;
+  border: none;
+}
+
+.k-fact {
+  flex: 1 1 0;
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: clamp(10px, 1.2vh, 15px) clamp(6px, 0.8vw, 12px);
+  background: var(--k-surface);
+  border: 1px solid var(--k-border);
+  /* small radius, never a pill — a pill plus an icon reads as a button */
+  border-radius: var(--k-r-sm);
+  font-size: var(--k-fs-caption);
+  font-weight: 600;
+  color: var(--k-ink-2);
+  white-space: nowrap;
+  text-align: center;
+}
+
+.k-fact-ico {
+  display: inline-flex;
+  color: var(--k-primary-on-light);
+}
+
+/* ── Attract loop ──────────────────────────────────────────────────────────
+   The whole canvas is the target — a passer-by should not have to find one. */
+.k-attract {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  justify-content: safe space-evenly;
+  gap: clamp(20px, 3vh, 40px);
+  width: min(1500px, 94vw);
+  min-height: 100%;
+  padding: 0;
+  border: none;
+  background: none;
+  font: inherit;
+  color: inherit;
+  text-align: center;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Stage for the attract loop's rings and petals — centred on the mark, and
+   overflowing it so the bursts are not clipped. */
+.k-attract-mark {
+  position: relative;
+  display: grid;
+  place-items: center;
+  flex: none;
+  overflow: visible;
+}
+
+.k-attract-head {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: clamp(120px, 15vh, 190px);
+  width: 100%;
+}
+
+.k-attract-title {
+  margin: 0;
+  font-size: var(--k-fs-display);
+  font-weight: 800;
+  line-height: 1.15;
+  color: var(--k-ink);
+  max-width: 20ch;
+}
+
+/* A hint, not a button. It used to be a solid teal pill identical to the
+   welcome screen's Start button — two consecutive primary buttons both saying
+   "start", which reads as the first tap not registering. The whole canvas is
+   already the target, so this only needs to say the panel is awake. */
+.k-attract-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0;
+  background: none;
+  color: var(--k-primary-on-light);
+  font-size: var(--k-fs-body-lg);
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  animation: k-attract-breathe 2600ms ease-in-out infinite;
+}
+
+@keyframes k-attract-breathe {
+  /* Floor at .8: #3f7873 on paper is 4.6:1, and dimming to .55 blended it to
+     ~2.3:1 — below the 3:1 large-text floor for part of every cycle. */
+  50% { opacity: 0.8; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .k-attract-cta { animation: none; }
+}
+
+.k-attract-board {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: min(980px, 94%);
+  min-height: clamp(96px, 12vh, 140px);
+  padding: 20px 28px;
+  /* Contained. Flat text on flat paper had no figure/ground at all, so the
+     board blended into the hook above it. Surface + ONE depth cue (shadow with
+     a real offset and blur, no border) — the original defect was a 1px border
+     AND a 24px blur together, not the container. */
+  border: none;
+  background: var(--k-surface);
+  border-radius: var(--k-r-lg);
+  box-shadow: var(--k-shadow-md);
+  padding: clamp(22px, 2.6vh, 36px) clamp(26px, 3vw, 46px);
+}
+
+/* ── Welcome screen rhythm ──────────────────────────────────────────────────
+   Three groups: who + what (greeting → facts), the decision (CTA), and
+   reference (how-it-works, disclaimer). Within a group, elements sit close;
+   between groups the gap roughly triples. */
+.k-home > .k-home-title { margin-top: clamp(10px, 1.4vh, 18px); }   /* greeting owns the headline */
+.k-home > .k-hero-sub   { margin-top: clamp(-2px, 0.4vh, 8px); }    /* headline + its own subtitle are one statement */
+.k-home > .k-facts      { margin-top: clamp(16px, 2.2vh, 30px); }
+.k-home > .k-cta-row    { margin-top: clamp(40px, 5.4vh, 76px); }   /* group break: the decision */
+.k-home > .k-how        { margin-top: clamp(36px, 4.8vh, 68px); }   /* group break: reference */
+.k-home > .k-home-footer{ margin-top: clamp(18px, 2.4vh, 34px); }
+
+/* Reference content in its own container. Read left-to-right as a process, so
+   it costs ~150px rather than the ~325px of the original stacked card — but it
+   keeps a boundary, because with none the whole page was one flat text field. */
+.k-how {
+  width: 100%;
+  background: var(--k-surface);
+  border: none;
+  border-radius: var(--k-r-lg);
+  box-shadow: var(--k-shadow-md);
+  padding: clamp(22px, 2.8vh, 36px) clamp(26px, 3.4vw, 48px);
+  display: flex;
+  flex-direction: column;
+  /* left, to share an edge with the steps it labels */
+  align-items: flex-start;
+  text-align: left;
+  gap: clamp(10px, 1.4vh, 18px);
+}
+
+
+
+/* Number and icon share one row: two stacked glyphs above every label made
+   each step three rows tall for no added meaning. */
+
+
+
+/* Short viewports (any browser window; the 1080x1920 kiosk panel is unaffected).
+   The rhythm above is tuned for 1920px of height — at ~1000px it overflowed by
+   ~130px and forced a scroll. Compress the group breaks and the brand mark
+   rather than dropping content. */
+@media (max-height: 1180px) {
+  .k-hero-mark > svg, .k-hero-hello > svg {
+    width: clamp(76px, 11vh, 132px);
+    height: auto;
+  }
+  .k-home > .k-home-title  { margin-top: clamp(2px, 0.6vh, 10px); }
+  .k-home > .k-facts       { margin-top: clamp(10px, 1.6vh, 20px); }
+  .k-home > .k-cta-row     { margin-top: clamp(18px, 2.8vh, 40px); }
+  .k-home > .k-how         { margin-top: clamp(16px, 2.4vh, 34px); }
+  .k-home > .k-home-footer { margin-top: clamp(10px, 1.4vh, 18px); }
+}
+
+/* Tall panels — the 1080x1920 booth. Centring the whole composition left a
+   ~430px void above and ~340px below while the reading group floated in a
+   middle band. Two auto margins put the free space where it does work:
+   reading starts near the top, the CTA lands in the standing reach band, and
+   the disclaimer sits on the bottom edge. The group rhythm above is untouched. */
+@media (min-height: 1181px) and (orientation: portrait) {
+  /* The booth panel is 1920px tall but the type was sized for a desktop
+     reading distance, leaving only ~790px of ink. Stretching the gaps to fill
+     it just isolated each block; the fix is to give the content the presence a
+     screen read standing at 60-80cm deserves, then centre it — the voids
+     shrink on their own and the grouping stays intact. */
+  .k-hero-mark > svg, .k-hero-hello > svg { width: 248px; height: 248px; }
+  .k-home-title { font-size: clamp(58px, 8.6vmin, 96px); }
+  .k-hero-sub   { font-size: clamp(26px, 3vmin, 34px); }
+  .k-fact       { font-size: clamp(21px, 2.2vmin, 25px); }
+  .k-cta-start  { min-height: clamp(104px, 6.6vh, 128px); font-size: clamp(28px, 2.9vmin, 34px); }
+  .k-btn.outline{ min-height: clamp(84px, 5vh, 96px); font-size: clamp(23px, 2.4vmin, 27px); }
+  .k-home > .k-cta-row { margin-top: clamp(56px, 7.4vh, 120px); }
+  .k-home > .k-how     { margin-top: clamp(52px, 6.8vh, 108px); }
+
+  /* The poster was crushed into the middle third with ~570px dead at each end;
+     it never got the fill treatment the welcome screen did. */
+  .k-attract-mark > svg { width: 300px; height: 300px; }
+  .k-attract-title    { font-size: clamp(62px, 9vmin, 104px); }
+  .k-attract-cta      { font-size: clamp(28px, 3vmin, 36px); }
+  .k-stat-line-text   { font-size: clamp(28px, 3vmin, 36px); }
+  .k-stat-line-sub    { font-size: clamp(21px, 2.2vmin, 26px); }
+}
+
+/* Attract: the hook stands alone; board + invitation form the support group. */
+.k-attract > .k-attract-board { margin-top: clamp(34px, 4.4vh, 76px); }
+.k-attract > .k-attract-cta   { margin-top: clamp(6px, 0.8vh, 14px); }
+
+/* Welcome: facts are tertiary — they shared an ink and a weight with the
+   sub-line directly above them, so the two blocks blended. */
+.k-fact { color: var(--k-ink-3); font-weight: 500; }
+
+/* How-it-works entrance. Seen once per patient, and its job is to convey a
+   sequence — so the steps arrive in order rather than all at once. Short
+   stagger (70ms), strong ease-out, 260ms each, from an 10px rise and never
+   from scale(0). It runs after the mark's bloom so the screen has one
+   entrance, not scattered effects. */
+@keyframes k-how-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+}
+
+@keyframes k-how-in-still {
+  from { opacity: 0; }
+}
+
+
+.k-how-step--1 { animation-delay: 240ms; }
+.k-how-step--2 { animation-delay: 310ms; }
+.k-how-step--3 { animation-delay: 380ms; }
+
+@media (prefers-reduced-motion: reduce) {
+  /* Gentler, not none: the sequence still reads, the movement goes. */
+}
+
+/* Landscape card is ~1600px wide, so the steps read left to right as a
+   process. Portrait's 780px measure cannot hold three Thai labels side by
+   side, so they stack there. Declared after the base rule — inside the
+   landscape block above it lost on source order at equal specificity. */
+@media (orientation: landscape) and (min-width: 900px) {
+}
+
+/* ── How it works ──────────────────────────────────────────────────────────
+   A connected process, not three list rows: the numbers sit on a rail and a
+   ripple travels down it. The previous version slid a tinted rectangle behind
+   the active row, which reads as a hover or selection state — and nested a box
+   inside the card's box. Nothing here has a filled ground. */
+.k-how-title {
+  font-size: var(--k-fs-caption);
+  font-weight: 700;
+  letter-spacing: normal;
+  color: var(--k-ink-3);
+}
+
+.k-how-steps {
+  --k-how-gap: clamp(18px, 2.2vh, 30px);
+  --k-how-inset: 31px; /* dot radius 23 + 8px breathing room */
+  display: flex;
+  flex-direction: column;
+  gap: var(--k-how-gap);
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: none;
+}
+
+.k-how-step {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-width: 0;
+}
+
+/* The rail: a hairline from this number to the next. */
+.k-how-step:not(:last-child)::before {
+  content: '';
+  position: absolute;
+  /* Same symmetric formula as landscape, on the y axis: start one inset below
+     this dot's centre, stop one inset above the next dot's centre. */
+  left: 22px;
+  top: calc(50% + var(--k-how-inset));
+  bottom: calc(-50% - var(--k-how-gap) + var(--k-how-inset));
+  width: 2px;
+  background: var(--k-primary-tint-border);
+}
+
+.k-how-dot {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  border: 2px solid var(--k-primary-tint-border);
+  background: var(--k-surface);
+  color: var(--k-ink-3);
+  font-size: 19px;
+  font-weight: 800;
+}
+
+/* The ripple — a ring that expands out of the active number and fades. */
+.k-how-ping {
+  position: absolute;
+  inset: -5px;
+  border-radius: 50%;
+  border: 2px solid var(--k-primary);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.k-how-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.k-how-ico {
+  display: inline-flex;
+  color: var(--k-ink-3);
+}
+
+.k-how-text {
+  /* inline-block so the label can scale; origin follows the layout so it grows
+     away from the rail rather than drifting across it */
+  display: inline-block;
+  transform-origin: left center;
+  font-size: var(--k-fs-caption);
+  font-weight: 700;
+  color: var(--k-ink-2);
+  line-height: 1.35;
+}
+
+/* ── The walkthrough ───────────────────────────────────────────────────────
+   Number fills and grows, a ring ripples out of it, the icon and label
+   brighten. No background block anywhere. 2s per step, 6s cycle, back to the
+   start — a demonstration, never a progress bar: nothing is marked done. */
+/* No scale on the number: the rail attaches at a fixed offset, so a growing
+   dot eats into the gap and the two rail segments read as different lengths
+   whenever one is mid-highlight. The fill and the ripple carry the emphasis;
+   the ripple is absolutely positioned, so it never disturbs the rail. */
+@keyframes k-how-dot-on {
+  0%, 6% {
+    background-color: var(--k-surface);
+    border-color: var(--k-primary-tint-border);
+    color: var(--k-ink-3);
+  }
+  13%, 25% {
+    background-color: var(--k-primary);
+    border-color: var(--k-primary);
+    color: #fff;
+  }
+  33%, 100% {
+    background-color: var(--k-surface);
+    border-color: var(--k-primary-tint-border);
+    color: var(--k-ink-3);
+  }
+}
+
+@keyframes k-how-ping-out {
+  0%, 8%    { opacity: 0; transform: scale(0.85); }
+  14%       { opacity: 0.55; transform: scale(1); }
+  28%       { opacity: 0; transform: scale(1.55); }
+  33%, 100% { opacity: 0; transform: scale(0.85); }
+}
+
+@keyframes k-how-ico-on {
+  0%, 6%    { color: var(--k-ink-3); }
+  13%, 25%  { color: var(--k-primary-on-light); }
+  33%, 100% { color: var(--k-ink-3); }
+}
+
+/* The label takes the brand teal as it grows — --k-primary-on-light, not
+   --k-primary: Mali Teal is exactly 3.00:1 on white, which is the bare
+   large-text minimum with no margin, and this label is only large by virtue of
+   being bold. The darker cut clears 4.6:1. */
+@keyframes k-how-text-on {
+  0%, 6%    { color: var(--k-ink-2); transform: scale(1); }
+  13%, 25%  { color: var(--k-primary-on-light); transform: scale(1.09); }
+  33%, 100% { color: var(--k-ink-2); transform: scale(1); }
+}
+
+.k-how-step { animation: k-how-in 260ms cubic-bezier(0.16, 1, 0.3, 1) both; }
+.k-how-dot  { animation: k-how-dot-on 6s var(--k-ease) infinite; }
+.k-how-ping { animation: k-how-ping-out 6s var(--k-ease) infinite; }
+.k-how-ico  { animation: k-how-ico-on 6s var(--k-ease) infinite; }
+.k-how-text { animation: k-how-text-on 6s var(--k-ease) infinite; }
+
+.k-how-step--1 { animation-delay: 240ms; }
+.k-how-step--2 { animation-delay: 310ms; }
+.k-how-step--3 { animation-delay: 380ms; }
+
+.k-how-step--1 :is(.k-how-dot, .k-how-ping, .k-how-ico, .k-how-text) { animation-delay: 0.9s; }
+.k-how-step--2 :is(.k-how-dot, .k-how-ping, .k-how-ico, .k-how-text) { animation-delay: 2.9s; }
+.k-how-step--3 :is(.k-how-dot, .k-how-ping, .k-how-ico, .k-how-text) { animation-delay: 4.9s; }
+
+@media (prefers-reduced-motion: reduce) {
+  .k-how-step { animation: k-how-in-still 260ms both; }
+  .k-how-dot, .k-how-ping, .k-how-ico, .k-how-text { animation: none; }
+}
+
+@media (orientation: landscape) and (min-width: 900px) {
+  .k-how-steps {
+    --k-how-gap: clamp(16px, 2vw, 36px);
+    flex-direction: row;
+    align-items: flex-start;
+    gap: var(--k-how-gap);
+  }
+
+  .k-how-step {
+    flex: 1 1 0;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    text-align: center;
+  }
+
+  /* Rail runs sideways between the numbers, at their centre line. */
+  /* The flex gap sits between this step and the next, so the right offset has
+     to subtract it — without that the line ended 8px after its own dot but
+     44px before the following one. */
+  .k-how-step:not(:last-child)::before {
+    left: calc(50% + var(--k-how-inset));
+    right: calc(-50% - var(--k-how-gap) + var(--k-how-inset));
+    top: 22px;
+    bottom: auto;
+    width: auto;
+    height: 2px;
+  }
+
+  .k-how-label {
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .k-how-text { transform-origin: center; }
 }
