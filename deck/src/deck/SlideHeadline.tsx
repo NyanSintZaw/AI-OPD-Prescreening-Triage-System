@@ -30,7 +30,7 @@ export function SlideHeadline({
   tone?: 'light' | 'dark';
 }) {
   const reveal = useReveal();
-  const { th, en, accent, accentTone = 'teal', lead } = headline;
+  const { th, en, subTh, accent, accentTone = 'teal', lead } = headline;
   const leadsEn = lead === 'en';
   /* Whichever language leads is the one the accent is matched against. */
   const body = leadsEn ? en : (th ?? en);
@@ -50,6 +50,11 @@ export function SlideHeadline({
         {once && <span className={`d-th-accent d-th-accent--${accentTone}`}>{accent}</span>}
         {tail && <Copy text={tail} lang={leadsEn ? 'en' : 'th'} />}
       </h1>
+      {subTh && (
+        <p className="d-th-sub" lang="th">
+          {subTh}
+        </p>
+      )}
       {!leadsEn && (
         <p className="d-en" lang="en">
           <Copy text={en} lang="en" />

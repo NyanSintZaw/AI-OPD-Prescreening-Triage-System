@@ -29,6 +29,13 @@ export interface Headline {
    * explicitly — an accidentally missing `th` is a bug, not a language choice.
    */
   lead?: 'en';
+  /**
+   * A second Thai line, set between the headline and the English. For a
+   * headline that states a premise and then its consequence: the premise
+   * carries the size, the consequence explains it, and the English stays
+   * where it always is.
+   */
+  subTh?: string;
   en: string;
   /** A phrase of the leading language set apart in colour. Highlighted only
    *  when it occurs exactly once, so the wrong occurrence can never light up. */

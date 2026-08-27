@@ -159,6 +159,17 @@ body {
   white-space: pre-line;
 }
 
+/* The Thai second tier: smaller than the headline, larger than the English,
+   and still Thai leading — tone marks need the room at any size. */
+.deck-root .d-th-sub {
+  margin: 14px 0 0;
+  font-size: 34px;
+  line-height: var(--leading-th);
+  font-weight: var(--fw-regular);
+  color: var(--text-body);
+  white-space: pre-line;
+}
+
 .deck-root .d-en {
   margin: 12px 0 0;
   font-size: var(--d-en-sub);

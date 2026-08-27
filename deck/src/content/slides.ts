@@ -14,7 +14,10 @@ import {
   BUSINESS_NOTE,
   BUSINESS_TIERS,
 } from './business';
+import { IMPACT_CARD, IMPACT_ITEMS } from './impact';
 import { PILOT_OUTCOME, PILOT_TABLE } from './pilot';
+import { PROBLEM_ITEMS } from './problems';
+import { SOLUTION_BRAND, SOLUTION_ITEMS } from './solution';
 import { PREP_COLUMNS, PREP_FOOTER } from './prep';
 import type { Slide } from './types';
 
@@ -54,22 +57,32 @@ export const SLIDES: Slide[] = [
     presenter: 'TH',
     layout: 'hero',
     headline: {
-      /* The break is deliberate: the first sentence is the wait, the second is
-         the thing nobody knows yet. They should not run together. */
-      th: 'ทุกคนที่เดินเข้ามาในโรงพยาบาล ต้องยืนรอด้วยสายตาที่ไม่แน่ใจ และเดินไปถามใครคนหนึ่ง\nก่อนจะมีใครรู้ว่าเขาควรไปที่ไหน',
-      accent: 'เขาควรไปที่ไหน',
-      en: 'Everybody who walks into the hospital has to wait with uncertain eyes, and find and ask a human, before anyone knows where they belong.',
+      /* Rewritten by a native speaker. Hers states the premise — the screening
+         point is the first thing a patient meets — and then the consequence,
+         which is exactly what the numbers below quantify. The break between
+         the two is hers. */
+      th: 'จุดคัดกรอง คือด่านแรก\nที่ผู้ป่วยต้องเผชิญ',
+      /* Her hierarchy: the premise carries the size, the consequence sits
+         under it smaller. No teal accent any more — the two sizes already do
+         that work, and colouring a phrase as well would be saying it twice. */
+      subTh: 'เมื่อจำนวนผู้ป่วยที่เข้ามารับบริการเพิ่มขึ้น\nความต้องการในการช่วยเหลือก็เพิ่มขึ้น',
+      en: 'The screening point is the first thing every patient meets. As more patients come for care, the need for help grows with them.',
     },
+    /* Reframed at her request: these used to be about patients not knowing
+       where to go, which made the slide an argument about confusion. She asked
+       for the number of people using the service instead — so the split is now
+       appointment versus no appointment, which is also exactly what the export
+       measures. The confusion is a consequence; the volume is the fact. */
     stats: {
       total: { fact: 'encounters7d', label: 'ครั้งที่เข้ารับบริการ ใน 7 วัน' },
       split: [
-        { fact: 'appointments7d', label: 'มีนัดหมายอยู่แล้ว' },
-        { fact: 'walkIns7d', label: 'ไม่รู้ว่าต้องไปไหน' },
+        { fact: 'appointments7d', label: 'มีนัดหมายล่วงหน้า' },
+        { fact: 'walkIns7d', label: 'เข้ามารับบริการโดยไม่ได้นัดหมาย' },
       ],
       hero: {
         fact: 'walkInsPerDay',
-        label: 'คนต่อวัน ที่ต้องเดินหาคนถาม',
-        sub: '≈440 patients a day arrive with nowhere to go',
+        label: 'คนต่อวัน ที่ต้องเริ่มต้นที่จุดคัดกรอง',
+        sub: '≈440 patients a day arrive without an appointment',
       },
       source: 'ที่มา: รายงาน prescreening_7Day · ศูนย์การแพทย์ มฟล.',
     },
@@ -85,33 +98,17 @@ export const SLIDES: Slide[] = [
     layout: 'problems',
     eyebrow: { th: 'ปัญหาที่พบ', en: 'THE PROBLEMS' },
     headline: {
-      th: 'ปัญหาที่เกิดขึ้นทุกวัน ณ จุดคัดกรอง',
-      accent: 'ที่จุดคัดกรอง',
-      /* Muted, not teal: here the tail names the place, it does not carry the
-         turn in the sentence the way slide 2's does. */
+      /* Corrected by a native speaker: her topic line verbatim. It no longer
+         counts the problems or claims they happen every day — so the English
+         subtitle stopped saying "four ... every single day" as well. */
+      th: 'ปัญหาที่พบเจอได้ ณ จุดคัดกรอง',
+      accent: 'ณ จุดคัดกรอง',
+      /* Muted, not teal: the tail names the place, it does not carry the turn
+         in the sentence the way slide 2's does. */
       accentTone: 'muted',
-      en: 'Four problems that repeat every single day at prescreening',
+      en: 'What we run into at the screening point',
     },
-    /* Order matters — the list fills column-major, so 1 and 2 land in the left
-       column and 3 and 4 in the right. */
-    items: [
-      {
-        th: 'ผู้ป่วยต่างชาติสื่อสารภาษาไทยไม่ได้',
-        en: 'Foreign patients lack the Thai language skills to be screened',
-      },
-      {
-        th: 'พยาบาลเสียเวลาถามคำถามซ้ำ ๆ จนกำลังคนไม่พอให้บริการ',
-        en: 'Nurses consume valuable working time on the same repetitive questions, leaving insufficient personnel to provide service',
-      },
-      {
-        th: 'ผู้ป่วยหนาแน่น รอคัดกรองเป็นแถวยาว',
-        en: 'Density of patients waiting to be screened',
-      },
-      {
-        th: 'ผู้ป่วยไม่รู้ว่าแต่ละแผนกอยู่ที่ไหน',
-        en: 'Patients are clueless about the location of different departments',
-      },
-    ],
+    items: PROBLEM_ITEMS,
     notes: [],
   },
   {
@@ -121,36 +118,17 @@ export const SLIDES: Slide[] = [
     budgetSec: 30,
     presenter: 'TH',
     layout: 'solution',
-    brand: {
-      name: 'MA',
-      accent: 'L',
-      th: 'ผู้ช่วยคัดกรองหลากภาษา\nด้วยปัญญาในพื้นที่',
-      en: 'Multilingual Assistant\nwith Local Intelligence',
-    },
+    brand: SOLUTION_BRAND,
     eyebrow: { th: 'ทางออกของเรา', en: 'OUR SOLUTION' },
     headline: {
-      th: 'เราจึงพา MALI เข้ามาช่วยงานคัดกรอง',
+      /* Her topic line verbatim. The old headline ("เราจึงพา MALI เข้ามา…")
+         was struck out whole — it framed MALI as something we bring in, where
+         hers names what she is. */
+      th: 'MALI — ผู้ช่วยอัจฉริยะประจำจุดคัดกรอง',
       accent: 'MALI',
-      en: 'We bring in MALI to help with prescreening',
+      en: 'MALI — an intelligent assistant at the screening point',
     },
-    items: [
-      {
-        th: 'ทำงานได้เหมือนพยาบาลจูเนียร์ รับคำสั่งจากไฟล์ PDF เกณฑ์ของโรงพยาบาล และอ้างอิงแนวทางสุขภาพที่กระทรวงสาธารณสุขประกาศใช้',
-        en: 'Works like a junior nurse — listens to your instructions through a hospital criteria PDF while referencing official health guidelines published by MOPH Thailand',
-      },
-      {
-        th: 'ไม่ลาหยุด ไม่พักกลางวัน เพื่อนร่วมงานที่เป็นมนุษย์จึงมีเวลาไปดูแลคนไข้ในแบบที่มีแต่มนุษย์ทำได้',
-        en: "She doesn't take a leave or lunch break, so her human coworkers can focus on more humanly care-giving work",
-      },
-      {
-        th: 'ฟังผู้ป่วยต่างชาติได้ เปิดทางให้โรงพยาบาลมีรายได้เพิ่มขึ้น',
-        en: 'She can also listen to foreigners, bringing in more revenues',
-      },
-      {
-        th: 'รายงานทุกอย่างที่เธอทำ ให้เพื่อนร่วมงานและพยาบาลอาวุโสรู้ โดยไม่ลังเล',
-        en: 'She lets her coworkers and senior nurses know about everything she does, without hesitation',
-      },
-    ],
+    items: SOLUTION_ITEMS,
     notes: [],
   },
   {
@@ -162,43 +140,13 @@ export const SLIDES: Slide[] = [
     layout: 'impact',
     eyebrow: { th: 'ผลลัพธ์ที่คาดหวัง', en: 'EXPECTED IMPACT' },
     headline: {
-      th: 'ลดงานซ้ำ เพิ่มเวลาให้การดูแลผู้ป่วย',
-      en: 'Less repetitive work. More time for patient care.',
+      /* Hers. "ช่วยแบ่งเบาภาระงาน" — sharing the load rather than
+         cutting repetition, which is the friendlier claim and the truer one. */
+      th: 'ช่วยแบ่งเบาภาระงาน เพิ่มเวลาให้การดูแลผู้ป่วย',
+      en: 'Sharing the workload, giving time back to patient care.',
     },
-    card: {
-      label: 'TARGET OPERATIONAL IMPACT',
-      prefix: 'up to',
-      figure: '50%',
-      th: 'ลดภาระงานคัดกรองเบื้องต้นที่ทำซ้ำ',
-      /* The caveat is part of the sentence, not a footnote. A target read as a
-         measurement is the one way this slide can mislead a hospital. */
-      en: 'Reduction in repetitive manual prescreening workload — a design target, not a measured result',
-      secondary: {
-        figure: '≈220',
-        /* The 440 here is real and must keep agreeing with
-           FACTS.walkInsPerDay. It stays as copy because interpolating a
-           component mid-Thai-sentence reads worse than this does. */
-        th: 'จาก 440 คนต่อวัน ที่ MALI รับไว้ก่อนถึงมือพยาบาล',
-        en: 'of the 440 daily walk-ins, handled before a nurse is involved',
-      },
-    },
-    items: [
-      {
-        label: 'SAVE TIME',
-        th: 'ลดเวลาที่ใช้กับคำถามคัดกรองซ้ำ ๆ',
-        en: 'Reduce repetitive questions and manual first-stage screening.',
-      },
-      {
-        label: 'RETURN TIME TO NURSES',
-        th: 'คืนเวลาให้พยาบาลสำหรับการดูแลผู้ป่วยที่สำคัญกว่า',
-        en: 'Nurses focus on clinical judgment, complex cases, and direct patient care.',
-      },
-      {
-        label: 'IMPROVE ACCESS',
-        th: 'ช่วยลดอุปสรรคด้านภาษาและเพิ่มการเข้าถึงบริการ',
-        en: 'Foreign patients can communicate and begin screening more easily.',
-      },
-    ],
+    card: IMPACT_CARD,
+    items: IMPACT_ITEMS,
     flow: [
       { label: 'PATIENT ARRIVES' },
       { label: 'MALI HANDLES FIRST-STAGE SCREENING', strong: true },
