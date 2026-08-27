@@ -56,6 +56,16 @@ from scipy.signal import resample_poly
 logging.basicConfig(level=logging.INFO, format="%(asctime)s  %(message)s")
 logger = logging.getLogger("local-speech")
 
+# The per-turn story (STT -> LLM -> TTS) is the point of this log; everything
+# else buries it. httpx narrates every upstream call, huggingface narrates
+# every cache probe, and uvicorn repeats each request we already log with more
+# detail. LOG_VERBOSE=1 puts them back when debugging transport itself.
+LOG_VERBOSE = os.environ.get("LOG_VERBOSE", "").strip().lower() in ("1", "true", "yes")
+if not LOG_VERBOSE:
+    for _noisy in ("httpx", "httpcore", "huggingface_hub", "urllib3",
+                   "filelock", "uvicorn.access"):
+        logging.getLogger(_noisy).setLevel(logging.WARNING)
+
 # Read local-speech/.env before any config below is evaluated, so engine and
 # reference settings survive a restart instead of living in one shell's
 # environment. Real environment variables still win, which keeps
@@ -701,6 +711,24 @@ def _synth_mms(entry, text, speed):
 
 
 def _synth_f5(entry, text, speed):
+    # f5_tts_th prints "Converting audio...", the reference text, the full
+    # gen_text and a tqdm bar straight to stdout/stderr on EVERY call, which
+    # drowns the per-turn log. Capture it and only surface it if the call
+    # fails, where it is actually diagnostic. LOG_VERBOSE=1 lets it through.
+    if LOG_VERBOSE:
+        return _synth_f5_inner(entry, text, speed)
+    sink = io.StringIO()
+    try:
+        with contextlib.redirect_stdout(sink), contextlib.redirect_stderr(sink):
+            return _synth_f5_inner(entry, text, speed)
+    except Exception:
+        noise = sink.getvalue().strip()
+        if noise:
+            logger.warning("F5 output before the failure: %s", noise[-800:])
+        raise
+
+
+def _synth_f5_inner(entry, text, speed):
     wav = entry["tts"].infer(
         ref_audio=entry["ref_audio"],
         ref_text=entry["ref_text"],
@@ -1036,6 +1064,8 @@ async def chat_completions(request: Request):
     url = f"{OLLAMA_URL}/v1/chat/completions"
     headers = {"Content-Type": "application/json"}
     started = time.perf_counter()
+    logger.info("<- LLM   from backend: %.0f KB prompt%s",
+                len(body) / 1024, " (streaming)" if streaming else "")
 
     if not streaming:
         try:
@@ -1060,8 +1090,9 @@ async def chat_completions(request: Request):
             gen_tps=round(out / elapsed, 1) if out and elapsed else None,
         )
         logger.info(
-            "LLM  prompt=%s output=%s latency=%.2fs (%.1f tok/s)  %s",
-            usage.get("prompt_tokens", "?"), out or "?", elapsed,
+            "-> LLM   %s tokens back to backend  (%s prompt, %.2fs = "
+            "%.1f tok/s)  %s",
+            out or "?", usage.get("prompt_tokens", "?"), elapsed,
             (out / elapsed) if out and elapsed else 0.0, _fmt_hw(row),
         )
         return Response(
@@ -1122,6 +1153,8 @@ async def transcriptions(
     audio = await file.read()
     if not audio:
         raise HTTPException(400, "empty audio")
+    logger.info("<- STT   from backend: %s, %.0f KB", file.filename or "audio",
+                len(audio) / 1024)
 
     lang = normalize_language(language, default=None)
     suffix = os.path.splitext(file.filename or "")[1] or ".wav"
@@ -1153,10 +1186,10 @@ async def transcriptions(
         device=_stt_runtime["device"],
     )
     logger.info(
-        "STT  lang=%s audio=%.1fs latency=%.2fs (%.1fx RT) on %s  %s  %r",
-        info.language, info.duration, elapsed,
+        "-> STT   %r  (lang=%s, %.1fs audio in %.2fs = %.1fx RT, %s)  %s",
+        text[:70], info.language, info.duration, elapsed,
         (info.duration / elapsed) if elapsed else 0.0,
-        _stt_runtime["device"], _fmt_hw(row), text[:50],
+        _stt_runtime["device"], _fmt_hw(row),
     )
     if response_format == "text":
         return Response(content=text, media_type="text/plain")
@@ -1180,6 +1213,8 @@ def speech(req: SpeechReq):
         raise HTTPException(400, "input must not be empty")
 
     language = resolve_speech_language(req.voice, text)
+    logger.info("<- TTS   from backend: %s, %d chars: %r",
+                language, len(text), text[:60])
     rate = req.sample_rate or DEFAULT_OUTPUT_RATE
     if req.response_format not in ("wav", "pcm"):
         # No mp3 encoder here on purpose; the voice bridge asks for wav.
@@ -1207,8 +1242,9 @@ def speech(req: SpeechReq):
         realtime_factor=round(audio_seconds / elapsed, 2) if elapsed else None,
     )
     logger.info(
-        "TTS  lang=%s engine=%s chars=%d audio=%.1fs latency=%.2fs (%.1fx RT) on %s  %s",
-        language, rt.get("engine", "?"), len(text), audio_seconds, elapsed,
+        "-> TTS   %.0f KB of audio sent to backend  (%s, %.1fs speech in "
+        "%.2fs = %.1fx RT, %s)  %s",
+        len(wav) / 1024, rt.get("engine", "?"), audio_seconds, elapsed,
         (audio_seconds / elapsed) if elapsed else 0.0,
         rt.get("device", "?"), _fmt_hw(row),
     )
