@@ -1,17 +1,7 @@
-# Core - needed for text chat
+# Ollama relay only — no torch, no CUDA, no ML stack. That is the point:
+# this runs anywhere, including a machine with no GPU, because all the
+# inference happens in Ollama on the other side of loopback.
 fastapi
 uvicorn[standard]
-requests
-python-multipart
-
-# Optional - cheaper in-process GPU sampling for the per-reply perf stats.
-# Without it the stats fall back to shelling out to nvidia-smi.
-nvidia-ml-py
-
-# Optional - voice input (speech-to-text). Model downloads on first use.
-faster-whisper
-
-# Optional - voice output (text-to-speech).
-# Also download a voice model, e.g. en_US-lessac-medium.onnx from
-# https://github.com/rhasspy/piper/releases  and point PIPER_MODEL at it.
-piper-tts
+httpx
+python-dotenv
