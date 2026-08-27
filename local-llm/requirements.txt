@@ -1,0 +1,17 @@
+# Core - needed for text chat
+fastapi
+uvicorn[standard]
+requests
+python-multipart
+
+# Optional - cheaper in-process GPU sampling for the per-reply perf stats.
+# Without it the stats fall back to shelling out to nvidia-smi.
+nvidia-ml-py
+
+# Optional - voice input (speech-to-text). Model downloads on first use.
+faster-whisper
+
+# Optional - voice output (text-to-speech).
+# Also download a voice model, e.g. en_US-lessac-medium.onnx from
+# https://github.com/rhasspy/piper/releases  and point PIPER_MODEL at it.
+piper-tts

@@ -1,0 +1,17 @@
+# On-prem STT + TTS sidecar for the triage backend.
+fastapi
+uvicorn[standard]
+python-multipart
+
+# STT
+faster-whisper
+
+# TTS - MMS-TTS (VITS). Thai is the reason: piper has no Thai voice.
+# CPU-only torch keeps the 8 GB GPU free for the triage LLM.
+--extra-index-url https://download.pytorch.org/whl/cpu
+torch
+transformers
+
+# 16 kHz (MMS) -> 24 kHz (voice bridge) resampling
+scipy
+numpy

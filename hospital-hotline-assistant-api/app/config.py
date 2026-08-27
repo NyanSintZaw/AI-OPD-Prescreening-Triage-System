@@ -1,6 +1,6 @@
 ﻿from pathlib import Path
 
-from pydantic import field_validator
+from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # Resolve .env relative to this package, not the process working directory —
@@ -56,6 +56,23 @@ class Settings(BaseSettings):
     pgvector_embed_dim: int = 384
     rag_query_timeout_seconds: float = 1.0
     rag_query_prewarm_on_startup: bool = True
+    # ── AI mode: one switch for the LLM + STT + TTS backends ────────────────
+    # "cloud"  — Gemini on Vertex AI + Google Cloud STT/TTS.
+    # "local"  — everything served on-prem by the local-ai gateway; no patient
+    #            text or audio leaves the building.
+    # "custom" — leave the individual *_provider settings below alone (mixed
+    #            deployments, e.g. local STT with cloud phrasing).
+    # Setting anything other than "custom" OVERRIDES the three provider fields,
+    # so the mode is the single source of truth and they cannot drift apart.
+    ai_mode: str = "custom"
+    # Per-mode model names, so switching does not require also editing the
+    # model name (a Gemini id is meaningless to Ollama and vice versa).
+    cloud_screening_model_name: str = "gemini-3.1-flash-lite"
+    local_screening_model_name: str = "scb10x/llama3.1-typhoon2-8b-instruct"
+    # Base URL of the on-prem gateway (STT + TTS + LLM on one port). In local
+    # mode this fills in any of the three URLs left unset.
+    local_ai_base_url: str = "http://localhost:8090/v1"
+
     # Deterministic screening engine (LangGraph) — the only triage/voice engine.
     screening_model_provider: str = "vertexai"
     # gemini-3.1-flash-lite (GA): fastest structured-output Gemini as of Jul
@@ -146,6 +163,82 @@ class Settings(BaseSettings):
         if not path.is_absolute():
             path = _ENV_FILE.parent / path
         return str(path)
+
+    @model_validator(mode="after")
+    def _apply_ai_mode(self):
+        """Resolve AI_MODE into the three provider fields.
+
+        Done here rather than in the adapters so that every entry point — the
+        app, the eval harness, any script — sees one consistent set of
+        providers, and so `settings.stt_provider` stays the single thing the
+        adapters read.
+        """
+        mode = (self.ai_mode or "custom").strip().lower()
+        if mode == "custom":
+            return self
+        if mode not in ("local", "cloud"):
+            raise ValueError(
+                f"AI_MODE must be 'local', 'cloud' or 'custom', got {self.ai_mode!r}"
+            )
+
+        if mode == "cloud":
+            self.screening_model_provider = "vertexai"
+            self.stt_provider = "google"
+            self.tts_provider = "google"
+            self.screening_model_name = self.cloud_screening_model_name
+        else:
+            self.screening_model_provider = "openai_compatible"
+            self.stt_provider = "openai_compatible"
+            self.tts_provider = "openai_compatible"
+            self.screening_model_name = self.local_screening_model_name
+            # One gateway serves all three; explicit per-service URLs still win
+            # so a split deployment (separate STT box) stays possible.
+            self.screening_openai_base_url = (
+                self.screening_openai_base_url or self.local_ai_base_url
+            )
+            self.stt_base_url = self.stt_base_url or self.local_ai_base_url
+            self.tts_base_url = self.tts_base_url or self.local_ai_base_url
+            # The OpenAI client rejects an empty key even when the server
+            # ignores it entirely.
+            self.screening_openai_api_key = self.screening_openai_api_key or "local"
+        return self
+
+    @model_validator(mode="after")
+    def _check_provider_coherence(self):
+        """Fail at startup on a provider that cannot possibly work.
+
+        Mostly guards AI_MODE=custom, where nothing stops an
+        ``openai_compatible`` provider being left without a base URL — which
+        otherwise surfaces mid-call as an obscure client error instead of a
+        clear boot failure.
+        """
+        missing = [
+            name
+            for name, provider, url in (
+                ("SCREENING_OPENAI_BASE_URL", self.screening_model_provider,
+                 self.screening_openai_base_url),
+                ("STT_BASE_URL", self.stt_provider, self.stt_base_url),
+                ("TTS_BASE_URL", self.tts_provider, self.tts_base_url),
+            )
+            if provider == "openai_compatible" and not url
+        ]
+        if missing:
+            raise ValueError(
+                f"provider is 'openai_compatible' but {', '.join(missing)} is unset. "
+                "Set AI_MODE=local to point all three at LOCAL_AI_BASE_URL, or set "
+                "the URL(s) explicitly."
+            )
+        return self
+
+    @property
+    def ai_mode_summary(self) -> dict[str, str]:
+        """What the resolved mode actually points at — for /health and logs."""
+        return {
+            "mode": self.ai_mode,
+            "llm": f"{self.screening_model_provider}:{self.screening_model_name}",
+            "stt": self.stt_provider,
+            "tts": self.tts_provider,
+        }
 
     model_config = SettingsConfigDict(
         env_file=_ENV_FILE, env_file_encoding="utf-8", extra="ignore"
