@@ -462,6 +462,31 @@ export function useVoiceCall(options: UseVoiceCallOptions): UseVoiceCallApi {
       typeof window !== 'undefined' &&
       typeof window.AudioContext !== 'undefined' &&
       typeof window.WebSocket !== 'undefined';
+    // Say WHY when the mic is unavailable. The usual cause is an insecure
+    // origin: served over plain http:// to anything but localhost, browsers
+    // remove navigator.mediaDevices altogether. The booth then plays TTS
+    // perfectly (playback needs no permission) while never capturing a single
+    // frame — which reads as "the backend can't hear me" and sends people
+    // hunting through STT logs that will never have anything in them.
+    if (!hasMedia && typeof window !== 'undefined') {
+      const insecure =
+        typeof window.isSecureContext === 'boolean' && !window.isSecureContext;
+      if (insecure) {
+        console.error(
+          `[voice] Microphone unavailable: ${window.location.origin} is not a ` +
+            'secure context, so the browser removed navigator.mediaDevices. ' +
+            'Voice input CANNOT work here. Use http://localhost:5173, serve ' +
+            'the kiosk over https, or tunnel it.',
+        );
+      } else {
+        console.error(
+          '[voice] Microphone unavailable: this browser is missing ' +
+            'getUserMedia, AudioContext or WebSocket.',
+        );
+      }
+    } else if (!voiceFeatureEnabled) {
+      console.warn('[voice] disabled by VITE_ENABLE_VOICE (not "true").');
+    }
     setSupported(voiceFeatureEnabled && hasMedia);
   }, []);
 
