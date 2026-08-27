@@ -939,6 +939,8 @@ def index():
             "POST /v1/audio/speech",
             "POST /v1/chat/completions",
             "GET  /v1/models",
+            "POST /v1/embeddings, /v1/completions  (relayed to Ollama)",
+            "GET  /api/tags, /api/ps, /api/version  (relayed to Ollama)",
             "GET  /test   (browser connectivity check)",
         ],
     }
@@ -1140,6 +1142,84 @@ async def chat_completions(request: Request):
             )
 
     return StreamingResponse(relay(), media_type="text/event-stream")
+
+
+# ── Ollama passthrough ─────────────────────────────────────────────────────
+# Ollama binds 127.0.0.1 and stays there; this process is what makes it
+# reachable from another machine. Everything below is a thin relay to it.
+#
+# The mutating endpoints are DELIBERATELY not relayed. /api/delete,
+# /api/pull, /api/create, /api/copy and /api/push let any caller destroy or
+# replace the triage model, and this port has no authentication — publishing
+# them would mean anyone who can route here can wipe the booth's LLM. Run
+# those on the host itself.
+_OLLAMA_BLOCKED = {
+    "/api/delete", "/api/pull", "/api/push", "/api/create", "/api/copy",
+}
+
+
+async def _relay_to_ollama(request: Request, path: str) -> Response:
+    """Forward one request to Ollama and hand back exactly what it said."""
+    if path in _OLLAMA_BLOCKED:
+        raise HTTPException(
+            403,
+            f"{path} is not exposed: it can modify or delete models and this "
+            "port is unauthenticated. Run it on the host.",
+        )
+    body = await request.body()
+    url = f"{OLLAMA_URL}{path}"
+    try:
+        async with httpx.AsyncClient(timeout=LLM_TIMEOUT_S) as client:
+            r = await client.request(
+                request.method, url, content=body or None,
+                headers={"Content-Type": request.headers.get(
+                    "content-type", "application/json")},
+                params=dict(request.query_params),
+            )
+    except Exception as exc:
+        logger.exception("Ollama relay failed for %s", path)
+        raise HTTPException(502, f"Ollama upstream error: {exc}") from exc
+    return Response(
+        content=r.content, status_code=r.status_code,
+        media_type=r.headers.get("content-type", "application/json"),
+    )
+
+
+@app.post("/v1/embeddings")
+async def v1_embeddings(request: Request):
+    return await _relay_to_ollama(request, "/v1/embeddings")
+
+
+@app.post("/v1/completions")
+async def v1_completions(request: Request):
+    return await _relay_to_ollama(request, "/v1/completions")
+
+
+@app.get("/api/tags")
+async def api_tags(request: Request):
+    return await _relay_to_ollama(request, "/api/tags")
+
+
+@app.get("/api/ps")
+async def api_ps(request: Request):
+    return await _relay_to_ollama(request, "/api/ps")
+
+
+@app.get("/api/version")
+async def api_version(request: Request):
+    return await _relay_to_ollama(request, "/api/version")
+
+
+@app.post("/api/show")
+async def api_show(request: Request):
+    return await _relay_to_ollama(request, "/api/show")
+
+
+@app.api_route("/api/{path:path}", methods=["GET", "POST"])
+async def api_catchall(request: Request, path: str):
+    """Anything else under /api — blocked ones answer 403 with the reason,
+    so a caller is told rather than left guessing at a 404."""
+    return await _relay_to_ollama(request, f"/api/{path}")
 
 
 @app.post("/v1/audio/transcriptions")
