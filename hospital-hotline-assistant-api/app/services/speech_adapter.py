@@ -224,6 +224,16 @@ def build_stt_client(settings: Any) -> SttClient:
         from app.services.google_stt import GoogleSttClient
 
         return GoogleSttClient()
+    if provider == "local":
+        # Models load lazily on first use, so this stays cheap at startup.
+        from app.services.speech_local import LocalWhisperSttClient
+
+        return LocalWhisperSttClient(
+            model_size=getattr(settings, "stt_local_model", "large-v3-turbo"),
+            device=getattr(settings, "stt_local_device", "auto"),
+            compute_type=getattr(settings, "stt_local_compute_type", "int8"),
+            beam_size=int(getattr(settings, "stt_local_beam_size", 1)),
+        )
     if provider == "openai_compatible":
         return HttpSttClient(
             base_url=settings.stt_base_url or "http://localhost:8080/v1",
@@ -240,6 +250,31 @@ def build_tts_client(settings: Any) -> TtsClient:
         from app.services.google_tts import GoogleTtsClient
 
         return GoogleTtsClient()
+    if provider == "local":
+        from app.services.speech_local import LocalF5TtsClient
+
+        ref_audio_th = getattr(settings, "tts_ref_audio_th", None) or ""
+        ref_text_th = getattr(settings, "tts_ref_text_th", None) or ""
+        return LocalF5TtsClient(
+            model=getattr(settings, "tts_local_model", "v1"),
+            device=getattr(settings, "tts_local_device", "cpu"),
+            # One clip, both languages: cloning takes the voice from the
+            # reference and the language from the text, so English falls back
+            # to the Thai clip unless a separate one is configured.
+            refs_by_language={
+                "th": (ref_audio_th, ref_text_th),
+                "en": (
+                    getattr(settings, "tts_ref_audio_en", None) or ref_audio_th,
+                    getattr(settings, "tts_ref_text_en", None) or ref_text_th,
+                ),
+            },
+            steps=int(getattr(settings, "tts_f5_steps", 32)),
+            cfg=float(getattr(settings, "tts_f5_cfg", 2.0)),
+            speed_by_language={
+                "th": float(getattr(settings, "tts_speed_th", 0.95)),
+                "en": float(getattr(settings, "tts_speed_en", 1.0)),
+            },
+        )
     if provider == "openai_compatible":
         return HttpTtsClient(
             base_url=settings.tts_base_url or "http://localhost:8081/v1",

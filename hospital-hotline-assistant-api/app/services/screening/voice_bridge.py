@@ -30,7 +30,7 @@ import asyncpg
 
 from app.services.triage_service import TriageService
 
-from . import templates
+from . import templates, voice_trace
 from .viseme_track import build_viseme_track
 
 logger = logging.getLogger(__name__)
@@ -512,8 +512,24 @@ class TurnVoiceService:
                     yield chunk
             return
 
+        # One turn, narrated leg by leg — see voice_trace for why.
+        session["turn_no"] = session.get("turn_no", 0) + 1
+        turn_no = session["turn_no"]
+        session["turn_started"] = time.monotonic()
+        targets = voice_trace.leg_targets(_settings)
+        voice_trace.mic(
+            session_id, turn_no, len(pcm), INPUT_SAMPLE_RATE,
+            "tap" if explicit else "silence",
+        )
+
         transcript: str | None
         stt_started = time.monotonic()
+        voice_trace.sending(
+            session_id, turn_no, "STT", targets["STT"],
+            f"{_settings.stt_provider}, "
+            f"{_settings.stt_local_model if _settings.stt_provider == 'local' else _settings.stt_model}, "
+            f"{language}",
+        )
         try:
             stt = await self.stt_client.transcribe(
                 audio_bytes=pcm16_to_wav(pcm, INPUT_SAMPLE_RATE),
@@ -521,7 +537,15 @@ class TurnVoiceService:
                 mime_type="audio/wav",
             )
             transcript = (stt.transcript or "").strip()
-        except Exception:
+            voice_trace.received(
+                session_id, turn_no, "STT", time.monotonic() - stt_started,
+                f"{transcript[:60]!r}" if transcript else "(heard nothing)",
+            )
+        except Exception as exc:
+            voice_trace.failed(
+                session_id, turn_no, "STT", time.monotonic() - stt_started,
+                targets["STT"], exc,
+            )
             logger.exception("STT failed for %s", session_id)
             transcript = None
         session["last_stt_ms"] = int((time.monotonic() - stt_started) * 1000)
@@ -556,6 +580,11 @@ class TurnVoiceService:
 
         async for chunk in self._process_transcript(session_id, session, transcript):
             yield chunk
+        voice_trace.complete(
+            session_id,
+            session.get("turn_no", 0),
+            time.monotonic() - session.get("turn_started", time.monotonic()),
+        )
 
     async def _process_transcript(
         self,
@@ -1187,6 +1216,13 @@ class TurnVoiceService:
     ) -> tuple[str, dict[str, Any] | None]:
         reply = ""
         final_payload: dict[str, Any] | None = None
+        turn_no = session.get("turn_no", 0)
+        llm_started = time.monotonic()
+        voice_trace.sending(
+            session_id, turn_no, "LLM",
+            voice_trace.leg_targets(_settings)["LLM"],
+            f"{_settings.screening_model_provider}, {_settings.screening_model_name}",
+        )
         async for event in self.triage_service.process_chat_stream(
             connection=connection,
             session_id=session_id,
@@ -1213,7 +1249,16 @@ class TurnVoiceService:
                 session["awaiting_measurement"] = result.get("awaiting_measurement")
                 session["reply_options"] = result.get("reply_options") or []
             elif event_type == "error":
+                voice_trace.failed(
+                    session_id, turn_no, "LLM", time.monotonic() - llm_started,
+                    voice_trace.leg_targets(_settings)["LLM"],
+                    RuntimeError(str(event.get("message"))),
+                )
                 raise RuntimeError(str(event.get("message")))
+        voice_trace.received(
+            session_id, turn_no, "LLM", time.monotonic() - llm_started,
+            f"reply {reply[:60]!r}" if reply else "(no reply text)",
+        )
         return reply, final_payload
 
     async def _maybe_announce_emergency(
@@ -1254,6 +1299,15 @@ class TurnVoiceService:
         self, session_id: str, session: dict[str, Any], text: str
     ) -> AsyncIterator[bytes]:
         await self._push_transcript(session, "agent", text)
+        turn_no = session.get("turn_no", 0)
+        tts_started = time.monotonic()
+        tts_target = voice_trace.leg_targets(_settings)["TTS"]
+        voice_trace.sending(
+            session_id, turn_no, "TTS", tts_target,
+            f"{_settings.tts_provider}, "
+            f"{'F5-TTS-THAI/' + _settings.tts_local_model if _settings.tts_provider == 'local' else _settings.tts_model}, "
+            f"{session['language']}",
+        )
         try:
             audio = await self.tts_client.synthesize(
                 text=text,
@@ -1261,9 +1315,17 @@ class TurnVoiceService:
                 audio_encoding="linear16",
                 sample_rate_hertz=OUTPUT_SAMPLE_RATE,
             )
-        except Exception:
+            voice_trace.received(
+                session_id, turn_no, "TTS", time.monotonic() - tts_started,
+                f"{len(audio)} B of {OUTPUT_SAMPLE_RATE // 1000} kHz PCM",
+            )
+        except Exception as exc:
             # Caption already went out on the JSON channel, so the caller
             # still sees the reply even if they can't hear it.
+            voice_trace.failed(
+                session_id, turn_no, "TTS", time.monotonic() - tts_started,
+                tts_target, exc,
+            )
             logger.exception("TTS failed for %s", session_id)
             return
         # Vowel timeline for avatar lip sync — sent before the line's audio
