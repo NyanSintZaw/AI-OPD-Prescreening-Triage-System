@@ -104,9 +104,35 @@ gateway from the network entirely.
 Prewarm loads the models on a background thread; the port answers in ~2 s and
 `GET /health` reports `loaded` when they are actually ready.
 
+## 6b. Keeping Ollama on the Windows box
+
+The LLM does not have to move with speech. Ollama binds `127.0.0.1` on the
+Windows machine and stays there; the gateway already running beside it keeps
+re-serving it at `/v1/chat/completions`, and the Mac reaches that through the
+tunnel. Speech runs locally on the Mac.
+
+Two gateway instances then, each doing part of the job:
+
+| | Host | Serves | Reached at |
+|---|---|---|---|
+| Windows gateway | GPU box | `/v1/chat/completions` (proxy to Ollama) | the devtunnel URL |
+| Mac gateway | full-stack box | `/v1/audio/transcriptions`, `/v1/audio/speech` | `http://localhost:8091/v1` |
+
+The Mac's gateway needs **no Ollama at all**. Leave `LLM_PIN_MODEL` unset in
+its `.env` — otherwise prewarm tries to pin a model that is not there — and
+expect `GET /health` to report `llm.reachable: false`. That is correct here,
+not a fault: nothing on the Mac calls its LLM proxy.
+
+Do **not** try to point the Mac directly at `http://<windows-host>:11434`.
+Ollama is bound to loopback, so it is not reachable, and exposing it would put
+an unauthenticated LLM endpoint on the hospital LAN — the thing
+`local-stack-design.md` exists to prevent. The proxy is the supported route.
+
 ## 7. Point the backend at it
 
 `hospital-hotline-assistant-api/.env`:
+
+Everything on the Mac:
 
 ```
 AI_MODE=local
@@ -114,6 +140,28 @@ LOCAL_AI_BASE_URL=http://localhost:8091/v1
 LOCAL_SCREENING_MODEL_NAME=scb10x/llama3.1-typhoon2-8b-instruct
 TTS_LOCAL_VOICE_TH=th
 TTS_LOCAL_VOICE_EN=en
+```
+
+Or, keeping Ollama on the Windows box (§6b) — set the LLM URL explicitly and
+leave the speech URLs unset, because `AI_MODE=local` fills in only what you
+have not set:
+
+```
+AI_MODE=local
+LOCAL_AI_BASE_URL=http://localhost:8091/v1                 # -> STT + TTS, local
+SCREENING_OPENAI_BASE_URL=https://<tunnel-host>/v1         # -> LLM, remote
+LOCAL_SCREENING_MODEL_NAME=scb10x/llama3.1-typhoon2-8b-instruct
+TTS_LOCAL_VOICE_TH=th
+TTS_LOCAL_VOICE_EN=en
+```
+
+Verified to resolve as:
+
+```
+provider : openai_compatible
+LLM  -> https://<tunnel-host>/v1
+STT  -> http://localhost:8091/v1
+TTS  -> http://localhost:8091/v1
 ```
 
 `AI_MODE=local` fills all three base URLs from `LOCAL_AI_BASE_URL`, which is
