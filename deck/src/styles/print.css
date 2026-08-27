@@ -1,0 +1,204 @@
+/* Printing.
+   The deck itself is never printed — a scaled 1920 stage on A4 is a mess and
+   nobody wants thirteen pages of it. What prints is the leave-behind: the one
+   page PITCH_DECK §7 asks for, composed from the same slide objects the deck
+   renders so it cannot drift from what was presented.
+
+   Ctrl+P, A4 portrait, background graphics ON. */
+
+.d-leave {
+  display: none;
+}
+
+.d-typecheck-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.d-typecheck-row {
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  gap: 20px;
+  align-items: baseline;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--border-default);
+}
+
+.d-typecheck-row.is-small {
+  background: var(--gold-50);
+}
+
+.d-typecheck-where {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.d-typecheck-text {
+  color: var(--text-body);
+}
+
+/* The leave-behind renders on screen too, so you can proof it before printing. */
+.deck-slide--aside .d-leave {
+  display: block;
+  max-width: 1100px;
+  color: var(--text-body);
+}
+
+.d-leave-head h1 {
+  margin: 0;
+  font-size: 34px;
+  color: var(--teal-900);
+}
+
+.d-leave-head p {
+  margin: 2px 0 20px;
+  font-size: 20px;
+  color: var(--text-muted);
+}
+
+.d-leave-warn {
+  margin: 0 0 20px;
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+  background: var(--status-warning-soft);
+  border: 1px solid var(--gold-500);
+  color: var(--status-warning-ink);
+  font-size: 15px;
+}
+
+.d-leave section {
+  margin-bottom: 26px;
+}
+
+.d-leave h2 {
+  margin: 0 0 6px;
+  font-size: 20px;
+  color: var(--teal-800);
+}
+
+.d-leave-lead {
+  margin: 0 0 10px;
+  font-size: 15px;
+  color: var(--text-body);
+}
+
+.d-leave table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.d-leave th,
+.d-leave td {
+  padding: 7px 10px;
+  text-align: left;
+  vertical-align: top;
+  border-bottom: 1px solid var(--border-default);
+}
+
+.d-leave code {
+  font-family: var(--font-mono);
+  font-size: 13px;
+}
+
+/* The tier badge sits after its label and must not run into it. */
+.d-leave th code {
+  margin-left: 8px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--teal-50);
+  color: var(--teal-700);
+}
+
+/* The VRAM budget, on paper. Three columns, so procurement can read it as a
+   spec rather than as a run-on sentence. */
+.d-leave-spec {
+  margin-top: 6px;
+}
+
+.d-leave-spec > div {
+  display: grid;
+  grid-template-columns: 42px 1fr auto;
+  gap: 10px;
+  padding: 2px 0;
+  font-size: 12px;
+}
+
+.d-leave-spec b {
+  font-family: var(--font-mono);
+  color: var(--teal-700);
+}
+
+.d-leave-spec span {
+  font-family: var(--font-mono);
+  overflow-wrap: anywhere;
+}
+
+.d-leave-spec em {
+  font-style: normal;
+  white-space: nowrap;
+}
+
+.d-leave-note {
+  margin: 8px 0 0;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 14mm;
+  }
+
+  html,
+  body,
+  #root {
+    height: auto;
+    overflow: visible;
+    background: var(--white);
+  }
+
+  /* Everything that is chrome or stage disappears; only the leave-behind
+     survives onto paper. */
+  .deck-root {
+    position: static;
+    background: none;
+  }
+
+  .deck-viewport,
+  .deck-stage {
+    position: static;
+    width: auto;
+    height: auto;
+    margin: 0;
+    transform: none;
+    background: none;
+    overflow: visible;
+  }
+
+  .deck-slide {
+    position: static;
+    padding: 0;
+    overflow: visible;
+  }
+
+  .deck-aurora,
+  .deck-petals,
+  .d-rail,
+  .d-notes,
+  .d-overlay,
+  .deck-blackout {
+    display: none !important;
+  }
+
+  .d-leave {
+    display: block;
+  }
+
+  .d-leave section {
+    break-inside: avoid;
+  }
+}

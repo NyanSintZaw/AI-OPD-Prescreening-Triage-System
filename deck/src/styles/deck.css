@@ -1,0 +1,207 @@
+/* The deck's own layer. Tokens come from the vendored design system; what is
+   defined here is stage geometry and the presentation type scale — sizes a
+   product UI never needs, read from eight metres instead of arm's length. */
+@import '../design-system/index.css';
+@import './chrome.css';
+@import './layouts.css';
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  font-family: var(--font-sans);
+  /* Deep leaf, never black: the deck looks like the product even in the
+     letterbox bars a projector's aspect ratio leaves behind. */
+  background: var(--ink-900);
+  overflow: hidden;
+}
+
+.deck-root {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  background: var(--ink-900);
+
+  /* ── Presentation type scale, in px on the 1920 stage ─────────────────── */
+  --d-display: 96px;
+  --d-title: 72px;
+  --d-lead: 44px;
+  --d-body: 34px;
+  --d-caption: 24px;
+  --d-en-sub: 34px;
+  --d-metric: 220px;
+
+  /* PITCH_DECK §0: "Thai at ~1.05x the Latin size so they optically match."
+     Anuphan covers both scripts in one family, so this is the only nudge. */
+  --d-th-optical: 1.05;
+
+  /* Anuphan's Thai needs room below the baseline and above the x-height for
+     tone marks and lower vowels. The DS's --leading-tight (1.15) clips them at
+     display size — never use it on Thai. */
+  --leading-th: 1.4;
+  --leading-en: 1.25;
+
+  /* The team plate behind the notuning mark. A deck-local value on purpose:
+     notuning is a different brand from MALI, so borrowing a MALI token — least
+     of all a status colour — would be the wrong kind of reuse. White sits on
+     this at about 6.5:1. */
+  --d-team-plate: #35608f;
+
+  /* Stage transitions are a presentational beat read across a room, not a
+     UI transition the user is waiting on after their own click. The DS's
+     300ms enter reads as a snap here. Documented departure — see CLAUDE.md. */
+  --d-enter: 420ms;
+  --d-exit: 200ms;
+}
+
+/* ── The stage ───────────────────────────────────────────────────────────
+   A fixed 1920x1080 logical canvas, uniformly scaled to fit. Fixed, not
+   fluid: what you rehearse must break its Thai lines in exactly the same
+   place on the projector. Nothing inside may use clamp() for type. */
+.deck-stage {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 1920px;
+  height: 1080px;
+  margin: -540px 0 0 -960px;
+  transform: scale(var(--stage-scale, 1));
+  transform-origin: center center;
+  overflow: hidden;
+  background: linear-gradient(168deg, var(--paper) 0%, var(--teal-50) 100%);
+  color: var(--text-body);
+}
+
+.deck-slide {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 96px 120px 120px;
+  z-index: 1;
+}
+
+/* ── Background, lifted from the kiosk (styles/kiosk.css:96–122) ──────────
+   Literally the booth's own backdrop, with the blobs scaled for a stage
+   nearly twice the kiosk's width. */
+.deck-aurora,
+.deck-petals {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.deck-aurora {
+  background:
+    radial-gradient(900px 900px at 8% 18%, rgba(88, 161, 157, 0.08), transparent 70%),
+    radial-gradient(1000px 1000px at 96% 88%, rgba(88, 161, 157, 0.06), transparent 70%);
+  animation: deck-aurora-drift 36s ease-in-out infinite alternate;
+}
+
+@keyframes deck-aurora-drift {
+  from {
+    transform: translate(0, 0) scale(1);
+  }
+  to {
+    transform: translate(1.5%, 1%) scale(1.05);
+  }
+}
+
+/* The design system caps every <p> at --measure (68ch) so product prose stays
+   readable. On a 1920 stage that silently folds a full-width slide line into a
+   half-width column — and it does it quietly, which is worse. Slides set their
+   own measure where they want one. */
+.deck-root p {
+  max-width: none;
+}
+
+/* ── Headlines — typeset in exactly one component ─────────────────────── */
+/* Scoped under .deck-root deliberately: the design system's base layer sets
+   `.mali-root h1 { font-size: var(--text-2xl) }`, which outranks a bare class
+   and would silently shrink every Thai headline to 24px. */
+.d-headline {
+  margin: 0;
+  max-width: 1500px;
+}
+
+.d-headline--display {
+  --d-size: var(--d-display);
+}
+
+.d-headline--title {
+  --d-size: var(--d-title);
+}
+
+.deck-root .d-th {
+  margin: 0;
+  font-size: calc(var(--d-size) * var(--d-th-optical));
+  line-height: var(--leading-th);
+  font-weight: var(--fw-semibold);
+  color: var(--text-heading);
+  /* Never negative on Thai: it collides tone marks with the next glyph. */
+  letter-spacing: 0;
+  text-wrap: balance;
+  /* Headlines may carry a 
+ where the line must break on a beat rather than
+     on available width. */
+  white-space: pre-line;
+}
+
+/* The Thai second tier: smaller than the headline, larger than the English,
+   and still Thai leading — tone marks need the room at any size. */
+.deck-root .d-th-sub {
+  margin: 14px 0 0;
+  font-size: 34px;
+  line-height: var(--leading-th);
+  font-weight: var(--fw-regular);
+  color: var(--text-body);
+  white-space: pre-line;
+}
+
+.deck-root .d-en {
+  margin: 12px 0 0;
+  font-size: var(--d-en-sub);
+  line-height: var(--leading-en);
+  font-weight: var(--fw-regular);
+  color: var(--text-muted);
+  text-wrap: balance;
+}
+
+/* ── Reduced motion ──────────────────────────────────────────────────────
+   The DS tokens already collapse their own durations. What is left is the
+   deck's own loops. A motion preference suppresses transition, never
+   content — every diagram still renders its end state. */
+@media (prefers-reduced-motion: reduce) {
+  .deck-aurora {
+    animation: none;
+  }
+}
+
+/* ── [FILL] chips ────────────────────────────────────────────────────── */
+.d-fill {
+  display: inline-block;
+  padding: 0 0.3em;
+  font-family: var(--font-mono);
+  font-size: 0.82em;
+  color: var(--gold-700);
+  background: var(--gold-50);
+  border: 1px dashed var(--gold-500);
+  border-radius: var(--radius-sm);
+  vertical-align: 0.06em;
+}
+
+.d-filled {
+  font-variant-numeric: tabular-nums;
+}
