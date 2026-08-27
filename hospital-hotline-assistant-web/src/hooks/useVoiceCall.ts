@@ -1098,8 +1098,18 @@ export function useVoiceCall(options: UseVoiceCallOptions): UseVoiceCallApi {
   const cleanup = useCallback(() => {
     // Safety net: if the call tears down before the final reply's audio
     // drained (e.g. the server closed the socket, or autoplay was blocked),
-    // still reveal the slip. Idempotent with the onIdle commit.
+    // still apply whatever the server already decided. All three are guarded
+    // on a pending payload and idempotent with the onIdle commit.
+    //
+    // commitResumeChoice matters most: on "start over" the server emits the
+    // frame and then deliberately stops processing audio until the kiosk
+    // relinks (see test_resume_start_over_signals_kiosk). The commit is
+    // drain-gated, so if the audio never drains or the socket closes first,
+    // the pending choice was silently dropped and the kiosk sat mute forever
+    // waiting for a session it never created.
     commitAssessment();
+    commitIdentity();
+    commitResumeChoice();
     activeRef.current = false;
     discardPlaybackRef.current = false;
     visemeTrackRef.current = null;
@@ -1132,7 +1142,7 @@ export function useVoiceCall(options: UseVoiceCallOptions): UseVoiceCallApi {
     teardownPlayback();
     mutedRef.current = false;
     setMutedState(false);
-  }, [teardownInputGraph, teardownPlayback, commitAssessment]);
+  }, [teardownInputGraph, teardownPlayback, commitAssessment, commitIdentity, commitResumeChoice]);
 
   const start = useCallback(async (opts?: { resumePrompt?: 'active' | 'completed' }) => {
     if (!supported) {
