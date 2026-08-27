@@ -581,7 +581,10 @@ def _load_mms(language, device):
         )
     return {
         "engine": "mms",
-        "model": name,
+        # NOT "model": that key already holds the torch module below, and a
+        # duplicate silently kept the module — which then reached
+        # jsonable_encoder via /health and 500'd on 'torch.dtype'.
+        "model_name": name,
         "device": device,
         "sample_rate": MMS_SAMPLE_RATE,
         "tokenizer": tokenizer,
@@ -624,7 +627,7 @@ def _load_f5(language, device):
 
     return {
         "engine": "f5",
-        "model": f"F5-TTS-THAI/{F5_MODEL}",
+        "model_name": f"F5-TTS-THAI/{F5_MODEL}",
         "device": device,
         "sample_rate": F5_SAMPLE_RATE,
         "tts": tts,
@@ -674,7 +677,7 @@ def get_tts(language):
         _tts_cache[language] = entry
         _tts_runtime[language] = {
             "engine": entry["engine"],
-            "model": entry["model"],
+            "model": entry["model_name"],
             "engine_requested": requested,
             "device": entry["device"],
             "sample_rate": entry["sample_rate"],
@@ -709,7 +712,16 @@ def _synth_f5(entry, text, speed):
     # Some builds return (waveform, sample_rate) rather than a bare array.
     if isinstance(wav, tuple):
         wav = wav[0]
-    return np.asarray(wav, dtype=np.float32).squeeze()
+    # reshape(-1), NOT squeeze(): squeeze turns a 1-sample result into a
+    # 0-d array, which survives every check in to_wav until len(pcm) raises
+    # "object of type 'numpy.int16' has no len()" — a 500 with no clue that
+    # TTS produced nothing. reshape(-1) always yields 1-D.
+    wav = np.asarray(wav, dtype=np.float32).reshape(-1)
+    if wav.size < 2:
+        # Degenerate output. Raise so synthesize() can demote to MMS and the
+        # patient still hears the line, rather than serving silence.
+        raise RuntimeError(f"F5 returned {wav.size} samples (no usable audio)")
+    return wav
 
 
 def _demote_to_mms(language, reason):
@@ -719,7 +731,7 @@ def _demote_to_mms(language, reason):
         _tts_cache[language] = entry
         _tts_runtime[language] = {
             "engine": entry["engine"],
-            "model": entry["model"],
+            "model": entry["model_name"],
             "engine_requested": TTS_ENGINES.get(language, "mms"),
             "device": entry["device"],
             "sample_rate": entry["sample_rate"],
