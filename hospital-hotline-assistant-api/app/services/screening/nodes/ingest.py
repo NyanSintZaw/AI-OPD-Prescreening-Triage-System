@@ -187,6 +187,37 @@ def _keyword_category(user_text: str, criteria) -> str | None:
     return scores[0][1]
 
 
+_CATEGORY_SCHEMA_CACHE: dict[tuple[str, ...], type] = {}
+
+
+def _category_constrained_schema(criteria) -> type:
+    """ExtractionResult with complaint_category pinned to the known ids.
+
+    Only used when deps.constrain_category is set. Cached per vocabulary: the
+    categories change only when the criteria version does, and rebuilding a
+    pydantic model per turn would be pure waste.
+    """
+    from typing import Literal, Optional
+
+    from pydantic import Field, create_model
+
+    cats = tuple(sorted({t.category for t in criteria.complaint_templates}))
+    cached = _CATEGORY_SCHEMA_CACHE.get(cats)
+    if cached is not None:
+        return cached
+    model = create_model(
+        "ExtractionResultConstrained",
+        __base__=ExtractionResult,
+        complaint_category=(
+            Optional[Literal[cats]],  # type: ignore[valid-type]
+            Field(default=None,
+                  description="Best matching complaint category, or null"),
+        ),
+    )
+    _CATEGORY_SCHEMA_CACHE[cats] = model
+    return model
+
+
 def _closest_category(raw: str, known: set[str]) -> str | None:
     """Deterministically map a near-miss category id to a known one.
 
@@ -401,7 +432,12 @@ def make_ingest_node(deps: GraphDeps):
         prompt = build_extraction_prompt(
             criteria, state, user_text, _pending_question_text(state, criteria),
         )
-        structured = deps.model.with_structured_output(ExtractionResult)
+        schema = (
+            _category_constrained_schema(criteria)
+            if deps.constrain_category
+            else ExtractionResult
+        )
+        structured = deps.model.with_structured_output(schema)
         started = perf_counter()
         result: ExtractionResult | None = None
         for attempt in (1, 2):

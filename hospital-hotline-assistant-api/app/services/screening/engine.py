@@ -75,6 +75,7 @@ class ScreeningTriageEngine:
         department_names: dict[str, dict[str, str]] | None = None,
         rag_search=None,
         model_timeout_s: float = 30.0,
+        constrain_category: bool = False,
     ) -> None:
         self._store = store or InMemoryStateStore()
         self._prompt_version = prompt_version
@@ -86,6 +87,7 @@ class ScreeningTriageEngine:
             model=model,
             question_budget=question_budget,
             model_timeout_s=model_timeout_s,
+            constrain_category=constrain_category,
             department_names=names,
             validator_department_names={
                 code: [n for n in lang_names.values() if n]
@@ -347,4 +349,9 @@ def make_triage_engine(settings, pool=None):
         ),
         rag_search=rag_search,
         model_timeout_s=getattr(settings, "screening_model_timeout_s", 30.0),
+        # Local models need the category vocabulary enforced by the decoder;
+        # Gemini does not (see GraphDeps.constrain_category).
+        constrain_category=(
+            settings.screening_model_provider == "openai_compatible"
+        ),
     )

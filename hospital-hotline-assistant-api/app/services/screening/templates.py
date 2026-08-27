@@ -370,6 +370,21 @@ VOICE_ERROR = {
     "th": "ขอโทษค่ะ ระบบขัดข้องชั่วคราว ช่วยพูดอีกครั้งได้ไหมคะ",
 }
 
+# Spoken once, when repeated failures have given up on the interview. The
+# booth used to fall silent here, which a patient cannot distinguish from it
+# still listening — so they wait, and nobody is triaged. Say it plainly and
+# hand them to a human.
+VOICE_FATAL = {
+    "en": (
+        "I'm sorry — I'm having a technical problem and can't finish the "
+        "screening. Please go to the counter and a member of staff will help you."
+    ),
+    "th": (
+        "ขออภัยค่ะ ระบบมีปัญหาทางเทคนิค ไม่สามารถคัดกรองต่อได้ "
+        "กรุณาไปที่เคาน์เตอร์ เจ้าหน้าที่จะดูแลคุณต่อค่ะ"
+    ),
+}
+
 # Fallback department display names; the engine overrides these with the
 # database's bilingual names when available.
 DEPARTMENT_NAMES: dict[str, dict[str, str]] = {

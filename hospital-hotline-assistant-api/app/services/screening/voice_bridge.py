@@ -551,7 +551,22 @@ class TurnVoiceService:
             logger.exception("Voice turn pipeline failed for %s", session_id)
             session["consecutive_errors"] += 1
             if session["consecutive_errors"] >= MAX_TURN_ERRORS:
+                # Giving up used to be SILENT: pipeline_failed ends the read
+                # loop (see run_live_pipeline), so the booth simply stopped
+                # answering. A patient cannot tell that apart from the booth
+                # still listening, so they wait indefinitely and are never
+                # triaged — the worst failure mode this thing has. Say what
+                # happened and send them to a human before tearing down.
                 session["pipeline_failed"] = True
+                try:
+                    async for chunk in self._speak_line(
+                        session_id, session, templates.VOICE_FATAL[language]
+                    ):
+                        yield chunk
+                except Exception:      # noqa: BLE001
+                    # TTS may be the very thing that is broken; the teardown
+                    # below still has to happen.
+                    logger.exception("could not speak the fatal-error line")
                 return
             async for chunk in self._speak_line(
                 session_id, session, templates.VOICE_ERROR[language]

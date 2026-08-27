@@ -40,6 +40,14 @@ class GraphDeps:
 
     model: BaseChatModel | None
     question_budget: int = 8
+    # Put the complaint-category vocabulary in the JSON Schema as an enum so a
+    # constrained decoder cannot emit anything else. OFF for Gemini, which
+    # emits near-miss ids in the same shape (`ear_nose_throat`) that
+    # _closest_category recovers — measured 100%, see the 2026-08-12 note.
+    # ON for local models: they emit a different register entirely ('symptom',
+    # 'Symptom (Non-specific)', Thai prose), which shares no tokens with any
+    # known id, so recovery cannot fire and EVERY complaint routes to generic.
+    constrain_category: bool = False
     # hard per-LLM-call wall-clock cap (seconds); prevents a stalled Gemini
     # gRPC call from hanging a turn / voice call forever.
     model_timeout_s: float = 30.0
