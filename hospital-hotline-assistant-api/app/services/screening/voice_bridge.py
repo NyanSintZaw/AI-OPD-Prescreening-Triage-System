@@ -74,6 +74,8 @@ SPEECH_AMPLITUDE_THRESHOLD = getattr(_settings, "voice_speech_amplitude_threshol
 NOISE_GATE_FACTOR = getattr(_settings, "voice_noise_gate_factor", 3.5)
 SILENCE_HANG_MS = getattr(_settings, "voice_silence_hang_ms", 2500)
 MIN_TURN_AUDIO_MS = getattr(_settings, "voice_min_turn_audio_ms", 500)
+# How often to report audio that is arriving but failing the speech gate.
+GATE_REPORT_EVERY_MS = 3000.0
 # Rolling noise-floor EMA: starting estimate and smoothing per 40 ms chunk.
 # Start LOW so the cold-start gate sits near the minimum — the greeting gives
 # the EMA ~5 s of room audio to adapt upward before the caller first speaks.
@@ -277,7 +279,29 @@ class TurnVoiceService:
         if session is None:
             raise ValueError("Session not found")
         if session["muted"] or session["processing"] or not audio_chunk:
+            # Dropped on purpose — but silently, which makes "I talked and
+            # nothing happened" impossible to explain. A patient who answers
+            # while the booth is still speaking loses every frame this way.
+            if audio_chunk and (session["muted"] or session["processing"]):
+                session["dropped_ms"] = session.get("dropped_ms", 0.0) + (
+                    len(audio_chunk) / _BYTES_PER_MS
+                )
+                since = session["dropped_ms"] - session.get("drop_logged_at_ms", 0.0)
+                if since >= GATE_REPORT_EVERY_MS:
+                    session["drop_logged_at_ms"] = session["dropped_ms"]
+                    logger.warning(
+                        "voice %s: discarding mic audio (%.1fs so far) because "
+                        "%s — the patient is talking but nothing is buffered",
+                        session_id, session["dropped_ms"] / 1000.0,
+                        "the session is muted" if session["muted"]
+                        else "a turn is still being processed/spoken",
+                    )
             return
+        if session.get("dropped_ms"):
+            logger.info("voice %s: mic audio accepted again after discarding %.1fs",
+                        session_id, session["dropped_ms"] / 1000.0)
+            session["dropped_ms"] = 0.0
+            session["drop_logged_at_ms"] = 0.0
 
         session["buffer"].extend(audio_chunk)
         buf = session["buffer"]
@@ -290,10 +314,38 @@ class TurnVoiceService:
         amplitude = mean_abs_amplitude(audio_chunk)
         floor = session.get("noise_floor", NOISE_FLOOR_INITIAL)
         gate = max(SPEECH_AMPLITUDE_THRESHOLD, floor * NOISE_GATE_FACTOR)
+
+        # The gate used to decide this silently, which made its single worst
+        # failure undiagnosable: if the mic never clears it, speech_seen stays
+        # False, the silence timer never starts, and the turn NEVER fires. The
+        # booth just listens forever and the log says nothing at all. Report
+        # the first speech of a turn, and periodically report audio that is
+        # arriving but being gated out — that line is the whole diagnosis when
+        # a patient is talking and nothing happens.
+        session["audio_ms_seen"] = session.get("audio_ms_seen", 0.0) + (
+            len(audio_chunk) / _BYTES_PER_MS
+        )
         if amplitude >= gate:
+            if not session["speech_seen"]:
+                logger.info(
+                    "voice %s: speech detected (amplitude %.0f >= gate %.0f)",
+                    session_id, amplitude, gate,
+                )
             session["speech_seen"] = True
             session["trailing_silence_ms"] = 0.0
         else:
+            if not session["speech_seen"]:
+                since = session["audio_ms_seen"] - session.get("gate_logged_at_ms", 0.0)
+                if since >= GATE_REPORT_EVERY_MS:
+                    session["gate_logged_at_ms"] = session["audio_ms_seen"]
+                    logger.warning(
+                        "voice %s: %.0fs of audio received but BELOW the speech "
+                        "gate (amplitude %.0f < gate %.0f, noise floor %.0f) — "
+                        "no turn can fire. Mic too quiet, or "
+                        "voice_speech_amplitude_threshold too high.",
+                        session_id, session["audio_ms_seen"] / 1000.0,
+                        amplitude, gate, floor,
+                    )
             session["noise_floor"] = (
                 floor * (1 - NOISE_FLOOR_ALPHA) + amplitude * NOISE_FLOOR_ALPHA
             )
@@ -399,7 +451,11 @@ class TurnVoiceService:
             if session.get("disposed"):
                 session["buffer"].clear()
                 session["speech_seen"] = False
+                session["audio_ms_seen"] = 0.0
+                session["gate_logged_at_ms"] = 0.0
                 session["trailing_silence_ms"] = 0.0
+                session["audio_ms_seen"] = 0.0
+                session["gate_logged_at_ms"] = 0.0
                 continue
 
             session["processing"] = True
@@ -423,6 +479,8 @@ class TurnVoiceService:
                 session["processing"] = False
                 session["buffer"].clear()
                 session["speech_seen"] = False
+                session["audio_ms_seen"] = 0.0
+                session["gate_logged_at_ms"] = 0.0
                 session["trailing_silence_ms"] = 0.0
 
     async def _process_turn(

@@ -178,7 +178,18 @@ async def voice_call(websocket: WebSocket, session_id: str):
                         await live_voice_service.send_audio(session_id, data)
                     except ValueError:
                         # Session vanished — bail. The outer cleanup will
-                        # close the socket.
+                        # close the socket. Log it: this return permanently
+                        # stops reading microphone audio for this call, so if
+                        # it fires early (frames arriving before the pipeline
+                        # registered the session) the patient talks into a
+                        # socket nobody is reading and nothing ever explains
+                        # why.
+                        logger.warning(
+                            "inbound audio pump stopping for %s: session not "
+                            "registered (frame arrived before the pipeline was "
+                            "ready?) — no further mic audio will be read",
+                            session_id,
+                        )
                         return
                     except Exception:
                         logger.exception(
