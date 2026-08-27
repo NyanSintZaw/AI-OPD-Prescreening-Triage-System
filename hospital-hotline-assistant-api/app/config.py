@@ -56,6 +56,10 @@ class Settings(BaseSettings):
     pgvector_embed_dim: int = 384
     rag_query_timeout_seconds: float = 1.0
     rag_query_prewarm_on_startup: bool = True
+    # Probe the LLM/STT/TTS legs once at boot and log a PASS/FAIL banner.
+    # Three small calls; turn it off for offline test runs or if the extra
+    # startup traffic to a metered cloud provider is unwelcome.
+    ai_selfcheck_on_startup: bool = True
     # ── AI mode: one switch for the LLM + STT + TTS backends ────────────────
     # "cloud"  — Gemini on Vertex AI + Google Cloud STT/TTS.
     # "local"  — everything served on-prem by the local-ai gateway; no patient
@@ -130,6 +134,40 @@ class Settings(BaseSettings):
     tts_local_voice_th: str = "th"
     tts_local_voice_en: str = "en"
     speech_http_timeout_s: float = 30.0
+    # ── In-process speech (STT_PROVIDER/TTS_PROVIDER = "local") ────────────
+    # Runs the models inside the backend instead of over HTTP. The point is
+    # the network: patient audio is the biggest, most latency-sensitive
+    # payload we send, and a dropped STT call costs the whole turn. With
+    # "local" only the LLM stays remote.
+    #
+    # STT — faster-whisper (ctranslate2, not torch). device "auto" picks CUDA
+    # when the wheels are there and falls back to CPU; on Apple silicon there
+    # is no CUDA, so cpu/int8 is the real setting.
+    stt_local_model: str = "large-v3-turbo"
+    stt_local_device: str = "auto"
+    stt_local_compute_type: str = "int8"
+    # Greedy decode: a booth turn is one short utterance, and beam search buys
+    # accuracy with latency the patient sits through.
+    stt_local_beam_size: int = 1
+    # TTS — F5-TTS-THAI. Voice CLONING, so both of these are required: the
+    # clip supplies the voice, its transcript supplies the alignment, and the
+    # language comes from the text — one clip gives the same nurse in th+en.
+    tts_local_model: str = "v1"
+    tts_local_device: str = "cpu"
+    tts_ref_audio_th: str | None = None
+    tts_ref_text_th: str | None = None
+    # English falls back to the Thai clip on purpose (same nurse, both
+    # languages); set these only for a separate English reference.
+    tts_ref_audio_en: str | None = None
+    tts_ref_text_en: str | None = None
+    # 32 steps / cfg 2.0 are the F5 defaults. Steps is the latency dial —
+    # fewer is faster and rougher.
+    tts_f5_steps: int = 32
+    tts_f5_cfg: float = 2.0
+    # Slightly under 1.0 reads as an unhurried nurse and is easier to follow
+    # in a noisy booth.
+    tts_speed_th: float = 0.95
+    tts_speed_en: float = 1.0
     # Button-first turn taking (product decision 2026-07-27): the patient
     # ends their turn with "I'm finished speaking". Silence auto-detect is
     # only a safety net for patients who never tap — long enough that it

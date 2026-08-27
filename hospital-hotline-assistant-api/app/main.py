@@ -53,6 +53,18 @@ async def lifespan(app: FastAPI):
         # runtime; the spoken history intake must write to the current one.
         his_adapter_getter=lambda: app.state.his_adapter,
     )
+    # Ask each AI leg one real question and print the result as a banner, so a
+    # wrong base URL or a down sidecar is visible at boot instead of surfacing
+    # as a canned fallback reply mid-consultation. Background + best-effort.
+    app.state.ai_selfcheck_task = None
+    if settings.ai_selfcheck_on_startup:
+        from app.services.startup_check import start_ai_selfcheck
+
+        app.state.ai_selfcheck_task = start_ai_selfcheck(
+            settings,
+            stt_client=app.state.stt_client,
+            tts_client=app.state.tts_client,
+        )
     app.state.rag_prewarm_task = None
     if settings.rag_query_prewarm_on_startup:
         from app.services.ai.rag_query import start_rag_query_engine_prewarm
@@ -74,7 +86,7 @@ async def lifespan(app: FastAPI):
     try:
         yield
     finally:
-        for attr in ("rag_prewarm_task", "model_prewarm_task"):
+        for attr in ("rag_prewarm_task", "model_prewarm_task", "ai_selfcheck_task"):
             prewarm_task = getattr(app.state, attr, None)
             if prewarm_task is not None and not prewarm_task.done():
                 prewarm_task.cancel()
