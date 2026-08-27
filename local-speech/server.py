@@ -271,6 +271,14 @@ OLLAMA_URL = os.environ.get("OLLAMA_URL", "http://127.0.0.1:11434")
 # it (ollama ps still showed a 4-minute expiry). keep_alive=-1 on a native
 # /api/generate call does work — that reports "Forever".
 LLM_PIN_MODEL = os.environ.get("LLM_PIN_MODEL", "").strip()
+# How often to re-check that the pin survived, in seconds. 0 disables.
+# This Ollama is shared: another client requesting a different model evicts
+# ours, which destroys keep_alive=-1 and leaves the next patient turn paying a
+# cold reload (~6 s warm disk, ~75 s cold — past the backend's timeout).
+# Ollama's own env vars are not usable here; its process runs under another
+# account and cannot be restarted, so OLLAMA_KEEP_ALIVE / MAX_LOADED_MODELS are
+# silently ignored. Re-pinning through the API is the only lever left.
+LLM_PIN_INTERVAL_S = float(os.environ.get("LLM_PIN_INTERVAL_S", "60"))
 
 # Browsers refuse a cross-origin fetch without these headers, so the kiosk on
 # :5173 and the /test page cannot reach the gateway without them. Default is
@@ -789,6 +797,45 @@ def _pin_llm():
     logger.info("prewarm: LLM %s pinned in %.1f s", LLM_PIN_MODEL, time.perf_counter() - t0)
 
 
+def _norm_model(name):
+    """Ollama always reports an explicit tag; config usually omits it, and a
+    bare name means :latest. Comparing them raw made the watchdog declare an
+    eviction on every tick while the model was plainly resident."""
+    name = (name or "").strip()
+    return name if ":" in name else f"{name}:latest"
+
+
+def _llm_resident():
+    """Model names Ollama currently holds in VRAM."""
+    try:
+        r = httpx.get(f"{OLLAMA_URL}/api/ps", timeout=5)
+        r.raise_for_status()
+        return {_norm_model(m.get("name", "")) for m in r.json().get("models", [])}
+    except Exception:      # noqa: BLE001 — a failed check just means try again
+        return None
+
+
+def _pin_watchdog():
+    """Re-pin the triage model whenever it gets evicted.
+
+    Logs every re-pin, so the frequency of eviction is visible rather than
+    showing up as an occasional mysteriously slow first turn.
+    """
+    while True:
+        time.sleep(LLM_PIN_INTERVAL_S)
+        resident = _llm_resident()
+        if resident is None or _norm_model(LLM_PIN_MODEL) in resident:
+            continue
+        logger.warning(
+            "LLM %s was evicted (resident: %s) — re-pinning",
+            LLM_PIN_MODEL, ", ".join(sorted(resident)) or "nothing",
+        )
+        try:
+            _pin_llm()
+        except Exception:      # noqa: BLE001
+            logger.exception("re-pin failed; the next turn will pay a cold load")
+
+
 def _prewarm():
     for name, fn in (
         ("STT", lambda: get_stt()),
@@ -809,6 +856,9 @@ def _prewarm():
 async def lifespan(_app):
     if PREWARM:
         threading.Thread(target=_prewarm, daemon=True, name="prewarm").start()
+        if LLM_PIN_MODEL and LLM_PIN_INTERVAL_S > 0:
+            threading.Thread(target=_pin_watchdog, daemon=True,
+                             name="pin-watchdog").start()
     else:
         logger.info("PREWARM disabled — models load on first request")
     yield
