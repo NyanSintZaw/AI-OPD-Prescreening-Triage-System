@@ -81,9 +81,11 @@ except ImportError:      # python-dotenv is optional; env vars alone still work
 STT_MODEL_SIZE = os.environ.get("STT_MODEL_SIZE", "large-v3-turbo")
 STT_DEVICE = os.environ.get("STT_DEVICE", "cuda")
 STT_COMPUTE_TYPE = os.environ.get("STT_COMPUTE_TYPE", "float16")
-# 1 keeps the post-utterance pause short. There is GPU headroom to raise it,
-# but measure the accuracy/latency trade on real Thai utterances first.
-STT_BEAM_SIZE = int(os.environ.get("STT_BEAM_SIZE", "1"))
+# 5 rather than 1: measured on short clinical answers it cost nothing at all
+# (0.24-0.26 s against 0.22-0.40 s greedy, on a 20 GB card that transcribes at
+# 20x+ realtime), and beam search only helps once the audio is less clean than
+# a test clip. There is no reason to run greedy here.
+STT_BEAM_SIZE = int(os.environ.get("STT_BEAM_SIZE", "5"))
 
 
 # os.add_dll_directory() returns a handle that un-registers the directory when
