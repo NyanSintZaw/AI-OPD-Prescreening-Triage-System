@@ -1,0 +1,14 @@
+/* MALI design system — vendored from the repo-root mali-design-system/ package.
+   That package is the source of truth: edit there, then `npm run sync:ds`.
+   Everything here except this file is a byte copy; this file is deck glue.
+   Fonts are vendored (unlike the web app, which uses @fontsource) so a
+   projector laptop needs nothing but this repo. */
+@import './fonts/anuphan.css';
+@import './tokens/colors.css';
+@import './tokens/typography.css';
+@import './tokens/spacing.css';
+@import './tokens/radii.css';
+@import './tokens/shadows.css';
+@import './tokens/effects.css';
+@import './base.css';
+@import './mali-components.css';

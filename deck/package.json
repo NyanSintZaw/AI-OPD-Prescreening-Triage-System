@@ -1,0 +1,26 @@
+{
+  "name": "mfu-prescreening-deck",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "node scripts/sync-design-system.mjs --check && tsc && vite build",
+    "build:single": "tsc && vite build --mode single",
+    "preview": "vite preview --host",
+    "sync:ds": "node scripts/sync-design-system.mjs"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.15",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.0.2",
+    "typescript": "~6.0.2",
+    "vite": "^8.0.12",
+    "vite-plugin-singlefile": "^2.3.0"
+  },
+  "dependencies": {
+    "framer-motion": "^12.42.2",
+    "react": "^19.2.6",
+    "react-dom": "^19.2.6"
+  }
+}
