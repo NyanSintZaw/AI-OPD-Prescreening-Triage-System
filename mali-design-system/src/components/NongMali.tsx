@@ -1,6 +1,6 @@
 import { memo, useEffect, useRef } from 'react';
 import type { SVGProps } from 'react';
-import { playMark, type MarkMotion } from '../motion';
+import { playMark, type MarkMotion, type ShowreelAct } from '../motion';
 
 export interface NongMaliProps extends Omit<SVGProps<SVGSVGElement>, 'children'> {
   /** Pixel size of the square mark. */
@@ -23,6 +23,9 @@ export interface NongMaliProps extends Omit<SVGProps<SVGSVGElement>, 'children'>
     | 'nongWaveHello'
     | 'nongBounce'
   >;
+  /** `nongShowreel` only: which acts it may sequence. Defaults to the three in
+   *  `SHOWREEL_DEFAULT_ACTS`; ignored by every other motion. */
+  acts?: ShowreelAct[];
 }
 
 /**
@@ -30,8 +33,13 @@ export interface NongMaliProps extends Omit<SVGProps<SVGSVGElement>, 'children'>
  * Use once per session as a greeting, never as looping decoration; below 40px use the bud (`Mark`).
  * Fixed brand palette — never recolour.
  */
-function NongMaliImpl({ size = 120, motion, ...rest }: NongMaliProps) {
+function NongMaliImpl({ size = 120, motion, acts, ...rest }: NongMaliProps) {
   const ref = useRef<SVGSVGElement>(null);
+  /* The effect depends on the acts' VALUE, not the array's identity: a caller
+     writing `acts={['wave', 'bounce']}` inline hands us a new array on every
+     render, and depending on it directly would restart the reel from its first
+     act each time the parent re-rendered. */
+  const actsKey = acts?.join(' ') ?? '';
   useEffect(() => {
     if (!motion) return;
     /* Next frame, not this one: the mark's paths are written with
@@ -39,13 +47,13 @@ function NongMaliImpl({ size = 120, motion, ...rest }: NongMaliProps) {
        when the effect fires — the motion would then animate nothing. */
     let h: { cancel: () => void } | undefined;
     const raf = requestAnimationFrame(() => {
-      h = playMark(ref.current, motion);
+      h = playMark(ref.current, motion, actsKey ? { acts: actsKey.split(' ') as ShowreelAct[] } : {});
     });
     return () => {
       cancelAnimationFrame(raf);
       h?.cancel();
     };
-  }, [motion]);
+  }, [motion, actsKey]);
   return (
     <svg ref={ref} width={size} height={size} viewBox="0 0 1254 1254" aria-hidden="true" {...rest}
       dangerouslySetInnerHTML={{ __html: NONG_PATHS }} />

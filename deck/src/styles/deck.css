@@ -20,9 +20,11 @@ body,
 
 body {
   font-family: var(--font-sans);
-  /* Deep leaf, never black: the deck looks like the product even in the
-     letterbox bars a projector's aspect ratio leaves behind. */
-  background: var(--ink-900);
+  /* A warm light grey, never black and no longer deep leaf. The whole deck is
+     a light surface now, so the letterbox bars a projector's aspect ratio
+     leaves behind must not be the darkest thing in the room. One step off
+     paper, which keeps a visible edge around the stage. */
+  background: var(--ink-200);
   overflow: hidden;
 }
 
@@ -30,7 +32,7 @@ body {
   position: fixed;
   inset: 0;
   overflow: hidden;
-  background: var(--ink-900);
+  background: var(--ink-200);
 
   /* ── Presentation type scale, in px on the 1920 stage ─────────────────── */
   --d-display: 96px;

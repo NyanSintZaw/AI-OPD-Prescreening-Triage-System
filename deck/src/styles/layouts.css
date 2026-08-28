@@ -333,6 +333,17 @@
 }
 
 /* ── Eyebrow ─────────────────────────────────────────────────────────── */
+/* The bud sits at 38 beside the Thai eyebrows and 34 beside the English-only
+   ones, which looks oversized in the source and is not: its viewBox is
+   -40 -39 304 296, so roughly a quarter of the declared size is padding and
+   the visible mark lands near the type's own height. Shrinking these back to
+   "match the font size" makes it a dot again.
+
+   Each carries `budHand`, the design system's signature sketch: the petals
+   wipe in from three directions and the stamens draw and dot, once, as the
+   slide arrives. It is a one-shot rather than a loop — a mark that keeps
+   redrawing itself beside a headline is decoration, and playMark skips it
+   outright when the machine prefers reduced motion. */
 .d-eyebrow {
   display: flex;
   align-items: center;
@@ -1332,9 +1343,12 @@
 }
 
 /* ── Hold screens: demo, and questions ───────────────────────────────────
-   Deep teal, full bleed. In this deck dark means the slides stop and something
-   else begins — the live demo, or the floor. Both share this layout so they
-   stay siblings by construction. */
+   A light teal wash, full bleed. The ground changes but never darkens: Nong
+   Mali is fixed-palette by brand rule, and her teal-500 body was sinking into
+   the teal-900 this used to be. teal-100 is the lightest step that still reads
+   as a different kind of screen from eight metres — which is the job the dark
+   was doing, marking where the slides stop and something else begins. Both
+   hold screens share this layout so they stay siblings by construction. */
 .deck-root .deck-slide--hold {
   padding: 0;
 }
@@ -1347,8 +1361,8 @@
   justify-content: center;
   gap: 20px;
   height: 100%;
-  background: var(--teal-900);
-  color: var(--paper);
+  background: var(--teal-100);
+  color: var(--text-heading);
 }
 
 .d-hold-label {
@@ -1360,11 +1374,62 @@
   text-indent: 0.06em;
 }
 
+/* The cover's accent, on the cover's token: the hold word is a lockup in the
+   same family as MA·L·I, so its accent letter must be the same teal rather
+   than a second opinion about what the brand colour is. */
+.d-hold-accent {
+  color: var(--teal-500);
+}
+
 .d-hold-sub {
   margin: 0;
   font-size: 32px;
   letter-spacing: var(--tracking-label);
-  color: var(--teal-200);
+  /* Never --text-muted: this line is Thai on the closing screen, and CLAUDE.md
+     rule 3 keeps Thai body text off muted because 4.9:1 survives a monitor and
+     dies on a dim projector. teal-700 on teal-100 is ~5.5:1. */
+  color: var(--teal-700);
+}
+
+/* The sign-off, bottom right. The cover carries this lockup full size and
+   centred under the wordmark; here it is a footnote at roughly half that.
+   Bottom right because reading order in both languages ends there, because it
+   is diagonally opposite the eyebrow every other slide puts top left, and
+   because this screen is up for the whole of Q&A — a credit that has to be
+   legible for ten minutes must never sit in the centred column. Positioned on
+   `right`/`bottom` rather than a transform: `Block` animates `y`, and framer
+   owns the transform of anything it touches. */
+.d-hold-team {
+  position: absolute;
+  right: 72px;
+  bottom: 56px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.d-hold-team-label {
+  font-size: 18px;
+  font-weight: var(--fw-semibold);
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+  color: var(--ink-500);
+}
+
+/* notuning's mark is white-on-transparent and built for dark surfaces, so it
+   keeps its own plate here exactly as it does on the cover. */
+.d-hold-team-plate {
+  display: inline-grid;
+  place-items: center;
+  padding: 8px 18px;
+  border-radius: var(--radius-full);
+  background: var(--d-team-plate);
+}
+
+.d-hold-team-plate img {
+  display: block;
+  height: 30px;
+  width: auto;
 }
 
 /* With the mark present the word yields the top billing to her. */
@@ -1391,22 +1456,6 @@
   /* The stage is twice the mark so her rings and petals are not clipped; pull
      that dead space back so the word sits under her rather than adrift. */
   margin: -180px 0 -170px;
-}
-
-/* Her body is teal-500 on a teal-900 ground. The brand rule forbids recolouring
-   the mark, so the silhouette is lifted from behind instead — a pale wash, not
-   a change to the artwork. */
-.d-hold-bloom {
-  position: absolute;
-  width: 760px;
-  height: 760px;
-  border-radius: 50%;
-  background: radial-gradient(
-    circle,
-    rgba(221, 232, 223, 0.16) 0%,
-    rgba(221, 232, 223, 0.07) 46%,
-    rgba(221, 232, 223, 0) 70%
-  );
 }
 
 /* ── Pilot success criteria ──────────────────────────────────────────────

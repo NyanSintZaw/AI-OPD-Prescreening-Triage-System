@@ -1,5 +1,5 @@
-export { playMark, MARK_MOTIONS } from './motion';
-export type { MarkMotion, PlayOptions, MotionHandle } from './motion';
+export { playMark, MARK_MOTIONS, SHOWREEL_DEFAULT_ACTS } from './motion';
+export type { MarkMotion, PlayOptions, MotionHandle, ShowreelAct } from './motion';
 export { NongMali } from './components/NongMali';
 export type { NongMaliProps } from './components/NongMali';
 export { Mark, Wordmark } from './components/Mark';

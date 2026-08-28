@@ -75,9 +75,9 @@
   height: 320px;
   overflow: auto;
   padding: 16px 24px 20px;
-  background: var(--ink-900);
-  color: var(--paper);
-  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  background: var(--paper);
+  color: var(--text-body);
+  border-top: 1px solid var(--border-default);
   font-size: 15px;
   line-height: var(--leading-normal);
 }
@@ -95,7 +95,7 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  color: rgba(250, 249, 245, 0.72);
+  color: var(--text-muted);
 }
 
 .d-notes-clock {
@@ -106,17 +106,19 @@
 
 .d-notes-clock em {
   font-style: normal;
-  color: rgba(250, 249, 245, 0.5);
+  color: var(--text-subtle);
 }
 
+/* gold-400 was a bright step authored for the dark panel; on paper it needs
+   the documented ink. */
 .d-notes-clock.is-over {
-  color: var(--gold-400);
+  color: var(--status-warning-ink);
 }
 
 .d-notes-total {
   font-family: var(--font-mono);
   font-size: 14px;
-  color: rgba(250, 249, 245, 0.45);
+  color: var(--text-subtle);
 }
 
 .d-badge {
@@ -142,13 +144,13 @@
   margin: 0 0 12px;
   padding: 8px 12px;
   border-radius: var(--radius-sm);
-  background: rgba(219, 181, 102, 0.16);
-  color: var(--gold-200);
+  background: var(--gold-50);
+  color: var(--status-warning-ink);
 }
 
 .d-notes-co {
   margin: 0 0 10px;
-  color: var(--gold-400);
+  color: var(--gold-700);
 }
 
 .d-notes-list {
@@ -166,9 +168,9 @@
   gap: 16px;
   margin-top: 14px;
   padding-top: 10px;
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  border-top: 1px solid var(--border-subtle);
   font-size: 13px;
-  color: rgba(250, 249, 245, 0.45);
+  color: var(--text-subtle);
 }
 
 /* ── Overlays ────────────────────────────────────────────────────────── */
@@ -179,7 +181,7 @@
   display: grid;
   place-items: center;
   padding: 40px;
-  background: rgba(31, 59, 56, 0.86);
+  background: rgba(250, 249, 245, 0.92);
   animation: d-fade var(--dur-enter) var(--ease-enter);
 }
 
@@ -193,7 +195,7 @@
   max-width: 560px;
   padding: 28px 32px;
   border-radius: var(--radius-lg);
-  background: var(--paper);
+  background: var(--surface-card);
   box-shadow: var(--shadow-lg);
 }
 
@@ -254,7 +256,8 @@
   text-align: left;
   border: 1px solid var(--border-default);
   border-radius: var(--radius-md);
-  background: var(--paper);
+  background: var(--surface-card);
+  box-shadow: var(--shadow-sm);
   cursor: pointer;
   transition: transform var(--dur-press) var(--ease-press),
     box-shadow var(--dur-color) var(--ease-move);
@@ -269,10 +272,11 @@
   transform: scale(var(--press-scale));
 }
 
+/* Mirrors the hold slides' light teal wash, so the overview cannot claim a
+   darkness the slide no longer has. */
 .d-cell--demo {
-  background: var(--teal-900);
-  color: var(--paper);
-  border-color: var(--teal-700);
+  background: var(--teal-100);
+  border-color: var(--teal-300);
 }
 
 .d-cell-meta {
@@ -281,10 +285,6 @@
   gap: 8px;
   font-size: var(--text-xs);
   color: var(--text-muted);
-}
-
-.d-cell--demo .d-cell-meta {
-  color: rgba(250, 249, 245, 0.6);
 }
 
 .d-cell-budget {
@@ -299,17 +299,9 @@
   color: var(--text-heading);
 }
 
-.d-cell--demo .d-cell-th {
-  color: var(--paper);
-}
-
 .d-cell-en {
   font-size: var(--text-sm);
   color: var(--text-muted);
-}
-
-.d-cell--demo .d-cell-en {
-  color: rgba(250, 249, 245, 0.6);
 }
 
 .d-cell-index {

@@ -77,8 +77,8 @@ sentence gets said twice.
 - Thai headline: **"ทุกคนที่เดินเข้า OPD ต้องรอให้คนถาม ก่อนจะรู้ว่าต้องไปห้องไหน"**
   (English subtitle: *"Every OPD walk-in waits for a human to ask before anyone knows where they belong."*)
 - The metric it drags down — pick **one** and put it huge:
-  - **`[FILL]` minutes** of nurse time per walk-in spent on the same intake questions, **or**
-  - **`[FILL]` minutes** average wait before a walk-in is routed.
+  - **`3` minutes** of nurse time per walk-in spent on the same intake questions, **or**
+  - **`` minutes** average wait before a walk-in is routed.
   - Anchor it with what you *do* have: **3,072 walk-ins in 7 days** at MFU (≈ **440 per day**)
     from the `Prescreen_7Day` export — that is the population the booth serves.
 - Visual: one photo of an OPD queue, or a simple bar showing 11,624 encounters split into

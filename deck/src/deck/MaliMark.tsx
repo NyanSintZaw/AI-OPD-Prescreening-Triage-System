@@ -1,6 +1,8 @@
-import { useEffect, useState } from 'react';
 import { NongMali } from '../design-system/components/NongMali';
+import type { ShowreelAct } from '../design-system/motion';
 import { useDeckMotionContext } from './motionContext';
+
+export type { ShowreelAct };
 
 export type MarkMotion = 'nongShowreel' | 'nongWaveHello' | 'nongHeartbeat' | 'nongExplode' | 'nongBounce';
 
@@ -17,9 +19,13 @@ export type MarkMotion = 'nongShowreel' | 'nongWaveHello' | 'nongHeartbeat' | 'n
  *     renders its authored resting state, which is correct by construction and
  *     better than any pose we could freeze it into ourselves.
  *
- * Pass `cycle` to move through several acts instead of looping one. The mark is
- * keyed on the current motion so it remounts and replays cleanly; `playMark`
- * resets the mark before every run, so switching mid-flight is safe by design.
+ * There is deliberately no cycling here. This component used to rotate through
+ * a list of motions on an 8s interval, which cut acts off mid-flight and
+ * replayed them in a fixed order. `nongShowreel` already sequences its acts
+ * properly — random order, never the same act twice running, each played to
+ * the length it reports — so a second scheduler on top of it could only be
+ * worse. A slide that wants a different feel passes a different `motion`, and
+ * `acts` chooses which of the showreel's four the mixer may draw from.
  *
  * She belongs to greeting moments — the cover and the closing slide. Not
  * decoration on a table.
@@ -27,29 +33,17 @@ export type MarkMotion = 'nongShowreel' | 'nongWaveHello' | 'nongHeartbeat' | 'n
 export function MaliMark({
   size,
   motion = 'nongShowreel',
-  cycle,
-  intervalMs = 8000,
+  acts,
   className,
 }: {
   size: number;
   motion?: MarkMotion;
-  /** Play these in turn rather than looping `motion`. */
-  cycle?: MarkMotion[];
-  intervalMs?: number;
+  /** `nongShowreel` only — which acts the mixer may play. */
+  acts?: ShowreelAct[];
   className?: string;
 }) {
   const deckMotion = useDeckMotionContext();
   const flat = deckMotion?.flat ?? false;
-  const [step, setStep] = useState(0);
-
-  useEffect(() => {
-    /* No cycling under reduced motion — the mark holds its resting state. */
-    if (flat || !cycle || cycle.length < 2) return;
-    const id = window.setInterval(() => setStep((n) => n + 1), intervalMs);
-    return () => window.clearInterval(id);
-  }, [flat, cycle, intervalMs]);
-
-  const current = cycle?.length ? cycle[step % cycle.length] : motion;
   const stage = Math.round(size * 2);
 
   return (
@@ -57,7 +51,7 @@ export function MaliMark({
       className={`d-mark-stage${className ? ` ${className}` : ''}`}
       style={{ width: stage, height: stage }}
     >
-      <NongMali key={current} size={size} motion={flat ? undefined : current} />
+      <NongMali size={size} motion={flat ? undefined : motion} acts={acts} />
     </span>
   );
 }

@@ -170,7 +170,10 @@ export const SLIDES: Slide[] = [
     presenter: 'TH',
     coPresenter: 'EN narrates the second scenario',
     layout: 'hold',
-    label: 'DEMO',
+    /* Typeset like the cover's MALI lockup, at the room's request. The accent
+       lands on the third letter, which is exactly where MA·L·I's teal L sits —
+       DE·M·O reads as the same mark, not as a coloured letter. */
+    label: { lead: 'DE', accent: 'M', tail: 'O' },
     sub: 'Live on the booth',
     headline: {
       lead: 'en',
@@ -275,8 +278,23 @@ export const SLIDES: Slide[] = [
     },
     mark: {
       size: 420,
-      cycle: ['nongWaveHello', 'nongHeartbeat', 'nongExplode', 'nongBounce'],
+      /* The design system's own mixer, not a hand-written cycle. It already
+         does everything this slide needs and the deck's fixed-interval cycle
+         could not: it picks its next act at random, never plays the same one
+         twice running, and — because each act returns its own length — waits
+         for the act to finish before starting the next. Its three acts are
+         drawn from `acts`, so `nongExplode` cannot appear. The old cycle
+         switched every 8s regardless, which cut acts off mid-flight. */
+      motion: 'nongShowreel',
+      /* All four, bounce included. The showreel's default set is the three the
+         booth's attract screen was tuned against; asking for the fourth here
+         leaves that default — and so the kiosk — untouched. */
+      acts: ['wave', 'heartbeat', 'sway', 'bounce'],
     },
+    /* Same credit as the cover, in the corner rather than under the wordmark.
+       This slide is on screen for the entire Q&A — longer than any other — so
+       the one thing worth repeating is who built it. */
+    team: { label: 'developed by team', name: 'notuning' },
     notes: [
       'The ask is no longer on a slide — make it out loud before opening the floor: a pilot at OPD, a HIS test endpoint, the triage manual, a named clinical owner.',
       'Answer in the language the question is asked in. Decide in advance who takes clinical and who takes technical.',

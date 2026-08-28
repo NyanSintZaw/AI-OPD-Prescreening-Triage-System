@@ -71,9 +71,29 @@ const SWAY_DUR = 3600;
 const SWAY_CYCLES = 3;
 const RISE_SWAY_PERIOD = RISE_TOTAL + SWAY_DUR * SWAY_CYCLES;
 
+/** The acts `nongShowreel` can sequence. */
+export type ShowreelAct = 'wave' | 'heartbeat' | 'sway' | 'bounce';
+
+/**
+ * What `nongShowreel` plays when a caller does not choose.
+ *
+ * `bounce` is deliberately absent: it is the most theatrical of the four, and
+ * the booth's attract and home screens were tuned against these three. A
+ * surface that wants it asks for it through `PlayOptions.acts` rather than the
+ * default changing underneath everyone.
+ */
+export const SHOWREEL_DEFAULT_ACTS: ShowreelAct[] = ['wave', 'heartbeat', 'sway'];
+
 export interface PlayOptions {
   /** Run even when the viewer prefers reduced motion. Default false. */
   force?: boolean;
+  /**
+   * Which acts `nongShowreel` may sequence. Defaults to
+   * `SHOWREEL_DEFAULT_ACTS`. Only the set changes — the scheduling does not:
+   * whatever is passed, each act still reports its own length and is played to
+   * it before the next begins, and the same act never runs twice in a row.
+   */
+  acts?: ShowreelAct[];
   /**
    * Where the attract motions draw their rings and petals. Defaults to the
    * mark's parent. The effects are centred on the mark and sit behind it, so
@@ -1170,19 +1190,25 @@ export function playMark(
       return handle;
     }
 
-    /* nongShowreel — explode, heartbeat and sway in a random order, with the
-       repeat counts varied too, so a passer-by does not see a fixed loop. The
-       same act never runs twice in a row. */
+    /* nongShowreel — the acts in a random order, with the repeat counts varied
+       too, so a passer-by does not see a fixed loop. The same act never runs
+       twice in a row, and each is played to the length it reports rather than
+       cut off on a timer. `options.acts` widens or narrows the set without
+       touching any of that. */
     const randInt = (lo: number, hi: number) => lo + Math.floor(Math.random() * (hi - lo + 1));
-    let last = '';
+    const reel = options.acts?.length ? options.acts : SHOWREEL_DEFAULT_ACTS;
+    let last: ShowreelAct | '' = '';
     const step = () => {
       softReset();
-      const acts = ['wave', 'heartbeat', 'sway'].filter((a) => a !== last);
+      /* A one-act reel has nothing to alternate with, so it must not filter
+         itself down to an empty set and pick `undefined`. */
+      const acts = reel.length > 1 ? reel.filter((a) => a !== last) : reel;
       const pick = acts[Math.floor(Math.random() * acts.length)];
       last = pick;
       let dur: number;
       if (pick === 'wave') dur = waveHelloRun();
       else if (pick === 'heartbeat') dur = heartbeatRun(randInt(2, 3));
+      else if (pick === 'bounce') dur = bounceRun();
       else dur = swayRun(randInt(2, 3));
       later(step, dur + 250);
     };
