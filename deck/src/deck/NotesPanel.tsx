@@ -1,4 +1,4 @@
-import { SLIDES } from '../content/slides';
+import { FLOW_SLIDES } from '../content/slides';
 import type { Slide } from '../content/types';
 import { mmss } from './useTimer';
 
@@ -24,8 +24,8 @@ export function NotesPanel({
   timerRunning: boolean;
   reducedMotionWarning: boolean;
 }) {
-  const next = SLIDES[index + 1];
-  const total = SLIDES.reduce((n, s) => n + s.budgetSec, 0);
+  const next = FLOW_SLIDES[index + 1];
+  const total = FLOW_SLIDES.reduce((n, s) => n + s.budgetSec, 0);
   const over = slide.budgetSec > 0 && elapsedInSlide > slide.budgetSec;
 
   return (

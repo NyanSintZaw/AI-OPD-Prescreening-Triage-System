@@ -59,6 +59,8 @@ export type SlideId =
 export interface SlideMeta {
   id: SlideId;
   section: SectionId;
+  /** Omit from keyboard navigation, overview, and the timing rail — content stays in the deck for rehearsal/leave-behind. */
+  hiddenInFlow?: boolean;
   /** Slide number as printed in PITCH_DECK. Cue cards have none. */
   number?: number;
   /** PITCH_DECK's budget in seconds. Drives the width of the rail segment. */

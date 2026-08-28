@@ -142,8 +142,8 @@ export const SLIDES: Slide[] = [
     headline: {
       /* Hers. "ช่วยแบ่งเบาภาระงาน" — sharing the load rather than
          cutting repetition, which is the friendlier claim and the truer one. */
-      th: 'ช่วยแบ่งเบาภาระงาน เพิ่มเวลาให้การดูแลผู้ป่วย',
-      en: 'Sharing the workload, giving time back to patient care.',
+      th: 'ช่วยลดภาระงาน เพิ่มการเข้าถึงที่ง่ายมากขึ้น',
+      en: 'Sharing the workload and improving access at the screening point.',
     },
     card: IMPACT_CARD,
     items: IMPACT_ITEMS,
@@ -151,7 +151,7 @@ export const SLIDES: Slide[] = [
       { label: 'PATIENT ARRIVES' },
       { label: 'MALI HANDLES FIRST-STAGE SCREENING', strong: true },
       { label: 'NURSE RECEIVES PREPARED INFO' },
-      { label: 'MORE TIME FOR PATIENT CARE' },
+      { label: 'PATIENT REACHES THE RIGHT DEPARTMENT' },
     ],
     footer: {
       claim: 'MALI turns repetitive prescreening into automated patient intake.',
@@ -190,6 +190,7 @@ export const SLIDES: Slide[] = [
   {
     id: 'business',
     section: 'business',
+    hiddenInFlow: true,
     number: 5,
     budgetSec: 60,
     presenter: 'EN',
@@ -215,6 +216,7 @@ export const SLIDES: Slide[] = [
   {
     id: 'pilot',
     section: 'business',
+    hiddenInFlow: true,
     number: 6,
     budgetSec: 40,
     presenter: 'EN',
@@ -236,6 +238,7 @@ export const SLIDES: Slide[] = [
   {
     id: 'prep',
     section: 'deployment',
+    hiddenInFlow: true,
     /* One slide now carries what PITCH_DECK §4 split across three, so it takes
        the section's whole two minutes. */
     number: 6,
@@ -304,3 +307,6 @@ export const SLIDES: Slide[] = [
 ];
 
 export const SLIDE_IDS = SLIDES.map((s) => s.id);
+
+/** Slides the presenter steps through — excludes hiddenInFlow (business, pilot metrics, deployment prep). */
+export const FLOW_SLIDES = SLIDES.filter((s) => !s.hiddenInFlow);

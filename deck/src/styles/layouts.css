@@ -614,7 +614,7 @@
 .d-impact-mark {
   position: absolute;
   right: -100px;
-  top: -120px;
+  top: -200px;
   display: grid;
   place-items: center;
   pointer-events: none;

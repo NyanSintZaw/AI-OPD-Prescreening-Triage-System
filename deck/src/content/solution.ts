@@ -32,21 +32,18 @@ export const SOLUTION_BRAND: Solution['brand'] = {
 
 export const SOLUTION_ITEMS: Solution['items'] = [
   {
-    th: 'ผู้ช่วยพยาบาลที่คัดกรองอาการของผู้ป่วยโดยอ้างอิงจากเกณฑ์และแนวทางที่ใช้ภายในโรงพยาบาล',
-    en: 'A nursing assistant that screens symptoms against the criteria and guidelines your hospital already uses',
-  },
-  {
-    th: 'เตรียมพร้อมให้บริการในการช่วยคัดกรองอยู่ตลอดเวลา',
-    en: 'Ready to help with screening at any hour',
-  },
-  {
-    /* Her text reads หลากลายภาษา, which is not a word — almost certainly
-       หลากหลาย with a dropped ห. Confirm with her. */
+    /* Was item 3 — answers problem 1 (language barriers). */
     th: 'พูดคุยสื่อสารกับผู้ป่วยได้หลากหลายภาษา',
     en: 'Talks with patients in several languages',
   },
   {
-    th: 'ส่งต่อข้อมูลการคัดกรองให้พยาบาล เพื่อประกอบการประเมินและดำเนินการต่อ',
-    en: 'Passes the screening record to a nurse for assessment and next steps',
+    /* Was item 2 — answers problem 2 (staff shortage). */
+    th: 'เตรียมพร้อมให้บริการในการช่วยคัดกรองอยู่ตลอดเวลา',
+    en: 'Ready to help with screening at any hour',
+  },
+  {
+    /* New — answers problem 4 (patients do not know where departments are). */
+    th: 'แนะนำเส้นทางไปยังแผนกการรักษา',
+    en: 'Guides patients to the right department',
   },
 ];

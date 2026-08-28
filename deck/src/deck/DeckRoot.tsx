@@ -1,6 +1,6 @@
 import { AnimatePresence, motion } from 'framer-motion';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { SLIDES } from '../content/slides';
+import { FLOW_SLIDES, SLIDES } from '../content/slides';
 import { SlideView } from '../layouts/SlideView';
 import { FillAudit } from '../screens/FillAudit';
 import { QAAppendix } from '../screens/QAAppendix';
@@ -33,7 +33,7 @@ export function DeckRoot() {
      spent rather than only where we are in the deck. */
   const [slideEnteredAt, setSlideEnteredAt] = useState(0);
 
-  const slide = nav.route.kind === 'slide' ? SLIDES[nav.index] : null;
+  const slide = nav.route.kind === 'slide' ? SLIDES.find((s) => s.id === nav.route.id) ?? null : null;
   const slideId = slide?.id;
 
   useEffect(() => {
@@ -97,7 +97,7 @@ export function DeckRoot() {
       if (e.metaKey || e.ctrlKey || e.altKey) return;
       if (!/^[0-9]$/.test(e.key)) return;
       const n = e.key === '0' ? 10 : Number(e.key);
-      const target = SLIDES.find((s) => s.number === n);
+      const target = FLOW_SLIDES.find((s) => s.number === n);
       if (target) nav.goTo(target.id);
     };
     window.addEventListener('keydown', onDigit);
@@ -147,7 +147,7 @@ export function DeckRoot() {
             )}
           </AnimatePresence>
 
-          {slide && <ProgressRail currentIndex={nav.index} elapsedInSlide={elapsedInSlide} />}
+          {slide && <ProgressRail currentIndex={nav.flowIndex} elapsedInSlide={elapsedInSlide} />}
 
           {blackout && <div className="deck-blackout" aria-hidden="true" />}
         </div>
@@ -156,7 +156,7 @@ export function DeckRoot() {
       {notes && slide && (
         <NotesPanel
           slide={slide}
-          index={nav.index}
+          index={nav.flowIndex}
           elapsed={timer.elapsed}
           elapsedInSlide={elapsedInSlide}
           timerRunning={timer.running}

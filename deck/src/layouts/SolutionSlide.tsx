@@ -5,7 +5,8 @@ import { Mark } from '../design-system/components/Mark';
 import type { Slide } from '../content/types';
 
 /**
- * Who MALI is, and the four things she does.
+ * Who MALI is, and the three things she does — each answering a problem from
+ * slide 3.
  *
  * A brand column on the left and the argument on the right. She is introduced
  * here as a colleague rather than a feature, so the left column is her
