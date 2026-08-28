@@ -1,7 +1,8 @@
 # deck/ — the pitch deck as a website
 
-The 9-minute, two-presenter, Thai + English pitch from `PITCH_DECK.md`, rendered as an
-animated site you present from a browser. React 19 + Vite, same toolchain as
+The two-presenter, Thai + English pitch from `PITCH_DECK.md`, rendered as an animated site
+you present from a browser — six minutes on the rail, four of which are the live demo, then
+Q&A, with three reference slides parked behind it. React 19 + Vite, same toolchain as
 `hospital-hotline-assistant-web/`.
 
 ```bash
@@ -75,6 +76,14 @@ Both of these have already cost real debugging time here.
   folds a full-width line into a half-width column without any error — it just looks like a
   layout you chose. Both of these are the same trap: the design system's *typography* is
   sized for a product, and slides are not a product.
+- **The deck steps past Q&A into three more slides.** `business`, `pilot` and `prep` sit
+  after `questions` on purpose: reference for the questions that need them, not part of the
+  run. So `End` lands on Questions rather than on the last slide; the rail and the notes
+  total read `PITCH_SLIDES` rather than `SLIDES`, which is what keeps the total at 6:00; and
+  those three still carry real budgets of 1:00, 0:40 and 2:00, which the overview grid and
+  the notes clock still show — a presenter who does walk in there needs to know the cost.
+  `SLIDES` order is step order, and `appendix` is a timing/routing flag, deliberately not a
+  `SectionId`: `prep` is still the deployment section whether or not you present it.
 - **A fixed 1920-wide stage, not `clamp()`.** The kiosk uses `clamp()` because it runs on
   one known screen forever. A deck runs once on a projector nobody measured, and a fluid
   headline breaks in a different place there than in rehearsal. `useStageScale` scales a
@@ -85,9 +94,10 @@ Both of these have already cost real debugging time here.
 
 ## Keys
 
-`→ ↓ Space PageDown` next · `← ↑ PageUp` previous · `Home`/`End` · `1`–`9`,`0` jump to slide
-· `O` overview · `N` presenter notes · `F` fullscreen · `T`/`R` timer · `B` or `.` blackout ·
-`A` the `[FILL]` register · `Q` Q&A · `V` measured quality · `M` force motion · `?` help.
+`→ ↓ Space PageDown` next · `← ↑ PageUp` previous · `Home` cover / `End` **Questions, not
+the last slide** · `1`–`4` the pitch, `5`–`7` the appendix, `0` Questions · `O` overview ·
+`N` presenter notes · `F` fullscreen · `T`/`R` timer · `B` or `.` blackout · `A` the `[FILL]`
+register · `Q` Q&A · `V` measured quality · `M` force motion · `?` help.
 
 `PageUp`/`PageDown` are bound because that is what a wireless presenter remote sends. On a
 touchscreen, a horizontal swipe changes slide; vertical is left alone so the aside screens
@@ -109,5 +119,7 @@ the back of the actual room.
 - If the machine has reduced motion on (Windows → Accessibility → Visual effects), the deck
   flattens itself and says so on the cover. Press `M`.
 - Three verify-before-you-say-it items are marked in the content with comments: the
-  VN→HN identity change on slide 8, the per-pathway BP card in cue A, and which patient
-  actually fires the emergency in cue B. Run the demo and confirm.
+  VN→HN identity change on the deployment prep slide (`src/content/prep.ts`), the
+  per-pathway BP card in cue A, and which patient actually fires the emergency in cue B.
+  Run the demo and confirm. (The file, not a slide number — for the same reason this deck
+  routes on slugs rather than indices.)

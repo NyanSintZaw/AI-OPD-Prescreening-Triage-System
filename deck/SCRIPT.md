@@ -1,7 +1,8 @@
 # SCRIPT.md — the spoken pitch, word for word
 
-The words that go with `src/content/slides.ts`. Two presenters, Thai + English, nine
-slides plus a four-minute demo. Rehearse from this; present from the deck.
+The words that go with `src/content/slides.ts`. Two presenters, Thai + English: five
+slides plus a four-minute demo, then Q&A — with three reference slides parked behind Q&A
+for the questions that need them. Rehearse from this; present from the deck.
 
 - **TH** = the Thai presenter. **EN** = the English presenter.
 - `→` = advance the deck (space, or the remote's PageDown).
@@ -20,20 +21,23 @@ slides plus a four-minute demo. Rehearse from this; present from the deck.
 | 3 | Solution | 0:30 | 1:15 | TH |
 | 4 | Impact | 0:30 | 1:45 | TH |
 | — | **Demo** | **4:00** | **2:15** | TH → EN |
-| 5 | Business model | 1:00 | 6:15 | EN |
-| 6 | Pilot criteria | 0:40 | 7:15 | EN |
-| 7 | Deployment prep | 2:00 | 7:55 | EN |
-| — | Questions | off the clock | 9:55 | both |
+| — | Questions | off the clock | 6:15 | both |
 
-The rail adds up to **9:40 of speaking plus a 0:15 cover — 9:55**, not 9:00. That is the
-deck's own budget, not a mistake in it. If the room is strict about nine minutes, cut in
-this order and rehearse the cut version:
+The rail adds up to **6:00 of speaking plus a 0:15 cover**, so the floor opens at about
+**6:15**. The demo is two thirds of that, and it is the half that sells — never cut it.
 
-1. **Prep 2:00 → 1:15.** Do not read the VRAM table aloud; say one sentence and let them
-   photograph it. (−45s)
-2. **Business 1:00 → 0:50.** Name the three tiers, skip reading the payback rows. (−10s)
+Business model, pilot criteria and deployment prep are no longer in the run. They sit in
+the deck **behind** Questions as reference — off the rail, out of the presenter clock, and
+reached only on purpose:
 
-Never cut the demo. It is 45% of the time and it is the half that sells.
+| # | Appendix slide | Costs | Reach it with |
+|---|---|---|---|
+| 5 | Business model | 1:00 | `→` from Questions, or `5` |
+| 6 | Pilot criteria | 0:40 | `6` |
+| 7 | Deployment prep | 2:00 | `7` |
+
+All three is **3:40 on top of the 6:15** — a decision you make in the room, question by
+question, not a section you present. `End` always returns to Questions.
 
 ---
 
@@ -142,11 +146,16 @@ On screen: 45–50%, ≈200–220 a day, and the four-step flow.
 
 EN, one sentence, and do not skip it:
 
-> **"Both of those are design targets, not measured results. The pilot slide near the end
-> is exactly how they stop being targets."**
+> **"Both of those are design targets, not measured results. The pilot is exactly how they
+> stop being targets."**
 
 Saying the caveat out loud is worth more than the number is. The slide already prints it; a
 room believes it when a human says it.
+
+**Decide this before rehearsal.** The line used to say "the pilot slide near the end", which
+promised a slide the six-minute run never reaches — pilot is appendix 6 now. It has been
+shortened to drop the deck reference, which is safe either way. If you would rather show the
+slide, press `6` here and accept the 0:40; do not restore the old wording without doing so.
 
 ### Handoff into the demo — TH keeps the floor
 
@@ -232,11 +241,40 @@ The closing sentence of the whole demo, then stop talking:
 desktop widget or database settings. Each has a one-line answer ready in Q&A. Do not add a
 third scenario, even if the demo ran fast.
 
-`→` to slide 5. EN keeps the floor from here.
+`→` to the Questions hold screen. EN keeps the floor from here.
 
 ---
 
-## 5 · Business model — 1:00 · EN, with one TH sentence
+## Questions — off the clock · both
+
+**Make the ask out loud before opening the floor. It is deliberately not on a slide.**
+
+> **"What we are asking for is a pilot at OPD, a HIS test endpoint, the triage manual, and
+> a named clinical owner. What you get back is the measured baseline."**
+>
+> **"Questions in either language — [TH name] takes the clinical and hospital-side ones, I
+> take the technical."**
+
+Answer in the language the question was asked in. The prepared answers are on `Q` in the
+deck and in `src/content/qa.ts`. Two rules:
+
+- **"What if the AI is wrong?"** → the AI does not decide. Say the sentence, then stop
+  talking.
+- **"What if the network or the HIS is down?"** → **verify the real behaviour on the
+  running system before the pitch.** That answer is deliberately unfinished in the deck.
+  Do not improvise it.
+
+---
+
+## The appendix — only if they ask
+
+Three slides behind the Questions screen. `→` from Questions steps into them in this
+order, or jump straight with `5` / `6` / `7`. None of it is on the clock; all of it is
+3:40 if you present the lot. `End` returns to Questions.
+
+---
+
+### Appendix 5 · Business model — 1:00 if you go there · EN, with one TH sentence
 
 On screen: three tiers, then the business case and the payback rows.
 
@@ -273,7 +311,7 @@ TH, one sentence, on the medical devices:
 
 ---
 
-## 6 · Pilot success criteria — 0:40 · EN
+### Appendix 6 · Pilot success criteria — 0:40 · EN
 
 On screen: nine KPIs, baseline and measured.
 
@@ -296,7 +334,7 @@ whether it was worth doing.**
 
 ---
 
-## 7 · Deployment prep — 2:00 · EN leads, TH takes the hospital-side items
+### Appendix 7 · Deployment prep — 2:00 · EN leads, TH takes the hospital-side items
 
 On screen: three columns — Technical, Data and integration, Hardware.
 
@@ -349,28 +387,7 @@ off — in Thai, then hands straight back.
 > **"This table is why on-premise is an engineering statement rather than an aspiration.
 > Please photograph it."**
 
-`→`
-
----
-
-## Questions — off the clock · both
-
-**Make the ask out loud before opening the floor. It is deliberately not on a slide.**
-
-> **"What we are asking for is a pilot at OPD, a HIS test endpoint, the triage manual, and
-> a named clinical owner. What you get back is the measured baseline."**
->
-> **"Questions in either language — [TH name] takes the clinical and hospital-side ones, I
-> take the technical."**
-
-Answer in the language the question was asked in. The prepared answers are on `Q` in the
-deck and in `src/content/qa.ts`. Two rules:
-
-- **"What if the AI is wrong?"** → the AI does not decide. Say the sentence, then stop
-  talking.
-- **"What if the network or the HIS is down?"** → **verify the real behaviour on the
-  running system before the pitch.** That answer is deliberately unfinished in the deck.
-  Do not improvise it.
+End of deck. `←` walks back to Questions.
 
 ---
 
@@ -391,10 +408,12 @@ Tape this to the laptop. Everything above collapses to it.
                       EN: "Same booth, different patient…"
       DEMO B  EN      Run 3 · BP → emergency on turn one · nurse tab · citations · Stage 2
                       close: "The model reads language. The decision is rules."
-6:15  EN   business   75k pilot · 180k + 120k deploy · 16k/mo service
+6:15  both  the ask, out loud — then questions in either language
+
+── appendix · only if they ask · → from Questions, or 5 / 6 / 7 ─────────────
+ 5    EN   business   75k pilot · 180k + 120k deploy · 16k/mo service
                       "Released capacity is not cash."    TH: devices are third-party
-7:15  EN   pilot      baseline + 9 metrics, both halves → Impact Report
-7:55  EN   prep       SSO not built · HIS test endpoint = the long pole
+ 6    EN   pilot      baseline + 9 metrics, both halves → Impact Report
+ 7    EN   prep       SSO not built · HIS test endpoint = the long pole
                       "We never connect to your database." · 14 of 20 GB · photograph it
-9:55  both  the ask, out loud — then questions in either language
 ```

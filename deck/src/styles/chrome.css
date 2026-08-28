@@ -98,6 +98,21 @@
   color: var(--text-muted);
 }
 
+/* Off the clock and behind the ask. Say so where the presenter looks first, or
+   "Slide 5" reads as being two slides behind where they actually are. */
+.d-notes-ref {
+  display: inline-block;
+  margin-right: 8px;
+  padding: 1px 7px;
+  border-radius: var(--radius-full);
+  background: var(--ink-100);
+  color: var(--text-subtle);
+  font-size: 12px;
+  font-weight: var(--fw-bold);
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+}
+
 .d-notes-clock {
   font-family: var(--font-mono);
   font-size: 22px;
@@ -277,6 +292,18 @@
 .d-cell--demo {
   background: var(--teal-100);
   border-color: var(--teal-300);
+}
+
+/* The three reference slides parked after Q&A. Deliberately not a colour: the
+   only tint in this grid is the demo's teal wash, which means "hold screen",
+   and an appendix borrowing it would be claiming to be one. A sunken card with
+   a dashed edge says the one thing that matters — still in the deck, not in the
+   run. `.d-cell.is-current` is two classes to this rule's one, so a current
+   appendix cell keeps its teal border and focus ring over the dash. */
+.d-cell--appendix {
+  background: var(--surface-sunken);
+  border-style: dashed;
+  border-color: var(--ink-300);
 }
 
 .d-cell-meta {

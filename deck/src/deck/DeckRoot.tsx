@@ -1,6 +1,6 @@
 import { AnimatePresence, motion } from 'framer-motion';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { FLOW_SLIDES, SLIDES } from '../content/slides';
+import { SLIDES } from '../content/slides';
 import { SlideView } from '../layouts/SlideView';
 import { FillAudit } from '../screens/FillAudit';
 import { QAAppendix } from '../screens/QAAppendix';
@@ -97,7 +97,7 @@ export function DeckRoot() {
       if (e.metaKey || e.ctrlKey || e.altKey) return;
       if (!/^[0-9]$/.test(e.key)) return;
       const n = e.key === '0' ? 10 : Number(e.key);
-      const target = FLOW_SLIDES.find((s) => s.number === n);
+      const target = SLIDES.find((s) => s.number === n);
       if (target) nav.goTo(target.id);
     };
     window.addEventListener('keydown', onDigit);
@@ -171,7 +171,7 @@ export function DeckRoot() {
             )}
           </AnimatePresence>
 
-          {slide && <ProgressRail currentIndex={nav.flowIndex} elapsedInSlide={elapsedInSlide} />}
+          {slide && <ProgressRail currentId={slide.id} elapsedInSlide={elapsedInSlide} />}
 
           {blackout && <div className="deck-blackout" aria-hidden="true" />}
         </div>
@@ -180,7 +180,7 @@ export function DeckRoot() {
       {notes && slide && (
         <NotesPanel
           slide={slide}
-          index={nav.flowIndex}
+          index={nav.slideIndex}
           elapsed={timer.elapsed}
           elapsedInSlide={elapsedInSlide}
           timerRunning={timer.running}

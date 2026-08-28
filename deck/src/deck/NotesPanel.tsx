@@ -1,4 +1,4 @@
-import { FLOW_SLIDES } from '../content/slides';
+import { PITCH_SLIDES, SLIDES } from '../content/slides';
 import type { Slide } from '../content/types';
 import { mmss } from './useTimer';
 
@@ -24,8 +24,11 @@ export function NotesPanel({
   timerRunning: boolean;
   reducedMotionWarning: boolean;
 }) {
-  const next = FLOW_SLIDES[index + 1];
-  const total = FLOW_SLIDES.reduce((n, s) => n + s.budgetSec, 0);
+  /* Next in the DECK, not next in the pitch: from Questions the arrow really
+     does go to the appendix, and a handoff line that lies about that is worse
+     than none. The total is the pitch only — the appendix is off the clock. */
+  const next = SLIDES[index + 1];
+  const total = PITCH_SLIDES.reduce((n, s) => n + s.budgetSec, 0);
   const over = slide.budgetSec > 0 && elapsedInSlide > slide.budgetSec;
 
   return (
@@ -35,6 +38,7 @@ export function NotesPanel({
           {slide.presenter}
         </span>
         <span className="d-notes-title">
+          {slide.appendix && <span className="d-notes-ref">Reference</span>}
           {slide.number ? `Slide ${slide.number}` : slide.layout === 'hold' ? 'Hold screen' : 'Cover'}
           {' · '}
           {slide.headline.en}

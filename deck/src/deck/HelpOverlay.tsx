@@ -1,8 +1,10 @@
 const KEYS: [string, string][] = [
   ['-> / Space / PageDown', 'next slide'],
   ['<- / PageUp', 'previous slide'],
-  ['Home / End', 'first / last'],
-  ['1 - 9, 0', 'jump to slide'],
+  ['Home / End', 'cover / Questions — End stops at the ask, not the appendix'],
+  ['1 - 4', 'jump to a pitch slide'],
+  ['5 - 7', 'jump to the appendix, behind Q&A'],
+  ['0', 'Questions'],
   ['O', 'overview grid'],
   ['N', 'presenter notes'],
   ['F', 'fullscreen'],

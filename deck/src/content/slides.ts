@@ -187,82 +187,7 @@ export const SLIDES: Slide[] = [
     source: 'docs/demo-runbook.md',
   },
 
-  {
-    id: 'business',
-    section: 'business',
-    hiddenInFlow: true,
-    number: 5,
-    budgetSec: 60,
-    presenter: 'EN',
-    coPresenter: 'TH: one Thai sentence on what the pilot measures',
-    layout: 'business',
-    eyebrow: { en: 'BUSINESS MODEL' },
-    headline: {
-      /* English leads: PITCH_DECK §0 puts the commercial half in English
-         because that is the language procurement reads contracts in. The Thai
-         is kept for the overview grid and the notes panel, not for the slide. */
-      lead: 'en',
-      en: 'Three ways to deploy MALI',
-      accent: 'MALI',
-      th: 'สามรูปแบบการติดตั้ง MALI',
-    },
-    subtitle: 'Software and service carry the value — hardware is the delivery mechanism.',
-    note: BUSINESS_NOTE,
-    tiers: BUSINESS_TIERS,
-    businessCase: BUSINESS_CASE,
-    caveat: BUSINESS_CAVEAT,
-    notes: [],
-  },
-  {
-    id: 'pilot',
-    section: 'business',
-    hiddenInFlow: true,
-    number: 6,
-    budgetSec: 40,
-    presenter: 'EN',
-    layout: 'pilot',
-    eyebrow: { en: 'PILOT SUCCESS CRITERIA' },
-    headline: {
-      lead: 'en',
-      en: 'The pilot should prove value, not just that it works.',
-      accent: 'prove value',
-      th: 'การนำร่องต้องพิสูจน์คุณค่าที่วัดได้',
-    },
-    lead: 'Establish a baseline before MALI arrives, then measure the same nine metrics throughout. Both halves, every metric — so nothing is chosen after the results are in.',
-    table: PILOT_TABLE,
-    outcome: PILOT_OUTCOME,
-    notes: [
-      'The pilot is not a demonstration. Say that out loud — a demo shows it works, this measures whether it was worth doing.',
-    ],
-  },
-  {
-    id: 'prep',
-    section: 'deployment',
-    hiddenInFlow: true,
-    /* One slide now carries what PITCH_DECK §4 split across three, so it takes
-       the section's whole two minutes. */
-    number: 6,
-    budgetSec: 120,
-    presenter: 'EN',
-    coPresenter: 'TH answers the hospital-side items',
-    layout: 'checklist',
-    eyebrow: { en: 'DEPLOYMENT PREP CHECKLIST' },
-    headline: {
-      lead: 'en',
-      en: 'Everything runs on your hardware. Three API calls are all that crosses the boundary.',
-      accent: 'your hardware',
-      th: 'ทุกอย่างทำงานบนเครื่องของโรงพยาบาล',
-    },
-    columns: PREP_COLUMNS,
-    footer: PREP_FOOTER,
-    notes: [
-      'Say the sign-in item is not built yet, in those words.',
-      'The HIS test endpoint is the long pole. Ask for it in the room.',
-      'The VRAM table is the proof that on-prem is engineered, not aspirational — let them photograph it.',
-    ],
-    source: 'PITCH_DECK.md §4 · docs/hospital-integration-security.md · docs/his-integration.md',
-  },
-  /* ── Q&A — a hold screen, off the timing rail ─────────────────────────── */
+  /* ── Q&A — a hold screen, off the timing rail. The appendix follows. ─── */
   {
     id: 'questions',
     section: 'ask',
@@ -304,9 +229,98 @@ export const SLIDES: Slide[] = [
     ],
     source: 'PITCH_DECK.md §6',
   },
+  /* ── The appendix — reference, after the ask ─────────────────────────── */
+  /* Three slides the pitch does not spend time on. `→` from Questions steps
+     into them, 5 / 6 / 7 jump straight there, and #/business resolves again —
+     but they are off the rail and out of the notes total, so the six minutes
+     the deck budgets stay six minutes. The order is the order you get asked
+     for them in: what it costs, what the pilot proves, what the hospital has
+     to have ready. */
+  {
+    id: 'business',
+    section: 'business',
+    appendix: true,
+    number: 5,
+    budgetSec: 60,
+    presenter: 'EN',
+    coPresenter: 'TH: one Thai sentence on what the pilot measures',
+    layout: 'business',
+    eyebrow: { en: 'BUSINESS MODEL' },
+    headline: {
+      /* English leads: PITCH_DECK §0 puts the commercial half in English
+         because that is the language procurement reads contracts in. The Thai
+         is kept for the overview grid and the notes panel, not for the slide. */
+      lead: 'en',
+      en: 'Three ways to deploy MALI',
+      accent: 'MALI',
+      th: 'สามรูปแบบการติดตั้ง MALI',
+    },
+    subtitle: 'Software and service carry the value — hardware is the delivery mechanism.',
+    note: BUSINESS_NOTE,
+    tiers: BUSINESS_TIERS,
+    businessCase: BUSINESS_CASE,
+    caveat: BUSINESS_CAVEAT,
+    notes: [],
+  },
+  {
+    id: 'pilot',
+    section: 'business',
+    appendix: true,
+    number: 6,
+    budgetSec: 40,
+    presenter: 'EN',
+    layout: 'pilot',
+    eyebrow: { en: 'PILOT SUCCESS CRITERIA' },
+    headline: {
+      lead: 'en',
+      en: 'The pilot should prove value, not just that it works.',
+      accent: 'prove value',
+      th: 'การนำร่องต้องพิสูจน์คุณค่าที่วัดได้',
+    },
+    lead: 'Establish a baseline before MALI arrives, then measure the same nine metrics throughout. Both halves, every metric — so nothing is chosen after the results are in.',
+    table: PILOT_TABLE,
+    outcome: PILOT_OUTCOME,
+    notes: [
+      'The pilot is not a demonstration. Say that out loud — a demo shows it works, this measures whether it was worth doing.',
+    ],
+  },
+  {
+    id: 'prep',
+    section: 'deployment',
+    appendix: true,
+    /* One slide now carries what PITCH_DECK §4 split across three, so it takes
+       the section's whole two minutes. */
+    number: 7,
+    budgetSec: 120,
+    presenter: 'EN',
+    coPresenter: 'TH answers the hospital-side items',
+    layout: 'checklist',
+    eyebrow: { en: 'DEPLOYMENT PREP CHECKLIST' },
+    headline: {
+      lead: 'en',
+      en: 'Everything runs on your hardware. Three API calls are all that crosses the boundary.',
+      accent: 'your hardware',
+      th: 'ทุกอย่างทำงานบนเครื่องของโรงพยาบาล',
+    },
+    columns: PREP_COLUMNS,
+    footer: PREP_FOOTER,
+    notes: [
+      'Say the sign-in item is not built yet, in those words.',
+      'The HIS test endpoint is the long pole. Ask for it in the room.',
+      'The VRAM table is the proof that on-prem is engineered, not aspirational — let them photograph it.',
+    ],
+    source: 'PITCH_DECK.md §4 · docs/hospital-integration-security.md · docs/his-integration.md',
+  },
 ];
 
 export const SLIDE_IDS = SLIDES.map((s) => s.id);
 
-/** Slides the presenter steps through — excludes hiddenInFlow (business, pilot metrics, deployment prep). */
-export const FLOW_SLIDES = SLIDES.filter((s) => !s.hiddenInFlow);
+/**
+ * The pitch proper — what the rail measures and what the notes panel totals.
+ *
+ * SLIDES is the step order now, appendix included; this is the part that is on
+ * the clock. The three appendix slides carry real budgets (1:00, 0:40, 2:00),
+ * so reducing SLIDES instead would quietly turn a six-minute pitch into a
+ * nine-forty one on the presenter's own clock.
+ */
+export const PITCH_SLIDES = SLIDES.filter((s) => !s.appendix);

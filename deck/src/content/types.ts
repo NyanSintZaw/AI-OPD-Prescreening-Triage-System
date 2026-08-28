@@ -51,16 +51,23 @@ export type SlideId =
   | 'solution'
   | 'impact'
   | 'demo'
+  | 'questions'
+  /* The appendix — reference, after the ask. */
   | 'business'
   | 'pilot'
-  | 'prep'
-  | 'questions';
+  | 'prep';
 
 export interface SlideMeta {
   id: SlideId;
   section: SectionId;
-  /** Omit from keyboard navigation, overview, and the timing rail — content stays in the deck for rehearsal/leave-behind. */
-  hiddenInFlow?: boolean;
+  /**
+   * A reference slide, parked after Questions rather than sitting in the run.
+   * Steppable, deep-linkable and numbered like any other — but off the rail and
+   * out of the notes total, because the room only reaches it by asking.
+   * `budgetSec` stays authored: a presenter who does walk in here still needs to
+   * know what it costs.
+   */
+  appendix?: boolean;
   /** Slide number as printed in PITCH_DECK. Cue cards have none. */
   number?: number;
   /** PITCH_DECK's budget in seconds. Drives the width of the rail segment. */

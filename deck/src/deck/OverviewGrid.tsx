@@ -1,4 +1,4 @@
-import { FLOW_SLIDES } from '../content/slides';
+import { SLIDES } from '../content/slides';
 import type { Slide } from '../content/types';
 import { mmss } from './useTimer';
 
@@ -19,11 +19,13 @@ export function OverviewGrid({
   return (
     <div className="d-overlay d-overlay--grid" onClick={onClose} role="presentation">
       <div className="d-grid" onClick={(e) => e.stopPropagation()} role="presentation">
-        {FLOW_SLIDES.map((s, i) => (
+        {SLIDES.map((s, i) => (
           <button
             key={s.id}
             type="button"
-            className={`d-cell${s.id === currentId ? ' is-current' : ''} d-cell--${s.section}`}
+            className={`d-cell${s.id === currentId ? ' is-current' : ''} d-cell--${s.section}${
+              s.appendix ? ' d-cell--appendix' : ''
+            }`}
             onClick={() => {
               onPick(s.id);
               onClose();

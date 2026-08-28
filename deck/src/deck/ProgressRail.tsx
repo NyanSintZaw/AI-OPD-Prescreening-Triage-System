@@ -1,4 +1,5 @@
-import { FLOW_SLIDES } from '../content/slides';
+import { PITCH_SLIDES } from '../content/slides';
+import type { SlideId } from '../content/types';
 
 /**
  * A hairline across the foot of the stage, one segment per slide, each as wide
@@ -8,15 +9,29 @@ import { FLOW_SLIDES } from '../content/slides';
  * The audience sees position. They do not see the clock: the mm:ss readout
  * lives in the notes panel, because a room that can watch you fall behind
  * watches that instead of the pitch.
+ *
+ * Neither is the appendix. Those three sit after Questions and are reached only
+ * if the room asks, so the rail keeps measuring exactly the part of the pitch
+ * that is timed — and standing on one reads as past the end, not as nowhere.
+ *
+ * It takes an id rather than an index on purpose: the appendix is a suffix
+ * today, so a PITCH_SLIDES index and a SLIDES index happen to agree, and a
+ * component that leaned on that would start lying the day someone puts an
+ * appendix slide in the middle.
  */
 export function ProgressRail({
-  currentIndex,
+  currentId,
   elapsedInSlide,
 }: {
-  currentIndex: number;
+  currentId: SlideId;
   elapsedInSlide: number;
 }) {
-  const timed = FLOW_SLIDES.map((s, i) => ({ slide: s, i })).filter(({ slide }) => slide.budgetSec > 0);
+  const timed = PITCH_SLIDES.map((s, i) => ({ slide: s, i })).filter(({ slide }) => slide.budgetSec > 0);
+  /* An appendix slide is not in this list. Treat it as past the last segment
+     rather than as -1, or the rail empties itself in front of the room the
+     moment the presenter steps past Q&A. */
+  const found = PITCH_SLIDES.findIndex((s) => s.id === currentId);
+  const currentIndex = found === -1 ? PITCH_SLIDES.length : found;
 
   return (
     <div className="d-rail" aria-hidden="true">
