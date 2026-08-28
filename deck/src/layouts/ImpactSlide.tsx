@@ -25,7 +25,7 @@ export function ImpactSlide({ slide }: { slide: Extract<Slide, { layout: 'impact
       </div>
 
       <Block className="d-eyebrow">
-        <Mark size={22} />
+        <Mark size={38} motion="budHand" />
         <span className="d-eyebrow-th" lang="th">
           {slide.eyebrow.th}
         </span>

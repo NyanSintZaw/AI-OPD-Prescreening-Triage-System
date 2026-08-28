@@ -25,7 +25,7 @@ export function BusinessSlide({ slide }: { slide: Extract<Slide, { layout: 'busi
       <div className="d-business-head">
         <div>
           <Block className="d-eyebrow">
-            <Mark size={20} />
+            <Mark size={34} motion="budHand" />
             <span className="d-eyebrow-en" lang="en">
               {slide.eyebrow.en}
             </span>

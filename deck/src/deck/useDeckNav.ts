@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { SLIDES } from '../content/slides';
+import { FLOW_SLIDES, SLIDES } from '../content/slides';
 import type { SlideId } from '../content/types';
 
 /** Screens that live outside the pitch flow and off the timing rail. */
@@ -8,12 +8,27 @@ export type AsideRoute = (typeof ASIDE_ROUTES)[number];
 
 export type Route = { kind: 'slide'; id: SlideId } | { kind: 'aside'; id: AsideRoute };
 
+function resolveSlideId(raw: string): SlideId {
+  const slide = SLIDES.find((s) => s.id === raw);
+  if (!slide) return 'cover';
+  if (!slide.hiddenInFlow) return slide.id;
+  /* Hidden slides stay in the deck for leave-behind and typecheck, but a
+     bookmark or an old cue card should land on the nearest in-flow neighbour. */
+  const idx = SLIDES.findIndex((s) => s.id === raw);
+  for (let i = idx + 1; i < SLIDES.length; i++) {
+    if (!SLIDES[i].hiddenInFlow) return SLIDES[i].id;
+  }
+  for (let i = idx - 1; i >= 0; i--) {
+    if (!SLIDES[i].hiddenInFlow) return SLIDES[i].id;
+  }
+  return 'cover';
+}
+
 function parseHash(): Route {
   const raw = window.location.hash.replace(/^#\/?/, '');
   const aside = ASIDE_ROUTES.find((r) => r === raw);
   if (aside) return { kind: 'aside', id: aside };
-  const slide = SLIDES.find((s) => s.id === raw);
-  return { kind: 'slide', id: slide ? slide.id : 'cover' };
+  return { kind: 'slide', id: resolveSlideId(raw) };
 }
 
 /**
@@ -27,12 +42,21 @@ export function useDeckNav() {
   const [dir, setDir] = useState<1 | -1>(1);
 
   useEffect(() => {
+    const raw = window.location.hash.replace(/^#\/?/, '');
+    if (ASIDE_ROUTES.includes(raw as AsideRoute)) return;
+    const resolved = resolveSlideId(raw);
+    if (raw && raw !== resolved) {
+      window.location.replace(`#/${resolved}`);
+    }
+  }, []);
+
+  useEffect(() => {
     const onHash = () => {
       const next = parseHash();
       setRoute((prev) => {
         if (prev.kind === 'slide' && next.kind === 'slide') {
-          const a = SLIDES.findIndex((s) => s.id === prev.id);
-          const b = SLIDES.findIndex((s) => s.id === next.id);
+          const a = FLOW_SLIDES.findIndex((s) => s.id === prev.id);
+          const b = FLOW_SLIDES.findIndex((s) => s.id === next.id);
           setDir(b >= a ? 1 : -1);
         }
         return next;
@@ -42,7 +66,7 @@ export function useDeckNav() {
     return () => window.removeEventListener('hashchange', onHash);
   }, []);
 
-  const index = route.kind === 'slide' ? SLIDES.findIndex((s) => s.id === route.id) : -1;
+  const flowIndex = route.kind === 'slide' ? FLOW_SLIDES.findIndex((s) => s.id === route.id) : -1;
 
   const goTo = useCallback((id: string) => {
     window.location.hash = `#/${id}`;
@@ -56,14 +80,14 @@ export function useDeckNav() {
         goTo('cover');
         return;
       }
-      const next = Math.min(SLIDES.length - 1, Math.max(0, index + delta));
-      if (next !== index) goTo(SLIDES[next].id);
+      const next = Math.min(FLOW_SLIDES.length - 1, Math.max(0, flowIndex + delta));
+      if (next !== flowIndex) goTo(FLOW_SLIDES[next].id);
     },
-    [route.kind, index, goTo],
+    [route.kind, flowIndex, goTo],
   );
 
-  const first = useCallback(() => goTo(SLIDES[0].id), [goTo]);
-  const last = useCallback(() => goTo(SLIDES[SLIDES.length - 1].id), [goTo]);
+  const first = useCallback(() => goTo(FLOW_SLIDES[0].id), [goTo]);
+  const last = useCallback(() => goTo(FLOW_SLIDES[FLOW_SLIDES.length - 1].id), [goTo]);
 
-  return { route, dir, index, goTo, goBy, first, last };
+  return { route, dir, flowIndex, goTo, goBy, first, last };
 }

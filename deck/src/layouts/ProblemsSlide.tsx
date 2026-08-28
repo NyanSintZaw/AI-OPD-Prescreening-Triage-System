@@ -22,7 +22,7 @@ export function ProblemsSlide({ slide }: { slide: Extract<Slide, { layout: 'prob
       <span className="d-problems-bloom" aria-hidden="true" />
 
       <Block className="d-eyebrow">
-        <Mark size={22} />
+        <Mark size={38} motion="budHand" />
         <span className="d-eyebrow-th" lang="th">
           {slide.eyebrow.th}
         </span>

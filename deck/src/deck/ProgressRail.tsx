@@ -1,4 +1,4 @@
-import { SLIDES } from '../content/slides';
+import { FLOW_SLIDES } from '../content/slides';
 
 /**
  * A hairline across the foot of the stage, one segment per slide, each as wide
@@ -16,7 +16,7 @@ export function ProgressRail({
   currentIndex: number;
   elapsedInSlide: number;
 }) {
-  const timed = SLIDES.map((s, i) => ({ slide: s, i })).filter(({ slide }) => slide.budgetSec > 0);
+  const timed = FLOW_SLIDES.map((s, i) => ({ slide: s, i })).filter(({ slide }) => slide.budgetSec > 0);
 
   return (
     <div className="d-rail" aria-hidden="true">

@@ -15,7 +15,7 @@ export function PilotSlide({ slide }: { slide: Extract<Slide, { layout: 'pilot' 
     <div className="d-pilot">
       <div className="d-pilot-left">
         <Block className="d-eyebrow">
-          <Mark size={20} />
+          <Mark size={34} motion="budHand" />
           <span className="d-eyebrow-en" lang="en">
             {slide.eyebrow.en}
           </span>

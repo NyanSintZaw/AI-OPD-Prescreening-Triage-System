@@ -1,4 +1,4 @@
-import { SLIDES } from '../content/slides';
+import { FLOW_SLIDES } from '../content/slides';
 import type { Slide } from '../content/types';
 import { mmss } from './useTimer';
 
@@ -19,7 +19,7 @@ export function OverviewGrid({
   return (
     <div className="d-overlay d-overlay--grid" onClick={onClose} role="presentation">
       <div className="d-grid" onClick={(e) => e.stopPropagation()} role="presentation">
-        {SLIDES.map((s, i) => (
+        {FLOW_SLIDES.map((s, i) => (
           <button
             key={s.id}
             type="button"

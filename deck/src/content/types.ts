@@ -8,7 +8,7 @@
  * reachable by setting `lead: 'en'` on purpose — which the commercial and
  * deployment slides do, because that half of the pitch is delivered in English.
  */
-import type { MarkMotion } from '../deck/MaliMark';
+import type { MarkMotion, ShowreelAct } from '../deck/MaliMark';
 import type { FactKey } from './facts';
 
 /** Which presenter owns the slide — PITCH_DECK §0's two-presenter table. */
@@ -59,6 +59,8 @@ export type SlideId =
 export interface SlideMeta {
   id: SlideId;
   section: SectionId;
+  /** Omit from keyboard navigation, overview, and the timing rail — content stays in the deck for rehearsal/leave-behind. */
+  hiddenInFlow?: boolean;
   /** Slide number as printed in PITCH_DECK. Cue cards have none. */
   number?: number;
   /** PITCH_DECK's budget in seconds. Drives the width of the rail segment. */
@@ -199,13 +201,18 @@ export type Slide =
     })
   | (SlideMeta & {
       /* A hold screen: the slides stop here and something else happens — the
-         live demo, or questions. Deep teal is what that means in this deck, so
-         both are the same object and stay siblings by construction. */
+         live demo, or questions. A light teal wash is what that means in this
+         deck, so both are the same object and stay siblings by construction. */
       layout: 'hold';
       /* Not rendered on the slide — the grid and the notes panel read it. */
       headline: Headline;
-      label: string;
+      /* A plain word, or the cover's wordmark shape where the label should be
+         typeset like the MALI lockup — one letter carrying the teal accent. */
+      label: string | { lead: string; accent: string; tail: string };
       sub: string;
       /** Present only where the mark belongs; the demo screen carries none. */
-      mark?: { size: number; cycle: MarkMotion[] };
+      mark?: { size: number; motion?: MarkMotion; acts?: ShowreelAct[] };
+      /** A small corner sign-off. The cover carries the full lockup; this is
+       *  its footnote, for the screen that stays up through Q&A. */
+      team?: { label: string; name: string };
     });
