@@ -232,8 +232,16 @@ class Settings(BaseSettings):
             self.screening_model_name = self.cloud_screening_model_name
         else:
             self.screening_model_provider = "openai_compatible"
-            self.stt_provider = "openai_compatible"
-            self.tts_provider = "openai_compatible"
+            # A mode is a DEFAULT, not an override: an explicitly configured
+            # provider wins, exactly as the explicit per-service URLs below
+            # already do. That is what lets AI_MODE=local mean "local LLM"
+            # while STT_PROVIDER/TTS_PROVIDER=local run the speech models
+            # in-process — without it, setting both silently reverts speech
+            # to HTTP and the .env reads as though it did something else.
+            if "stt_provider" not in self.model_fields_set:
+                self.stt_provider = "openai_compatible"
+            if "tts_provider" not in self.model_fields_set:
+                self.tts_provider = "openai_compatible"
             self.screening_model_name = self.local_screening_model_name
             # One gateway serves all three; explicit per-service URLs still win
             # so a split deployment (separate STT box) stays possible.
