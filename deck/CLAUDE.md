@@ -75,10 +75,13 @@ Both of these have already cost real debugging time here.
   folds a full-width line into a half-width column without any error — it just looks like a
   layout you chose. Both of these are the same trap: the design system's *typography* is
   sized for a product, and slides are not a product.
-- **A fixed 1920×1080 stage, not `clamp()`.** The kiosk uses `clamp()` because it runs on
+- **A fixed 1920-wide stage, not `clamp()`.** The kiosk uses `clamp()` because it runs on
   one known screen forever. A deck runs once on a projector nobody measured, and a fluid
   headline breaks in a different place there than in rehearsal. `useStageScale` scales a
-  fixed canvas so what you rehearsed is what projects, Thai line breaks included.
+  fixed canvas so what you rehearsed is what projects, Thai line breaks included. The
+  canvas *height* does flex (up to 1.6x) so a 16:10 laptop or a 4:3 projector is filled by
+  the deck's own paper instead of grey letterbox bars — line breaking is a function of
+  width alone, and `.deck-slide` stays exactly 1080 tall and centred, so nothing moves.
 
 ## Keys
 
@@ -86,7 +89,9 @@ Both of these have already cost real debugging time here.
 · `O` overview · `N` presenter notes · `F` fullscreen · `T`/`R` timer · `B` or `.` blackout ·
 `A` the `[FILL]` register · `Q` Q&A · `V` measured quality · `M` force motion · `?` help.
 
-`PageUp`/`PageDown` are bound because that is what a wireless presenter remote sends.
+`PageUp`/`PageDown` are bound because that is what a wireless presenter remote sends. On a
+touchscreen, a horizontal swipe changes slide; vertical is left alone so the aside screens
+still scroll.
 
 ## Screens off the pitch flow
 

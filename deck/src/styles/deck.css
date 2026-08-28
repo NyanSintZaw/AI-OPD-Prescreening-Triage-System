@@ -75,8 +75,8 @@ body {
   left: 50%;
   top: 50%;
   width: 1920px;
-  height: 1080px;
-  margin: -540px 0 0 -960px;
+  height: var(--stage-h, 1080px);
+  margin: calc(var(--stage-h, 1080px) / -2) 0 0 -960px;
   transform: scale(var(--stage-scale, 1));
   transform-origin: center center;
   overflow: hidden;
@@ -87,6 +87,12 @@ body {
 .deck-slide {
   position: absolute;
   inset: 0;
+  /* The stage may be taller than 16:9 so its paper fills a 16:10 or 4:3
+     panel; the slide itself stays the rehearsed 1080 and centres in it.
+     Auto block margins, not translateY — a motion element's transform is
+     framer's, and centring by transform silently dies when variants animate. */
+  height: 1080px;
+  margin-block: auto;
   display: flex;
   flex-direction: column;
   justify-content: center;

@@ -23,7 +23,7 @@ type Overlay = null | 'help' | 'grid';
 export function DeckRoot() {
   const nav = useDeckNav();
   const deckMotion = useDeckMotion();
-  const scale = useStageScale();
+  const stage = useStageScale();
   const timer = useTimer();
 
   const [overlay, setOverlay] = useState<Overlay>(null);
@@ -104,11 +104,35 @@ export function DeckRoot() {
     return () => window.removeEventListener('keydown', onDigit);
   }, [nav]);
 
+  /* The deck is driven from a keyboard or a remote in the room, but the link
+     gets opened on phones. Horizontal swipe navigates; vertical is left alone
+     so the aside screens keep scrolling. */
+  const swipeFrom = useRef<{ x: number; y: number } | null>(null);
+  const onSwipeEnd = (e: React.PointerEvent) => {
+    const from = swipeFrom.current;
+    swipeFrom.current = null;
+    if (!from) return;
+    const dx = e.clientX - from.x;
+    if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(e.clientY - from.y)) nav.goBy(dx < 0 ? 1 : -1);
+  };
+
   return (
     <DeckMotionProvider value={deckMotion}>
     <div className={`mali-root deck-root${notes ? ' has-notes' : ''}`}>
-      <div className="deck-viewport">
-        <div className="deck-stage" style={{ '--stage-scale': scale } as React.CSSProperties}>
+      <div
+        className="deck-viewport"
+        onPointerDown={(e) => {
+          if (e.pointerType === 'touch') swipeFrom.current = { x: e.clientX, y: e.clientY };
+        }}
+        onPointerUp={onSwipeEnd}
+        onPointerCancel={() => (swipeFrom.current = null)}
+      >
+        <div
+          className="deck-stage"
+          style={
+            { '--stage-scale': stage.scale, '--stage-h': `${stage.height}px` } as React.CSSProperties
+          }
+        >
           <div className="deck-aurora" aria-hidden="true" />
           <div className="deck-petals mali-texture-petals" aria-hidden="true" />
 
@@ -163,6 +187,11 @@ export function DeckRoot() {
           reducedMotionWarning={deckMotion.prefersReduced && !deckMotion.forced}
         />
       )}
+
+      <div className="d-rotate">
+        <span>หมุนเครื่องเป็นแนวนอนเพื่อดูสไลด์เต็มจอ</span>
+        <span>Rotate to landscape · swipe to change slide</span>
+      </div>
 
       {overlay === 'help' && <HelpOverlay onClose={() => setOverlay(null)} />}
       {overlay === 'grid' && (
