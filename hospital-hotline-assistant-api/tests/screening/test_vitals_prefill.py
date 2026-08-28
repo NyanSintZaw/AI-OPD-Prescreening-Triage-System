@@ -115,14 +115,15 @@ async def test_linked_age_suppresses_age_question_and_routes_child(criteria):
             language="en",
             input_mode="text",
             content=text,
-            # booth vitals (BP, temp, weight/height) already recorded, so the
-            # measurement questions are pre-resolved and don't lengthen this
+            # booth vitals (BP, temp, SpO2, weight/height) already recorded, so
+            # the measurement questions are pre-resolved and don't lengthen this
             # interview
             turn_context={
                 "age_years": 8,
                 "vitals": {
                     "weight_kg": 24, "height_cm": 128,
                     "systolic": 104, "diastolic": 66, "temperature": 36.8,
+                    "spo2": 98,
                 },
             },
         )

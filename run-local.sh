@@ -47,8 +47,12 @@ check() {
   curl -sf -m 2 "http://localhost:$SPEECH_PORT/health"   >/dev/null && echo "  ✓ speech      :$SPEECH_PORT" || echo "  ✗ speech      :$SPEECH_PORT"
   curl -sf -m 2 "http://localhost:$API_PORT/health"      >/dev/null && echo "  ✓ backend     :$API_PORT"    || echo "  ✗ backend     :$API_PORT"
   curl -sf -m 2 "http://localhost:$WEB_PORT/"            >/dev/null && echo "  ✓ kiosk       :$WEB_PORT"    || echo "  ✗ kiosk       :$WEB_PORT"
-  docker ps --filter name=hospital_hotline_db --format '{{.Names}}' | grep -q . \
+  # Postgres runs natively here (Postgres.app), not in Docker — probe the
+  # port, not a container name, so the check is true either way.
+  pg_isready -h localhost -p 5432 -q 2>/dev/null \
     && echo "  ✓ postgres    :5432" || echo "  ✗ postgres    :5432"
+  curl -sf -m 2 -H "X-API-Key: ${HIS_API_KEY:-demo-his-key}" "http://localhost:8001/api/patients" >/dev/null \
+    && echo "  ✓ his-mock    :8001" || echo "  ✗ his-mock    :8001"
 }
 
 [ "${1:-}" = "check" ] && { check; exit 0; }
@@ -98,7 +102,14 @@ echo "Ports: speech=$SPEECH_PORT ollama=$OLLAMA_PORT api=$API_PORT web=$WEB_PORT
 sync_env
 
 echo "[1/5] databases"
-docker compose -f "$ROOT/docker-compose.yml" up -d >/dev/null 2>&1 && echo "  ✓ postgres + his-mock"
+# Only his-mock runs in Docker. Postgres is the native Postgres.app install on
+# :5432 (see DATABASE_URL in the api .env); starting the compose postgres too
+# would collide on that port and abort the whole `up`.
+docker compose -f "$ROOT/docker-compose.yml" up -d his-mock >/dev/null 2>&1 \
+  && echo "  ✓ his-mock (docker)" || echo "  ✗ his-mock failed to start"
+pg_isready -h localhost -p 5432 -q 2>/dev/null \
+  && echo "  ✓ postgres (native, :5432)" \
+  || echo "  ✗ postgres is not running — start Postgres.app"
 
 echo "[2/5] ollama"
 if ! curl -sf -m 2 "http://localhost:$OLLAMA_PORT/api/tags" >/dev/null; then

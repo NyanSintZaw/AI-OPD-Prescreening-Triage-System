@@ -34,7 +34,12 @@ interface ConversationStageProps {
   onDone: (captionText?: string) => void;
   onEnd: () => void;
   measurementVital: string | null;
-  onMeasurementSubmit: (continuationText: string) => void;
+  /** Carries the vital so the caller can record WHICH reading just landed
+   *  (a self-initiated SpO2 check never sets `measurementVital`). */
+  onMeasurementSubmit: (continuationText: string, vital: string) => void;
+  /** SpO2 already has a value this run — hide the optional self-check so the
+   *  patient is not invited to measure a second time. */
+  spo2Measured?: boolean;
   /** Crisis BP opened the 15-minute rest window — pause the session and
    *  send the patient off to rest (see MeasurementCard.onRest). */
   onMeasurementRest?: (secondsRemaining: number) => void;
@@ -74,6 +79,7 @@ export function ConversationStage({
   onEnd,
   measurementVital,
   onMeasurementSubmit,
+  spo2Measured = false,
   onMeasurementRest,
   avatar,
   errorText,
@@ -263,7 +269,7 @@ export function ConversationStage({
               language={language}
               onSubmit={(text) => {
                 setSelfMeasureSpo2(false);
-                return onMeasurementSubmit(text);
+                return onMeasurementSubmit(text, activeVital);
               }}
               onRest={onMeasurementRest}
               // Only a patient-initiated check can be backed out of — an
@@ -342,8 +348,12 @@ export function ConversationStage({
             )}
 
             {/* Optional fingertip SpO2 check — the patient can measure their
-                oxygen whenever it's their turn to answer. */}
-            {isListening && (
+                oxygen whenever it's their turn to answer. Withdrawn once a
+                reading exists (engine-requested or self-initiated): offering
+                it again invited a pointless second measurement, and the
+                engine discards the repeat anyway since the vital is already
+                recorded. */}
+            {isListening && !spo2Measured && (
               <button
                 type="button"
                 className="k-btn secondary"

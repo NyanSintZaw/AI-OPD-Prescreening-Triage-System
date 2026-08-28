@@ -278,21 +278,32 @@ async def test_golden_en_child_routes_to_pediatrics(criteria):
         ext(slot_updates={"onset": "2 days ago"}),
         ext(slot_updates={"duration": "2 days"}),
     ]
-    for extraction in answers:
-        if r["classification"].get("classified"):
-            break
-        # Inject BP + weight when the engine asks for them so we can finish.
-        ctx = None
-        if r.get("awaiting_measurement") == "sbp":
-            ctx = {"vitals": {"sbp": 110, "dbp": 70}}
-        elif r.get("awaiting_measurement") == "weight":
-            ctx = {"vitals": {"weight": 25, "height": 120}}
-        r = await j.turn("answer", extraction, turn_context=ctx)
+    # Supply booth readings when the engine requests them (SpO2 leads the
+    # respiratory template, then temp and BP); interview answers otherwise. A
+    # measurement turn must not consume an interview answer.
+    readings = {
+        "spo2": ("98", {"spo2": 98}),
+        "temp": ("36.6", {"temp": 36.6}),
+        "sbp": ("BP 110/70", {"sbp": 110, "dbp": 70}),
+        "weight": ("25 kg, 120 cm", {"weight": 25, "height": 120}),
+    }
+    i = 0
+    while i < len(answers) and not r["classification"].get("classified"):
+        vital = r.get("awaiting_measurement")
+        if vital in readings:
+            text, vitals = readings[vital]
+            r = await j.turn(text, ext(), turn_context={"vitals": vitals})
+            continue
+        r = await j.turn("answer", answers[i])
+        i += 1
 
     if not r["classification"].get("classified"):
         r = await j.turn(
             "BP 110/70, 25 kg",
-            turn_context={"vitals": {"sbp": 110, "dbp": 70, "weight": 25, "height": 120}},
+            turn_context={"vitals": {
+                "sbp": 110, "dbp": 70, "spo2": 98, "temp": 36.6,
+                "weight": 25, "height": 120,
+            }},
         )
 
     classification = r["classification"]

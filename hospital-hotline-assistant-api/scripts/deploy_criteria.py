@@ -37,6 +37,19 @@ DSN = os.getenv(
 )
 
 
+def _count_measurements(criteria, vital: str) -> int:
+    """Every place a booth reading for *vital* can be requested — template
+    questions AND universal ones (SpO2 is asked from both)."""
+    return sum(
+        1
+        for q in (
+            *(q for t in criteria.complaint_templates for q in t.questions),
+            *criteria.universal_questions,
+        )
+        if q.vital == vital
+    )
+
+
 def _summarize(criteria) -> dict[str, int]:
     """The counts most likely to have changed — enough to eyeball a diff."""
     return {
@@ -46,18 +59,9 @@ def _summarize(criteria) -> dict[str, int]:
         "tuples": len(criteria.triage_tuples),
         "danger_vitals": len(criteria.danger_vitals),
         "department_rules": len(criteria.department_rules),
-        "temp_questions": sum(
-            1
-            for t in criteria.complaint_templates
-            for q in t.questions
-            if q.vital == "temp"
-        ),
-        "bp_questions": sum(
-            1
-            for t in criteria.complaint_templates
-            for q in t.questions
-            if q.vital == "sbp"
-        ),
+        "temp_questions": _count_measurements(criteria, "temp"),
+        "bp_questions": _count_measurements(criteria, "sbp"),
+        "spo2_questions": _count_measurements(criteria, "spo2"),
     }
 
 

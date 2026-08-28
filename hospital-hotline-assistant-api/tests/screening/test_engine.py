@@ -128,7 +128,7 @@ async def test_cough_interview_loop_to_general_opd(criteria):
     }))
     assert r["classification"] == {}  # dc_severe_distress next
 
-    # T4..: deny remaining red flags, then temp + BP + onset + weight
+    # T4..: deny remaining red flags, then SpO2 + temp + BP + onset + weight
     r = await turn("no, I can speak fine", ext(findings={
         "severe_respiratory_distress": "absent", "blue_lips": "absent",
     }))
@@ -139,12 +139,17 @@ async def test_cough_interview_loop_to_general_opd(criteria):
     # dc_retraction: the SpO2 90–94% danger band is gated on it.
     r = await turn("no, nothing pulls in", ext(findings={"retraction": "absent"}))
     assert r["classification"] == {}
+    # In the respiratory template oxygen leads the booth measurements: it is
+    # the vital the SpO2 level-1/danger-band rules read, so it is taken before
+    # temp and BP.
+    assert r.get("awaiting_measurement") == "spo2"
+    # ext(): the real model returns an (empty) extraction for a bare number;
+    # leaving the fake queue empty would look like consecutive LLM failures
+    # across the measurement turns and escalate to a nurse.
+    r = await turn("98", ext(), turn_context={"vitals": {"spo2": 98}})
     # temp is a standard booth vital in every template (MFU manual: all
     # outpatients), requested even after a fever denial, before BP.
     assert r.get("awaiting_measurement") == "temp"
-    # ext(): the real model returns an (empty) extraction for a bare number;
-    # leaving the fake queue empty would look like two consecutive LLM
-    # failures across the temp+BP turns and escalate to a nurse.
     r = await turn("36.7", ext(), turn_context={"vitals": {"temp": 36.7}})
     assert r.get("awaiting_measurement") == "sbp"
     r = await turn("BP 118/76", turn_context={"vitals": {"sbp": 118, "dbp": 76}})

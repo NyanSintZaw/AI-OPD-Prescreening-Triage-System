@@ -3574,6 +3574,18 @@
       "text_th": "ตอนนี้คุณหายใจลำบากหรือหายใจเหนื่อยไหมคะ",
       "priority": 2,
       "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 3 (decision point A — severe respiratory distress); MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย)"
+    },
+    {
+      "id": "uq_spo2_chronic_lung",
+      "kind": "measurement",
+      "vital": "spo2",
+      "finding_ids": [
+        "copd_history"
+      ],
+      "text_en": "Because you have a long-term lung condition, let's check your oxygen level — clip the pulse oximeter on your fingertip and press start.",
+      "text_th": "เนื่องจากคุณมีโรคปอดเรื้อรัง ขอวัดระดับออกซิเจนปลายนิ้วด้วยนะคะ หนีบเครื่องวัดที่ปลายนิ้วแล้วกดเริ่มได้เลยค่ะ",
+      "priority": 5,
+      "citation": "MFU Triage — Level 1: O2 sat < 90% ยกเว้น COPD (baseline reading needed before the COPD exception can be applied); MOPH ED Triage (5-level) — danger vitals: O2 saturation; ESI v5 Handbook, ch. 3 (decision point A — SpO2 not the patient's norm)"
     }
   ],
   "complaint_templates": [
@@ -4069,6 +4081,15 @@
           "text_th": "ขอวัดอุณหภูมิสักครู่นะคะ ใช้เครื่องวัดไข้ข้าง ๆ ได้เลย หรือถ้ามีตัวเลขอยู่แล้วพิมพ์ให้ก็ได้ค่ะ",
           "priority": 6,
           "citation": "MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย) — ขอบเขต: ผู้ป่วยนอกทุกราย; วัตถุประสงค์ ข้อ 2 เพื่อแยกผู้ป่วยโรคติดต่อ โรคอุบัติใหม่ อุบัติซ้ำ; MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (temperature red flags)"
+        },
+        {
+          "id": "cp_spo2",
+          "kind": "measurement",
+          "vital": "spo2",
+          "text_en": "Let's check your oxygen level — clip the pulse oximeter on your fingertip and press start, or type the reading if you already have it.",
+          "text_th": "ขอวัดระดับออกซิเจนปลายนิ้วสักครู่นะคะ หนีบเครื่องวัดที่ปลายนิ้วแล้วกดเริ่มได้เลย หรือถ้ามีตัวเลขอยู่แล้วพิมพ์ให้ก็ได้ค่ะ",
+          "priority": 8,
+          "citation": "MOPH ED Triage (5-level) — danger vitals: O2 saturation; ESI v5 Handbook, ch. 6 (decision point D — full vital signs at triage, SpO2 danger zone); MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย)"
         }
       ]
     },
@@ -4241,7 +4262,7 @@
           "vital": "temp",
           "text_en": "Let's check your temperature — use the thermometer beside you, or type the reading if you already have it.",
           "text_th": "ขอวัดอุณหภูมิสักครู่นะคะ ใช้เครื่องวัดไข้ข้าง ๆ ได้เลย หรือถ้ามีตัวเลขอยู่แล้วพิมพ์ให้ก็ได้ค่ะ",
-          "priority": 6,
+          "priority": 7,
           "citation": "MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย) — ขอบเขต: ผู้ป่วยนอกทุกราย; วัตถุประสงค์ ข้อ 2 เพื่อแยกผู้ป่วยโรคติดต่อ โรคอุบัติใหม่ อุบัติซ้ำ; MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (temperature red flags)"
         },
         {
@@ -4333,8 +4354,17 @@
           "vital": "sbp",
           "text_en": "Let's check your blood pressure — slip the cuff on beside you and press start, or type the numbers if you already have them.",
           "text_th": "ขอวัดความดันโลหิตสักครู่นะคะ สวมผ้าพันแขนจากเครื่องข้าง ๆ แล้วกดเริ่มได้เลย หรือถ้ามีตัวเลขอยู่แล้วพิมพ์ให้ก็ได้ค่ะ",
-          "priority": 7,
+          "priority": 8,
           "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (decision point D — full vital signs at triage); MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย)"
+        },
+        {
+          "id": "dc_spo2",
+          "kind": "measurement",
+          "vital": "spo2",
+          "text_en": "Let's check your oxygen level — clip the pulse oximeter on your fingertip and press start, or type the reading if you already have it.",
+          "text_th": "ขอวัดระดับออกซิเจนปลายนิ้วสักครู่นะคะ หนีบเครื่องวัดที่ปลายนิ้วแล้วกดเริ่มได้เลย หรือถ้ามีตัวเลขอยู่แล้วพิมพ์ให้ก็ได้ค่ะ",
+          "priority": 6,
+          "citation": "MOPH ED Triage (5-level) — danger vitals: O2 saturation; ESI v5 Handbook, ch. 3 (decision point A — SpO2 < 90% with respiratory compromise) and ch. 6 (decision point D — SpO2 danger zone); MFU Triage — Level 1: O2 sat < 90% ยกเว้น COPD; MFU Triage — เด็ก: O2 Sat < 94%"
         }
       ]
     },
@@ -5009,6 +5039,15 @@
           "text_th": "ขอวัดความดันโลหิตสักครู่นะคะ สวมผ้าพันแขนจากเครื่องข้าง ๆ แล้วกดเริ่มได้เลย หรือถ้ามีตัวเลขอยู่แล้วพิมพ์ให้ก็ได้ค่ะ",
           "priority": 7,
           "citation": "MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (decision point D — full vital signs at triage); MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย)"
+        },
+        {
+          "id": "fv_spo2",
+          "kind": "measurement",
+          "vital": "spo2",
+          "text_en": "Let's check your oxygen level — clip the pulse oximeter on your fingertip and press start, or type the reading if you already have it.",
+          "text_th": "ขอวัดระดับออกซิเจนปลายนิ้วสักครู่นะคะ หนีบเครื่องวัดที่ปลายนิ้วแล้วกดเริ่มได้เลย หรือถ้ามีตัวเลขอยู่แล้วพิมพ์ให้ก็ได้ค่ะ",
+          "priority": 8,
+          "citation": "MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย) — วัตถุประสงค์ ข้อ 2 เพื่อแยกผู้ป่วยโรคติดต่อ โรคอุบัติใหม่ อุบัติซ้ำ; MOPH ED Triage (5-level) — danger vitals: O2 saturation; ESI v5 Handbook, ch. 6 (decision point D — SpO2 danger zone); MFU Triage — เด็ก: O2 Sat < 94%"
         }
       ]
     },
@@ -7114,6 +7153,15 @@
           "text_th": "ขอวัดอุณหภูมิสักครู่นะคะ ใช้เครื่องวัดไข้ข้าง ๆ ได้เลย หรือถ้ามีตัวเลขอยู่แล้วพิมพ์ให้ก็ได้ค่ะ",
           "priority": 6,
           "citation": "MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย) — ขอบเขต: ผู้ป่วยนอกทุกราย; วัตถุประสงค์ ข้อ 2 เพื่อแยกผู้ป่วยโรคติดต่อ โรคอุบัติใหม่ อุบัติซ้ำ; MOPH ED Triage (5-level); ESI v5 Handbook, ch. 6 (temperature red flags)"
+        },
+        {
+          "id": "palp_spo2",
+          "kind": "measurement",
+          "vital": "spo2",
+          "text_en": "Let's check your oxygen level — clip the pulse oximeter on your fingertip and press start, or type the reading if you already have it.",
+          "text_th": "ขอวัดระดับออกซิเจนปลายนิ้วสักครู่นะคะ หนีบเครื่องวัดที่ปลายนิ้วแล้วกดเริ่มได้เลย หรือถ้ามีตัวเลขอยู่แล้วพิมพ์ให้ก็ได้ค่ะ",
+          "priority": 8,
+          "citation": "MOPH ED Triage (5-level) — danger vitals: O2 saturation; ESI v5 Handbook, ch. 6 (decision point D — full vital signs at triage, SpO2 danger zone); MFU OPD manual (คู่มือเกณฑ์การคัดกรองผู้ป่วย)"
         }
       ]
     },

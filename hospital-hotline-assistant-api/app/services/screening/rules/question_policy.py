@@ -208,18 +208,49 @@ def _unresolved_pre_disposition(
     )
 
 
+def _wrap_up_questions(
+    criteria: ScreeningCriteria, inputs: InterviewInputs
+) -> list[QuestionTemplate]:
+    """Everything still askable once the interview budget is spent: booth
+    readings and the pre-disposition wrap-up, in priority order.
+
+    The budget caps COGNITIVE burden — questions the patient has to think
+    about — not instrument readings, which is why asking one never increments
+    it (see the question node). Measurements were nonetheless dropped here
+    when the counter filled, so a talkative presentation could dispose with no
+    vitals at all: a cough + sore throat spends all 8 on red flags (the
+    template's six plus two secondary ENT ones) and reached disposition with
+    temperature, BP and SpO2 unmeasured — on a patient who had reported fever
+    (live session 2026-08-28). That is the same class of miss as the
+    2026-08-04 dizziness interview that disposed past BP.
+
+    Terminates for the same reason the pre-disposition hold does: each
+    measurement gives up after two asks, so this extends the flow by at most
+    2 x (measurements + pre-disposition questions) turns.
+    """
+
+    template = get_template(criteria, inputs.complaint_category)
+    measurements = [
+        q
+        for q in (*criteria.universal_questions, *template.questions)
+        if q.kind == "measurement"
+    ]
+    return sorted(
+        [*measurements, *criteria.pre_disposition_questions],
+        key=lambda q: q.priority,
+    )
+
+
 def next_question(
     criteria: ScreeningCriteria, inputs: InterviewInputs
 ) -> QuestionTemplate | None:
     """Deterministically pick the next question, or None when nothing useful
     remains to ask. Budget enforcement is the completeness gate's job —
-    except that once the budget is spent, only wrap-up measurements (which
-    fire at most once and don't count against the budget) remain eligible."""
+    except that once the budget is spent, only booth readings and the wrap-up
+    measurements (which don't count against the budget) remain eligible."""
 
     if inputs.questions_asked >= inputs.question_budget:
-        for question in sorted(
-            criteria.pre_disposition_questions, key=lambda q: q.priority
-        ):
+        for question in _wrap_up_questions(criteria, inputs):
             if not _is_resolved(question, inputs):
                 return question
         return None
@@ -256,11 +287,13 @@ def is_interview_complete(
     if provisional_level <= 2:
         return True
     if inputs.questions_asked >= inputs.question_budget:
-        # Budget caps interview questions, not wrap-up measurements: each of
-        # those fires at most twice (one ask plus one re-ask for a missing or
-        # implausible value), so this hold extends the flow by at most
-        # 2 × len(pre_disposition_questions) turns.
-        return not _unresolved_pre_disposition(criteria, inputs)
+        # Budget caps interview questions, not readings: hold while any booth
+        # measurement or wrap-up question is still unresolved. Each fires at
+        # most twice (one ask plus one re-ask for a missing or implausible
+        # value), so the hold is bounded — see _wrap_up_questions.
+        return all(
+            _is_resolved(q, inputs) for q in _wrap_up_questions(criteria, inputs)
+        )
     # Hold disposition while weight/height (etc.) remain unasked.
     if _unresolved_pre_disposition(criteria, inputs):
         return False

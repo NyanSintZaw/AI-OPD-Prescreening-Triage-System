@@ -67,8 +67,8 @@ def test_slots_in_template_priority_order(criteria):
         "chest_pain_radiating": "absent", "diaphoresis": "absent",
         "pale_cold_sweaty": "absent",
     }
-    # Measurements (temp priority 6, BP priority 7) precede OLDCARTS slots
-    # (priority 10+).
+    # Measurements (temp priority 6, BP priority 7, SpO2 priority 8) precede
+    # OLDCARTS slots (priority 10+).
     q0 = next_question(criteria, inputs(findings=findings))
     assert q0.id == "cp_temp"
     q1 = next_question(criteria, inputs(findings=findings, measured_vitals={"temp"}))
@@ -76,11 +76,16 @@ def test_slots_in_template_priority_order(criteria):
     q2 = next_question(criteria, inputs(
         findings=findings, measured_vitals={"temp", "sbp"},
     ))
-    assert q2.id == "cp_onset"
+    assert q2.id == "cp_spo2"
     q3 = next_question(criteria, inputs(
-        findings=findings, measured_vitals={"temp", "sbp"}, answered_slots={"onset"},
+        findings=findings, measured_vitals={"temp", "sbp", "spo2"},
     ))
-    assert q3.id == "cp_duration"
+    assert q3.id == "cp_onset"
+    q4 = next_question(criteria, inputs(
+        findings=findings, measured_vitals={"temp", "sbp", "spo2"},
+        answered_slots={"onset"},
+    ))
+    assert q4.id == "cp_duration"
 
 
 def test_asked_questions_never_repeat(criteria):
@@ -107,7 +112,7 @@ def test_scale_resolved_by_severity_slot(criteria):
     ivs = inputs(
         findings=findings,
         answered_slots={"onset", "duration", "character", "severity"},
-        measured_vitals={"sbp", "temp"},
+        measured_vitals={"sbp", "temp", "spo2"},
     )
     q = next_question(criteria, ivs)
     assert q is not None and q.id == "cp_history"  # associated, not the scale
@@ -133,22 +138,60 @@ def test_incomplete_while_red_flags_unresolved(criteria):
 
 
 def test_budget_exhaustion_completes(criteria):
-    # Budget exhaustion ends the interview once wrap-up measurements are done…
+    # Budget exhaustion ends the interview once every reading is in…
     assert is_interview_complete(
         criteria,
-        inputs(questions_asked=8, budget=8, measured_vitals={"weight", "height"}),
+        inputs(
+            questions_asked=8, budget=8,
+            measured_vitals={"temp", "sbp", "spo2", "weight", "height"},
+        ),
         provisional_level=4,
     )
-    # …but still holds for the (at most once) weight/height request, which
-    # next_question then serves exclusively.
+    # …but still holds for the booth readings, which next_question then serves
+    # exclusively, in priority order, before the weight/height wrap-up.
     spent = inputs(questions_asked=8, budget=8)
     assert not is_interview_complete(criteria, spent, provisional_level=4)
     q = next_question(criteria, spent)
-    assert q is not None and q.id == "pd_weight_height"
-    # once asked, it's resolved even without a reading — no infinite hold
-    asked = inputs(questions_asked=8, budget=8, asked=("pd_weight_height",))
+    assert q is not None and q.id == "cp_temp"
+    # once asked, each is resolved even without a reading — no infinite hold
+    asked = inputs(
+        questions_asked=8, budget=8,
+        asked=("cp_temp", "cp_bp", "cp_spo2", "pd_weight_height"),
+    )
     assert is_interview_complete(criteria, asked, provisional_level=4)
     assert next_question(criteria, asked) is None
+
+
+def test_budget_exhaustion_still_takes_vitals(criteria):
+    """A talkative presentation must not dispose with NO vitals.
+
+    Live session 2026-08-28 (HN 09900001, th): "ไอแล้วก็เจ็บคอ" — cough plus
+    sore throat — spent the whole 8-question budget on red flags (the
+    respiratory template's six, plus two secondary ENT ones pulled in by the
+    second complaint) and disposed with temperature, BP and SpO2 all
+    unmeasured, on a patient who had just reported fever. Readings are booth
+    actions and never cost budget, so the budget must not strand them.
+    """
+    findings = {"cough": "present", "sore_throat": "present"}
+    spent = inputs(
+        category="dyspnea_cough", findings=findings,
+        questions_asked=8, budget=8,
+        measured_vitals={"weight", "height"},   # prefilled from the HIS record
+    )
+    assert not is_interview_complete(criteria, spent, provisional_level=4)
+
+    # Every booth reading is still served, oxygen first in this template.
+    served, measured = [], {"weight", "height"}
+    for _ in range(6):
+        q = next_question(criteria, inputs(
+            category="dyspnea_cough", findings=findings,
+            questions_asked=8, budget=8, measured_vitals=measured,
+        ))
+        if q is None:
+            break
+        served.append(q.id)
+        measured.add(q.vital)
+    assert served == ["dc_spo2", "dc_temp", "dc_bp"]
 
 
 def test_min_slots_satisfied_completes(criteria):
@@ -161,7 +204,7 @@ def test_min_slots_satisfied_completes(criteria):
     ivs = inputs(
         findings=findings,
         answered_slots={"onset", "duration", "character"},
-        measured_vitals={"sbp", "temp", "weight"},
+        measured_vitals={"sbp", "temp", "spo2", "weight"},
     )
     # chest_pain min_slots_by_level[4] == 3
     assert is_interview_complete(criteria, ivs, provisional_level=4)
@@ -266,7 +309,7 @@ def test_pre_disposition_asked_after_template(criteria):
     q = next_question(criteria, inputs(
         findings=findings,
         answered_slots={"onset", "duration", "character", "severity"},
-        measured_vitals={"sbp", "temp"},
+        measured_vitals={"sbp", "temp", "spo2"},
         asked={"cp_history"},
     ))
     assert q is not None and q.id == "pd_weight_height" and q.vital == "weight"
@@ -457,11 +500,14 @@ def test_measurement_resolves_immediately_on_a_good_value(criteria):
 
 def test_measurement_reask_still_terminates_the_interview(criteria):
     """The re-ask must not deadlock the completeness gate."""
-    spent = inputs(questions_asked=8, budget=8, ask_counts={"pd_weight_height": 1})
+    once = {q: 1 for q in ("cp_temp", "cp_bp", "cp_spo2", "pd_weight_height")}
+    spent = inputs(questions_asked=8, budget=8, ask_counts=once)
     assert not is_interview_complete(criteria, spent, provisional_level=4)
-    assert next_question(criteria, spent).id == "pd_weight_height"
+    assert next_question(criteria, spent).id == "cp_temp"
 
-    exhausted = inputs(questions_asked=8, budget=8, ask_counts={"pd_weight_height": 2})
+    # Two asks apiece gives up on every reading, so the flow always ends.
+    twice = {q: 2 for q in once}
+    exhausted = inputs(questions_asked=8, budget=8, ask_counts=twice)
     assert is_interview_complete(criteria, exhausted, provisional_level=4)
     assert next_question(criteria, exhausted) is None
 
@@ -479,7 +525,7 @@ def test_measurement_holds_completeness_when_slots_fill_early(criteria):
     ivs = inputs(
         findings=findings,
         answered_slots={"onset", "duration", "character"},
-        measured_vitals={"temp", "weight"},   # wrap-up done; BP still missing
+        measured_vitals={"temp", "spo2", "weight"},  # wrap-up done; BP still missing
     )
     assert not is_interview_complete(criteria, ivs, provisional_level=4)
     q = next_question(criteria, ivs)
@@ -489,13 +535,13 @@ def test_measurement_holds_completeness_when_slots_fill_early(criteria):
     measured = inputs(
         findings=findings,
         answered_slots={"onset", "duration", "character"},
-        measured_vitals={"sbp", "temp", "weight"},
+        measured_vitals={"sbp", "temp", "spo2", "weight"},
     )
     assert is_interview_complete(criteria, measured, provisional_level=4)
     twice_asked = inputs(
         findings=findings,
         answered_slots={"onset", "duration", "character"},
-        measured_vitals={"temp", "weight"},
+        measured_vitals={"temp", "spo2", "weight"},
         asked=("cp_bp",),
         ask_counts={"cp_bp": 2},
     )

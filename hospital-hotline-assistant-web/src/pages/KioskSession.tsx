@@ -86,6 +86,10 @@ export function KioskSession() {
   const [patientName, setPatientName] = useState<string | null>(null);
   const [replyOptions, setReplyOptions] = useState<Array<{ id: string; label: string }>>([]);
   const [measurementVital, setMeasurementVital] = useState<string | null>(null);
+  // A fingertip reading has landed this run, so the optional "measure oxygen"
+  // button retires. Covers both rails: the engine's own SpO2 request and a
+  // patient-initiated check.
+  const [spo2Measured, setSpo2Measured] = useState(false);
   const [assessment, setAssessment] = useState<ChatAssessment | null>(null);
   const [startFailed, setStartFailed] = useState(false);
   const [confirmExit, setConfirmExit] = useState(false);
@@ -596,6 +600,7 @@ export function KioskSession() {
       setConfirmExit(false);
       void voiceCall.end();
       setSessionId(null);
+      setSpo2Measured(false);
       navigate(to);
       // eslint-disable-next-line react-hooks/exhaustive-deps
     },
@@ -895,11 +900,13 @@ export function KioskSession() {
                 onInterrupt={voiceCall.interrupt}
                 canInterrupt={!voiceCall.autoEnding}
                 measurementVital={measurementVital}
-                onMeasurementSubmit={(text) => {
+                onMeasurementSubmit={(text, vital) => {
                   setMeasurementVital(null);
+                  if (vital === 'spo2') setSpo2Measured(true);
                   setReplyOptions([]);
                   voiceCall.submitMeasurement(text);
                 }}
+                spo2Measured={spo2Measured}
                 onMeasurementRest={handleMeasurementRest}
                 errorText={voiceCall.error}
                 hasError={startFailed}
