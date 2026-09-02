@@ -13,7 +13,7 @@ services:
     type: web
     runtime: static
     branch: main
-    autodeployTrigger: commit
+    autoDeployTrigger: commit
 
     # No rootDir: staticPublishPath is defined relative to the repo root, so the
     # build cd's instead. This also keeps the whole monorepo in the build
