@@ -14,6 +14,20 @@ npm run build:single                          # single-file dist/index.html, wor
 
 Port 5174, never 5173 — the deck must not fight the kiosk it is about to demo.
 
+## Hosted
+
+`render.yaml` at the repo root publishes this folder as a free Render **static site**:
+`cd deck && npm ci && npm run build`, serving `deck/dist`. Every push to `main` redeploys.
+A static site and not a web service because free web services sleep and cold-start, and this
+deck needs nothing from a server — relative `base`, hash routes, no API, no env vars. The
+build keeps the `sync:ds --check` gate, so a deploy fails on design-system drift exactly as a
+local build does; that is the point of it.
+
+Hosting is for *sending* the deck to someone, and someone means a phone — which is why the
+deck has two rendering modes (below). **The projector path is still a local build** —
+`npm run build:single` gives a self-contained `dist/index.html` that works over `file://`.
+Keep one on the presenting laptop: a URL is one venue-wifi failure away from useless.
+
 ## Five rules
 
 1. **Never hand-edit `src/design-system/`.** It is a byte copy of `mali-design-system/src`.
@@ -91,6 +105,39 @@ Both of these have already cost real debugging time here.
   canvas *height* does flex (up to 1.6x) so a 16:10 laptop or a 4:3 projector is filled by
   the deck's own paper instead of grey letterbox bars — line breaking is a function of
   width alone, and `.deck-slide` stays exactly 1080 tall and centred, so nothing moves.
+  **Fluid mode does not contradict this** — see below. The stage is still fixed; a phone
+  simply is not a stage.
+
+## Two rendering modes
+
+`useStageScale` returns a `mode`, and `DeckRoot` puts `deck-root--fluid` on the root when it
+is `'fluid'`. Everything about that mode lives in `src/styles/fluid.css`.
+
+- **stage** — the rehearsed 1920x1080 canvas, scaled. Every projector, laptop and desktop.
+- **fluid** — the slide reflows into a scrolling single-column document. Phones, tablets, and
+  a desktop window dragged narrow.
+
+The test is `scale < 0.62 && (pointer: coarse || width < 900)`. Both halves matter: the second
+is what keeps a **1024x768 4:3 projector** (fit scale 0.53, so it trips the first test) on the
+stage, which is the exact panel the height flex above was built for. `?mode=stage` /
+`?mode=fluid` forces it — in the search string, before the hash, so it survives navigation
+(`…/?mode=fluid#/problems`); use it to rehearse the phone rendering from a laptop, or to
+overrule the heuristic on a venue machine in tablet mode.
+
+**Every selector in `fluid.css` must be scoped to `.deck-root--fluid`, and
+`scripts/check-fluid.mjs` fails the build if one is not.** That gate is the whole safety
+story: the projector never sets the class, so nothing in that file can reach the surface this
+deck exists for. Write the gate as `.deck-root.deck-root--fluid` — doubled — because `@import`
+places `fluid.css` *before* `deck.css`'s own rules, so a single class ties `.deck-root` on
+specificity and loses on source order.
+
+Type is the reason fluid mode is a real second scale rather than a shrink. `layouts.css` sizes
+type through `--dt-<n>` tokens declared in `deck.css`, where `--dt-34` **is** `34px` — an alias
+table, not a scale, so stage rendering is provable by reading it. `fluid.css` redeclares all 32
+for small screens on a compression curve: the 200px metric comes down 3.85x, a 15px caption
+only 1.25x. A single scale factor cannot serve both ends — at the ~0.45 a phone needs, the 45
+declarations already at reading size on the stage land at 7px. **A literal `font-size: Npx` in
+`layouts.css` is now a bug**: it cannot reflow. Add a token instead, in both files.
 
 ## Keys
 

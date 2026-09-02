@@ -1,0 +1,567 @@
+/* ── Fluid mode ───────────────────────────────────────────────────────────
+   The deck's second surface: what a phone, a tablet or a narrow window gets
+   instead of the scaled 1920 stage. `useStageScale` decides (portrait, or
+   a touch device or a narrow window at a fit scale under 0.62) and DeckRoot
+   puts `deck-root--fluid` on the root.
+
+   EVERY rule in this file is scoped to that class, and `scripts/check-fluid.mjs`
+   fails the build if one is not. That is not a style preference, it is the
+   guarantee that the rehearsed stage cannot move: the projector never sets the
+   class, so nothing here can reach it. An unscoped rule in this file is a bug,
+   and the kind you only find in front of a room.
+
+   The gate is written `.deck-root.deck-root--fluid` — the same element twice —
+   and it has to be. `@import` places this file BEFORE `deck.css`'s own rules,
+   not after, so a single `.deck-root--fluid` ties `.deck-root` on specificity
+   and then LOSES the tie on source order. The entire type scale below silently
+   did nothing until the class was doubled. Doubling also clears the
+   `.deck-root .d-th` rules in `deck.css` that size the headlines.
+
+   Why a second mode rather than making the stage fluid — the reason
+   `CLAUDE.md` gives for the fixed canvas still stands. A rehearsed Thai line
+   break must survive the projector. It just does not survive a 393px phone
+   either, and a phone was never rehearsed, so here we let it wrap. */
+
+/* ── Unwrap the stage ─────────────────────────────────────────────────────
+   The scaled canvas becomes an ordinary document that scrolls. */
+
+/* `body` is not inside the root, so it cannot be scoped the usual way — this
+   is the one place `:has` earns its keep. Stage mode keeps `overflow: hidden`,
+   which is what stops a projector from ever scrolling by a pixel. */
+body:has(.deck-root--fluid) {
+  overflow: auto;
+  /* The letterbox grey is the colour *around* a stage. There is no stage now,
+     so the paper runs to the edges and this would only show up as a flash
+     while the fonts load. */
+  background: var(--paper);
+  /* iOS inflates text in landscape unless told not to, which would undo the
+     whole authored scale below on exactly the device it was authored for. */
+  -webkit-text-size-adjust: 100%;
+}
+
+.deck-root.deck-root--fluid {
+  position: static;
+  overflow: visible;
+  height: auto;
+  min-height: 100%;
+  background: var(--paper);
+}
+
+.deck-root.deck-root--fluid .deck-viewport {
+  position: static;
+  inset: auto;
+}
+
+/* Notes dock by shrinking the viewport on the stage; here the panel is fixed
+   over the top of a scrolling document instead. */
+.deck-root.deck-root--fluid.has-notes .deck-viewport {
+  bottom: auto;
+}
+
+.deck-root.deck-root--fluid .deck-stage {
+  /* `relative`, not `static`, and `hidden`, not `visible` — both load-bearing,
+     and both found by measurement rather than reasoning.
+
+     `.deck-aurora` and `.deck-petals` are `inset: 0` children of the stage. Let
+     the stage go static and they resolve against the viewport instead of the
+     document, so on a tall slide the background stops halfway down. Worse, the
+     aurora's 36s drift animates `scale(1.05)`, and with nothing clipping it the
+     overflow lands in the document's scroll width — a page that slowly grows a
+     horizontal scrollbar over half a minute, which is a genuinely baffling bug
+     to meet from the outside.
+
+     Stage mode has always clipped here (`overflow: hidden` in deck.css); this
+     keeps that, and only extends the paper to the full scroll height. */
+  position: relative;
+  /* `inset: auto` is not optional once the stage is positioned. deck.css
+     centres it with `left: 50%; top: 50%` plus negative margins, and those
+     offsets are INERT while the element is static — turning it `relative`
+     switches them back on and shifts the whole deck right by half the
+     viewport. That is what a page scrolling exactly 350px sideways in a 700px
+     window turns out to be. */
+  inset: auto;
+  width: 100%;
+  height: auto;
+  margin: 0;
+  transform: none;
+  overflow: hidden;
+}
+
+.deck-root.deck-root--fluid .deck-slide {
+  position: static;
+  inset: auto;
+  height: auto;
+  /* Fills a short screen, grows past a tall slide. `dvh`, not `vh`: mobile
+     browsers change the visible height as their toolbars come and go. */
+  min-height: 100dvh;
+  margin-block: 0;
+  padding: 28px 20px 56px;
+  /* The browser owns the vertical axis, the swipe handler owns the horizontal.
+     Declaring it means the two can never contend for the same gesture. */
+  touch-action: pan-y;
+}
+
+.deck-root.deck-root--fluid .deck-slide--aside {
+  /* The aside screens already scrolled inside their own box. The document
+     scrolls now, so they stop being a scroller and just flow. */
+  overflow: visible;
+  padding: 28px 20px 56px;
+}
+
+/* The hold screens (demo, questions) are a full-bleed wash by design —
+   `layouts.css` sets `padding: 0` on them at the same specificity as the rule
+   above, and this file loads later, so without this the wash gains a 20px
+   border on a phone. */
+.deck-root.deck-root--fluid .deck-slide--hold {
+  padding: 0;
+}
+
+/* ── Type ─────────────────────────────────────────────────────────────────
+   The whole point of the `--dt-*` indirection in deck.css. Every size is a
+   clamp that hits its floor at ~393px (a phone) and its ceiling around a
+   tablet; between the two it tracks the viewport.
+
+   These are NOT the stage sizes scaled by a constant. Presentation type
+   compresses unevenly: the 200px metric comes down 3.85x, a 15px caption only
+   1.25x, because the caption was already at reading size on the stage and the
+   metric was sized to be read across a room. A uniform scale that keeps the
+   metric honest turns every caption into 6px. */
+.deck-root.deck-root--fluid {
+  --dt-15: clamp(12px, 3.05vw, 17px);
+  --dt-16: clamp(12px, 3.05vw, 17px);
+  --dt-17: clamp(13px, 3.31vw, 19px);
+  --dt-18: clamp(13px, 3.31vw, 19px);
+  --dt-19: clamp(13px, 3.31vw, 19px);
+  --dt-20: clamp(14px, 3.56vw, 20px);
+  --dt-21: clamp(14px, 3.56vw, 20px);
+  --dt-22: clamp(14px, 3.56vw, 20px);
+  --dt-23: clamp(15px, 3.82vw, 22px);
+  --dt-24: clamp(15px, 3.82vw, 22px);
+  --dt-25: clamp(15px, 3.82vw, 22px);
+  --dt-26: clamp(16px, 4.07vw, 23px);
+  --dt-28: clamp(16px, 4.07vw, 23px);
+  --dt-29: clamp(17px, 4.33vw, 25px);
+  --dt-30: clamp(17px, 4.33vw, 25px);
+  --dt-32: clamp(18px, 4.58vw, 26px);
+  --dt-33: clamp(18px, 4.58vw, 26px);
+  --dt-34: clamp(18px, 4.58vw, 26px);
+  --dt-36: clamp(19px, 4.83vw, 28px);
+  --dt-38: clamp(20px, 5.09vw, 29px);
+  --dt-39: clamp(20px, 5.09vw, 29px);
+  --dt-40: clamp(20px, 5.09vw, 29px);
+  --dt-44: clamp(21px, 5.34vw, 30px);
+  --dt-46: clamp(22px, 5.60vw, 32px);
+  --dt-50: clamp(23px, 5.85vw, 33px);
+  --dt-58: clamp(25px, 6.36vw, 36px);
+  --dt-68: clamp(27px, 6.87vw, 39px);
+  --dt-76: clamp(28px, 7.12vw, 41px);
+  --dt-82: clamp(30px, 7.63vw, 44px);
+  --dt-96: clamp(32px, 8.14vw, 46px);
+  --dt-132: clamp(40px, 10.18vw, 58px);
+  --dt-200: clamp(52px, 13.23vw, 75px);
+
+  /* The headline scale. These three carry every `<SlideHeadline>` and, through
+     `chrome.css`, the aside-screen titles — so `#/audit`, `#/qa`, `#/quality`
+     and `#/typecheck` come right with them. */
+  --d-display: clamp(30px, 7.63vw, 44px);
+  --d-title: clamp(25px, 6.36vw, 36px);
+  --d-en-sub: clamp(15px, 3.82vw, 22px);
+}
+
+/* Release the authored line breaks. Headlines carry `\n` where the line must
+   break on a beat — beats chosen against a 1500px measure on a 1920 stage. At
+   phone width those same breaks land after two words. Thai wraps naturally
+   here instead; `--leading-th` (1.4) still gives the tone marks their room. */
+.deck-root.deck-root--fluid .d-headline {
+  max-width: none;
+}
+
+.deck-root.deck-root--fluid .d-th,
+.deck-root.deck-root--fluid .d-th-sub {
+  white-space: normal;
+}
+
+/* 68ch of Thai is wider than a phone. */
+.deck-root.deck-root--fluid .d-screen-lead {
+  max-width: none;
+  font-size: var(--dt-18);
+}
+
+/* ── Reflow: every multi-column grid becomes one column ───────────────────
+   The fixed-width shapes are the ones that would otherwise push the document
+   sideways — `520px 1fr`, `660px 1fr`, `1fr 420px`, `1fr 440px`, and the
+   five-column `310px repeat(3, …) 1.6fr` on the business slide. */
+.deck-root.deck-root--fluid .d-solution,
+.deck-root.deck-root--fluid .d-impact-main,
+.deck-root.deck-root--fluid .d-impact-foot,
+.deck-root.deck-root--fluid .d-business-head,
+.deck-root.deck-root--fluid .d-business-tiers,
+.deck-root.deck-root--fluid .d-business-case,
+.deck-root.deck-root--fluid .d-business-payback-grid,
+.deck-root.deck-root--fluid .d-check-cols,
+.deck-root.deck-root--fluid .d-pilot,
+.deck-root.deck-root--fluid .d-grid {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+/* The problems list is the one grid with a flow direction to undo: two
+   explicit rows filled COLUMN-major, so items 1,2 stack left and 3,4 right.
+   All three properties have to be reset together — leave `grid-auto-flow` on
+   `column` and a single-column template just builds implicit columns off to
+   the right instead, with no error and no warning, which is precisely the
+   failure class `CLAUDE.md` catalogues. Row-major down one column yields
+   1,2,3,4, which is the authored reading order. */
+.deck-root.deck-root--fluid .d-problems-list {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto;
+  grid-auto-flow: row;
+}
+
+/* The two-tier lists keep their icon gutter — a 76px badge beside its text is
+   a small pair, not a column layout, and stacking it would read as two
+   unrelated things. Just tighter. */
+.deck-root.deck-root--fluid .d-solution-list li {
+  grid-template-columns: 52px 1fr;
+}
+
+.deck-root.deck-root--fluid .d-check-row {
+  grid-template-columns: 36px 1fr auto;
+}
+
+/* The pilot table stays a table: 9 rows x 3 columns stacked would be 27
+   blocks with no relationship visible. The two numeric columns shrink to
+   their content instead. */
+.deck-root.deck-root--fluid .d-pilot-row {
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 10px;
+}
+
+/* A row of steps with arrows between them, `nowrap` on the stage because it
+   has 1680px to play with. It is nowrap TWICE over — the flex container and
+   the text — so both have to go or the strip still runs off the side. */
+.deck-root.deck-root--fluid .d-impact-flow {
+  flex-wrap: wrap;
+  white-space: normal;
+  row-gap: 6px;
+}
+
+.deck-root.deck-root--fluid .d-impact-arrow {
+  margin: 0 8px;
+}
+
+/* Right-alignment that only meant anything as the right half of a pair. */
+.deck-root.deck-root--fluid .d-impact-caveat {
+  text-align: left;
+}
+
+/* ── Dividers that were vertical ──────────────────────────────────────────
+   Three hairlines are drawn as `border-left` because they separated columns.
+   Stacked, a left hairline on a full-width block reads as a mistake, so they
+   become the row dividers they now are. */
+.deck-root.deck-root--fluid .d-business-stat,
+.deck-root.deck-root--fluid .d-business-payback {
+  padding-left: 0;
+  padding-top: 16px;
+  border-left: none;
+  border-top: 1px solid rgba(31, 59, 56, 0.1);
+}
+
+/* `margin-left: -56px` too, not just the padding and the border: layouts.css
+   pairs a 56px left padding with a -56px left margin so the hairline sits in
+   the 56px grid gap rather than adding to it. Stacked, that margin drags
+   columns two and three 56px wider than their track and 36px off the left edge
+   of the screen, where `overflow: hidden` quietly eats the first two
+   characters of every line. Nothing about that looks like a bug from the
+   outside — it looks like a margin. */
+.deck-root.deck-root--fluid .d-check-col + .d-check-col {
+  margin-left: 0;
+  padding-left: 0;
+  padding-top: 24px;
+  border-left: none;
+  border-top: 1px solid rgba(31, 59, 56, 0.12);
+}
+
+/* ── The walk-in ratio bar ────────────────────────────────────────────────
+   The worst element in the deck to narrow. Two segments at `flex-basis: 0`
+   with inline `flexGrow` in the true 8,552 : 3,072 ratio, each holding a
+   number and a `nowrap` Thai label in an 84px-tall row. At phone width the
+   smaller segment gets ~90px and its label pushes straight out of it — and
+   `WalkinStats.tsx` is explicit that if the widths stop being the true ratio
+   then "the split — the entire argument of the slide — quietly lies."
+
+   So the bar turns ninety degrees and lets HEIGHT carry the ratio. `flex-basis`
+   and the inline `flexGrow` are untouched — in a column flex container the same
+   8,552 : 3,072 grow factors distribute height instead of width, so the
+   proportion still tells exactly the truth — and each segment now gets the full
+   353px for its label instead of 92px. Zero component edits, which matters:
+   those three inline styles are the only ones in the slide tree and `CLAUDE.md`
+   records them being clobbered once already.
+
+   Accepted cosmetic cost: the entrance still animates `scaleX` from the inline
+   `transformOrigin`, so on a vertical bar it reads as a wipe rather than a
+   growth. Fixing that would mean editing those inline styles. Not worth it. */
+.deck-root.deck-root--fluid .d-stats-bar {
+  flex-direction: column;
+  height: 300px;
+  gap: 6px;
+}
+
+.deck-root.deck-root--fluid .d-stats-seg {
+  align-items: flex-start;
+  justify-content: center;
+  gap: 2px;
+  padding: 10px 16px;
+}
+
+.deck-root.deck-root--fluid .d-stats-seg span {
+  white-space: normal;
+}
+
+/* Anything laid out against the 1920 canvas rather than against its own
+   content — gaps and side paddings measured in stage px. */
+.deck-root.deck-root--fluid .d-solution,
+.deck-root.deck-root--fluid .d-impact-main,
+.deck-root.deck-root--fluid .d-business-case,
+.deck-root.deck-root--fluid .d-business-tiers,
+.deck-root.deck-root--fluid .d-check-cols,
+.deck-root.deck-root--fluid .d-pilot,
+.deck-root.deck-root--fluid .d-ask {
+  gap: 20px;
+}
+
+/* ── Decoration ───────────────────────────────────────────────────────────
+   Two different things, handled two different ways.
+
+   Pure decoration positioned against the canvas — 620-720px radial glows
+   hung off negative offsets, and the background Nong Mali on the hook,
+   problems and impact slides. None of it survives a translation to a 393px
+   box, and none of it carries meaning. It goes. */
+.deck-root.deck-root--fluid .d-hero-glow,
+.deck-root.deck-root--fluid .d-hero-mark,
+.deck-root.deck-root--fluid .d-problems-bloom,
+.deck-root.deck-root--fluid .d-problems-mark,
+.deck-root.deck-root--fluid .d-solution-glow,
+.deck-root.deck-root--fluid .d-impact-bloom,
+.deck-root.deck-root--fluid .d-impact-mark,
+.deck-root.deck-root--fluid .d-business-bloom {
+  display: none;
+}
+
+/* These two are absolutely positioned but carry CONTENT — the tier badge and
+   the team credit. They come back into the flow rather than disappearing. */
+.deck-root.deck-root--fluid .d-business-badge {
+  position: static;
+  top: auto;
+  left: auto;
+  align-self: flex-start;
+  margin-bottom: 8px;
+}
+
+.deck-root.deck-root--fluid .d-hold-team {
+  position: static;
+  right: auto;
+  bottom: auto;
+  margin-top: 32px;
+  justify-content: center;
+}
+
+/* An absolute box holding an English sentence at `max-content` — it overflows
+   any phone. Only visible under reduced motion, which is exactly when nobody
+   is going to be forgiving about it. */
+.deck-root.deck-root--fluid .d-cover-motionwarn {
+  position: static;
+  width: auto;
+  margin: 20px auto 0;
+}
+
+/* Two 104px hairlines flanking the team label is 208px of rule on a 360px
+   screen. Shortening them just makes the row wrap into `rule + label` then
+   `plate + rule`, which looks like a mistake. The label and the plate are the
+   content; the rules were there to fill a 1920 row. */
+.deck-root.deck-root--fluid .d-cover-rule {
+  display: none;
+}
+
+/* ── Nong Mali, where she stays ───────────────────────────────────────────
+   The cover, the brand lockup on the solution slide, and the closing hold —
+   the three placements that are in the flow and are the point of their slide.
+
+   `zoom`, not `transform: scale()`, and not a CSS width. `MaliMark` writes
+   `width`/`height` inline in px (it has to: the stage is twice the mark so the
+   attract loop's rings and petals are not clipped, and `NongMali` renders the
+   SVG at a numeric size), so a stylesheet cannot win against it — and a
+   transform would scale the paint while leaving a 480px hole in the layout.
+   `zoom` scales the box and its contents together, which is exactly the one
+   thing needed here. `MaliMark` and `NongMali` are untouched — the latter
+   lives in `src/design-system/` and must not be edited at all. */
+.deck-root.deck-root--fluid .d-mark-stage {
+  zoom: var(--mark-zoom, 0.34);
+}
+
+.deck-root.deck-root--fluid .deck-slide--hold .d-mark-stage {
+  --mark-zoom: 0.22;
+}
+
+/* The negative margins pull the lockup back through the mark stage's dead
+   space. Zoomed, the dead space is a third of what they were tuned for. */
+.deck-root.deck-root--fluid .d-cover-mark {
+  margin: -8px 0 -6px;
+}
+
+.deck-root.deck-root--fluid .d-solution-mark {
+  margin: -12px 0 -10px;
+}
+
+.deck-root.deck-root--fluid .d-hold-mark {
+  margin: -14px 0 -12px;
+}
+
+/* ── Presenter chrome ─────────────────────────────────────────────────────
+   The rail, the notes panel and the blackout are positioned inside a stage
+   that no longer exists as a box. Pin them to the window so they behave the
+   same way they did. None of this is reachable without a keyboard, so on a
+   phone it is correctness rather than something anyone will see. */
+/* The rail keeps its z-index 3: the blackout is 4, and `B` has to cover the
+   rail as well as the slide. */
+.deck-root.deck-root--fluid .d-rail,
+.deck-root.deck-root--fluid .d-notes,
+.deck-root.deck-root--fluid .deck-blackout {
+  position: fixed;
+}
+
+.deck-root.deck-root--fluid .d-notes {
+  /* Above the blackout (4) — the notes are for the presenter, and blacking the
+     room out is not a reason to hide them. 320px of a phone is most of it. */
+  z-index: 6;
+  height: 55dvh;
+}
+
+.deck-root.deck-root--fluid.has-notes .deck-viewport {
+  /* Nothing to squeeze: the panel floats over a scrolling document instead. */
+  bottom: auto;
+}
+
+/* The overview grid sizes its cells at a 280px minimum, which is most of a
+   phone's width once the overlay's own padding is off it. */
+.deck-root.deck-root--fluid .d-overlay {
+  padding: 16px;
+}
+
+/* A `max-content 1fr` key/description list of seventeen shortcuts. The keys
+   column is the widest thing in it. */
+.deck-root.deck-root--fluid .d-help {
+  max-width: none;
+  padding: 20px 22px;
+}
+
+.deck-root.deck-root--fluid .d-help dl {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 2px 0;
+}
+
+/* ── Overflow sources found by the viewport sweep ─────────────────────────
+   Each of these was measured, not guessed: an element wider than the phone it
+   was rendered on. They share one cause — a track or a flex line whose
+   automatic minimum is its content, which on the 1920 stage always had room. */
+
+/* A flex row of [rule, label, plate, rule]. `min-width: auto` on the items
+   means the line never shrinks below their combined min-content. */
+.deck-root.deck-root--fluid .d-cover-team {
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 12px;
+}
+
+/* The impact card carries 34px of side padding and a figure that will not
+   shrink; the collapsed track was sizing to it (477px inside a 353px slide)
+   until the track minimum went to 0 above. The padding still wants trimming. */
+.deck-root.deck-root--fluid .d-impact-card {
+  padding: 20px 18px 22px;
+}
+
+/* The mono VRAM table: `46px 1fr auto` where the middle track's min-content is
+   an unbreakable spec string. Zero the track minimum and let it break. */
+.deck-root.deck-root--fluid .d-check-rows {
+  min-width: 0;
+  padding: 10px 12px;
+}
+
+.deck-root.deck-root--fluid .d-check-row {
+  grid-template-columns: 28px minmax(0, 1fr) auto;
+  gap: 8px;
+}
+
+.deck-root.deck-root--fluid .d-check-row-name,
+.deck-root.deck-root--fluid .d-check-body {
+  overflow-wrap: anywhere;
+}
+
+/* A real `<table>`, so it sizes to its columns' min-content and ignores its
+   container. Fixed layout makes it honour the 100% instead. */
+.deck-root.deck-root--fluid .d-audit {
+  width: 100%;
+  table-layout: fixed;
+}
+
+.deck-root.deck-root--fluid .d-audit td,
+.deck-root.deck-root--fluid .d-audit th {
+  overflow-wrap: anywhere;
+}
+
+/* ── The automatic minimum ────────────────────────────────────────────────
+   `minmax(0, 1fr)` above zeroes the TRACK's minimum, but a grid or flex item
+   still carries `min-width: auto`, whose automatic minimum size is its own
+   min-content. So an item with an unbreakable string inside stays wider than
+   the track it sits in, and the document grows sideways under it. On a phone
+   that also silently widens the layout viewport, which is why a `position:
+   fixed` rail measured 454px on a 393px screen — the rail was the symptom and
+   the checklist column was the cause.
+
+   Zeroed for the children of every grid that collapses, which is exactly where
+   the stage had room and the phone does not. Paired with `overflow-wrap` on
+   the leaves that hold unbreakable spec strings, so they wrap rather than
+   clip. */
+.deck-root.deck-root--fluid .d-solution > *,
+.deck-root.deck-root--fluid .d-impact-main > *,
+.deck-root.deck-root--fluid .d-impact-foot > *,
+.deck-root.deck-root--fluid .d-business-head > *,
+.deck-root.deck-root--fluid .d-business-tiers > *,
+.deck-root.deck-root--fluid .d-business-case > *,
+.deck-root.deck-root--fluid .d-business-payback-grid > *,
+.deck-root.deck-root--fluid .d-check-cols > *,
+.deck-root.deck-root--fluid .d-check-rows > *,
+.deck-root.deck-root--fluid .d-check-row > *,
+.deck-root.deck-root--fluid .d-pilot > *,
+.deck-root.deck-root--fluid .d-pilot-row > *,
+.deck-root.deck-root--fluid .d-problems-list > * {
+  min-width: 0;
+}
+
+.deck-root.deck-root--fluid .d-check-row-value,
+.deck-root.deck-root--fluid .d-check-row-label,
+.deck-root.deck-root--fluid .d-check-term {
+  overflow-wrap: anywhere;
+}
+
+/* The evidence card's top line is [big number, Thai label, source pill] in one
+   flex row with the pill pushed right by `margin-left: auto`. At phone width
+   the label is squeezed into a ~90px column and wraps a word per line. Let the
+   row wrap and give the pill its own line — a source is a footnote, and a
+   footnote is the one thing on this slide that can afford to go last. */
+.deck-root.deck-root--fluid .d-stats-total {
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 12px;
+}
+
+.deck-root.deck-root--fluid .d-stats-source {
+  flex-basis: 100%;
+  margin-left: 0;
+  margin-top: 6px;
+}
+
+/* The card's own padding is set for a 1920 stage. */
+.deck-root.deck-root--fluid .d-stats {
+  padding: 18px 16px 22px;
+  border-radius: 22px;
+}

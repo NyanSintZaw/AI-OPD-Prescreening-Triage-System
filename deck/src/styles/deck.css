@@ -4,6 +4,9 @@
 @import '../design-system/index.css';
 @import './chrome.css';
 @import './layouts.css';
+/* Last, and it must stay last: every rule in it is an override of the three
+   above, scoped to `.deck-root--fluid`. Nothing in it may apply to the stage. */
+@import './fluid.css';
 
 *,
 *::before,
@@ -37,11 +40,22 @@ body {
   /* ── Presentation type scale, in px on the 1920 stage ─────────────────── */
   --d-display: 96px;
   --d-title: 72px;
-  --d-lead: 44px;
-  --d-body: 34px;
-  --d-caption: 24px;
   --d-en-sub: 34px;
-  --d-metric: 220px;
+
+  /* ── Every other type size in the deck ──────────────────────────────────
+     Named by their stage value, so `--dt-34` IS 34px here and the migration
+     off 89 hard-coded literals in layouts.css is provable by reading it. The
+     indirection exists for one reason: fluid.css re-declares this whole block
+     for small screens, and nothing else in the deck re-sizes type. Adding a
+     size means adding a token here AND a fluid value there — a literal px
+     font-size in layouts.css is now a bug, because it cannot reflow. */
+  --dt-15: 15px; --dt-16: 16px; --dt-17: 17px; --dt-18: 18px; --dt-19: 19px;
+  --dt-20: 20px; --dt-21: 21px; --dt-22: 22px; --dt-23: 23px; --dt-24: 24px;
+  --dt-25: 25px; --dt-26: 26px; --dt-28: 28px; --dt-29: 29px; --dt-30: 30px;
+  --dt-32: 32px; --dt-33: 33px; --dt-34: 34px; --dt-36: 36px; --dt-38: 38px;
+  --dt-39: 39px; --dt-40: 40px; --dt-44: 44px; --dt-46: 46px; --dt-50: 50px;
+  --dt-58: 58px; --dt-68: 68px; --dt-76: 76px; --dt-82: 82px; --dt-96: 96px;
+  --dt-132: 132px; --dt-200: 200px;
 
   /* PITCH_DECK §0: "Thai at ~1.05x the Latin size so they optically match."
      Anuphan covers both scripts in one family, so this is the only nudge. */
@@ -171,7 +185,7 @@ body {
    and still Thai leading — tone marks need the room at any size. */
 .deck-root .d-th-sub {
   margin: 14px 0 0;
-  font-size: 34px;
+  font-size: var(--dt-34);
   line-height: var(--leading-th);
   font-weight: var(--fw-regular);
   color: var(--text-body);

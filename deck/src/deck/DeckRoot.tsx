@@ -24,6 +24,7 @@ export function DeckRoot() {
   const nav = useDeckNav();
   const deckMotion = useDeckMotion();
   const stage = useStageScale();
+  const fluid = stage.mode === 'fluid';
   const timer = useTimer();
 
   const [overlay, setOverlay] = useState<Overlay>(null);
@@ -46,11 +47,15 @@ export function DeckRoot() {
 
   /* The aside screens scroll. Changing the hash makes the browser hunt for an
      anchor and leaves the container part-scrolled, so a screen opened with `A`
-     can start halfway down its own table. Reset it on every route change. */
+     can start halfway down its own table. Reset it on every route change.
+     In fluid mode the document itself scrolls too — a slide can be taller than
+     a phone — so the window goes back to the top with it, or slide 4 opens
+     wherever slide 3 was left. */
   const asideRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const top = () => {
       if (asideRef.current) asideRef.current.scrollTop = 0;
+      window.scrollTo(0, 0);
     };
     top();
     /* Again next frame: the browser's own fragment scroll lands after this
@@ -64,12 +69,34 @@ export function DeckRoot() {
     else void document.documentElement.requestFullscreen();
   }, []);
 
+  /* In fluid mode a slide can be taller than the window, and `useKeyboard`
+     preventDefaults every key it matches — so without this, Space and PageDown
+     jump past the half of the slide you have not read yet, and no key scrolls.
+     Down means "the next thing to read": the rest of this slide, then the next
+     slide. The SIDEWAYS arrows keep meaning "change slide" unconditionally,
+     which is what every presentation tool does and what a remote's PageDown
+     pairs with. In stage mode nothing scrolls, so all four collapse to the
+     behaviour they have always had. */
+  const pageOrGo = useCallback(
+    (dir: 1 | -1) => () => {
+      const el = document.scrollingElement;
+      if (!fluid || !el) return nav.goBy(dir);
+      const atEnd =
+        dir > 0 ? el.scrollTop + el.clientHeight >= el.scrollHeight - 2 : el.scrollTop <= 2;
+      if (atEnd) return nav.goBy(dir);
+      el.scrollBy({ top: dir * el.clientHeight * 0.85, behavior: 'smooth' });
+    },
+    [fluid, nav],
+  );
+
   const bindings = useMemo<Binding[]>(() => {
     const closeOrNothing = () => setOverlay(null);
     return [
       { keys: ['Escape'], run: closeOrNothing },
-      { keys: ['ArrowRight', 'ArrowDown', ' ', 'PageDown'], run: () => nav.goBy(1) },
-      { keys: ['ArrowLeft', 'ArrowUp', 'PageUp'], run: () => nav.goBy(-1) },
+      { keys: ['ArrowRight'], run: () => nav.goBy(1) },
+      { keys: ['ArrowLeft'], run: () => nav.goBy(-1) },
+      { keys: ['ArrowDown', ' ', 'PageDown'], run: pageOrGo(1) },
+      { keys: ['ArrowUp', 'PageUp'], run: pageOrGo(-1) },
       { keys: ['Home'], run: nav.first },
       { keys: ['End'], run: nav.last },
       /* Digit jumps are handled by their own listener below — the binding
@@ -86,7 +113,7 @@ export function DeckRoot() {
       { keys: ['v', 'V'], run: () => nav.goTo('quality') },
       { keys: ['m', 'M'], run: deckMotion.toggleForced },
     ];
-  }, [nav, timer, deckMotion, toggleFullscreen]);
+  }, [nav, timer, deckMotion, toggleFullscreen, pageOrGo]);
 
   useKeyboard(bindings);
 
@@ -113,12 +140,23 @@ export function DeckRoot() {
     swipeFrom.current = null;
     if (!from) return;
     const dx = e.clientX - from.x;
-    if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(e.clientY - from.y)) nav.goBy(dx < 0 ? 1 : -1);
+    const dy = e.clientY - from.y;
+    /* Fluid slides scroll, so a diagonal flick could otherwise both scroll the
+       slide and change it. Ask for a longer, straighter swipe there. */
+    const minDx = fluid ? 72 : 60;
+    const maxDy = fluid ? 48 : Infinity;
+    if (Math.abs(dx) > minDx && Math.abs(dx) > Math.abs(dy) && Math.abs(dy) < maxDy) {
+      nav.goBy(dx < 0 ? 1 : -1);
+    }
   };
 
   return (
     <DeckMotionProvider value={deckMotion}>
-    <div className={`mali-root deck-root${notes ? ' has-notes' : ''}`}>
+    <div
+      className={`mali-root deck-root${notes ? ' has-notes' : ''}${
+        fluid ? ' deck-root--fluid' : ''
+      }`}
+    >
       <div
         className="deck-viewport"
         onPointerDown={(e) => {
@@ -187,11 +225,6 @@ export function DeckRoot() {
           reducedMotionWarning={deckMotion.prefersReduced && !deckMotion.forced}
         />
       )}
-
-      <div className="d-rotate">
-        <span>หมุนเครื่องเป็นแนวนอนเพื่อดูสไลด์เต็มจอ</span>
-        <span>Rotate to landscape · swipe to change slide</span>
-      </div>
 
       {overlay === 'help' && <HelpOverlay onClose={() => setOverlay(null)} />}
       {overlay === 'grid' && (

@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "node scripts/sync-design-system.mjs --check && tsc && vite build",
+    "build": "node scripts/sync-design-system.mjs --check && node scripts/check-fluid.mjs && tsc && vite build",
     "build:single": "tsc && vite build --mode single",
     "preview": "vite preview --host",
     "sync:ds": "node scripts/sync-design-system.mjs"
