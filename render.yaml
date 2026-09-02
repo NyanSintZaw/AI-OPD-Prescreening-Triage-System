@@ -1,0 +1,33 @@
+# Render Blueprint — the pitch deck (deck/) as a public static site.
+#
+# One-time adoption: Render dashboard → New → Blueprint → this repo → Apply.
+# After that, every push to main redeploys.
+#
+# A static site, not a web service, on purpose: the deck is fully static
+# (vite.config.ts sets base: './' and every off-flow screen routes on the hash,
+# so no rewrite rules), and Render's free static sites are CDN-served and never
+# spin down. A free web service sleeps and cold-starts ~30s — which you would
+# pay for standing in front of the room.
+services:
+  - name: mfu-prescreening-deck
+    type: web
+    runtime: static
+    branch: main
+    autodeployTrigger: commit
+
+    # No rootDir: staticPublishPath is defined relative to the repo root, so the
+    # build cd's instead. This also keeps the whole monorepo in the build
+    # workspace, which the deck's build *requires* — `npm run build` starts with
+    # sync-design-system.mjs --check, which reads ../mali-design-system/src and
+    # exits 1 on drift. That gate is deliberate (deck/CLAUDE.md rule 1): a deck
+    # drawing itself with brand parts the product no longer has is the failure
+    # you cannot see from inside the deck. Do not weaken it to skip the check.
+    buildCommand: cd deck && npm ci && npm run build
+    staticPublishPath: ./deck/dist
+
+    envVars:
+      # Pinned, not left to the platform default: Vite 8 / TypeScript 6 need a
+      # modern Node, and Render's default image version moves over time. This
+      # matches deck/.node-version so a local build and a deploy agree.
+      - key: NODE_VERSION
+        value: 24.18.1
