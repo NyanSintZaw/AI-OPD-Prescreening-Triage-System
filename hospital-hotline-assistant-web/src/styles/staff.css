@@ -337,11 +337,24 @@ body:has(.app-main-sidebar) .header-inner {
 
 /* ── Toolbar ─────────────────────────────────────────────────────────────── */
 
+/* Every filter on one row: status, department and level all narrow the same
+   list, so they read as one control set. The window and the refresh are not
+   filters and live in the page header instead — which is also what stops this
+   row from growing to six controls and crushing the search field. */
 .staff-toolbar {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--space-3);
+  gap: var(--space-5);
+}
+
+/* Takes the leftover, within reason. Unbounded it ate every pixel the auto
+   margin needed, so the right-hand group had nothing to be pushed away by and
+   sat flush against the chips. */
+.staff-toolbar .staff-search {
+  flex: 1;
+  min-inline-size: 11rem;
+  max-inline-size: 20rem;
 }
 
 .staff-search {
@@ -351,8 +364,12 @@ body:has(.app-main-sidebar) .header-inner {
 
 /* Controls size to their content, not to the viewport — a filter stretched
    across an ultrawide screen is a target, not a filter. */
+/* Sized to their longest real option rather than to a round number: 14rem
+   held "All departments" with 5rem to spare, and five controls each carrying
+   that much slack is what pushed the row past its container and wrapped the
+   date button onto a line of its own at every width. */
 .staff-toolbar-select {
-  inline-size: 14rem;
+  inline-size: 11.5rem;
 }
 
 /* Three mutually exclusive states, so one segmented track rather than three
@@ -431,11 +448,83 @@ body:has(.app-main-sidebar) .header-inner {
 
 /* Refresh acts on the queue, not on the page, so it belongs to the control
    row — it was stranded 1400px away at the far end of the page header. */
+/* How current the list is, and the answer to a refresh.
+   ┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄
+
+   The confirmation is PAINTED, never inserted — that is the whole trick here.
+   `padding` grows the pill visually and an equal negative `margin` gives the
+   space back, so the box the layout engine sees never changes size. The tick
+   is always in the DOM at zero opacity for the same reason. An earlier version
+   inserted a notice and moved the refresh button 167px on every press.
+
+   Loud enough to be seen: a fill, a tick and a small pop, not a colour shift
+   on 12px text. It arrives in `--dur-color`, holds while the press is still
+   news, and leaves on the exit curve. */
+.freshness {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-5);
+  margin: calc(var(--space-2) * -1) calc(var(--space-5) * -1);
+  margin-inline-start: var(--space-4);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-subtle);
+  font-variant-numeric: tabular-nums;
+  transform: none;
+  transition:
+    background-color var(--dur-exit) var(--ease-exit),
+    color var(--dur-exit) var(--ease-exit),
+    transform var(--dur-exit) var(--ease-exit);
+}
+
+/* Never from scale(0): it is already on screen, so it swells a little rather
+   than arriving from nothing. */
+.freshness[data-fresh] {
+  background: var(--status-success-soft);
+  color: var(--status-success-ink);
+  font-weight: var(--fw-semibold);
+  transform: scale(1.04);
+  transition:
+    background-color var(--dur-color) var(--ease-enter),
+    color var(--dur-color) var(--ease-enter),
+    transform var(--dur-color) var(--ease-enter);
+}
+
+.freshness-tick {
+  flex: none;
+  /* Width is held from the start; only the ink changes. Revealing it by
+     mounting would push the timestamp sideways. */
+  inline-size: 0;
+  opacity: 0;
+  transition:
+    inline-size var(--dur-exit) var(--ease-exit),
+    opacity var(--dur-exit) var(--ease-exit);
+}
+
+.freshness[data-fresh] .freshness-tick {
+  inline-size: 14px;
+  opacity: 1;
+  transition:
+    inline-size var(--dur-color) var(--ease-enter),
+    opacity var(--dur-color) var(--ease-enter);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* The fill and the tick stay — they are the message. Only the swell goes. */
+  .freshness[data-fresh] {
+    transform: none;
+  }
+}
+
+/* The result of the filters, then the window they run over. Pushed right by
+   the auto margin so there is a readable break between "what I am filtering
+   by" and "what came back". */
 .staff-toolbar-end {
   margin-inline-start: auto;
   display: flex;
   align-items: center;
-  gap: var(--space-6);
+  gap: var(--space-7);
 }
 
 /* The list auto-refreshes every 30s; without a count the nurse has no way to
@@ -1959,7 +2048,11 @@ body:has(.app-main-sidebar) .header-inner {
   color: var(--text-muted);
 }
 
-.dash-band-body {
+/* The panel grid, with or without a band around it. The admin board dropped
+   its bands — the heading restated the tab label a row above it and the note
+   restated the page subtitle, so three levels of titling stood between the
+   reader and a number — and lays panels out on this directly. */
+.dash-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: var(--space-7);
@@ -2240,10 +2333,44 @@ body:has(.app-main-sidebar) .header-inner {
   background: currentColor;
 }
 
-.cal-foot {
-  margin: var(--space-7) 0 0;
-  padding-block-start: var(--space-5);
+/* Optional refinement, so it reads as a second thought rather than a second
+   required step: a hairline above it, muted label, and both fields showing the
+   whole-day bound as their placeholder until someone sets one. */
+.cal-times {
+  display: flex;
+  align-items: center;
+  gap: var(--space-5);
+  margin-block-start: var(--space-7);
+  padding-block-start: var(--space-6);
   border-block-start: 1px solid var(--border-subtle);
+}
+
+.cal-times-label {
+  font-size: var(--text-xs);
+  font-weight: var(--fw-semibold);
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.cal-time {
+  inline-size: 7.5rem;
+}
+
+.cal-times-dash {
+  color: var(--text-subtle);
+}
+
+.cal-times-clear {
+  margin-inline-start: auto;
+  min-block-size: 0;
+  padding: var(--space-2) var(--space-4);
+  font-size: var(--text-xs);
+}
+
+.cal-foot {
+  margin: var(--space-6) 0 0;
+  padding-block-start: 0;
   font-size: var(--text-xs);
   color: var(--text-muted);
 }
@@ -2265,6 +2392,20 @@ body:has(.app-main-sidebar) .header-inner {
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-xs);
+}
+
+/* The "so what" line, on its own band across the foot of the card. As a
+   loose paragraph after the chart it landed wherever that chart's height left
+   it, so the same kind of sentence sat at a different depth on every panel. */
+.dash-panel-foot {
+  margin: 0 calc(var(--space-8) * -1) calc(var(--space-8) * -1);
+  padding: var(--space-5) var(--space-8);
+  border-block-start: 1px solid var(--border-subtle);
+  background: var(--surface-muted);
+  border-end-start-radius: var(--radius-md);
+  border-end-end-radius: var(--radius-md);
+  font-size: var(--text-xs);
+  color: var(--text-muted);
 }
 
 .dash-panel-2 { grid-column: span 2; }
@@ -2289,21 +2430,17 @@ body:has(.app-main-sidebar) .header-inner {
   color: var(--text-muted);
 }
 
-/* The body takes the leftover height, so panels sharing a row line their
-   charts up on a common baseline instead of each floating at its own top. */
+/* Every panel reads from its first row, under the heading it belongs to.
+   This used to centre, so that charts on a row shared a baseline — but a
+   panel is stretched by the tallest thing beside it, and centring spent that
+   extra height on a band of air between the heading and the content. Two
+   `:has()` rules already existed to undo it case by case. */
 .dash-panel-body {
   display: flex;
   flex-direction: column;
-  justify-content: center;
-  /* …except a list, which reads from its first row. Centring a five-row list
-     in a tall panel floats it away from the heading it belongs to. */
   gap: var(--space-7);
   flex: 1;
   min-block-size: 0;
-}
-
-.dash-panel-body:has(.attention-list) {
-  justify-content: flex-start;
 }
 
 .dash-panel-action {
@@ -2394,17 +2531,49 @@ body:has(.app-main-sidebar) .header-inner {
   color: var(--text-muted);
 }
 
-.figure-delta {
+/* The value and everything qualifying it share one baseline. Stacking them
+   as separate rows is what made a tile 200px tall to say one number. */
+.figure-line {
   display: flex;
-  align-items: center;
-  gap: var(--space-3);
+  align-items: baseline;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-5);
+}
+
+.figure-meta {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-4);
   margin: 0;
   font-size: var(--text-xs);
   color: var(--text-muted);
 }
 
-/* Deliberately uncoloured. More patients at a screening booth is neither good
-   news nor bad, and a green arrow would assert that it is. */
+.figure-delta {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--space-3);
+}
+
+/* Uncoloured by default. More patients at a screening booth is neither good
+   news nor bad, and a green arrow would assert that it is. Colour is opt-in,
+   for the figures where a direction genuinely carries a verdict — an
+   abandonment rate that fell, a latency that rose. */
+.figure-delta.is-good {
+  color: var(--status-success-ink);
+}
+
+.figure-delta.is-bad {
+  color: var(--status-danger-ink);
+}
+
+.figure-delta.is-good .figure-delta-arrow,
+.figure-delta.is-bad .figure-delta-arrow {
+  color: inherit;
+}
+
 .figure-delta-arrow {
   font-weight: var(--fw-bold);
   color: var(--text-body);
@@ -2665,6 +2834,20 @@ button.unit:focus-visible {
   border-radius: var(--radius-full);
 }
 
+/* Write-back outcome, not acuity: reaching the hospital is the throughput
+   this board paints teal, a rejection is a failure, and a skip is an absence.
+   The legend names each one, so the swatch only has to tell them apart. */
+.share-ok { background: var(--color-primary); }
+.share-fail { background: var(--status-danger); }
+.share-skip { background: var(--ink-300); }
+
+/* Stands in for the triage badge where the row has no level to print. */
+.share-key {
+  inline-size: 14px;
+  block-size: 14px;
+  border-radius: 3px;
+}
+
 .share-legend {
   display: grid;
   grid-template-columns: max-content minmax(0, 1fr) max-content max-content;
@@ -2868,6 +3051,54 @@ button.unit:focus-visible {
   opacity: 0.14;
 }
 
+/* The upper series. Neutral, and painted first so the teal series sits on
+   top of it: what shows between the two curves is loss, and this board draws
+   loss in ink and throughput in the brand colour. */
+/* Kept light: on a quiet window this area is the whole plot, and "nothing
+   happened" must not be the loudest shape on the page. */
+.trend-base {
+  fill: var(--ink-100);
+}
+
+.trend-base-line {
+  fill: none;
+  stroke: var(--ink-300);
+  stroke-width: 1.5;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.trend-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3) var(--space-7);
+  margin: var(--space-5) 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+}
+
+.trend-legend li {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.trend-key {
+  inline-size: 10px;
+  block-size: 10px;
+  border-radius: 2px;
+}
+
+.trend-key.is-own {
+  background: var(--teal-600);
+}
+
+.trend-key.is-base {
+  background: var(--ink-300);
+}
+
 .trend-future-line {
   fill: none;
   /* One step darker than the fill under it: 3.18:1 clears the non-text floor,
@@ -3022,7 +3253,7 @@ button.unit:focus-visible {
 }
 
 @media (max-width: 1180px) {
-  .dash-band-body {
+  .dash-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
@@ -3033,7 +3264,7 @@ button.unit:focus-visible {
 }
 
 @media (max-width: 820px) {
-  .dash-band-body {
+  .dash-grid {
     grid-template-columns: minmax(0, 1fr);
   }
 
@@ -3324,10 +3555,24 @@ button.unit:focus-visible {
   color: var(--text-muted);
 }
 
+/* The one tab in this book whose content was not bounded. Every other tab puts
+   its rows in a `.table-wrap` that scrolls inside the fill-height column; this
+   list did not, so an open category spilled 1215px out of a 674px book and
+   scrolled the whole page instead.
+
+   That is also why the tab strip appeared not to stick: sticky holds an element
+   within its own parent's box, and the strip's parent had run out of box long
+   before the content did. Bounding the list fixes both — and the strip needs no
+   sticky at all now, because it sits outside the thing that scrolls. */
 .criteria-book .cm-tpl-list {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
+  flex: 1;
+  min-block-size: 0;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--teal-200) transparent;
 }
 
 /* `.cm-cite` caps at 240px, which is right inside the rule table's citation
@@ -3378,6 +3623,69 @@ button.unit:focus-visible {
   overflow: clip;
 }
 
+/* A section opening and closing.
+   ┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄
+
+   `0fr → 1fr` on a grid row, because `block-size` cannot be transitioned from
+   `auto` and measuring a pixel height by hand means a ResizeObserver and a
+   number that drifts out of step with the content. The row is the measurement.
+
+   `data-open` carries the state rather than the animation, so with the
+   duration at 0ms a closed section is closed and an open one is open —
+   instantly, and correctly.
+
+   Faster out than in: content on its way out should be gone before the space
+   it occupied finishes closing, or the last frames are a sliver of clipped
+   text. */
+.cm-collapse {
+  display: grid;
+  grid-template-rows: 0fr;
+  /* Scopes the reflow to this card — twenty-four bodies are in the DOM at once
+     because they have to be, to animate. It is worth about one dropped frame
+     mid-transition; it is NOT what made the open janky. That was React
+     re-rendering all 195 question rows on every toggle (71ms vs 0.4ms for the
+     same toggle done in CSS), fixed by memoising the card. `layout` only:
+     `paint` would also make this a containing block and clip the sticky head
+     above it. */
+  contain: layout;
+  transition: grid-template-rows var(--dur-enter) var(--ease-enter);
+}
+
+.cm-collapse[data-open] {
+  grid-template-rows: 1fr;
+}
+
+.cm-collapse:not([data-open]) {
+  transition-duration: var(--dur-exit);
+  transition-timing-function: var(--ease-exit);
+}
+
+/* The row can only collapse if its child is allowed to be shorter than its
+   content, which `min-block-size: auto` on a grid item otherwise forbids. */
+.cm-collapse > * {
+  min-block-size: 0;
+  overflow: hidden;
+}
+
+/* `--dur-move`, not `--dur-color`: a rotation is movement, and the design
+   system zeroes movement under reduced motion while deliberately keeping
+   colour transitions. On `--dur-color` this caret kept spinning for a reader
+   who had asked it not to. The entrance curve rather than `--ease-move`,
+   because it answers a click — that curve's slow head reads as lag in the
+   frames right after a press. */
+.criteria-book .cm-tpl-toggle {
+  flex: none;
+  color: var(--teal-700);
+  transition: rotate var(--dur-move) var(--ease-enter);
+}
+
+.criteria-book .cm-tpl-head[aria-expanded='true'] .cm-tpl-toggle {
+  rotate: 90deg;
+}
+
+/* Sticks to the top of the list's own scroller, which the tab strip now sits
+   above rather than inside — so the strip is always on screen without needing
+   sticky itself, and the heads pass under nothing. */
 .criteria-book .cm-tpl-head {
   position: sticky;
   inset-block-start: 0;
@@ -4431,13 +4739,51 @@ button.unit:focus-visible {
   display: none;
 }
 
+/* `--dur-move`, not `--dur-color`: a rotation is movement, and the design
+   system zeroes movement under reduced motion while deliberately keeping
+   colour transitions — so the token does what a hand-written
+   `prefers-reduced-motion` override used to. `--ease-enter` because it answers
+   a click; `--ease-move`'s slow head reads as lag right after a press. Same
+   reasoning, same tokens as the rule book's `.cm-tpl-toggle`. */
 .trace-detail > summary::before {
   content: '▸';
-  transition: transform var(--dur-color) ease;
+  transition: rotate var(--dur-move) var(--ease-enter);
 }
 
 .trace-detail[open] > summary::before {
-  transform: rotate(90deg);
+  rotate: 90deg;
+}
+
+/* Progressive enhancement: `<details>` hides its own content, so there is
+   nothing for a wrapper to animate — the only handle is `::details-content`,
+   and animating to `auto` needs `interpolate-size`. Where the pair is not
+   supported the disclosure snaps open exactly as it does today, which is why
+   this is safe to ship without a JS fallback for a read-only debug payload. */
+@supports selector(::details-content) {
+  :root {
+    interpolate-size: allow-keywords;
+  }
+
+  .trace-detail::details-content {
+    block-size: 0;
+    overflow: hidden;
+    transition:
+      block-size var(--dur-enter) var(--ease-enter),
+      content-visibility var(--dur-enter) allow-discrete;
+  }
+
+  .trace-detail[open]::details-content {
+    block-size: auto;
+  }
+
+  /* Faster out than in, as everywhere else that collapses: the payload should
+     be gone before the space it occupied finishes closing, or the last frames
+     are a sliver of clipped JSON. Measured at 300ms the close was still moving
+     at 217ms with two lines of text showing. */
+  .trace-detail:not([open])::details-content {
+    transition-duration: var(--dur-exit);
+    transition-timing-function: var(--ease-exit);
+  }
 }
 
 .trace-detail > summary:focus-visible {
@@ -4452,11 +4798,6 @@ button.unit:focus-visible {
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .trace-detail > summary::before {
-    transition: none;
-  }
-}
 
 /* ── Admin dashboard ─────────────────────────────────────────────────────
    Forms the nurse board does not use. Everything shared — bands, panels,
@@ -4473,6 +4814,14 @@ button.unit:focus-visible {
   gap: var(--space-7);
 }
 
+/* Inside a panel the row is two tiles, not four, and `auto-fit` hands the
+   collapsed tracks' width to the survivors — two 580px cards each holding a
+   single digit, with the hint stranded at the far edge. Cap the track here;
+   the row stays left-aligned and the slack stays slack. */
+.dash-panel-body .dash-figures {
+  grid-template-columns: repeat(auto-fit, minmax(13rem, 19rem));
+}
+
 .figure-tile {
   padding: var(--space-7);
   background: var(--surface-card);
@@ -4487,21 +4836,70 @@ button.unit:focus-visible {
   border-color: color-mix(in srgb, var(--color-accent) 55%, transparent);
 }
 
+/* One step quieter than the delta beside it: the delta is a comparison, the
+   hint is a definition, and only one of the two is news. */
 .figure-hint {
-  margin: var(--space-2) 0 0;
-  font-size: var(--text-xs);
-  color: var(--text-muted);
+  color: var(--text-subtle);
+}
+
+/* The row stretches every tile to the tallest, and a tile whose series is a
+   flat run of zeroes draws no sparkline — so its band stopped wherever the
+   value left it and the card had a hole under it. The value takes the slack;
+   the floor is the floor on all four. */
+.figure-tile .figure-value {
+  margin-block-end: auto;
+}
+
+/* On a tile the value stands alone and its qualifier drops to a band across
+   the foot of the card. `display: contents` dissolves the line wrapper so
+   both become direct children of the tile, and `order` puts the sparkline
+   between them — value, trend, then the comparison on its own rule. */
+.figure-tile .figure-line {
+  display: contents;
+}
+
+.figure-tile .spark {
+  order: 1;
+  flex: none;
+  block-size: 2.5rem;
+  min-block-size: 0;
+  max-block-size: none;
+  margin: var(--space-6) calc(var(--space-7) * -1) 0;
+  padding-inline-end: 0;
+  overflow: hidden;
+}
+
+/* Nothing under it, so the sparkline is the floor and takes the card's
+   bottom corners itself. */
+.figure-tile:not(:has(.figure-meta)) .spark {
+  margin-block-end: calc(var(--space-7) * -1);
+  border-end-start-radius: var(--radius-md);
+  border-end-end-radius: var(--radius-md);
+}
+
+.figure-tile .figure-meta {
+  order: 2;
+  margin: var(--space-6) calc(var(--space-7) * -1) calc(var(--space-7) * -1);
+  padding: var(--space-4) var(--space-7);
+  border-block-start: 1px solid var(--border-subtle);
+  background: var(--surface-muted);
+  border-end-start-radius: var(--radius-md);
+  border-end-end-radius: var(--radius-md);
+}
+
+/* The sparkline already put a rule's worth of space above the band. */
+.figure-tile .spark + .figure-meta,
+.figure-tile .figure-meta:not(:first-child) {
+  margin-block-start: 0;
+}
+
+/* The dot marks "now". On a tile, the value above it already is now. */
+.figure-tile .spark-dot {
+  display: none;
 }
 
 .figure-tile .figure-value {
   font-size: var(--text-3xl);
-}
-
-/* A panel body centres its content so charts sharing a row line up on a
-   common baseline. A table is not a chart — centring it in a panel stretched
-   to a taller neighbour leaves a band of air above the header. */
-.dash-panel-body:has(> .table-wrap) {
-  justify-content: flex-start;
 }
 
 /* The lead number is a step up, not a different species — four tiles in a row
@@ -4707,6 +5105,43 @@ button.unit:focus-visible {
   border-radius: 2px;
 }
 
+/* Twenty-four hourly columns across a full-width panel drew 45px tiles, so
+   168 mostly-empty slots became the largest block of ink on the demand tab.
+   At 14px the grid is a texture you read the shape of, which is the whole
+   job of a heatmap. */
+.heatmap-dense {
+  --heat-cell: 14px;
+}
+
+/* The peak reads first and the grid explains it, so they sit side by side.
+   Stacked, a 410px grid under a full-width heading stranded half the panel. */
+.rhythm {
+  display: flex;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: var(--space-8) var(--space-10);
+}
+
+.rhythm-lead {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.rhythm .heatmap {
+  flex: none;
+}
+
+.heatmap-dense .heatmap-grid {
+  justify-content: start;
+}
+
+/* An hour label is wider than its own cell now. Every third column carries
+   one and the two between are empty, so letting it spill is free. */
+.heatmap-dense .heatmap-col-label {
+  overflow: visible;
+}
+
 /* ── Funnel ─────────────────────────────────────────────────────────────
    One row per stage, each bar measured against the FIRST stage. The previous
    version was four equal boxes with a "33% carried through" chip wedged
@@ -4768,20 +5203,32 @@ button.unit:focus-visible {
   color: var(--text-muted);
 }
 
+/* Carried through / lost at this step / lost further up, left to right. The
+   rail was one teal fill on a teal track, so a stage nobody had reached yet
+   drew as an empty bar and read as a broken panel. */
 .funnel-track {
+  display: flex;
   block-size: 10px;
   border-radius: var(--radius-full);
-  /* A lighter step of the same hue, so an empty stage still reads as part of
-     the same scale rather than as a missing row. */
-  background: var(--teal-100);
+  /* Neutral. What is left of the rail is what the pipeline had already lost
+     before this row; tinting it brand-colour counted a loss as throughput. */
+  background: var(--ink-100);
   overflow: hidden;
 }
 
+/* No radius on the segments — they abut, and the track's own rounded ends
+   are what the reader sees. */
 .funnel-fill {
   display: block;
   block-size: 100%;
-  border-radius: var(--radius-full);
   background: var(--color-primary);
+  transition: inline-size var(--dur-enter) var(--ease-move);
+}
+
+.funnel-lost {
+  display: block;
+  block-size: 100%;
+  background: var(--ink-300);
   transition: inline-size var(--dur-enter) var(--ease-move);
 }
 

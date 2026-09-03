@@ -577,7 +577,7 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{BASE_URL}}/admin/reviews?status=pending",
+              "raw": "{{BASE_URL}}/admin/reviews?status=pending&from=&to=",
               "host": [
                 "{{BASE_URL}}"
               ],
@@ -590,10 +590,20 @@
                   "key": "status",
                   "value": "pending",
                   "description": ""
+                },
+                {
+                  "key": "from",
+                  "value": "",
+                  "description": ""
+                },
+                {
+                  "key": "to",
+                  "value": "",
+                  "description": ""
                 }
               ]
             },
-            "description": "List Assessment Reviews\n\n**Roles:** nurse, super_admin, viewer"
+            "description": "One page of the confirmation queue, optionally bounded by a date window.\n\nThe window is filtered in SQL rather than in the client because this query\nis capped at 200 rows: narrowing a already-truncated page would quietly\nreport fewer cases than the range actually holds. Same `from`/`to` contract\nthe dashboard's calendar sends to `/admin/triage-stats`.\n\n**Roles:** nurse, super_admin, viewer"
           }
         },
         {

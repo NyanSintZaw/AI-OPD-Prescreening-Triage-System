@@ -44,7 +44,6 @@ import { useLanguage } from '../../hooks/useSession';
 import { useDuration } from '../../hooks/useDuration';
 import { SelectField, type SelectOption } from '../ui/SelectField';
 import {
-  Band,
   DotPlot,
   EmptyNote,
   Figure,
@@ -170,6 +169,9 @@ export function AdminDashboard() {
 
   const escalations = sum(daily, (r) => r.escalated);
 
+  const hisTotal =
+    (funnel?.his_pushed ?? 0) + (funnel?.his_failed ?? 0) + (funnel?.his_skipped ?? 0);
+
   const departmentRows = useMemo(
     () =>
       (stats?.departments ?? []).map((d) => ({
@@ -238,6 +240,10 @@ export function AdminDashboard() {
     [stats],
   );
   const busiestHour = Math.max(0, ...weekdayCells.map((c) => c.value));
+  const peak = useMemo(
+    () => weekdayCells.find((c) => c.value === busiestHour && c.value > 0) ?? null,
+    [weekdayCells, busiestHour],
+  );
 
   // 0 = Sunday, matching Postgres EXTRACT(DOW), which is what the API returns.
   const weekdayLabels = useMemo(() => [0, 1, 2, 3, 4, 5, 6].map((d) => t(`dashWeekday_${d}`)), [t]);
@@ -305,7 +311,7 @@ export function AdminDashboard() {
 
       {/* ── 1 · Did the booth work ──────────────────────────────────────── */}
       {tab === 'booth' && (
-        <Band title={t('dashBandBooth')} note={t('dashBandBoothNote')}>
+        <div className="dash-grid">
           <div className="dash-figures">
             <Figure
               tile
@@ -317,7 +323,6 @@ export function AdminDashboard() {
                 values: daily.map((r) => r.screened),
                 label: t('dashHeroSparkLabel', { n: days }),
               }}
-              hint={t('dashOverDays', { n: days })}
             />
             <Figure
               tile
@@ -325,7 +330,6 @@ export function AdminDashboard() {
               value={nf.format(started)}
               delta={deltaOf(started, priorStarted)}
               spark={{ values: daily.map((r) => r.sessions), label: t('dashStartedSparkLabel') }}
-              hint={t('dashStartedHint')}
             />
             <Figure
               tile
@@ -334,7 +338,10 @@ export function AdminDashboard() {
               unit={abandonPct === null ? undefined : '%'}
               delta={
                 abandonPct !== null && priorAbandonPct !== null
-                  ? deltaOf(abandonPct, priorAbandonPct)
+                  ? (() => {
+                      const d = deltaOf(abandonPct, priorAbandonPct);
+                      return d && d.up !== null ? { ...d, good: !d.up } : d;
+                    })()
                   : null
               }
               spark={{
@@ -359,7 +366,59 @@ export function AdminDashboard() {
             />
           </div>
 
-          <Panel title={t('dashFunnelTitle')} subtitle={t('dashFunnelSub')} span={3}>
+          {/* The lead chart. Two series, because the question this tab asks is
+              the gap between them: everyone who walked up, against everyone
+              who left with a result. The band between the curves is the
+              abandonment that the stat tile above can only give as one
+              number for the whole window. */}
+          <Panel
+            title={t('dashCompletionTitle')}
+            subtitle={t('dashCompletionSub')}
+            span={3}
+            footer={
+              started > 0
+                ? t('dashCompletionFoot', {
+                    done: nf.format(screened),
+                    all: nf.format(started),
+                    lost: nf.format(abandoned),
+                    n: days,
+                  })
+                : null
+            }
+          >
+            {daily.length < 2 ? (
+              <EmptyNote text={t('dashNoVolume')} />
+            ) : (
+              <TrendArea
+                points={daily.map((r) => ({ tick: r.date.slice(5), value: r.screened }))}
+                baseline={{
+                  values: daily.map((r) => r.sessions),
+                  name: t('dashStarted'),
+                  ownName: t('dashHeroLabel'),
+                }}
+                // Today is still being written, so the last settled slot is
+                // yesterday — today is drawn pending rather than as a day
+                // that dipped.
+                liveUntil={daily.length - 2}
+                tickEvery={Math.ceil(daily.length / 7)}
+                label={t('dashCompletionAria', {
+                  list: daily
+                    .map((r) => `${r.date.slice(5)} ${r.screened}/${r.sessions}`)
+                    .join(', '),
+                })}
+                formatPoint={(p, base) =>
+                  t('dashCompletionPoint', { date: p.tick, n: p.value, all: base ?? 0 })
+                }
+              />
+            )}
+          </Panel>
+
+          <Panel
+            title={t('dashFunnelTitle')}
+            subtitle={t('dashFunnelSub')}
+            span={2}
+            footer={t('dashFunnelFootnote')}
+          >
             {funnel && funnel.started > 0 ? (
               <>
                 <Funnel
@@ -412,18 +471,51 @@ export function AdminDashboard() {
                     },
                   ]}
                 />
-                <p className="dash-footnote">{t('dashFunnelFootnote')}</p>
               </>
             ) : (
               <EmptyNote text={t('dashNoVolume')} />
             )}
           </Panel>
-        </Band>
+
+          {/* Where the record went. This was one line of small print under the
+              funnel's HIS row — "failed 0 · skipped 1" — which is the wrong
+              weight for the only thing on this board that says whether the
+              hospital actually received what the booth produced. */}
+          <Panel title={t('dashHisTitle')} subtitle={t('dashHisSub')}>
+            {hisTotal === 0 ? (
+              <EmptyNote text={t('dashNoHis')} />
+            ) : (
+              <ShareStrip
+                total={hisTotal}
+                rows={[
+                  {
+                    level: 0,
+                    tone: 'share-ok',
+                    name: t('dashHisPushed'),
+                    count: funnel?.his_pushed ?? 0,
+                  },
+                  {
+                    level: 1,
+                    tone: 'share-fail',
+                    name: t('dashHisFailed'),
+                    count: funnel?.his_failed ?? 0,
+                  },
+                  {
+                    level: 2,
+                    tone: 'share-skip',
+                    name: t('dashHisSkipped'),
+                    count: funnel?.his_skipped ?? 0,
+                  },
+                ]}
+              />
+            )}
+          </Panel>
+        </div>
       )}
 
       {/* ── 2 · Can I trust the AI ──────────────────────────────────────── */}
       {tab === 'ai' && (
-        <Band title={t('dashBandAi')} note={t('dashBandAiNote')}>
+        <div className="dash-grid">
           <Panel title={t('dashCallSitesTitle')} subtitle={t('dashCallSitesSub')} span={2}>
             {/* A table, not a chart. Four call sites carrying three measures
                 each is past the point where colour classes stay apart, and an
@@ -501,12 +593,15 @@ export function AdminDashboard() {
                 number, and no surface showed it before this one. */}
             <div className="dash-figures">
               <Figure
+                tile
+                hero
                 label={t('dashViolationsCaught')}
                 value={nf.format(violationTotal)}
                 hint={t('dashViolationsHint')}
                 tone={violationTotal > 0 ? 'attention' : undefined}
               />
               <Figure
+                tile
                 label={t('dashEscalations')}
                 value={nf.format(escalations)}
                 spark={{
@@ -528,15 +623,16 @@ export function AdminDashboard() {
               <p className="dash-footnote">{t('dashSafetyFootnote')}</p>
             )}
           </Panel>
-        </Band>
+        </div>
       )}
 
       {/* ── 3 · Is the routing right ────────────────────────────────────── */}
       {tab === 'routing' && (
-        <Band title={t('dashBandRouting')} note={t('dashBandRoutingNote')}>
+        <div className="dash-grid">
           <div className="dash-figures">
             <Figure
               tile
+              hero
               label={t('dashAgreement')}
               value={agreementPct === null ? '—' : String(agreementPct)}
               unit={agreementPct === null ? undefined : '%'}
@@ -611,47 +707,47 @@ export function AdminDashboard() {
               <EmptyNote text={t('dashNoReroutes')} />
             )}
           </Panel>
-        </Band>
+        </div>
       )}
 
       {/* ── 4 · What is the demand ──────────────────────────────────────── */}
       {tab === 'demand' && (
-        <Band title={t('dashBandDemand')} note={t('dashBandDemandNote')}>
-          <Panel title={t('dashVolumeTitle')} subtitle={t('dashVolumeSub')} span={3}>
-            {daily.length < 2 ? (
-              <EmptyNote text={t('dashNoVolume')} />
-            ) : (
-              <TrendArea
-                points={daily.map((r) => ({ tick: r.date.slice(5), value: r.screened }))}
-                // Today is still being written, so the last settled slot is
-                // yesterday — today is drawn pending rather than as a day that
-                // dipped.
-                liveUntil={daily.length - 2}
-                tickEvery={Math.ceil(daily.length / 7)}
-                label={t('dashVolumeAria', {
-                  list: daily.map((r) => `${r.date.slice(5)} ${r.screened}`).join(', '),
-                })}
-                formatPoint={(p) => t('dashVolumePoint', { date: p.tick, n: p.value })}
-              />
-            )}
-          </Panel>
-
-          <Panel title={t('dashRhythmTitle')} subtitle={t('dashRhythmSub', { n: days })} span={3}>
+        <div className="dash-grid">
+          <Panel
+            title={t('dashRhythmTitle')}
+            subtitle={t('dashRhythmSub', { n: days })}
+            span={2}
+            footer={t('dashRhythmFootnote')}
+          >
             {busiestHour === 0 ? (
               <EmptyNote text={t('dashNoArrivals')} />
             ) : (
               <>
-                <Heatmap
-                  cells={weekdayCells}
-                  rowLabels={weekdayLabels}
-                  colLabels={hourLabels}
-                  colTick={3}
-                  maxLabel={(max) => nf.format(max)}
-                  cellLabel={(r, c, v) =>
-                    t('dashRhythmCell', { day: weekdayLabels[r], hour: hourLabels[c], n: v })
-                  }
-                />
-                <p className="dash-footnote">{t('dashRhythmFootnote')}</p>
+                {/* The peak reads first and the grid explains it. */}
+                <div className="rhythm">
+                  {peak ? (
+                    <div className="rhythm-lead">
+                      <Figure
+                        hero
+                        label={t('dashPeakLabel')}
+                        value={`${hourLabels[peak.col]}:00`}
+                        unit={weekdayLabels[peak.row]}
+                      />
+                      <p className="chart-head-note">{t('dashPeakNote', { n: busiestHour })}</p>
+                    </div>
+                  ) : null}
+                  <Heatmap
+                    dense
+                    cells={weekdayCells}
+                    rowLabels={weekdayLabels}
+                    colLabels={hourLabels}
+                    colTick={3}
+                    maxLabel={(max) => nf.format(max)}
+                    cellLabel={(r, c, v) =>
+                      t('dashRhythmCell', { day: weekdayLabels[r], hour: hourLabels[c], n: v })
+                    }
+                  />
+                </div>
               </>
             )}
           </Panel>
@@ -673,7 +769,7 @@ export function AdminDashboard() {
           </Panel>
 
           {risingRows.length > 0 ? (
-            <Panel title={t('dashRisingTitle')} subtitle={t('dashRisingSub')} span={3}>
+            <Panel title={t('dashRisingTitle')} subtitle={t('dashRisingSub')} span={2}>
               <ul className="rising-list">
                 {risingRows.map((row) => (
                   <li key={`${row.keyword}-${row.area}`} className="rising-row">
@@ -696,7 +792,7 @@ export function AdminDashboard() {
               <p className="dash-footnote">{t('dashRisingFootnote')}</p>
             </Panel>
           ) : null}
-        </Band>
+        </div>
       )}
     </div>
   );

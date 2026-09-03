@@ -6,6 +6,7 @@ import asyncpg
 from fastapi import (
     Depends,
     HTTPException,
+    Query,
     Request,
 )
 from app.database import get_connection, records_to_dicts
@@ -22,6 +23,7 @@ from app.schemas import (
 
 from fastapi import APIRouter
 from app.routers.deps import require_roles
+from app.routers.admin_analytics import _parse_window_bound
 
 router = APIRouter()
 
@@ -170,11 +172,25 @@ async def count_pending_reviews(
 @router.get("/admin/reviews", response_model=list[AssessmentReviewOut])
 async def list_assessment_reviews(
     status: str = "pending",
+    date_from: str | None = Query(None, alias="from", description="ISO date/datetime lower bound"),
+    date_to: str | None = Query(None, alias="to", description="ISO date/datetime upper bound"),
     # Read-only: viewers reach the review queue from the staff shortcut, but
     # approve/correct below stay nurse + super_admin.
     _admin_user: dict = Depends(require_roles("nurse", "super_admin", "viewer")),
     connection: asyncpg.Connection = Depends(get_connection),
 ):
+    """One page of the confirmation queue, optionally bounded by a date window.
+
+    The window is filtered in SQL rather than in the client because this query
+    is capped at 200 rows: narrowing a already-truncated page would quietly
+    report fewer cases than the range actually holds. Same `from`/`to` contract
+    the dashboard's calendar sends to `/admin/triage-stats`.
+    """
+
+    lower = _parse_window_bound(date_from, "from")
+    upper = _parse_window_bound(date_to, "to", end_of_day=True)
+    if lower and upper and upper < lower:
+        raise HTTPException(status_code=400, detail="`to` is earlier than `from`.")
     rows = await connection.fetch(
         """
         SELECT
@@ -219,10 +235,14 @@ async def list_assessment_reviews(
             OR ($1 = 'reviewed' AND ar.status::text IN ('approved', 'corrected'))
             OR ar.status::text = $1
         )
+          AND ($2::timestamptz IS NULL OR ar.created_at >= $2)
+          AND ($3::timestamptz IS NULL OR ar.created_at <= $3)
         ORDER BY ar.created_at DESC
         LIMIT 200
         """,
         status,
+        lower,
+        upper,
     )
     return [_attach_missing_vitals(row) for row in records_to_dicts(rows)]
 

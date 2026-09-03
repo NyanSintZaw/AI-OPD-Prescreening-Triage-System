@@ -262,9 +262,20 @@ export const api = {
   getSessionTrace: (sessionId: string) =>
     request<SessionTraceOut>(`/admin/sessions/${sessionId}/trace`),
 
+  /** The confirmation queue. `range` narrows it in SQL rather than in the
+   *  client, because the query is capped at 200 rows and filtering an
+   *  already-truncated page would under-report the window. */
   listAssessmentReviews: (
     status: 'all' | 'pending' | 'reviewed' | 'approved' | 'corrected' = 'pending',
-  ) => request<AssessmentReviewOut[]>(`/admin/reviews?status=${status}`),
+    range?: { from: string; to: string } | null,
+  ) => {
+    const qs = new URLSearchParams({ status });
+    if (range) {
+      qs.set('from', range.from);
+      qs.set('to', range.to);
+    }
+    return request<AssessmentReviewOut[]>(`/admin/reviews?${qs}`);
+  },
 
   getPendingReviewCount: () =>
     request<{ pending: number }>('/admin/reviews/pending-count'),

@@ -1,7 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { BookOpen, ChartBar, ClipboardText, WarningCircle, X } from '@phosphor-icons/react';
+import {
+  ArrowClockwise,
+  BookOpen,
+  ChartBar,
+  ClipboardText,
+  WarningCircle,
+  X,
+} from '@phosphor-icons/react';
 import { api, type MessageOut } from '../api';
 import { getAdminEmail, getAdminName, getAdminRole, getAdminToken } from '../api/client';
 import { Layout } from '../components/Layout';
@@ -10,8 +17,10 @@ import { CriteriaBook } from '../components/CriteriaBook';
 import { TriageDashboard } from '../components/TriageDashboard';
 import { StaffNav, type StaffNavItem } from '../components/staff/StaffNav';
 import { SelectField, type SelectOption } from '../components/ui/SelectField';
+import { DateRangeField, type DateRange } from '../components/ui/DateRangeField';
 import { PopoverBoundary } from '../components/ui/useFlipPlacement';
 import { TriageBadge } from '../components/staff/TriageBadge';
+import { Freshness } from '../components/staff/Freshness';
 import { useLanguage } from '../hooks/useSession';
 import { useDuration } from '../hooks/useDuration';
 import { DIALOG_EXIT_MS } from '../hooks/useDialogExit';
@@ -25,11 +34,26 @@ import type {
 
 type NurseSection = 'queue' | 'dashboard' | 'criteria';
 type ReviewTab = 'assessment' | 'conversation' | 'history';
-type ReviewFilter = 'all' | 'pending' | 'reviewed';
+/**
+ * The two states a confirmation queue is ever read in.
+ *
+ * "All" was a third chip and it is gone: it mixed the work still to do with
+ * the work already done, which is neither of the questions this page answers.
+ * Auditing a period is what the date range is for, and it works on either
+ * state. The API still accepts `all`; nothing here asks for it.
+ */
+type ReviewFilter = 'pending' | 'reviewed';
 /** The dialog is one surface with three steps — never a dialog over a dialog. */
 type DialogStep = 'review' | 'confirm' | 'result';
 
 const AUTO_REFRESH_MS = 30_000;
+
+/** Long enough for a spin to register as a spin. Under about 300ms a rotation
+ *  reads as a flicker, and this fetch resolves in single-digit milliseconds. */
+const MIN_SPIN_MS = 520;
+
+/** How long the timestamp stays highlighted after a manual press. */
+const NOTICE_MS = 3200;
 
 /** The header's actions slot — see `usePortalTarget` in the dashboard. */
 export const HEAD_ACTIONS_ID = 'staff-head-actions';
@@ -337,8 +361,12 @@ export function NursePage() {
   // nothing remounts on a same-route jump and local state would stay stale.
   const [searchParams, setSearchParams] = useSearchParams();
   const tabParam = searchParams.get('tab');
+  /* The board is the landing page: it opens on what needs a nurse now — the
+     waiting count, the flagged cases — and hands her through to the queue from
+     there. `?tab=queue` still lands on the queue, which is what the review
+     shortcut and "Open the queue" both send. */
   const activeSection: NurseSection =
-    tabParam === 'criteria' ? 'criteria' : tabParam === 'dashboard' ? 'dashboard' : 'queue';
+    tabParam === 'queue' ? 'queue' : tabParam === 'criteria' ? 'criteria' : 'dashboard';
   const setActiveSection = (tab: NurseSection) => {
     const next = new URLSearchParams(searchParams);
     next.set('tab', tab);
@@ -349,6 +377,14 @@ export function NursePage() {
   // work the nurse opened the page to do under everything already done.
   const [reviewFilter, setReviewFilter] = useState<ReviewFilter>('pending');
   const [deptFilter, setDeptFilter] = useState<string>('all');
+  /** Null means the whole queue. Filtered in SQL — see `api.listAssessmentReviews`. */
+  const [queueRange, setQueueRange] = useState<DateRange | null>(null);
+  /** On by default; the toggle exists because a queue that silently reloads
+   *  under you is indistinguishable from one that never does. */
+  const [autoRefresh, setAutoRefresh] = useState(true);
+  const [lastRefreshed, setLastRefreshed] = useState<Date | null>(null);
+  const [refreshState, setRefreshState] = useState<'idle' | 'busy' | 'fresh'>('idle');
+  const noticeTimer = useRef(0);
   const [levelFilter, setLevelFilter] = useState<string>('all');
   const [reviews, setReviews] = useState<AssessmentReviewOut[]>([]);
   const [departments, setDepartments] = useState<DepartmentOut[]>([]);
@@ -387,12 +423,16 @@ export function NursePage() {
   const staffName = getAdminName();
   const loginPathForRole = () => (getAdminRole() === 'nurse' ? '/login/nurse' : '/login/admin');
 
-  const loadReviewData = async (status: ReviewFilter) => {
-    if (!getAdminToken()) return;
+  /** Resolves to whether the queue actually came back — the refresh control
+   *  cannot report success it did not observe. */
+  const loadReviewData = async (status: ReviewFilter): Promise<boolean> => {
+    if (!getAdminToken()) return false;
     setReviewDataLoading(true);
     setAuthError(null);
     try {
-      setReviews(await api.listAssessmentReviews(status));
+      setReviews(await api.listAssessmentReviews(status, queueRange));
+      setLastRefreshed(new Date());
+      return true;
     } catch (err) {
       const message = err instanceof Error ? err.message : t('error');
       // Only a stale token warrants a logout. A 403 means the role lacks the
@@ -406,12 +446,40 @@ export function NursePage() {
         const loginPath = loginPathForRole();
         api.adminLogout();
         navigate(loginPath, { replace: true });
-        return;
+        return false;
       }
       setAuthError(message);
+      return false;
     } finally {
       setReviewDataLoading(false);
     }
+  };
+
+  /**
+   * Refresh, visibly.
+   *
+   * The button already refetched — measured at one request per press — but the
+   * spinner ran for about 15ms, which is no feedback at all: the fetch is
+   * local and resolves before a frame is painted. So the spin is held to a
+   * floor, and the outcome is stated rather than left to be inferred from a
+   * list that may look identical because nothing changed.
+   *
+   * Manual presses only. A notice every thirty seconds from the auto-refresh
+   * would be noise, and the point of an ambient refresh is that you do not
+   * have to watch it.
+   */
+  const runManualRefresh = async () => {
+    if (refreshState === 'busy') return;
+    window.clearTimeout(noticeTimer.current);
+    setRefreshState('busy');
+    const startedAt = Date.now();
+    const ok = await loadReviewData(reviewFilter);
+    const remaining = MIN_SPIN_MS - (Date.now() - startedAt);
+    if (remaining > 0) await new Promise((resolve) => setTimeout(resolve, remaining));
+    setRefreshState(ok ? 'fresh' : 'idle');
+    // Failure is left to the page's own error banner, which persists — this
+    // only ever says "and it is current as of now".
+    if (ok) noticeTimer.current = window.setTimeout(() => setRefreshState('idle'), NOTICE_MS);
   };
 
   useEffect(() => {
@@ -422,7 +490,7 @@ export function NursePage() {
   useEffect(() => {
     void loadReviewData(reviewFilter);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [reviewFilter]);
+  }, [reviewFilter, queueRange]);
 
   // A confirmation queue that only updates when someone clicks refresh is a
   // queue that is quietly wrong. Skip while a case is open — refetching under
@@ -430,13 +498,15 @@ export function NursePage() {
   useEffect(() => {
     if (activeSection !== 'queue') return undefined;
     const timer = window.setInterval(() => {
+      // The tick drives the "waiting" column, which has to keep counting even
+      // when the rows themselves are not being refetched.
       setClockTick((n) => n + 1);
-      if (document.visibilityState !== 'visible' || selectedReview) return;
+      if (!autoRefresh || document.visibilityState !== 'visible' || selectedReview) return;
       void loadReviewData(reviewFilter);
     }, AUTO_REFRESH_MS);
     return () => window.clearInterval(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeSection, reviewFilter, selectedReview]);
+  }, [activeSection, reviewFilter, selectedReview, autoRefresh, queueRange]);
 
   useEffect(() => {
     if (!selectedReview) return undefined;
@@ -448,6 +518,8 @@ export function NursePage() {
   }, [selectedReview]);
 
   useEffect(() => () => window.clearTimeout(closeTimer.current), []);
+
+  useEffect(() => () => window.clearTimeout(noticeTimer.current), []);
 
   // Escape closes the dialog — a modal without it traps keyboard users.
   useEffect(() => {
@@ -692,13 +764,13 @@ export function NursePage() {
     review.chief_complaint ?? review.ai_chief_complaint ?? '—';
 
   const navItems: Array<StaffNavItem<NurseSection>> = [
+    { id: 'dashboard', label: t('nurseSectionDashboard'), icon: ChartBar },
     {
       id: 'queue',
       label: t('nurseSectionQueue'),
       icon: ClipboardText,
       badge: pendingCount,
     },
-    { id: 'dashboard', label: t('nurseSectionDashboard'), icon: ChartBar },
     { id: 'criteria', label: t('criteriaBookTab'), icon: BookOpen },
   ];
 
@@ -742,8 +814,46 @@ export function NursePage() {
           </div>
           {/* Where a section's own controls land. The dashboard's period
               toolbar portals in here rather than opening a row of its own
-              below, which was right-aligned over an empty two-thirds. */}
-          <div id={HEAD_ACTIONS_ID} className="staff-head-actions" />
+              below, which was right-aligned over an empty two-thirds.
+
+              The queue renders straight into it — same component, no portal
+              needed. What lives here is everything that is *not* a filter:
+              the window the queue is read over, and how fresh it is. The
+              filters themselves all sit together in one row below, because
+              status, department and level are the same kind of control and
+              splitting them across two rows read as arbitrary. */}
+          <div id={HEAD_ACTIONS_ID} className="staff-head-actions">
+            {activeSection === 'queue' && (
+              <>
+                <label className="staff-toggle">
+                  <input
+                    type="checkbox"
+                    checked={autoRefresh}
+                    onChange={(e) => setAutoRefresh(e.target.checked)}
+                  />
+                  <span>{t('adminAutoRefresh')}</span>
+                </label>
+                <button
+                  type="button"
+                  className="icon-btn"
+                  onClick={() => void runManualRefresh()}
+                  disabled={refreshState === 'busy'}
+                  aria-label={t('adminRefresh')}
+                  title={
+                    lastRefreshed
+                      ? `${t('adminLastRefreshed')}: ${lastRefreshed.toLocaleTimeString()}`
+                      : t('adminRefresh')
+                  }
+                >
+                  <ArrowClockwise
+                    size={18}
+                    aria-hidden="true"
+                    className={refreshState === 'busy' ? 'is-spinning' : undefined}
+                  />
+                </button>
+              </>
+            )}
+          </div>
         </header>
 
         {authError ? (
@@ -755,11 +865,33 @@ export function NursePage() {
 
         {activeSection === 'criteria' && <CriteriaBook />}
         {activeSection === 'dashboard' && (
-          <TriageDashboard onOpenQueue={() => setActiveSection('queue')} />
+          <TriageDashboard
+            /* A flagged row opens that case, not just the list it is in —
+               the board names a patient, so tapping one should land on them.
+               The row is the same `AssessmentReviewOut` the queue renders
+               (both come from `listAssessmentReviews('pending')`), so it can
+               go straight into the dialog without a refetch; `handleOpenReview`
+               loads the transcript itself. Switching section first means the
+               queue is what the dialog closes back onto. */
+            onOpenQueue={(review) => {
+              setActiveSection('queue');
+              if (review) void handleOpenReview(review);
+            }}
+          />
         )}
 
         {activeSection === 'queue' && (
           <>
+            {/* Left to right: find one, narrow the set, choose its state.
+                Search leads because it is the only control you type into and
+                the only one that can answer "where is this slip" — every
+                other control is a way of shrinking a list you are already
+                reading.
+
+                The date range sits with the filters rather than up in the
+                header, which is where it was: it *is* a filter, and the
+                header should hold only the things that are not — how fresh
+                the data is, and the button that makes it fresher. */}
             <div className="staff-toolbar">
               <input
                 type="search"
@@ -769,22 +901,6 @@ export function NursePage() {
                 onChange={(e) => setSlipQuery(e.target.value)}
                 aria-label={t('nurseSlipSearchPlaceholder')}
               />
-              <div className="chip-group" role="group" aria-label={t('nurseFilterLabel')}>
-                {(['pending', 'reviewed', 'all'] as const).map((filter) => (
-                  <button
-                    key={filter}
-                    type="button"
-                    className={`filter-chip ${reviewFilter === filter ? 'active' : ''}`}
-                    onClick={() => setReviewFilter(filter)}
-                  >
-                    {filter === 'all'
-                      ? t('filterAll')
-                      : filter === 'pending'
-                        ? t('review_pending')
-                        : t('nurseFilterReviewed')}
-                  </button>
-                ))}
-              </div>
               <SelectField
                 className="staff-toolbar-select"
                 value={deptFilter}
@@ -803,18 +919,36 @@ export function NursePage() {
                 aria-label={t('nurseLevelFilterLabel')}
                 emptyText={t('nurseNoMatches')}
               />
+              <div className="chip-group" role="group" aria-label={t('nurseFilterLabel')}>
+                {(['pending', 'reviewed'] as const).map((filter) => (
+                  <button
+                    key={filter}
+                    type="button"
+                    className={`filter-chip ${reviewFilter === filter ? 'active' : ''}`}
+                    onClick={() => setReviewFilter(filter)}
+                  >
+                    {filter === 'pending' ? t('review_pending') : t('nurseFilterReviewed')}
+                  </button>
+                ))}
+              </div>
               <div className="staff-toolbar-end">
+                {/* How many, and how current — the two facts about the list
+                    that are not in the list. Both live here rather than beside
+                    the refresh button because the list is what a refresh is
+                    *for*, and because a notice that appears next to that button
+                    shoved it 167px sideways every time it was pressed. A
+                    permanent line also beats a three-second flash: a refreshed
+                    queue very often looks identical to the one before it, so
+                    the timestamp is the only proof it is current. */}
                 <span className="queue-count" aria-live="polite">
                   {t('nurseQueueCount', { n: filteredReviews.length })}
+                  <Freshness at={lastRefreshed} fresh={refreshState === 'fresh'} />
                 </span>
-                <button
-                  type="button"
-                  className="secondary-btn"
-                  onClick={() => void loadReviewData(reviewFilter)}
-                  disabled={reviewDataLoading}
-                >
-                  {t('adminRefresh')}
-                </button>
+                <DateRangeField
+                  value={queueRange}
+                  onChange={setQueueRange}
+                  label={t('nurseRangeLabel')}
+                />
               </div>
             </div>
 

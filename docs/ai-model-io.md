@@ -1,4 +1,4 @@
-# What we send to the AI model, and what comes back
+ # What we send to the AI model, and what comes back
 
 **Generated — do not edit by hand.** Every prompt below is built by the same
 functions the engine runs (`scripts/api_docs/model_io.py`), so this file

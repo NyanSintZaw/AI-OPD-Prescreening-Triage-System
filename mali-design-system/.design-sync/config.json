@@ -45,6 +45,9 @@
       "cardMode": "single",
       "primaryStory": "Confirm",
       "viewport": "680x440"
+    },
+    "NongMali": {
+      "cardMode": "column"
     }
   },
   "readmeHeader": ".design-sync/conventions.md"

@@ -157,6 +157,8 @@ async def voice_call(websocket: WebSocket, session_id: str):
                 if live_voice_service.should_keep_pipeline_open(session_id):
                     await asyncio.sleep(0.05)
 
+        _audio_probe = [0, 0]
+
         async def pump_inbound() -> None:
             """WebSocket frames → ADK live queue / control plane."""
             while True:
@@ -174,6 +176,16 @@ async def voice_call(websocket: WebSocket, session_id: str):
                     return
 
                 if (data := message.get("bytes")) is not None:
+                    # ponytail: temp mic-flow probe, delete once diagnosed
+                    _audio_probe[0] += 1
+                    _audio_probe[1] += len(data)
+                    if _audio_probe[0] % 25 == 1:
+                        _msg = (
+                            f"MIC-PROBE {session_id}: {_audio_probe[0]} frames, "
+                            f"{_audio_probe[1]} bytes (last={len(data)})"
+                        )
+                        logger.info(_msg)
+                        open("/tmp/mic-probe.log", "a").write(_msg + "\n")
                     try:
                         await live_voice_service.send_audio(session_id, data)
                     except ValueError:
@@ -198,6 +210,11 @@ async def voice_call(websocket: WebSocket, session_id: str):
                     continue
 
                 msg_type = payload.get("type") if isinstance(payload, dict) else None
+                # ponytail: temp probe, delete once diagnosed
+                open("/tmp/mic-probe.log", "a").write(
+                    f"CTRL {session_id}: {msg_type} "
+                    f"(audio so far: {_audio_probe[0]} frames)\n"
+                )
                 if msg_type == "mute":
                     live_voice_service.set_mute(session_id, True)
                     await websocket.send_json({"type": "status", "muted": True})

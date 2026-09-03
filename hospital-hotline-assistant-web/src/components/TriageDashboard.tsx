@@ -21,10 +21,10 @@
  * Forms are chosen in `dashboard/charts.tsx`; the rule that governs them is
  * that length stopped being the magnitude channel. See that file.
  */
-import { useEffect, useLayoutEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
-import { ArrowRight, WarningCircle } from '@phosphor-icons/react';
+import { ArrowClockwise, ArrowRight, WarningCircle } from '@phosphor-icons/react';
 import { api } from '../api';
 import type {
   AssessmentReviewOut,
@@ -34,8 +34,9 @@ import type {
 import { useLanguage } from '../hooks/useSession';
 import { useDuration } from '../hooks/useDuration';
 import { TriageBadge } from './staff/TriageBadge';
+import { Freshness } from './staff/Freshness';
 import { DateRangeField, type DateRange } from './ui/DateRangeField';
-import { daysBetween, fromDateValue } from './ui/dateRange';
+import { daysBetween, fromDateValue, localeFor } from './ui/dateRange';
 import {
   Band,
   DotPlot,
@@ -51,6 +52,15 @@ import {
 } from './dashboard/charts';
 
 const DAY_OPTIONS = [7, 14, 30] as const;
+
+/** The live half of this board is a queue; it cannot sit still for a shift. */
+const AUTO_REFRESH_MS = 30_000;
+
+/** A spin under ~300ms reads as a flicker, and these fetches are local. */
+const MIN_SPIN_MS = 520;
+
+/** How long the timestamp stays highlighted after a manual press. */
+const FRESH_MS = 3200;
 
 /** The hour band the arrivals chart always draws, widened by any real
  *  reading outside it. A fixed 0–23 spent ten columns on hours the booth is
@@ -101,10 +111,16 @@ function minutesSince(iso: string): number {
 /* ── The board ────────────────────────────────────────────────────────── */
 
 export function TriageDashboard({
-  /** Present only where there is a queue to open — the nurse portal. */
+  /**
+   * Present only where there is a queue to open — the nurse portal.
+   *
+   * A row hands its own review back so the queue can open *that case*, not
+   * just the list it sits in. The count and "Open the queue" pass nothing,
+   * because neither names a case.
+   */
   onOpenQueue,
 }: {
-  onOpenQueue?: () => void;
+  onOpenQueue?: (review?: AssessmentReviewOut) => void;
 }) {
   const { t } = useTranslation();
   const { language } = useLanguage();
@@ -121,8 +137,34 @@ export function TriageDashboard({
   const [range, setRange] = useState<DateRange | null>(null);
   const [rollingDays, setRollingDays] = useState<number>(7);
 
-  /** What the band heading and the sub-copy count in — the chips' own number,
-   *  or the length of the chosen range. */
+  /**
+   * The chosen window, written out.
+   *
+   * "The 26 days you chose" made the reader work out *which* 26 — the number
+   * is the one thing about a range they did not pick. The dates are, so the
+   * heading says them, in the same shape the picker's own trigger uses. Times
+   * ride along only when they were set, because otherwise they would claim a
+   * precision the window does not have.
+   */
+  const rangeLabel = useMemo(() => {
+    if (!range) return null;
+    const from = fromDateValue(range.from);
+    const to = fromDateValue(range.to);
+    if (!from || !to) return null;
+    const locale = localeFor(language);
+    const day = (d: Date, withYear: boolean) =>
+      d.toLocaleDateString(locale, {
+        day: 'numeric',
+        month: 'short',
+        ...(withYear ? { year: 'numeric' } : {}),
+      });
+    const time = (v: string) => (/T(\d{2}:\d{2})/.exec(v)?.[1] ? ` ${/T(\d{2}:\d{2})/.exec(v)![1]}` : '');
+    const sameYear = from.getFullYear() === to.getFullYear();
+    return `${day(from, !sameYear)}${time(range.from)} – ${day(to, true)}${time(range.to)}`;
+  }, [range, language]);
+
+  /** What the sub-copy counts in — the chips' own number, or the length of the
+   *  chosen range. */
   const days = useMemo(() => {
     if (!range) return rollingDays;
     const from = fromDateValue(range.from);
@@ -135,42 +177,79 @@ export function TriageDashboard({
   const [reroutes, setReroutes] = useState<RoutingFeedbackOut[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [autoRefresh, setAutoRefresh] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [lastRefreshed, setLastRefreshed] = useState<Date | null>(null);
+  const [fresh, setFresh] = useState(false);
+  const freshTimer = useRef(0);
 
-  useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-    setError(null);
-    void (async () => {
+  /**
+   * One fetch of the whole board.
+   *
+   * `silent` is what auto-refresh uses: it skips the loading state so the
+   * panels hold their last render instead of flashing empty every thirty
+   * seconds. A skeleton on refetch reads as the page breaking, not as it
+   * working.
+   */
+  const load = useCallback(
+    async (silent = false): Promise<boolean> => {
+      if (!silent) setLoading(true);
+      setError(null);
       try {
-        // Surveillance is no longer fetched here — symptom frequency moved to
-        // the administrator's board, and this was a round trip whose result
-        // the nurse never saw.
         const [statsData, pendingData, rerouteData] = await Promise.all([
           api.getTriageStats(range ?? { days: rollingDays }),
-          // The one call the stats endpoint cannot stand in for: it returns a
-          // pending *count*, and the question this board leads with is which
-          // levels are in that count and how long the worst has waited.
           api.listAssessmentReviews('pending').catch(() => [] as AssessmentReviewOut[]),
           api.listRoutingFeedback().catch(() => [] as RoutingFeedbackOut[]),
         ]);
-        if (cancelled) return;
         setStats(statsData);
         setPending(pendingData);
         setReroutes(rerouteData);
+        setLastRefreshed(new Date());
+        return true;
       } catch (err) {
-        if (!cancelled) setError(err instanceof Error ? err.message : t('error'));
+        setError(err instanceof Error ? err.message : 'error');
+        return false;
       } finally {
-        if (!cancelled) setLoading(false);
+        if (!silent) setLoading(false);
       }
-    })();
-    return () => {
-      cancelled = true;
-    };
-    // `t` is deliberately not a dependency: it is only read for an error
-    // message, and its identity changes on every language switch — which was
-    // refetching the whole board to render the same numbers in Thai.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [range, rollingDays]);
+    },
+    [range, rollingDays],
+  );
+
+  /** Held to a floor so the spin registers — the board's fetches resolve in
+   *  single-digit milliseconds on a local API. */
+  const runManualRefresh = async () => {
+    if (refreshing) return;
+    window.clearTimeout(freshTimer.current);
+    setRefreshing(true);
+    const startedAt = Date.now();
+    const ok = await load(true);
+    const remaining = MIN_SPIN_MS - (Date.now() - startedAt);
+    if (remaining > 0) await new Promise((resolve) => setTimeout(resolve, remaining));
+    setRefreshing(false);
+    if (!ok) return; // the error banner speaks for failure
+    setFresh(true);
+    freshTimer.current = window.setTimeout(() => setFresh(false), FRESH_MS);
+  };
+
+  useEffect(() => () => window.clearTimeout(freshTimer.current), []);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  /* The live half of this board — the queue and its flags — goes stale in
+     silence otherwise. Quiet on purpose: no spinner, no notice, and skipped
+     while the tab is hidden so a backgrounded portal is not polling. */
+  useEffect(() => {
+    if (!autoRefresh) return undefined;
+    const timer = window.setInterval(() => {
+      if (document.visibilityState !== 'visible') return;
+      void load(true);
+    }, AUTO_REFRESH_MS);
+    return () => window.clearInterval(timer);
+  }, [autoRefresh, load]);
+
 
   /* ── Right now ─────────────────────────────────────────────────────── */
 
@@ -346,8 +425,50 @@ export function TriageDashboard({
     );
   }
 
+  /**
+   * The same split the nurse queue settled on: the header carries only what is
+   * *not* a filter — how fresh the board is and the button that refreshes it —
+   * and every filter sits together in one row above the bands.
+   *
+   * The board needed the freshness half built, not just moved. Its "Right now"
+   * band is a live queue, and it had no refresh and no timestamp at all: it
+   * went stale in silence, which is the defect the queue had before this
+   * treatment. Auto-refresh is deliberately quiet — no notice, no spinner —
+   * because nobody should have to watch it.
+   */
+  const headerActions = (
+    <>
+      <label className="staff-toggle">
+        <input
+          type="checkbox"
+          checked={autoRefresh}
+          onChange={(e) => setAutoRefresh(e.target.checked)}
+        />
+        <span>{t('adminAutoRefresh')}</span>
+      </label>
+      <button
+        type="button"
+        className="icon-btn"
+        onClick={() => void runManualRefresh()}
+        disabled={refreshing}
+        aria-label={t('adminRefresh')}
+        title={
+          lastRefreshed
+            ? `${t('adminLastRefreshed')}: ${lastRefreshed.toLocaleTimeString()}`
+            : t('adminRefresh')
+        }
+      >
+        <ArrowClockwise
+          size={18}
+          aria-hidden="true"
+          className={refreshing ? 'is-spinning' : undefined}
+        />
+      </button>
+    </>
+  );
+
   const toolbar = (
-  <div className="dash-toolbar">
+    <div className="dash-toolbar">
       <span className="dash-toolbar-label" id="dash-period-label">
         {t('dashPeriod')}
       </span>
@@ -366,15 +487,19 @@ export function TriageDashboard({
           </button>
         ))}
       </div>
-    <DateRangeField value={range} onChange={setRange} label={t('dashPickDatesLabel')} />
-  </div>
+      <div className="staff-toolbar-end">
+        <Freshness at={lastRefreshed} fresh={fresh} />
+        <DateRangeField value={range} onChange={setRange} label={t('dashPickDatesLabel')} />
+      </div>
+    </div>
   );
 
   return (
     <div className="dashboard">
-      {/* Into the page header when there is one, in place otherwise — the
-          board is mounted in more than one shell. */}
-      {headSlot ? createPortal(toolbar, headSlot) : toolbar}
+      {/* Non-filters into the page header when there is one; the filters
+          always stay here, with the bands they scope. */}
+      {headSlot ? createPortal(headerActions, headSlot) : null}
+      {toolbar}
 
       <Band title={t('dashBandNow')}>
         {/* Two panels, not one across the row: the queue and its worst case
@@ -390,13 +515,20 @@ export function TriageDashboard({
             <>
               <div className="waiting">
                 <Figure hero value={nf.format(pendingCount)} unit={t('dashWaitingUnitWord')} />
+                {/* Each unit is one waiting patient — its tooltip already
+                    names them — so a chip opens that case, like a flagged row
+                    does. Only the hero count is nameless. */}
                 <UnitStrip
                   units={waiting}
-                  onSelect={onOpenQueue ? () => onOpenQueue() : undefined}
+                  onSelect={
+                    onOpenQueue
+                      ? (id) => onOpenQueue(pending.find((row) => row.assessment_id === id))
+                      : undefined
+                  }
                 />
               </div>
               {onOpenQueue ? (
-                <button type="button" className="dash-panel-action" onClick={onOpenQueue}>
+                <button type="button" className="dash-panel-action" onClick={() => onOpenQueue()}>
                   {t('dashOpenQueue')}
                   <ArrowRight size={15} weight="bold" aria-hidden="true" />
                 </button>
@@ -424,7 +556,7 @@ export function TriageDashboard({
                   <li key={row.assessment_id}>
                     <Row
                       {...(onOpenQueue
-                        ? { type: 'button' as const, onClick: onOpenQueue }
+                        ? { type: 'button' as const, onClick: () => onOpenQueue(row) }
                         : {})}
                       className="attention-row"
                     >
@@ -507,7 +639,7 @@ export function TriageDashboard({
         </Panel>
       </Band>
 
-      <Band title={range ? t('dashRangeHeading', { n: days }) : t('dashLastDays', { n: days })}>
+      <Band title={rangeLabel ?? t('dashLastDays', { n: days })}>
         <Panel
           title={t('dashAcuityTitle')}
           subtitle={t('dashAcuitySub')}

@@ -91,9 +91,6 @@ export function Sparkline({ values, label }: { values: number[]; label: string }
   const points = plot(values, max);
   const last = points[points.length - 1];
   if (points.length < 2) return null;
-  // Nothing happened. A flat run of zeroes is drawn on the floor and still
-  // reads as a series — "0, and it has been 0" is what the value already says.
-  if (values.every((v) => v === 0)) return null;
   return (
     <div className="spark" role="img" aria-label={label}>
       <svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
@@ -159,6 +156,10 @@ export interface Share {
   level: number;
   name: string;
   count: number;
+  /** Colour class, where the rows are not MOPH levels. A level carries its
+   *  digit because the ramp alone fails the separation check; anything else
+   *  gets a plain swatch and the name beside it does the identifying. */
+  tone?: string;
 }
 
 export function ShareStrip({ rows, total }: { rows: Share[]; total: number }) {
@@ -171,7 +172,7 @@ export function ShareStrip({ rows, total }: { rows: Share[]; total: number }) {
         {present.map((row) => (
           <span
             key={row.level}
-            className={`share-seg triage-level-${row.level}`}
+            className={`share-seg ${row.tone ?? `triage-level-${row.level}`}`}
             style={{ flexGrow: row.count }}
             title={`${row.name} — ${nf.format(row.count)}`}
           />
@@ -180,7 +181,11 @@ export function ShareStrip({ rows, total }: { rows: Share[]; total: number }) {
       <ul className="share-legend">
         {rows.map((row) => (
           <li key={row.level} className={row.count === 0 ? 'is-zero' : ''}>
-            <TriageBadge level={row.level} />
+            {row.tone ? (
+              <span className={`share-key ${row.tone}`} aria-hidden="true" />
+            ) : (
+              <TriageBadge level={row.level} />
+            )}
             <span className="share-name">{row.name}</span>
             <span className="share-count">{nf.format(row.count)}</span>
             <span className="share-pct">
@@ -251,6 +256,7 @@ export interface TrendPoint {
 
 export function TrendArea({
   points: series,
+  baseline,
   /** Index of the last slot that has finished. Everything after it is drawn
    *  recessive. Pass `points.length - 1` to draw the whole series as settled. */
   liveUntil,
@@ -259,21 +265,27 @@ export function TrendArea({
   formatPoint,
 }: {
   points: TrendPoint[];
+  /** A second, always-larger series drawn behind the first. The band between
+   *  the two is the subtraction — sessions that started and never finished —
+   *  which is the whole question the booth tab asks and was previously only
+   *  available as a percentage in a stat tile. */
+  baseline?: { values: number[]; name: string; ownName: string };
   liveUntil: number;
   tickEvery?: number;
   label: string;
-  formatPoint: (point: TrendPoint) => string;
+  formatPoint: (point: TrendPoint, baseValue?: number) => string;
 }) {
   const clipId = useId();
   const plotRef = useRef<HTMLDivElement>(null);
   const [hover, setHover] = useState<number | null>(null);
 
-  const ticks = niceTicks(Math.max(1, ...series.map((p) => p.value)));
+  const ticks = niceTicks(Math.max(1, ...series.map((p) => p.value), ...(baseline?.values ?? [])));
   const max = ticks[ticks.length - 1];
   const points = plot(
     series.map((p) => p.value),
     max,
   );
+  const basePoints = baseline ? plot(baseline.values, max) : null;
   const peak = points.reduce((best, p) => (p.value > best.value ? p : best), points[0]);
   // Where the settled part ends, as a fraction of the axis — the clip edge
   // that splits what happened from what is still to come.
@@ -336,6 +348,19 @@ export function TrendArea({
               <rect x="0" y="0" width={liveX} height="100" />
             </clipPath>
           </defs>
+          {/* Behind everything, and neutral: what is between the two curves
+              is loss, and the board paints loss in ink, never in the brand
+              colour it uses for throughput. */}
+          {basePoints ? (
+            <>
+              <path className="trend-base" d={`${toPath(basePoints)} L100,100 L0,100 Z`} />
+              <path
+                className="trend-base-line"
+                d={toPath(basePoints)}
+                vectorEffect="non-scaling-stroke"
+              />
+            </>
+          ) : null}
           <path className="trend-future" d={`${toPath(points)} L100,100 L0,100 Z`} />
           <path className="trend-future-line" d={toPath(points)} vectorEffect="non-scaling-stroke" />
           <g clipPath={`url(#${clipId})`}>
@@ -371,7 +396,7 @@ export function TrendArea({
               style={{ insetInlineStart: `${active.x}%` }}
               aria-hidden="true"
             >
-              {formatPoint(series[active.i])}
+              {formatPoint(series[active.i], baseline?.values[active.i])}
             </span>
           </>
         ) : null}
@@ -395,6 +420,18 @@ export function TrendArea({
           );
         })}
       </div>
+      {baseline ? (
+        <ul className="trend-legend">
+          <li>
+            <span className="trend-key is-own" aria-hidden="true" />
+            {baseline.ownName}
+          </li>
+          <li>
+            <span className="trend-key is-base" aria-hidden="true" />
+            {baseline.name}
+          </li>
+        </ul>
+      ) : null}
     </div>
   );
 }
@@ -425,6 +462,7 @@ export function Heatmap({
   rowLabels,
   colLabels,
   colTick = 1,
+  dense = false,
   cellLabel,
   maxLabel,
 }: {
@@ -433,6 +471,11 @@ export function Heatmap({
   colLabels: string[];
   /** Render every Nth column label — twenty-four hour labels do not fit. */
   colTick?: number;
+  /** Hold the cells small. Twenty-four hourly columns across a full-width
+   *  panel drew 45px tiles, which made the *absence* of arrivals the loudest
+   *  ink on the page. A confusion matrix has three columns and wants the
+   *  room, so this is opt-in. */
+  dense?: boolean;
   cellLabel: (row: number, col: number, value: number) => string;
   /** Legend caption for the dark end. */
   maxLabel: (max: number) => string;
@@ -442,10 +485,14 @@ export function Heatmap({
   const step = (v: number) => (v === 0 ? 0 : Math.min(4, Math.ceil((v / (max || 1)) * 4)));
 
   return (
-    <div className="heatmap">
+    <div className={`heatmap ${dense ? 'heatmap-dense' : ''}`}>
       <div
         className="heatmap-grid"
-        style={{ gridTemplateColumns: `auto repeat(${colLabels.length}, minmax(0, 1fr))` }}
+        style={{
+          gridTemplateColumns: `auto repeat(${colLabels.length}, ${
+            dense ? 'var(--heat-cell)' : 'minmax(0, 1fr)'
+          })`,
+        }}
       >
         <span aria-hidden="true" />
         {colLabels.map((label, c) => (
@@ -565,10 +612,16 @@ export interface FunnelStage {
 
 export function Funnel({ stages }: { stages: FunnelStage[] }) {
   const total = stages[0]?.value ?? 0;
+  const share = (v: number) => (total > 0 ? (v / total) * 100 : 0);
   return (
     <ol className="funnel">
-      {stages.map((stage) => {
-        const pct = total > 0 ? (stage.value / total) * 100 : 0;
+      {stages.map((stage, i) => {
+        const pct = share(stage.value);
+        // What the stage above carried through. The gap between the two is
+        // what was lost *at this step*, and it is drawn rather than only
+        // worded: "0 reviewed" on a wholly empty rail read as a broken panel
+        // instead of as two records still waiting for a nurse.
+        const prevPct = i === 0 ? 100 : share(stages[i - 1].value);
         return (
           <li key={stage.key} className="funnel-stage">
             <div className="funnel-head">
@@ -577,19 +630,25 @@ export function Funnel({ stages }: { stages: FunnelStage[] }) {
                 {nf.format(stage.value)}
                 {/* Share of the first stage, not of the one above — "67%"
                     between two middle stages was read as a share of the
-                    total by everyone who saw it. */}
-                <span className="funnel-share">{total > 0 ? `${Math.round(pct)}%` : '—'}</span>
+                    total by everyone who saw it. The first stage IS that
+                    total, so its own "100%" tells the reader nothing. */}
+                {i > 0 ? (
+                  <span className="funnel-share">{total > 0 ? `${Math.round(pct)}%` : '—'}</span>
+                ) : null}
               </span>
             </div>
-            <div className="funnel-track">
-              <span
-                className="funnel-fill"
-                style={{ inlineSize: `${pct}%` }}
-                /* The bar restates the number beside it, so it is decoration
-                   to a screen reader and noise if announced twice. */
-                aria-hidden="true"
-              />
-            </div>
+            {/* No rail on the first stage: a bar that can only ever be full is
+                not a measurement. The rest read left to right as carried
+                through / lost here / lost further up — so each row shows its
+                own step's cost against the whole, not just its survivors.
+                Decoration to a screen reader: every segment restates a number
+                already in the head above it or in the drop line below. */}
+            {i > 0 ? (
+              <div className="funnel-track" aria-hidden="true">
+                <span className="funnel-fill" style={{ inlineSize: `${pct}%` }} />
+                <span className="funnel-lost" style={{ inlineSize: `${prevPct - pct}%` }} />
+              </div>
+            ) : null}
             {stage.drop || stage.note ? (
               <p className="funnel-drop">
                 {stage.drop ? (
@@ -612,6 +671,49 @@ export function Funnel({ stages }: { stages: FunnelStage[] }) {
    file, and shared so a panel on the nurse board and a panel on the admin
    board are the same object rather than two that drifted apart. */
 
+export function Panel({
+  title,
+  subtitle,
+  span,
+  action,
+  footer,
+  children,
+}: {
+  title: string;
+  subtitle?: string;
+  /** Grid columns to occupy — panels are equal-height, never masonry. */
+  span?: 2 | 3;
+  action?: React.ReactNode;
+  /** The "so what" line, on its own band across the foot of the card. It
+   *  used to be a loose paragraph after the chart, which read as a stray
+   *  caption and floated wherever the chart's height left it. */
+  footer?: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className={`dash-panel ${span ? `dash-panel-${span}` : ''}`}>
+      <header className="dash-panel-head">
+        <div>
+          <h3>{title}</h3>
+          {subtitle ? <p className="dash-panel-sub">{subtitle}</p> : null}
+        </div>
+        {action}
+      </header>
+      <div className="dash-panel-body">{children}</div>
+      {footer ? <div className="dash-panel-foot">{footer}</div> : null}
+    </section>
+  );
+}
+
+/**
+ * A titled group of panels.
+ *
+ * Still earns its heading on the nurse's board, where "Now" and "Last 7 days"
+ * are two time scopes on one scrolling page and the reader needs to be told
+ * which one they are in. The admin board is tabbed, so its tab label already
+ * asked the question and the band head only said it a second time — it drops
+ * the wrapper and lays its panels out on `.dash-grid` directly.
+ */
 export function Band({
   title,
   note,
@@ -627,35 +729,7 @@ export function Band({
         <h2>{title}</h2>
         {note ? <p>{note}</p> : null}
       </header>
-      <div className="dash-band-body">{children}</div>
-    </section>
-  );
-}
-
-export function Panel({
-  title,
-  subtitle,
-  span,
-  action,
-  children,
-}: {
-  title: string;
-  subtitle?: string;
-  /** Grid columns to occupy — panels are equal-height, never masonry. */
-  span?: 2 | 3;
-  action?: React.ReactNode;
-  children: React.ReactNode;
-}) {
-  return (
-    <section className={`dash-panel ${span ? `dash-panel-${span}` : ''}`}>
-      <header className="dash-panel-head">
-        <div>
-          <h3>{title}</h3>
-          {subtitle ? <p className="dash-panel-sub">{subtitle}</p> : null}
-        </div>
-        {action}
-      </header>
-      <div className="dash-panel-body">{children}</div>
+      <div className="dash-grid">{children}</div>
     </section>
   );
 }
@@ -688,7 +762,7 @@ export function Figure({
   label?: string;
   value: string;
   unit?: string;
-  delta?: { text: string; up: boolean | null } | null;
+  delta?: { text: string; up: boolean | null; good?: boolean } | null;
   spark?: { values: number[]; label: string } | null;
   hint?: string | null;
   hero?: boolean;
@@ -703,24 +777,38 @@ export function Figure({
       }`}
     >
       {label ? <p className="figure-label">{label}</p> : null}
-      <p className="figure-value">
-        {value}
-        {unit ? <span className="figure-unit">{unit}</span> : null}
-      </p>
-      {delta ? (
-        <p className="figure-delta">
-          {delta.up === null ? null : (
-            <span className="figure-delta-arrow" aria-hidden="true">
-              {delta.up ? '↑' : '↓'}
-            </span>
-          )}
-          {delta.text}
+      {/* Value and its qualifier share one baseline. They used to be three
+          stacked rows — value, then delta, then hint — so a tile spent 200px
+          of height saying one number, and the sparkline floated in the middle
+          of that with air above and below it. */}
+      <div className="figure-line">
+        <p className="figure-value">
+          {value}
+          {unit ? <span className="figure-unit">{unit}</span> : null}
         </p>
-      ) : null}
+        {delta || hint ? (
+          <p className="figure-meta">
+            {delta ? (
+              <span
+                className={`figure-delta ${
+                  delta.good === undefined ? '' : delta.good ? 'is-good' : 'is-bad'
+                }`}
+              >
+                {delta.up === null ? null : (
+                  <span className="figure-delta-arrow" aria-hidden="true">
+                    {delta.up ? '↑' : '↓'}
+                  </span>
+                )}
+                {delta.text}
+              </span>
+            ) : null}
+            {hint ? <span className="figure-hint">{hint}</span> : null}
+          </p>
+        ) : null}
+      </div>
       {spark && spark.values.length > 1 ? (
         <Sparkline values={spark.values} label={spark.label} />
       ) : null}
-      {hint ? <p className="figure-hint">{hint}</p> : null}
     </div>
   );
 }

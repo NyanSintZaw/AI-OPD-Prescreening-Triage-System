@@ -2485,6 +2485,13 @@ Count Pending Reviews.
 
 List Assessment Reviews.
 
+One page of the confirmation queue, optionally bounded by a date window.
+
+The window is filtered in SQL rather than in the client because this query
+is capped at 200 rows: narrowing a already-truncated page would quietly
+report fewer cases than the range actually holds. Same `from`/`to` contract
+the dashboard's calendar sends to `/admin/triage-stats`.
+
 **Auth:** bearer token (roles: nurse, super_admin, viewer)
 
 **Query params:**
@@ -2492,6 +2499,8 @@ List Assessment Reviews.
 | Param | Type | Required | Notes |
 |---|---|---|---|
 | `status` | string | N | default: `"pending"` |
+| `from` | string or null | N |  |
+| `to` | string or null | N |  |
 
 **Response 200:** `array of AssessmentReviewOut`
 

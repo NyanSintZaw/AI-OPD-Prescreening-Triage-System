@@ -2,7 +2,8 @@ import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent } from 
 import { useTranslation } from 'react-i18next';
 import { CalendarBlank, CaretLeft, CaretRight } from '@phosphor-icons/react';
 import { useExitDelay } from '../../hooks/useExitDelay';
-import { useFlipPlacement } from './useFlipPlacement';
+import { PopoverBoundary, useFlipPlacement } from './useFlipPlacement';
+import { SelectField, type SelectOption } from './SelectField';
 import {
   addDays,
   addMonths,
@@ -42,10 +43,32 @@ const EXIT_MS = 140;
 const MAX_SPAN = 90;
 
 export interface DateRange {
-  /** `YYYY-MM-DD` */
+  /** `YYYY-MM-DD`, or `YYYY-MM-DDTHH:mm` once a time is set on that end. Both
+   *  are what the API's `from`/`to` accept; a bare date means the whole day. */
   from: string;
   to: string;
 }
+
+/** Half-hours. Minute precision is not a question anyone asks of a dashboard,
+ *  and 48 rows is already a list you filter rather than scroll. */
+function timeOptions(includeEndOfDay: boolean): SelectOption[] {
+  const out: SelectOption[] = [];
+  for (let m = 0; m < 24 * 60; m += 30) {
+    const v = `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
+    out.push({ value: v, label: v });
+  }
+  if (includeEndOfDay) out.push({ value: '23:59', label: '23:59' });
+  return out;
+}
+
+const FROM_TIMES = timeOptions(false);
+const TO_TIMES = timeOptions(true);
+
+/** The time half of `YYYY-MM-DDTHH:mm`, or null for a bare date. */
+const timePart = (value: string | null | undefined): string | null => {
+  const m = /T(\d{2}:\d{2})/.exec(value ?? '');
+  return m ? m[1] : null;
+};
 
 export function DateRangeField({
   value,
@@ -84,6 +107,10 @@ export function DateRangeField({
   /** What the pointer is over, so the range can be previewed as it is drawn. */
   const [hover, setHover] = useState<Date | null>(null);
   const [cursor, setCursor] = useState<Date>(selected.from ?? today);
+  /** Null on both ends means the whole of each day, which is the default and
+   *  the answer 99 times out of 100. */
+  const [fromTime, setFromTime] = useState<string | null>(() => timePart(value?.from));
+  const [toTime, setToTime] = useState<string | null>(() => timePart(value?.to));
 
   useEffect(() => {
     if (!open) return;
@@ -91,7 +118,9 @@ export function DateRangeField({
     setHover(null);
     setCursor(selected.from ?? today);
     setMonth(startOfMonth(addMonths(selected.from ?? today, -1)));
-  }, [open, selected.from, today]);
+    setFromTime(timePart(value?.from));
+    setToTime(timePart(value?.to));
+  }, [open, selected.from, today, value]);
 
   // Outside press closes. `pointerdown`, not `click`: a click that starts
   // inside and ends outside should not count as leaving.
@@ -103,8 +132,14 @@ export function DateRangeField({
     /* Escape belongs on the document, not on the grid. The grid's own handler
        only fires once a day cell has focus, and opening the panel leaves focus
        on the trigger — so Escape did nothing until you had arrowed into the
-       calendar first. Propagation still stops, so a dialog hosting this later
-       does not close along with it. */
+       calendar first.
+
+       Bubble phase, deliberately. On capture this ran before the time
+       `SelectField`s could see the key, so Escape with a time menu open closed
+       the whole calendar instead of just the menu. `SelectField` stops
+       propagation while it is open, which on the bubble path is exactly the
+       handshake — the innermost open thing closes first. Propagation stops
+       here too, so a dialog hosting this later does not close along with it. */
     const onKey = (e: globalThis.KeyboardEvent) => {
       if (e.key !== 'Escape') return;
       e.stopPropagation();
@@ -112,10 +147,10 @@ export function DateRangeField({
       triggerRef.current?.focus();
     };
     document.addEventListener('pointerdown', onDown);
-    document.addEventListener('keydown', onKey, true);
+    document.addEventListener('keydown', onKey);
     return () => {
       document.removeEventListener('pointerdown', onDown);
-      document.removeEventListener('keydown', onKey, true);
+      document.removeEventListener('keydown', onKey);
     };
   }, [open]);
 
@@ -132,6 +167,21 @@ export function DateRangeField({
   const span = preview ? daysBetween(preview.start, preview.end) : 0;
   const tooLong = span > MAX_SPAN;
 
+  /** `YYYY-MM-DD`, or `YYYY-MM-DDTHH:mm` when that end carries a time. */
+  const stamp = (day: Date, time: string | null) =>
+    time ? `${toDateValue(day)}T${time}` : toDateValue(day);
+
+  /** A same-day window whose end is before its start is not a window. The API
+   *  rejects it with a 400; the picker says so instead of sending it. */
+  const inverted =
+    !!(preview && fromTime && toTime && sameDay(preview.start, preview.end) && toTime <= fromTime);
+
+  function commit(start: Date, end: Date, f = fromTime, t = toTime) {
+    if (daysBetween(start, end) > MAX_SPAN) return;
+    if (f && t && sameDay(start, end) && t <= f) return;
+    onChange({ from: stamp(start, f), to: stamp(end, t) });
+  }
+
   function pick(day: Date) {
     if (day > today) return;
     if (!anchor) {
@@ -141,9 +191,25 @@ export function DateRangeField({
     }
     const [start, end] = day < anchor ? [day, anchor] : [anchor, day];
     if (daysBetween(start, end) > MAX_SPAN) return;
-    onChange({ from: toDateValue(start), to: toDateValue(end) });
+    commit(start, end);
     setAnchor(null);
     setOpen(false);
+  }
+
+  /** Changing only a time re-commits the range already chosen, so a nurse does
+   *  not have to re-pick two dates to narrow a window she already has. */
+  function setTime(which: 'from' | 'to', raw: string) {
+    const next = raw || null;
+    if (which === 'from') setFromTime(next);
+    else setToTime(next);
+    if (!anchor && selected.from && selected.to) {
+      commit(
+        selected.from,
+        selected.to,
+        which === 'from' ? next : fromTime,
+        which === 'to' ? next : toTime,
+      );
+    }
   }
 
   function onGridKeyDown(event: KeyboardEvent<HTMLDivElement>) {
@@ -190,9 +256,13 @@ export function DateRangeField({
     );
   }, [locale]);
 
+  const shortDate = (d: Date, withYear = false) =>
+    d.toLocaleDateString(locale, { day: 'numeric', month: 'short', ...(withYear ? { year: 'numeric' } : {}) });
+  const committedFromTime = timePart(value?.from);
+  const committedToTime = timePart(value?.to);
   const triggerText =
     selected.from && selected.to
-      ? `${selected.from.toLocaleDateString(locale, { day: 'numeric', month: 'short' })} – ${selected.to.toLocaleDateString(locale, { day: 'numeric', month: 'short', year: 'numeric' })}`
+      ? `${shortDate(selected.from)}${committedFromTime ? ` ${committedFromTime}` : ''} – ${shortDate(selected.to, true)}${committedToTime ? ` ${committedToTime}` : ''}`
       : t('dashPickDates');
 
   function renderMonth(base: Date) {
@@ -302,14 +372,60 @@ export function DateRangeField({
             {renderMonth(addMonths(month, 1))}
           </div>
 
+          {/* Optional, and off by default — a whole day is what the dates mean
+              until someone says otherwise. Bounded to the panel so a 48-row
+              list caps and scrolls inside it rather than out through the
+              bottom edge. */}
+          <PopoverBoundary value={panelRef}>
+            <div className="cal-times">
+              <span className="cal-times-label">{t('dashTimeLabel')}</span>
+              <SelectField
+                className="cal-time"
+                value={fromTime ?? ''}
+                onChange={(v) => setTime('from', v)}
+                options={FROM_TIMES}
+                placeholder={t('dashTimeStartOfDay')}
+                aria-label={t('dashTimeFrom')}
+              />
+              <span className="cal-times-dash" aria-hidden="true">
+                –
+              </span>
+              <SelectField
+                className="cal-time"
+                value={toTime ?? ''}
+                onChange={(v) => setTime('to', v)}
+                options={TO_TIMES}
+                placeholder={t('dashTimeEndOfDay')}
+                aria-label={t('dashTimeTo')}
+              />
+              {fromTime || toTime ? (
+                <button
+                  type="button"
+                  className="text-btn cal-times-clear"
+                  onClick={() => {
+                    setFromTime(null);
+                    setToTime(null);
+                    if (!anchor && selected.from && selected.to) {
+                      commit(selected.from, selected.to, null, null);
+                    }
+                  }}
+                >
+                  {t('dashTimeWholeDay')}
+                </button>
+              ) : null}
+            </div>
+          </PopoverBoundary>
+
           <p className="cal-foot" aria-live="polite">
             {anchor
               ? t('dashPickEnd')
-              : tooLong
-                ? t('dashRangeTooLong', { n: MAX_SPAN })
-                : span > 0
-                  ? t('dashRangeSpan', { n: span })
-                  : t('dashPickStart')}
+              : inverted
+                ? t('dashTimeInverted')
+                : tooLong
+                  ? t('dashRangeTooLong', { n: MAX_SPAN })
+                  : span > 0
+                    ? t('dashRangeSpan', { count: span })
+                    : t('dashPickStart')}
           </p>
         </div>
       ) : null}

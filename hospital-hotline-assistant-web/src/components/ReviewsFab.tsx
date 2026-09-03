@@ -73,7 +73,7 @@ export function ReviewsFab() {
     <button
       type="button"
       className={`reviews-fab ${pending > 0 ? 'has-pending' : ''}`}
-      onClick={() => navigate('/nurse?tab=reviews')}
+      onClick={() => navigate('/nurse?tab=queue')}
       // The count belongs in the name; the badge below is aria-hidden so
       // screen readers don't read it twice.
       aria-label={pending > 0 ? `${t('reviewsFabLabel')} (${pending})` : t('reviewsFabLabel')}
